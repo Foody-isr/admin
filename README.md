@@ -229,12 +229,24 @@ keeps its editor open. These settings do not change guest web checkout or combo
 composition. Deploy the matching API and POS support before enabling them.
 Isolated browser checks: `npx playwright test -c playwright.redesign.config.ts tests/redesign/item-checkout.spec.ts`.
 
-### Staff (`/[restaurantId]/staff`)
+### Staff (`/[restaurantId]/staff`) and permissions (`/[restaurantId]/roles`)
 
-- Table of all staff members: name, email, role badge
-- **Invite** button — opens modal to create a new staff account (name, email, phone, password, role)
-- **Change role** dropdown per staff member (owner-only action)
-- **Remove** button with confirm dialog (owner-only)
+The team workspaces follow the connected Square reference: an Employees title,
+Export/Add employee actions, search and job filter, then Name/Job/Status columns.
+Opening a member shows their contact details, role, invitation and PIN setup.
+Role changes, invitation resend and removal keep their existing permission checks;
+the owner cannot be reassigned or removed. CSV exports contain the filtered team.
+
+Permissions use a passcode banner, searchable Name/Access/Team members rows and
+explicitly saved full-page forms. Access lists the actual Foody permission domains.
+System role names/descriptions remain locked and localized; changes to their
+permissions do not overwrite their canonical identity. Unsaved changes require
+explicit discard. Passcodes show setup status only; members choose their own PIN
+through their setup invitation. Links open the matching member in the same restaurant.
+
+French, English, Hebrew/RTL, dark mode and mobile layouts share scoped team styles.
+Browser regressions use synthetic fixtures only:
+`npx playwright test -c playwright.redesign.config.ts tests/redesign/team-square.spec.ts`.
 
 ### Settings (`/[restaurantId]/settings`)
 

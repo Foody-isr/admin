@@ -1,10 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
-import { ListToolbar } from '@/components/data-table';
-import { ListFilterButton, ListStateFilter, ListFiltersDrawer } from '@/components/data-table/ListFilters';
+import { ListFilterButton, ListFiltersDrawer } from '@/components/data-table/ListFilters';
 
 import {
   listStaff, inviteStaff, updateStaffRole, removeStaff,
@@ -14,31 +13,35 @@ import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
 import { roleDisplayName, roleDisplayLabel } from '@/lib/permission-i18n';
 import {
-  MailIcon, ListFilter, TrashIcon,
+  ArrowDown, ArrowUp, UserRound,
 } from 'lucide-react';
-import { Badge, Button, ConfirmDialog } from '@/components/ds';
-import Modal from '@/components/Modal';
+import { Button, ConfirmDialog, Drawer } from '@/components/ds';
+import { TeamEditor, TeamPageHeader, TeamSearch } from '@/components/team/TeamWorkspace';
+import { downloadCsv } from '@/lib/csv/export';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import {
   DataTable,
   DataTableHead,
   DataTableHeadCell,
-  DataTableHeadSpacerCell,
   DataTableBody,
   DataTableRow,
   DataTableCell,
 } from '@/components/data-table';
 
+/** Manage the active restaurant's team through the Square reference workspace. */
 export default function StaffPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
+  const [sortAscending, setSortAscending] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set());
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
   const [filterView, setFilterView] = useState<string | null>(null);
   const { hasPermission } = usePermissions();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const canManage = hasPermission('staff.manage');
 
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -86,9 +89,15 @@ export default function StaffPage() {
     setRoles([]);
     setInviteOpen(false);
     setRemoveTarget(null);
+    setSelectedMemberId(null);
     void reload();
     return () => guard.invalidate();
   }, [reload]);
+
+  useEffect(() => {
+    const memberId = Number(searchParams.get('member'));
+    if (memberId && staff.some(member => member.id === memberId)) setSelectedMemberId(memberId);
+  }, [searchParams, staff]);
 
   // Set default role_id once roles load
   useEffect(() => {
@@ -148,6 +157,7 @@ export default function StaffPage() {
     setActionError('');
     try {
       await removeStaff(rid, member.id);
+      setSelectedMemberId(null);
       reload();
     } catch (reason: unknown) {
       setActionError(reason instanceof Error ? reason.message : t('staffActionError'));
@@ -179,9 +189,10 @@ export default function StaffPage() {
   const roleKey = (member: StaffMember) => String(member.role_id ?? member.role);
   const roleOptions = Array.from(new Map(staff.map(member => [roleKey(member), { value: roleKey(member), label: roleDisplayLabel(t, member.role_name || member.role) }])).values());
   const statusOptions = Array.from(new Set(staff.map(member => member.invite_status ?? 'not_invited'))).map(value => ({ value, label: t(`staffStatus_${value}`) }));
-  const filteredStaff = staff.filter(member => `${member.full_name} ${member.email}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) && (!selectedRoles.size || selectedRoles.has(roleKey(member))) && (!selectedStatuses.size || selectedStatuses.has(member.invite_status ?? 'not_invited')));
+  const filteredStaff = staff.filter(member => `${member.full_name} ${member.email}`.toLocaleLowerCase(locale).includes(search.trim().toLocaleLowerCase(locale)) && (!selectedRoles.size || selectedRoles.has(roleKey(member))) && (!selectedStatuses.size || selectedStatuses.has(member.invite_status ?? 'not_invited'))).sort((a, b) => a.full_name.localeCompare(b.full_name, locale) * (sortAscending ? 1 : -1));
+  const selectedMember = staff.find(member => member.id === selectedMemberId);
   const listFilters = [
-    { id: 'role', label: t('role'), options: roleOptions, selected: selectedRoles },
+    { id: 'role', label: t('teamJob'), options: roleOptions, selected: selectedRoles },
     { id: 'status', label: t('listState'), options: statusOptions, selected: selectedStatuses },
   ];
 
@@ -193,23 +204,24 @@ export default function StaffPage() {
     );
   }
 
+  const exportStaff = () => downloadCsv(`foody-team-${rid}`, [
+    [t('name'), t('email'), t('phone'), t('teamJob'), t('status'), t('posCode')],
+    ...filteredStaff.map(member => [member.full_name, member.email, member.phone,
+      roleDisplayLabel(t, member.role_name || member.role),
+      t(`staffStatus_${member.invite_status ?? 'not_invited'}`),
+      t(member.pos_pin_configured ? 'configured' : 'notConfigured')].map(value => /^[=+\-@\t\r]/.test(value) ? `'${value}` : value)),
+  ]);
+
   return (
-    <div className="space-y-[var(--s-5)]">
-      <h1 className="sr-only">{t('staff')}</h1>
-      <ListToolbar search={{ value: search, onChange: setSearch, label: t('search') }}
-        filters={<>
-          <ListFilterButton label={t('role')} value={selectedRoles.size || undefined} onClick={() => setFilterView('role')} />
-          <ListStateFilter label={t('listState')} options={statusOptions} selected={selectedStatuses} onChange={setSelectedStatuses} />
-          <ListFilterButton label={t('allFilters')} icon={<ListFilter />} onClick={() => setFilterView('index')} />
-        </>}
-        primaryAction={canManage && <Button disabled={!!pageError || roles.length === 0} onClick={() => setInviteOpen(true)}>{t('inviteStaff')}</Button>}
-        actions={<ActionsDropdown actions={[
-          { label: t('refresh'), onClick: () => void reload(), disabled: actionLoading !== null },
-          ...(canManage ? [{ label: t('floorService'), onClick: () => router.push(`/${rid}/staff/table-service`) }] : []),
-          ...(hasPermission('shifts.view') || hasPermission('shifts.manage') ? [{ label: t('shiftReports'), onClick: () => router.push(`/${rid}/staff/shifts`) }] : []),
-          ...(hasPermission('shifts.manage') ? [{ label: t('posAccess'), onClick: () => router.push(`/${rid}/staff/devices`) }] : []),
-        ]} />}
-      />
+    <div className="team-surface team-members">
+      <TeamPageHeader title={t('teamEmployees')}>
+        <Button className="team-secondary" variant="secondary" onClick={exportStaff} disabled={!!pageError || !filteredStaff.length}>{t('export')}</Button>
+        {canManage && <Button disabled={!!pageError || roles.length === 0} onClick={() => { setFormError(''); setInviteOpen(true); }}>{t('teamAddEmployee')}</Button>}
+      </TeamPageHeader>
+      <section className="team-toolbar" aria-label={t('listTools')}>
+        <TeamSearch value={search} onChange={setSearch} label={t('search')} />
+        <ListFilterButton label={t('teamJob')} value={selectedRoles.size || undefined} onClick={() => setFilterView('role')} />
+      </section>
       <ListFiltersDrawer open={filterView !== null} initialView={filterView ?? 'index'} onClose={() => setFilterView(null)} filters={listFilters} onApply={values => { setSelectedRoles(values.role); setSelectedStatuses(values.status); }} />
       {successMsg && (
         <div
@@ -233,123 +245,71 @@ export default function StaffPage() {
         </div>
       )}
 
-      {actionError && <p role="alert" className="rounded-r-lg bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)]">{actionError}</p>}
+      {actionError && !selectedMember && <p role="alert" className="rounded-r-lg bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)]">{actionError}</p>}
       {!pageError && staff.length === 0 && <p className="py-12 text-center text-sm text-fg-secondary">{t('noStaffYet')}</p>}
       {staff.length > 0 && filteredStaff.length === 0 && <p role="status" className="py-12 text-center text-sm text-fg-secondary">{t('listNoMatches')}</p>}
-      {filteredStaff.length > 0 && <DataTable className="list-table">
+      {!pageError && <DataTable className="team-table team-members-table">
         <DataTableHead>
-          <DataTableHeadCell>{t('name')}</DataTableHeadCell>
-          <DataTableHeadCell>{t('email')}</DataTableHeadCell>
-          <DataTableHeadCell>{t('role')}</DataTableHeadCell>
-          <DataTableHeadCell>{t('accountStatus')}</DataTableHeadCell>
-          <DataTableHeadCell>{t('posCode')}</DataTableHeadCell>
-          {canManage && <DataTableHeadSpacerCell />}
+          <DataTableHeadCell aria-sort={sortAscending ? 'ascending' : 'descending'}>
+            <button type="button" className="team-sort" onClick={() => setSortAscending(value => !value)}>{t('name')}{sortAscending ? <ArrowUp aria-hidden /> : <ArrowDown aria-hidden />}</button>
+          </DataTableHeadCell>
+          <DataTableHeadCell>{t('teamJob')}</DataTableHeadCell>
+          <DataTableHeadCell>{t('status')}</DataTableHeadCell>
         </DataTableHead>
         <DataTableBody>
-          {filteredStaff.map((member, index) => (
-            <DataTableRow key={member.id} index={index}>
-              <DataTableCell mobilePrimary className="font-semibold text-fg-primary">{member.full_name}</DataTableCell>
-              <DataTableCell mobileLabel={t('email')} className="text-fg-secondary break-all"><bdi className="min-w-0 break-all">{member.email}</bdi></DataTableCell>
-              <DataTableCell mobileLabel={t('role')}>
-                {canManage && member.role !== 'owner' ? (
-                  <select
-                    disabled={actionLoading !== null}
-                    aria-label={`${t('role')} · ${member.full_name}`}
-                    value={member.role_id ?? ''}
-                    onChange={(e) => handleRoleChange(member, Number(e.target.value))}
-                    className="min-h-10 min-w-0 w-full md:w-auto max-w-full text-sm border border-[var(--line-strong)] rounded-r-md px-3 focus:outline-none focus:ring-2 focus:ring-[var(--brand-ink)]"
-                    style={{ background: 'var(--surface)', color: 'var(--text-primary)' }}
-                  >
-                    {roles.map((r) => (
-                      <option key={r.id} value={r.id}>{roleDisplayName(t, r.name, r.is_system_default)}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <Badge tone="neutral">
-                    {roleDisplayLabel(t, member.role_name || member.role)}
-                  </Badge>
-                )}
-              </DataTableCell>
-              <DataTableCell mobileLabel={t('accountStatus')}>
-                <Badge tone={member.invite_status === 'active' ? 'success' : 'neutral'}>
-                  {t(`staffStatus_${member.invite_status ?? 'not_invited'}`)}
-                </Badge>
-              </DataTableCell>
-              <DataTableCell mobileLabel={t('posCode')}>
-                <span className={member.pos_pin_configured ? 'text-[var(--success-500)]' : 'text-fg-muted'}>
-                  {member.pos_pin_configured ? t('configured') : t('notConfigured')}
-                </span>
-              </DataTableCell>
-              {canManage && (
-                <DataTableCell align="right">
-                  {member.role !== 'owner' && (
-                    <div className="flex justify-end gap-1">
-                      <button
-                        disabled={actionLoading !== null}
-                        onClick={() => handleResendInvite(member)}
-                        className="size-10 grid place-items-center rounded-r-md hover:bg-[var(--brand-soft)] disabled:opacity-50" aria-label={`${t('resendSetupInvite')} · ${member.full_name}`}
-                        title={t('resendSetupInvite')}
-                      >
-                        <MailIcon className="w-4 h-4 text-[var(--brand-ink)]" />
-                      </button>
-                      <button
-                        disabled={actionLoading !== null}
-                        onClick={() => setRemoveTarget(member)}
-                        className="size-10 grid place-items-center rounded-r-md hover:bg-[var(--danger-50)] disabled:opacity-50" aria-label={`${t('remove')} · ${member.full_name}`}
-                        title={t('remove')}
-                      >
-                        <TrashIcon className="w-4 h-4 text-[var(--danger-500)]" />
-                      </button>
-                    </div>
-                  )}
-                </DataTableCell>
-              )}
-            </DataTableRow>
-          ))}
+          {filteredStaff.map((member, index) => <DataTableRow key={member.id} index={index}>
+            <DataTableCell mobilePrimary>
+              <button type="button" className="team-member-name" aria-haspopup="dialog" onClick={() => { setActionError(''); setSuccessMsg(''); setSelectedMemberId(member.id); }}>
+                <span className="team-avatar"><UserRound aria-hidden /></span><span dir="auto">{member.full_name}</span>
+              </button>
+            </DataTableCell>
+            <DataTableCell mobileLabel={t('teamJob')}>{roleDisplayLabel(t, member.role_name || member.role)}</DataTableCell>
+            <DataTableCell mobileLabel={t('status')}><span className="team-status" data-active={member.invite_status === 'active'}>{t(`staffStatus_${member.invite_status ?? 'not_invited'}`)}</span></DataTableCell>
+          </DataTableRow>)}
         </DataTableBody>
       </DataTable>}
+      <div className="team-list-footer">
+        <p role="status">{t(filteredStaff.length === 1 ? 'teamEmployeeCount' : 'teamEmployeesCount').replace('{count}', String(filteredStaff.length))}</p>
+        <ActionsDropdown compactOnMobile actions={[
+          { label: t('refresh'), onClick: () => void reload(), disabled: actionLoading !== null },
+          { label: t('allFilters'), onClick: () => setFilterView('index') },
+          ...(canManage ? [{ label: t('floorService'), onClick: () => router.push(`/${rid}/staff/table-service`) }] : []),
+          ...(hasPermission('shifts.view') || hasPermission('shifts.manage') ? [{ label: t('shiftReports'), onClick: () => router.push(`/${rid}/staff/shifts`) }] : []),
+          ...(hasPermission('shifts.manage') ? [{ label: t('posAccess'), onClick: () => router.push(`/${rid}/staff/devices`) }] : []),
+        ]} />
+      </div>
 
-      {/* Invite modal */}
-      {inviteOpen && (
-        <Modal title={t('inviteStaffMember')} onClose={() => { if (!formLoading) setInviteOpen(false); }}>
-          {formError && (
-            <div role="alert" className="mb-3 p-3 bg-[var(--danger-50)] rounded-r-lg text-sm text-[var(--danger-500)]">{formError}</div>
-          )}
+      {selectedMember && <Drawer open onOpenChange={open => { if (!open) setSelectedMemberId(null); }} title={selectedMember.full_name} closeDisabled={actionLoading !== null} className="team-surface" width={560}>
+        <dl className="team-detail-fields">
+          <div><dt>{t('email')}</dt><dd><bdi>{selectedMember.email}</bdi></dd></div>
+          <div><dt>{t('phone')}</dt><dd><bdi>{selectedMember.phone || '—'}</bdi></dd></div>
+          <div><dt>{t('teamJob')}</dt><dd>{canManage && selectedMember.role !== 'owner' ? <select className="input" aria-label={`${t('role')} · ${selectedMember.full_name}`} disabled={actionLoading !== null} value={selectedMember.role_id ?? ''} onChange={event => void handleRoleChange(selectedMember, Number(event.target.value))}>
+            {roles.map(role => <option key={role.id} value={role.id}>{roleDisplayName(t, role.name, role.is_system_default)}</option>)}
+          </select> : roleDisplayLabel(t, selectedMember.role_name || selectedMember.role)}</dd></div>
+          <div><dt>{t('accountStatus')}</dt><dd><span className="team-status" data-active={selectedMember.invite_status === 'active'}>{t(`staffStatus_${selectedMember.invite_status ?? 'not_invited'}`)}</span></dd></div>
+          <div><dt>{t('posCode')}</dt><dd>{t(selectedMember.pos_pin_configured ? 'configured' : 'notConfigured')}</dd></div>
+        </dl>
+        {successMsg && <p role="status" className={`mt-6 rounded-lg p-4 ${successTone === 'success' ? 'bg-[var(--success-50)] text-[var(--success-500)]' : 'bg-[var(--warning-50)] text-[var(--warning-500)]'}`}>{successMsg}</p>}
+        {actionError && <p role="alert" className="mt-6 text-[var(--danger-500)]">{actionError}</p>}
+        {canManage && selectedMember.role !== 'owner' && <div className="mt-8 flex flex-wrap gap-3">
+          <Button variant="secondary" disabled={actionLoading !== null} onClick={() => void handleResendInvite(selectedMember)}>{t('resendSetupInvite')}</Button>
+          <Button variant="danger" disabled={actionLoading !== null} onClick={() => setRemoveTarget(selectedMember)}>{t('remove')}</Button>
+        </div>}
+      </Drawer>}
 
-          <form onSubmit={handleInvite} className="space-y-3">
-            <div>
-              <label htmlFor="invite-full_name" className="block text-sm font-medium text-fg-secondary mb-1">{t('fullName')}</label>
-              <input required className="input" id="invite-full_name" autoComplete="name" value={form.full_name}
-                onChange={(e) => setForm((p) => ({ ...p, full_name: e.target.value }))} />
-            </div>
-            <div>
-              <label htmlFor="invite-email" className="block text-sm font-medium text-fg-secondary mb-1">{t('email')}</label>
-              <input required type="email" className="input" id="invite-email" autoComplete="email" dir="ltr" value={form.email}
-                onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
-            </div>
-            <div>
-              <label htmlFor="invite-phone" className="block text-sm font-medium text-fg-secondary mb-1">{t('phoneOptional')}</label>
-              <input className="input" id="invite-phone" autoComplete="tel" type="tel" dir="ltr" value={form.phone}
-                onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
-            </div>
-            <div>
-              <label htmlFor="invite-role_id" className="block text-sm font-medium text-fg-secondary mb-1">{t('role')}</label>
-              <select className="input" id="invite-role_id" value={form.role_id}
-                onChange={(e) => setForm((p) => ({ ...p, role_id: Number(e.target.value) }))}>
-                {roles.map((r) => (
-                  <option key={r.id} value={r.id}>{roleDisplayName(t, r.name, r.is_system_default)}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" className="btn-secondary" disabled={formLoading} onClick={() => setInviteOpen(false)}>{t('cancel')}</button>
-              <button type="submit" disabled={formLoading} className="btn-primary disabled:opacity-50">
-                {formLoading ? t('inviting') : t('invite')}
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
+      {inviteOpen && <TeamEditor title={t('teamProfile')} description={t('teamInviteDescription')} busy={formLoading} onClose={() => setInviteOpen(false)} actions={<Button type="submit" form="invite-team-member" disabled={formLoading}>{t(formLoading ? 'inviting' : 'invite')}</Button>}>
+        <form id="invite-team-member" onSubmit={handleInvite} className="team-form">
+          <div className="team-form-fields">
+            <label className="team-field"><span>{t('fullName')}</span><input required aria-label={t('fullName')} autoComplete="name" value={form.full_name} disabled={formLoading} onChange={event => setForm(previous => ({ ...previous, full_name: event.target.value }))} /></label>
+            <label className="team-field"><span>{t('email')}</span><input required aria-label={t('email')} type="email" autoComplete="email" dir="ltr" value={form.email} disabled={formLoading} onChange={event => setForm(previous => ({ ...previous, email: event.target.value }))} /></label>
+            <label className="team-field"><span>{t('phoneOptional')}</span><input aria-label={t('phoneOptional')} type="tel" autoComplete="tel" dir="ltr" value={form.phone} disabled={formLoading} onChange={event => setForm(previous => ({ ...previous, phone: event.target.value }))} /></label>
+            <label className="team-field"><span>{t('teamJob')}</span><select aria-label={t('role')} value={form.role_id} disabled={formLoading} onChange={event => setForm(previous => ({ ...previous, role_id: Number(event.target.value) }))}>
+              {roles.map(role => <option key={role.id} value={role.id}>{roleDisplayName(t, role.name, role.is_system_default)}</option>)}
+            </select></label>
+          </div>
+          {formError && <p role="alert" className="rounded-lg bg-[var(--danger-50)] p-4 text-[var(--danger-500)]">{formError}</p>}
+        </form>
+      </TeamEditor>}
 
       <ConfirmDialog open={!!removeTarget} onOpenChange={open => { if (!open) setRemoveTarget(null); }}
         title={t('remove')} description={t('removeStaffConfirm').replace('{name}', removeTarget?.full_name ?? '')}
