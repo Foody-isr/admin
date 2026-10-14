@@ -1,15 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CheckCheck, ChevronDown, MessageSquareText, Plus, ReceiptText, RefreshCw, Truck } from 'lucide-react';
+import { CheckCheck, ChevronDown, MessageSquareText, Plus, ReceiptText, RefreshCw, Trash2, Truck } from 'lucide-react';
 import { Badge, Button, ConfirmDialog, Drawer, Field, Input } from '@/components/ds';
-import { configureMetaWhatsAppNotifications, createMetaWhatsAppTemplate, getMetaWhatsAppStatus, getMetaWhatsAppTemplates, type MetaTemplateKind, type MetaTemplateRef, type MetaWhatsAppStatus, type MetaWhatsAppTemplate } from '@/lib/api';
+import { configureMetaWhatsAppNotifications, createMetaWhatsAppTemplate, getMetaWhatsAppStatus, getMetaWhatsAppTemplates, deleteMetaWhatsAppTemplate, type MetaTemplateKind, type MetaTemplateRef, type MetaWhatsAppStatus, type MetaWhatsAppTemplate } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { orderNotificationTemplate } from '@/lib/orders/twilio-templates';
+import { MetaWhatsAppSatisfaction } from './MetaWhatsAppSatisfaction';
 import { compatibleMetaTemplate, validMetaTemplateBody } from '@/lib/whatsapp-meta-templates';
 
-const kinds: MetaTemplateKind[] = ['order_recap', 'delivery_reminder', 'order_status', 'receipt'];
-const labels: Record<MetaTemplateKind, string> = { order_recap: 'waPersonalRecap', delivery_reminder: 'waPersonalReminder', order_status: 'waPersonalReady', receipt: 'waPersonalReceipt' };
+type BaseKind = Exclude<MetaTemplateKind, 'satisfaction'>;
+const kinds: BaseKind[] = ['order_recap', 'delivery_reminder', 'order_status', 'receipt'];
+const labels: Record<MetaTemplateKind, string> = { order_recap: 'waPersonalRecap', delivery_reminder: 'waPersonalReminder', order_status: 'waPersonalReady', receipt: 'waPersonalReceipt', satisfaction: 'waSatisfactionTitle' };
 const key = (ref: MetaTemplateRef) => ref.name ? `${ref.name}|${ref.language}` : '';
 const parse = (value: string): MetaTemplateRef => { const [name = '', language = ''] = value.split('|'); return { name, language }; };
 const selectClass = 'w-full rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm';
@@ -28,14 +30,16 @@ export function MetaWhatsAppTemplates({ rid, status, canEdit, disabled, onChange
   const [uncertain, setUncertain] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [selected, setSelected] = useState<Record<MetaTemplateKind, string>>({ order_recap: '', delivery_reminder: '', order_status: '', receipt: '' });
+  const [selected, setSelected] = useState<Record<BaseKind, string>>({ order_recap: '', delivery_reminder: '', order_status: '', receipt: '' });
   const [dirty, setDirty] = useState(false);
   const [creation, setCreation] = useState({ kind: 'order_recap' as MetaTemplateKind, name: `foody_order_recap_${language.toLowerCase()}`, language, body: orderNotificationTemplate('order_recap', locale) });
   const [bodyDirty, setBodyDirty] = useState(false);
-  const [editor, setEditor] = useState<MetaTemplateKind | null>(null);
+  const [editor, setEditor] = useState<BaseKind | null>(null);
   const [creating, setCreating] = useState(false);
   const [discardCreation, setDiscardCreation] = useState(false);
   const [catalogueOpen, setCatalogueOpen] = useState(false);
+  const [satisfactionLock, setSatisfactionLock] = useState(false);
+  const [deleting, setDeleting] = useState<MetaWhatsAppTemplate | null>(null);
   const life = useRef({ active: true });
   const lock = useRef(false);
   const copy = useRef(t); copy.current = t;
@@ -57,7 +61,7 @@ export function MetaWhatsAppTemplates({ rid, status, canEdit, disabled, onChange
     const current = { active: true }; life.current = current;
     void refresh(); return () => { current.active = false; };
   }, [refresh]);
-  useEffect(() => { onLockChange(busy || editor !== null || creating); return () => onLockChange(false); }, [busy, editor, creating, onLockChange]);
+  useEffect(() => { onLockChange(busy || editor !== null || creating || satisfactionLock || deleting !== null); return () => onLockChange(false); }, [busy, editor, creating, satisfactionLock, deleting, onLockChange]);
   useEffect(() => {
     if (dirtyRef.current || !status.connection) return;
     const c = status.connection;
@@ -84,7 +88,7 @@ export function MetaWhatsAppTemplates({ rid, status, canEdit, disabled, onChange
   });
   const save = (enabled: boolean) => void run(async () => {
     const current = life.current;
-    const refs = Object.fromEntries(kinds.map(kind => [kind, parse(selected[kind])])) as Record<MetaTemplateKind, MetaTemplateRef>;
+    const refs = Object.fromEntries(kinds.map(kind => [kind, parse(selected[kind])])) as Record<BaseKind, MetaTemplateRef>;
     try {
       const next = await configureMetaWhatsAppNotifications(rid, enabled ? { enabled: true, templates: refs } : { enabled: false });
       if (!current.active) return;
@@ -105,7 +109,7 @@ export function MetaWhatsAppTemplates({ rid, status, canEdit, disabled, onChange
     if (!selected[kind]) return !['order_recap', 'delivery_reminder'].includes(kind);
     const template = templates.find(row => key(row) === selected[kind]); return !!template && compatibleMetaTemplate(kind, template);
   });
-  const locked = disabled || busy || !canEdit;
+  const locked = disabled || busy || satisfactionLock || !canEdit;
   const createdAlready = templates.some(row => row.name === creation.name && row.language === creation.language);
 
   const selectedTemplate = editor ? templates.find(row => key(row) === selected[editor]) : undefined;
@@ -116,7 +120,7 @@ export function MetaWhatsAppTemplates({ rid, status, canEdit, disabled, onChange
     setEditor(null); setCreating(true);
   };
   const closeCreation = () => { if (bodyDirty) setDiscardCreation(true); else setCreating(false); };
-  const row = (kind: MetaTemplateKind) => {
+  const row = (kind: BaseKind) => {
     const Icon = icons[kind];
     const template = templates.find(item => key(item) === selected[kind]);
     return <div className="wa-template-row" key={kind}>
@@ -137,7 +141,7 @@ export function MetaWhatsAppTemplates({ rid, status, canEdit, disabled, onChange
     {error && !creating && <p role="alert" className="wa-feedback text-[var(--danger-500)]">{error}</p>}
     {notice && <p role="status" className="wa-feedback">{notice}</p>}
     {loading && <p role="status" className="wa-muted">{t('loading')}</p>}
-    <div className="wa-template-list mt-5">{kinds.map(row)}</div>
+    <div className="wa-template-list mt-5">{kinds.map(row)}<MetaWhatsAppSatisfaction rid={rid} status={status} templates={templates} canEdit={canEdit} disabled={disabled || busy || loading || loadFailed || editor !== null || creating} onChanged={onChanged} onCreate={() => openCreation('satisfaction')} onLockChange={setSatisfactionLock} /></div>
     <div className="wa-actions">
       {canEdit && <Button disabled={locked || loading || loadFailed || uncertain || !ready || !selectedApproved} onClick={() => save(true)}>{t(status.connection?.notifications_enabled ? 'save' : 'waMetaActivate')}</Button>}
       {dirty && <span className="wa-muted">{t('waWorkspaceDirty')}</span>}
@@ -148,7 +152,11 @@ export function MetaWhatsAppTemplates({ rid, status, canEdit, disabled, onChange
       <summary><span>{t('waWorkspaceCatalogue')} <span className="font-normal text-[var(--fg-muted)]">({templates.length})</span></span><ChevronDown aria-hidden="true" /></summary>
       <div className="wa-details-body">
         {templates.length === 0 && !loading && !loadFailed && <p className="wa-muted">{t('waWorkspaceLibraryEmpty')}</p>}
-        {templates.map(item => <div key={`${item.id}-${key(item)}`} className="wa-catalogue-row"><div className="min-w-0"><bdi>{item.name}</bdi><span className="ms-2 text-xs text-[var(--fg-muted)]">{item.language}</span></div><Badge tone={item.status === 'APPROVED' && item.category === 'UTILITY' ? 'success' : 'neutral'}>{stateLabel(item)}</Badge></div>)}
+        {templates.map(item => {
+          const c = status.connection;
+          const used = kinds.some(kind => selected[kind] === key(item) || (c?.[`${kind}_name`] === item.name && c?.[`${kind}_language`] === item.language)) || (c?.satisfaction_name === item.name && c?.satisfaction_language === item.language);
+          return <div key={`${item.id}-${key(item)}`} className="wa-catalogue-row"><div className="min-w-0 flex-1"><bdi>{item.name}</bdi><span className="ms-2 text-xs text-[var(--fg-muted)]">{item.language}</span>{used && <p className="wa-muted">{t('waTemplateInUse')}</p>}</div><Badge tone={item.status === 'APPROVED' && item.category === 'UTILITY' ? 'success' : 'neutral'}>{stateLabel(item)}</Badge>{canEdit && <Button variant="ghost" icon disabled={locked || used || uncertain} aria-label={`${t('delete')} · ${item.name} · ${item.language}`} title={t(used ? 'waTemplateInUseHint' : 'waTemplateDelete')} onClick={() => setDeleting(item)}><Trash2 aria-hidden="true" /></Button>}</div>;
+        })}
         {status.connection?.notifications_enabled && canEdit && <div className="wa-actions"><Button variant="secondary" disabled={locked || uncertain} onClick={() => save(false)}>{t('waMetaUseTwilio')}</Button></div>}
       </div>
     </details>
@@ -173,7 +181,7 @@ export function MetaWhatsAppTemplates({ rid, status, canEdit, disabled, onChange
         <p className="wa-muted">{t('waWorkspaceCreateHint')}</p>
         {error && <p role="alert" className="text-sm text-[var(--danger-500)]">{error}</p>}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={t('waMetaTemplateKind')}><select className={selectClass} aria-label={t('waMetaTemplateKind')} value={creation.kind} disabled={locked} onChange={event => resetCreation(event.target.value as MetaTemplateKind, creation.language)}>{kinds.map(kind => <option key={kind} value={kind}>{t(labels[kind])}</option>)}</select></Field>
+          <Field label={t('waMetaTemplateKind')}><select className={selectClass} aria-label={t('waMetaTemplateKind')} value={creation.kind} disabled={locked} onChange={event => resetCreation(event.target.value as MetaTemplateKind, creation.language)}>{([...kinds, 'satisfaction'] as MetaTemplateKind[]).map(kind => <option key={kind} value={kind}>{t(labels[kind])}</option>)}</select></Field>
           <Field label={t('whatsappRecapLanguage')}><select className={selectClass} aria-label={t('waMetaTemplateLanguage')} value={creation.language} disabled={locked} onChange={event => resetCreation(creation.kind, event.target.value)}><option value="fr">Français</option><option value="he">עברית</option><option value="en_US">English</option></select></Field>
         </div>
         <Field label={t('waMetaTemplateName')} hint={t('waMetaTemplateNameHint')}><Input aria-label={t('waMetaTemplateName')} dir="ltr" value={creation.name} disabled={locked} onChange={event => { setCreation(old => ({ ...old, name: event.target.value })); setBodyDirty(true); }} /></Field>
@@ -184,6 +192,10 @@ export function MetaWhatsAppTemplates({ rid, status, canEdit, disabled, onChange
         {createdAlready && <p className="wa-muted">{t('waMetaAlreadyExists')}</p>}
       </form>
     </Drawer>
-    <ConfirmDialog open={discardCreation} onOpenChange={setDiscardCreation} title={t('discardUnsavedChanges')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={() => { setDiscardCreation(false); setBodyDirty(false); setCreating(false); }} />
+    <ConfirmDialog open={deleting !== null} onOpenChange={open => { if (!open) setDeleting(null); }} title={t('waTemplateDelete')} description={t('waTemplateDeleteHint').replace('{name}', deleting?.name ?? '').replace('{language}', deleting?.language ?? '')} danger confirmLabel={t('delete')} cancelLabel={t('cancel')} onConfirm={() => {
+      const item = deleting; setDeleting(null); if (!item) return;
+      void run(async () => { const current = life.current; try { await deleteMetaWhatsAppTemplate(rid, item.id); if (current.active) { setNotice(t('waTemplateDeleted')); await refresh(); } } catch { if (current.active) { setError(t('waTemplateDeleteFailed')); await refresh(true); } } });
+    }} />
+    <ConfirmDialog open={discardCreation} onOpenChange={setDiscardCreation} title={t('discardUnsavedChanges')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={() => { setDiscardCreation(false); resetCreation(creation.kind, creation.language); setCreating(false); }} />
   </section>;
 }

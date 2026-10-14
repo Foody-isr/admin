@@ -28,7 +28,7 @@ export function OrderOverflowMenu({
   invoiceCount, onViewInvoice,
   canCorrect, canCorrectPayment, canCorrectPaymentMethod, canReactivate, canForceProduction, forceProductionActive,
   forceProductionRevives, canCancel, canDelete, onCorrect, onCorrectPayment, onCorrectPaymentMethod,
-  onReactivate, onToggleForceProduction, onCancel, onDelete, disabled, children,
+  onReactivate, onToggleForceProduction, onCancel, onDelete, onSatisfaction, disabled, children,
 }: {
   children?: ReactNode;
   activityCount?: number;
@@ -54,6 +54,7 @@ export function OrderOverflowMenu({
   onToggleForceProduction?: () => void;
   onCancel: () => void;
   onDelete?: () => void;
+  onSatisfaction?: () => void;
   disabled?: boolean;
 }) {
   const { t } = useI18n();
@@ -83,6 +84,7 @@ export function OrderOverflowMenu({
       </MenuTrigger>
       <MenuContent side="bottom" align="end" className="order-detail-menu max-h-[calc(100dvh-100px)] overflow-y-auto">
         {children}
+        {onSatisfaction && <MenuItem onSelect={onSatisfaction}><FileTextIcon />{t('waSatisfactionSend')}</MenuItem>}
         {children && <MenuSeparator />}
         {hasReferences && <MenuLabel>{t('details')}</MenuLabel>}
         {onViewActivity && (

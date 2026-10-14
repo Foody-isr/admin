@@ -42,6 +42,11 @@ async function install(page: Page, options: { locale?: string; connected?: boole
         const template: MetaWhatsAppTemplate = { id: String(900 + control.catalogue.length), name: body.name, language: body.language, status: 'PENDING', category: 'UTILITY', components: [{ type: 'BODY', text: body.body }] };
         control.catalogue.push(template); return send(template, 201);
       }
+      if (method === 'DELETE') { control.catalogue = control.catalogue.filter(item => !path.endsWith(`/${item.id}`)); return send({ deleted: true }); }
+      if (path.endsWith('/satisfaction')) {
+        Object.assign(control.meta.connection!, { satisfaction_mode: body.mode, satisfaction_name: body.mode === 'disabled' ? '' : body.template.name, satisfaction_language: body.mode === 'disabled' ? '' : body.template.language, satisfaction_delay_hours: body.delay_hours, satisfaction_sunday_time: body.sunday_time });
+        return send(control.meta);
+      }
       if (path.endsWith('/notifications')) {
         control.meta.connection!.notifications_enabled = body.enabled;
         control.meta.notifications_active = body.enabled;
@@ -100,6 +105,7 @@ const guarded = (page: Page) => page.evaluate(() => { const event = new Event('b
 
 async function openOtp(page: Page) {
   const details = page.getByTestId('wa-otp-settings');
+  await expect(details.locator('summary')).not.toContainText(/Chargement…|טוען…/);
   if (await details.getAttribute('open') === null) await details.locator('summary').click();
 }
 async function chooseMeta(page: Page, label: string, value: string) {
@@ -573,4 +579,105 @@ test('personal Twilio accepts the dedicated pair without legacy templates and sh
     content_sid_order_recap: `HX${'6'.repeat(32)}`, content_sid_delivery_reminder: `HX${'7'.repeat(32)}`,
     content_sid_order_confirmed: '', content_sid_order_ready: '',
   });
+});
+
+
+test('satisfaction supports all three modes without activating the provider', async ({ page }, info) => {
+  const state = await install(page, { coexistence: true, metaReady: true });
+  state.control.catalogue.push({ id: '888', name: 'satisfaction', language: 'fr', status: 'APPROVED', category: 'UTILITY', components: [{ type: 'BODY', text: orderNotificationTemplate('satisfaction', 'fr') }] });
+  await page.goto('/1/settings/whatsapp');
+  const open = () => page.getByRole('button', { name: 'Configurer · Satisfaction après commande', exact: true }).click();
+  await open();
+  let drawer = page.getByRole('dialog');
+  await drawer.getByLabel('Quand envoyer le message', { exact: true }).selectOption('manual');
+  await drawer.getByLabel('Choisir un modèle', { exact: true }).selectOption('satisfaction|fr');
+  await expect(drawer).toContainText('Actions → Envoyer le message de satisfaction');
+  await drawer.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  expect(state.control.meta.connection!.satisfaction_mode).toBe('manual');
+  expect(state.control.meta.notifications_active).toBe(false);
+  await open();
+  drawer = page.getByRole('dialog');
+  await drawer.getByLabel('Quand envoyer le message', { exact: true }).selectOption('sunday');
+  await drawer.getByLabel('Heure du dimanche', { exact: true }).fill('11:30');
+  await expect(drawer).toContainText('fuseau horaire du restaurant');
+  await page.screenshot({ path: info.outputPath('satisfaction-sunday-fr.png'), animations: 'disabled' });
+  await drawer.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Modèles de notifications Meta', exact: true })).toContainText('Le dimanche à 11:30');
+  await open();
+  drawer = page.getByRole('dialog');
+  await drawer.getByLabel('Quand envoyer le message', { exact: true }).selectOption('delay');
+  await drawer.getByLabel('Délai en heures', { exact: true }).fill('0');
+  await expect(drawer.getByRole('button', { name: 'Enregistrer', exact: true })).toBeDisabled();
+  await drawer.getByLabel('Délai en heures', { exact: true }).fill('48');
+  await drawer.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  expect(state.control.meta.connection!.satisfaction_delay_hours).toBe(48);
+  expect(state.writes.every(write => write.path.endsWith('/satisfaction') && write.restaurant === '1')).toBe(true);
+  await open();
+  drawer = page.getByRole('dialog');
+  await drawer.getByLabel('Délai en heures', { exact: true }).fill('0');
+  await drawer.getByLabel('Quand envoyer le message', { exact: true }).selectOption('disabled');
+  await drawer.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  expect(state.control.meta.connection!.satisfaction_name).toBe('');
+});
+
+test('unused template deletion requires confirmation and preserves used templates', async ({ page }) => {
+  const state = await install(page, { coexistence: true, metaReady: true });
+  state.control.meta.connection!.order_recap_name = 'order_recap';
+  state.control.meta.connection!.order_recap_language = 'fr';
+  await page.goto('/1/settings/whatsapp');
+  await page.getByText('Bibliothèque des modèles', { exact: false }).click();
+  await expect(page.getByRole('button', { name: 'Supprimer · order_recap · fr', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Supprimer · receipt · fr', exact: true }).click();
+  await expect(page.getByRole('alertdialog')).toContainText('version linguistique');
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Annuler', exact: true }).click();
+  expect(state.writes).toHaveLength(0);
+  await page.getByRole('button', { name: 'Supprimer · receipt · fr', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Supprimer', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Supprimer · receipt · fr', exact: true })).toHaveCount(0);
+  expect(state.writes).toEqual([{ path: '/api/v1/restaurants/1/whatsapp/meta/templates/703', method: 'DELETE', body: {}, restaurant: '1' }]);
+});
+
+test('admin can author a satisfaction template with customer and order variables', async ({ page }, info) => {
+  const state = await install(page, { coexistence: true, metaReady: true });
+  await page.setViewportSize({ width: 375, height: 1000 });
+  await page.goto('/1/settings/whatsapp');
+  await page.getByRole('button', { name: 'Créer un modèle', exact: true }).click();
+  const drawer = page.getByRole('dialog');
+  await drawer.getByLabel('Type de notification', { exact: true }).selectOption('satisfaction');
+  await expect(drawer.getByLabel('Texte du modèle', { exact: true })).toHaveValue(/Chavoua tov \{\{1\}\}/);
+  await drawer.getByLabel('Nom du modèle', { exact: true }).fill('mon_avis_fr');
+  await drawer.getByLabel('Texte du modèle', { exact: true }).fill('Bonjour {{1}}, votre commande n° {{2}} était-elle à votre goût ? Merci pour votre avis.');
+  await expect(drawer.getByRole('button', { name: 'Soumettre à Meta', exact: true })).toBeEnabled();
+  await page.screenshot({ path: info.outputPath('satisfaction-custom-mobile-fr.png'), animations: 'disabled' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await drawer.getByRole('button', { name: 'Soumettre à Meta', exact: true }).click();
+  expect(state.writes[0].body).toMatchObject({ kind: 'satisfaction', name: 'mon_avis_fr', language: 'fr' });
+  expect(state.writes.filter(write => write.path.endsWith('/satisfaction'))).toHaveLength(0);
+});
+
+
+test('satisfaction policy is read-only without settings edit', async ({ page }) => {
+  const state = await install(page, { coexistence: true, metaReady: true, permissions: ['settings.view'] });
+  state.control.meta.connection!.satisfaction_mode = 'sunday';
+  state.control.meta.connection!.satisfaction_sunday_time = '11:00';
+  await page.goto('/1/settings/whatsapp');
+  await page.getByRole('button', { name: 'Voir · Satisfaction après commande', exact: true }).click();
+  const drawer = page.getByRole('dialog');
+  await expect(drawer.getByLabel('Quand envoyer le message', { exact: true })).toBeDisabled();
+  await expect(drawer.getByLabel('Heure du dimanche', { exact: true })).toHaveValue('11:00');
+  await expect(drawer.getByRole('button', { name: 'Enregistrer', exact: true })).toHaveCount(0);
+  expect(state.writes).toHaveLength(0);
+});
+
+test('satisfaction edited policy requires confirmation before leaving to create a model', async ({ page }) => {
+  const state = await install(page, { coexistence: true, metaReady: true });
+  await page.goto('/1/settings/whatsapp');
+  await page.getByRole('button', { name: 'Configurer · Satisfaction après commande', exact: true }).click();
+  const drawer = page.getByRole('dialog');
+  await drawer.getByLabel('Quand envoyer le message', { exact: true }).selectOption('sunday');
+  await drawer.getByLabel('Heure du dimanche', { exact: true }).fill('11:00');
+  await drawer.getByRole('button', { name: 'Créer un modèle pour ce message', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Annuler', exact: true }).click();
+  await expect(drawer.getByLabel('Heure du dimanche', { exact: true })).toHaveValue('11:00');
+  expect(state.writes).toHaveLength(0);
 });
