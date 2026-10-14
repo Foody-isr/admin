@@ -10,6 +10,8 @@ import {
   getRestaurant,
   ModifierSetInput, StockItem, PrepItem, TranslationMap,
 } from '@/lib/api';
+import { CustomerNoteEditor } from '@/components/menu/CustomerNoteEditor';
+import type { CustomerNoteConfig } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Plus, Trash2 } from 'lucide-react';
@@ -44,6 +46,7 @@ function setLocaleOverride(
 }
 
 interface ModifierRow {
+  customer_note?: CustomerNoteConfig | null;
   id?: number;
   name: string;
   kitchen_name: string;
@@ -154,6 +157,7 @@ export default function ModifierSetEditorPage() {
       is_active: m.is_active,
       is_preselected: m.is_preselected,
       hide_online: m.hide_online,
+      customer_note: m.customer_note,
       sort_order: m.sort_order,
       stock_item_id: m.stock_item_id ?? null,
       prep_item_id: m.prep_item_id ?? null,
@@ -250,6 +254,7 @@ export default function ModifierSetEditorPage() {
             is_active: row.is_active,
             is_preselected: row.is_preselected,
             hide_online: row.hide_online,
+            customer_note: row.customer_note,
             stock_item_id: row.stock_item_id ?? null,
             prep_item_id: row.prep_item_id ?? null,
             quantity: row.quantity,
@@ -477,6 +482,9 @@ export default function ModifierSetEditorPage() {
                   )}
                 </div>
 
+                <div className="px-4 pb-3">
+                  <CustomerNoteEditor value={row.customer_note} onChange={(value) => updateRow(i, { customer_note: value })} disabled={!canEdit} />
+                </div>
                 {/* Stock-consumption subrow — opt-in per modifier */}
                 <StockConsumptionRow
                   row={row}

@@ -875,3 +875,13 @@ assertion at `tests/redesign/delivery-zones.spec.ts:46`: it expects a Settings l
 after opening the dashboard with order-only permissions. The unchanged sidebar
 uses grouped navigation. All three new calendar scenarios and the other 26
 delivery-zone scenarios pass.
+
+## Notes for selected modifiers and options
+
+Each row in a modifier set and each reusable option can enable a customer note,
+with a label, placeholder and optional requirement. Modifier sets save these
+settings with the main Save action; reusable options save them on blur/toggle,
+like their other row settings. New legacy modifiers expose the same controls.
+The guest field appears only for that selected choice, independently of the
+article's general notes switch. Deploy API migration 245 and the matching Web
+renderer before enabling these settings.

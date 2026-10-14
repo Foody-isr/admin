@@ -7,6 +7,8 @@ import {
   getRestaurant,
   OptionSet, OptionSetOption, OptionInSetInput, OptionSetInput, TranslationMap,
 } from '@/lib/api';
+import { CustomerNoteEditor } from '@/components/menu/CustomerNoteEditor';
+import type { CustomerNoteConfig } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Plus, Trash2 } from 'lucide-react';
@@ -331,6 +333,7 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
   sourceLocale: Locale;
   canEdit: boolean;
 }) {
+  const [customerNote, setCustomerNote] = useState<CustomerNoteConfig | null | undefined>(option.customer_note);
   const [name, setName] = useState(option.name);
   const [price, setPrice] = useState(option.price);
   const [sku, setSku] = useState(option.sku ?? '');
@@ -341,8 +344,10 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
 
   const persist = async (patch: Partial<OptionInSetInput>) => {
     const payload: OptionInSetInput = {
+      customer_note: patch.customer_note ?? customerNote,
       name: (patch.name ?? name).trim() || option.name,
       price: patch.price ?? price,
+      online_price: option.online_price,
       sku: patch.sku ?? (sku.trim() || undefined),
       is_active: patch.is_active ?? isActive,
       sort_order: option.sort_order,
@@ -401,6 +406,7 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
   };
 
   return (
+    <>
     <div
       className="grid min-w-[640px] items-center gap-2 px-4 py-3 border-b border-[var(--line)] last:border-b-0 hover:bg-[var(--surface-2)] transition-colors"
       style={{ gridTemplateColumns: '1fr 140px 110px 100px 36px' }}
@@ -469,5 +475,9 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
         <span />
       )}
     </div>
+    <div className="px-4 pb-3 border-b border-[var(--line)]">
+      <CustomerNoteEditor value={customerNote} onChange={setCustomerNote} onCommit={(value) => { void persist({ customer_note: value }); }} disabled={!canEdit} />
+    </div>
+    </>
   );
 }
