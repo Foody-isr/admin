@@ -1,5 +1,16 @@
 # Foody Admin
 
+In Website V3 → Liste des articles → Disposition et couleurs, **Appliquer le
+style Wolt** restores flat compact rows, landscape photos on the right,
+descriptions, category headings and a local black/gray/cyan palette. It replaces
+conflicting legacy card settings in one draft update and can be applied again.
+**Utiliser les couleurs du site** restores the assigned shared color style.
+The preset never edits shared styles or fulfillment/ordering preferences.
+It requires the Web renderer advertising `order_wolt_preset: 1`.
+Visual regression with public Crispy Delivery catalogue/photos and in-memory
+draft/publication writes: `FOODY_CRISPY_MENU=1 npx playwright test -c
+playwright.website-editor.config.ts order-list-styles.spec.ts`.
+
 Self-service web portal for restaurant owners and managers. Used to manage day-to-day restaurant operations from any browser: view orders, manage the menu, track analytics, invite staff, and handle billing. **Not for end customers** — access is restricted to users with the `owner` or `manager` role.
 
 ## Environments

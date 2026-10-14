@@ -79,3 +79,11 @@ test("service dialog usage follows its assignment independently of menu and chec
   assert.deepEqual(siteColorUsage(state.config,state.pages,[],palette,"style-4")[0].parts,["fulfillment"]);
   assert.ok(!siteColorUsage(state.config,state.pages,[],palette,"style-2")[0].parts.includes("fulfillment"));
 });
+
+test("the Wolt menu palette is not reported as a shared style usage", () => {
+  const state = normalizeDraftState({config:{},pages:[{id:1,type:"order",slug:"order",appearance_overrides:{website_order:{color_style:"style-2",color_preset:"wolt"}}}],sections:[]});
+  const usage = siteColorUsage(state.config, state.pages, state.sections, {}, "style-2");
+  assert.equal(usage[0].parts.includes("menu"), false);
+  assert.equal(usage[0].parts.includes("item"), true);
+  assert.equal(usage[0].parts.includes("fulfillment"), true);
+});
