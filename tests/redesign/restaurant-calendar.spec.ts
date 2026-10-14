@@ -96,8 +96,11 @@ for (const locale of ['fr', 'he']) test(`calendar layout and event editor ${loca
     expect((await page.locator('[data-calendar-notice]').boundingBox())!.height).toBe(42);
     expect((await page.locator('[data-calendar-notice]').boundingBox())!.y).toBe(46);
     expect((await page.locator('[data-calendar-period]').boundingBox())!.height).toBe(48);
+    expect((await page.locator('[data-calendar-toolbar]').boundingBox())!.y).toBe(166);
+    expect((await page.locator('[data-calendar-grid="week"]').boundingBox())!.y).toBe(232);
     expect((await page.locator('[data-calendar-grid="week"] th').first().boundingBox())!.width).toBe(148);
     for (const row of await page.locator('[data-calendar-grid="week"] tbody tr').all()) expect((await row.boundingBox())!.height).toBe(72);
+    await expect(page.locator('[data-calendar-grid="week"] tbody th').nth(1)).toContainText('Traiteur');
     expect(await page.getByRole('combobox', { name: 'Filtrer les événements' }).evaluate((select: HTMLSelectElement) => {
       const style = getComputedStyle(select), canvas = document.createElement('canvas'), context = canvas.getContext('2d')!;
       context.font = style.font;

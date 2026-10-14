@@ -34,7 +34,7 @@ function useCalendarLabels() {
     t,
     dateText: (date: string, options: Intl.DateTimeFormatOptions = { dateStyle: 'full' }) => new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`)),
     kindLabel: (kind: Kind) => t(kind === 'closure' ? 'calendarKindClosure' : kind === 'catering' ? 'calendarKindCatering' : 'calendarKindOther'),
-    rowLabel: (kind: Kind) => t(kind === 'closure' ? 'calendarClosures' : kind === 'catering' ? 'catering' : 'calendarEvents'),
+    rowLabel: (kind: Kind) => t(kind === 'closure' ? 'calendarClosures' : kind === 'catering' ? 'nav_catering' : 'calendarEvents'),
     countLabel: (count: number) => t(count === 1 ? 'calendarSingleEvent' : 'calendarMultipleEvents').replace('{count}', String(count)),
   };
 }
@@ -57,7 +57,7 @@ function WeekView(props: CalendarViewsProps) {
   const days = calendarWeekDays(props.selected, props.weekStart);
   const kinds = KINDS.filter(kind => props.filter === 'all' || kind === props.filter);
   const inWeek = props.entries.filter(event => event.start_date <= days[6] && event.end_date >= days[0]);
-  return <div data-calendar-grid="week" className="min-w-0 overflow-x-auto">
+  return <div data-calendar-grid="week" className="min-w-0 overflow-x-auto [--line:#ededed] [--line-strong:#bcbcbc] dark:[--line:#383838] dark:[--line-strong:#525252]">
     <table className="w-full min-w-[800px] table-fixed border-collapse text-sm">
       <colgroup><col style={{ width: 148 }} />{days.map(day => <col key={day} />)}</colgroup>
       <thead><tr className="h-12 border-b border-[var(--line-strong)] text-start">
@@ -65,7 +65,7 @@ function WeekView(props: CalendarViewsProps) {
         {days.map(day => <th scope="col" key={day} className="border-e border-[var(--line)] px-2 text-start font-semibold last:border-e-0"><button type="button" onClick={() => props.onSelectDay(day)} aria-label={dateText(day)} className="py-3 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--fg)]"><span className={day === props.today ? 'underline decoration-2 underline-offset-4' : ''}>{dateText(day, { weekday: 'short', day: 'numeric', month: 'numeric' })}</span></button></th>)}
       </tr></thead>
       <tbody>{kinds.map(kind => <tr key={kind} className="border-b border-[var(--line)]">
-        <th scope="row" className="border-e border-[var(--line-strong)] px-2 py-3 text-start align-top font-normal"><span className="block">{rowLabel(kind)}</span><span className="mt-1 block text-xs text-[var(--fg-subtle)]">{countLabel(inWeek.filter(event => event.kind === kind).length)}</span></th>
+        <th scope="row" className="border-e border-[var(--line-strong)] px-2 py-3 text-start align-top font-normal"><span className="block">{rowLabel(kind)}</span><span className="mt-1 block text-xs text-[#b3b3b3] dark:text-[var(--fg-subtle)]">{countLabel(inWeek.filter(event => event.kind === kind).length)}</span></th>
         {days.map(day => <td key={day} data-calendar-date={day} className="group relative h-[72px] border-e border-[var(--line)] p-2 align-top last:border-e-0">
           {props.canEdit && <button type="button" onClick={() => props.onCreate(day, kind)} aria-label={`${t('calendarAdd')} · ${kindLabel(kind)} · ${dateText(day)}`} className="absolute inset-2 grid min-h-14 place-items-center rounded-md bg-[var(--surface-2)] opacity-0 outline-none hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--fg)] group-hover:opacity-100"><Plus className="size-5" aria-hidden /></button>}
           <div className="relative space-y-2 empty:pointer-events-none">{calendarEntriesOnDate(props.entries, day).filter(event => event.kind === kind).map(event => <EventTile key={event.id} event={event} restaurantId={props.restaurantId} onEdit={props.onEdit} />)}</div>
@@ -86,7 +86,7 @@ function DayView(props: CalendarViewsProps) {
   const lanes = calendarDayEventLanes(props.entries, props.selected);
   const firstHour = lanes.length ? Math.floor(Math.min(...lanes.map(event => event.start)) / 60) : 0;
   useEffect(() => { if (scroll.current) scroll.current.scrollLeft = firstHour * HOUR_WIDTH * (direction === 'rtl' ? -1 : 1); }, [props.selected, firstHour, direction]);
-  return <div data-calendar-grid="day" className="min-w-0">
+  return <div data-calendar-grid="day" className="min-w-0 [--line:#ededed] [--line-strong:#bcbcbc] dark:[--line:#383838] dark:[--line-strong:#525252]">
     {allDay.length > 0 && <div className="flex border-y border-[var(--line)]">
       <p className="w-[180px] shrink-0 border-e border-[var(--line-strong)] px-4 py-4 text-sm">{t('calendarAllDay')}</p>
       <div className="flex min-w-0 flex-1 flex-wrap gap-2 p-2">{allDay.map(event => <EventTile key={event.id} event={event} restaurantId={props.restaurantId} onEdit={props.onEdit} className="!w-44 max-w-full" />)}</div>
@@ -102,7 +102,7 @@ function DayView(props: CalendarViewsProps) {
           const row = calendarDayEventLanes(props.entries.filter(event => event.kind === kind), props.selected);
           const height = Math.max(72, (Math.max(-1, ...row.map(event => event.lane)) + 1) * 64 + 8);
           return <tr key={kind} className="border-b border-[var(--line)]">
-            <th scope="row" className="sticky start-0 z-20 border-e border-[var(--line-strong)] bg-[var(--surface)] px-4 py-3 text-start align-top font-normal"><span className="block">{rowLabel(kind)}</span><span className="mt-1 block text-xs text-[var(--fg-subtle)]">{countLabel(dayEntries.filter(event => event.kind === kind).length)}</span></th>
+            <th scope="row" className="sticky start-0 z-20 border-e border-[var(--line-strong)] bg-[var(--surface)] px-4 py-3 text-start align-top font-normal"><span className="block">{rowLabel(kind)}</span><span className="mt-1 block text-xs text-[#b3b3b3] dark:text-[var(--fg-subtle)]">{countLabel(dayEntries.filter(event => event.kind === kind).length)}</span></th>
             <td colSpan={24} className="p-0 align-top"><div className="relative" style={{ height }}>
               <div className="absolute inset-0 grid grid-cols-[repeat(24,88px)]">{HOURS.map(hour => <div key={hour} className="group border-e border-[var(--line)] p-2">{props.canEdit && <button type="button" onClick={() => props.onCreate(props.selected, kind, hour)} aria-label={`${t('calendarAdd')} · ${kindLabel(kind)} · ${dateText(props.selected)} · ${hour}:00`} className="grid size-full min-h-14 place-items-center rounded-md bg-[var(--surface-2)] opacity-0 outline-none hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--fg)] group-hover:opacity-100"><Plus className="size-5" aria-hidden /></button>}</div>)}</div>
               {row.map(({ event, start, end, lane }) => <div key={event.id} className="absolute" style={{ insetInlineStart: start / 60 * HOUR_WIDTH, top: 8 + lane * 64, width: Math.max(26, (end - start) / 60 * HOUR_WIDTH - 4) }}><EventTile event={event} restaurantId={props.restaurantId} onEdit={props.onEdit} /></div>)}
