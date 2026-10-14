@@ -274,6 +274,16 @@ own color and portions follow it. Editing a style does not select it as the site
 default; **Use by default** is a separate action. Shape, spacing and images remain
 in the item-list panels, whose color shortcuts open the assigned global style.
 
+**Item list → Layout → Compact list** applies a menu with lateral 3:2 photos,
+descriptions, row separators and underlined sticky categories. Existing color
+assignments, desktop column counts and ordering preferences are preserved.
+Cards expose item spacing, row padding and price placement; Images exposes
+physical left/right placement and bounded sizes. Descriptions has typography and
+line-count controls. All settings use page-local `website_order` data for autosave,
+preview and publication. The public renderer must advertise `order_list_styles: 1`
+before this editor is deployed. The isolated regression runs with
+`FOODY_MENU_APPEARANCE=1 npx playwright test -c playwright.website-editor.config.ts order-list-styles.spec.ts`.
+
 **Header → Layout → Restaurant** adds a cover, a logo in a white frame,
 the restaurant name and a hamburger using the existing navigation links.
 **Information and ordering → Layout** offers two exclusive presentations:
