@@ -6,6 +6,8 @@ import {
   getAllCategories, createModifier, deleteModifier,
   MenuCategory, MenuItem, MenuItemModifier, ModifierInput,
 } from '@/lib/api';
+import { CustomerNoteEditor } from '@/components/menu/CustomerNoteEditor';
+import type { CustomerNoteConfig } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import {
@@ -162,12 +164,13 @@ function CreateModifierModal({ restaurantId, categories, onClose, onSaved }: {
   const [name, setName] = useState('');
   const [action, setAction] = useState<'add' | 'remove'>('add');
   const [category, setCategory] = useState('');
+  const [customerNote, setCustomerNote] = useState<CustomerNoteConfig>();
   const [priceDelta, setPriceDelta] = useState(0);
   const [isRequired, setIsRequired] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [discard, setDiscard] = useState(false);
-  const dirty = !!name || !!category || priceDelta !== 0 || isRequired || action !== 'add' || itemId !== (allItems[0]?.id ?? 0);
+  const dirty = !!customerNote?.enabled || !!name || !!category || priceDelta !== 0 || isRequired || action !== 'add' || itemId !== (allItems[0]?.id ?? 0);
   const close = () => { if (!saving) { if (dirty) setDiscard(true); else onClose(); } };
 
   const handleSave = async () => {
@@ -176,6 +179,7 @@ function CreateModifierModal({ restaurantId, categories, onClose, onSaved }: {
     setSaving(true);
     try {
       const input: ModifierInput = {
+        customer_note: customerNote,
         menu_item_id: itemId,
         name: name.trim(),
         action,
@@ -230,6 +234,7 @@ function CreateModifierModal({ restaurantId, categories, onClose, onSaved }: {
           <input type="checkbox" checked={isRequired} onChange={(e) => setIsRequired(e.target.checked)} className="size-4 rounded" />
           <span className="text-sm font-medium text-fg-secondary">{t('requiredModifier')}</span>
         </label>
+        <CustomerNoteEditor value={customerNote} onChange={setCustomerNote} />
       </fieldset>
       {error && <p role="alert" className="mt-4 rounded-r-md bg-[var(--danger-50)] p-3 text-sm text-[var(--danger-500)]">{error}</p>}
       </form>

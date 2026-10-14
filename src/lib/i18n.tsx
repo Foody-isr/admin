@@ -120,6 +120,13 @@ export function i18nOr(t: (key: string) => string, key: string, fallback: string
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    customerNoteEnable: "Ask for a note when selected",
+    customerNoteLabel: "Field label",
+    customerNotePlaceholder: "Example / placeholder",
+    customerNoteRequired: "Required customer note",
+    customerNoteDefault: "Personalization",
+    customerNoteExample: "Enter the message or name to put on the cake",
+
     zoneType_departments: "Departments (France)",
     deliveryDepartments: "Department codes",
     deliveryDepartmentsHint: "Separate codes with commas, for example 94, 93, 75. City rules take precedence over department rules.",
@@ -8318,6 +8325,13 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
   he: {
+    customerNoteEnable: "בקשו הערה כאשר אפשרות זו נבחרת",
+    customerNoteLabel: "כותרת השדה",
+    customerNotePlaceholder: "דוגמה / טקסט מנחה",
+    customerNoteRequired: "הערת לקוח חובה",
+    customerNoteDefault: "התאמה אישית",
+    customerNoteExample: "כתבו את ההודעה או השם שתרצו על העוגה",
+
     zoneType_departments: "מחוזות (צרפת)",
     deliveryDepartments: "קודי מחוזות",
     deliveryDepartmentsHint: "יש להפריד קודים בפסיקים, למשל 94, 93, 75. כלל לפי עיר קודם לכלל לפי מחוז.",
@@ -16507,6 +16521,13 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── French ──────────────────────────────────────────────────────────────
   fr: {
+    customerNoteEnable: "Demander une note lorsque ce choix est sélectionné",
+    customerNoteLabel: "Libellé du champ",
+    customerNotePlaceholder: "Exemple / texte indicatif",
+    customerNoteRequired: "Note client obligatoire",
+    customerNoteDefault: "Personnalisation",
+    customerNoteExample: "Indiquez le message ou le prénom à inscrire sur le gâteau",
+
     zoneType_departments: "Départements (France)",
     deliveryDepartments: "Codes des départements",
     deliveryDepartmentsHint: "Séparez les codes par des virgules, par exemple 94, 93, 75. Les règles par ville sont prioritaires sur celles du département.",

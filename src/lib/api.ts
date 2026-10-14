@@ -466,7 +466,16 @@ export interface MenuCategory {
   availability_rule_id?: number | null;
 }
 
+/** Text requested from a guest when this catalog choice is selected. */
+export interface CustomerNoteConfig {
+  enabled: boolean;
+  label: string;
+  placeholder: string;
+  required: boolean;
+}
+
 export interface MenuItemModifier {
+  customer_note?: CustomerNoteConfig | null;
   id: number;
   menu_item_id?: number;
   modifier_set_id?: number;
@@ -3992,6 +4001,7 @@ export async function uploadGroupImage(restaurantId: number, groupId: number, fi
 // ─── Modifiers ────────────────────────────────────────────────────────────────
 
 export interface ModifierInput {
+  customer_note?: CustomerNoteConfig | null;
   menu_item_id: number;
   name: string;
   action: 'add' | 'remove';
@@ -4032,6 +4042,7 @@ export async function deleteModifier(restaurantId: number, id: number): Promise<
 // ─── Modifier Sets ────────────────────────────────────────────────────────────
 
 export interface ModifierInSetInput {
+  customer_note?: CustomerNoteConfig | null;
   name: string;
   kitchen_name?: string;
   action?: 'add' | 'remove';
@@ -4173,6 +4184,7 @@ export async function migrateLegacyModifiers(restaurantId: number): Promise<{ se
 // ─── Option Sets (reusable variant groups — Square "Item Options") ───────────
 
 export interface OptionSetOption {
+  customer_note?: CustomerNoteConfig | null;
   id: number;
   option_set_id: number;
   name: string;
@@ -4210,6 +4222,7 @@ export interface OptionSet {
 }
 
 export interface OptionInSetInput {
+  customer_note?: CustomerNoteConfig | null;
   name: string;
   price: number;
   online_price?: number | null;
