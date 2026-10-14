@@ -2,28 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import {
-  ShieldCheck,
-  Trash2,
-  AlertCircle,
-  Lock,
-  UtensilsCrossed,
-  ClipboardList,
-  Users,
-  BarChart3,
-  Settings,
-  LayoutGrid,
-  ChefHat,
-  CreditCard,
-  Contact,
-  Clock3,
-  KeyRound,
-  type LucideIcon,
-} from 'lucide-react';
-import Modal from '@/components/Modal';
+import { Lock } from 'lucide-react';
+import { TeamEditor, TeamPageHeader, TeamSearch } from '@/components/team/TeamWorkspace';
+import { TeamPasscodesDrawer } from '@/components/team/TeamPasscodesDrawer';
+import { DataTable, DataTableHead, DataTableHeadCell, DataTableBody, DataTableRow, DataTableCell } from '@/components/data-table';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import { useI18n } from '@/lib/i18n';
-import { cn } from '@/lib/utils';
 import {
   permissionDomainLabel,
   permissionLabel,
@@ -32,7 +16,7 @@ import {
   roleDisplayDescription,
 } from '@/lib/permission-i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { Badge, Button, ConfirmDialog, PageHead } from '@/components/ds';
+import { Button, ConfirmDialog } from '@/components/ds';
 import {
   listRoles,
   createRole,
@@ -43,31 +27,16 @@ import {
   PermissionGroup,
 } from '@/lib/api';
 
-/** Icon per permission domain (matched by slug); falls back to a generic key. */
-const DOMAIN_ICONS: Record<string, LucideIcon> = {
-  menu: UtensilsCrossed,
-  orders: ClipboardList,
-  staff: Users,
-  roles: ShieldCheck,
-  analytics: BarChart3,
-  settings: Settings,
-  tables: LayoutGrid,
-  kitchen: ChefHat,
-  payments: CreditCard,
-  customers: Contact,
-  shifts: Clock3,
-};
-
-function domainIcon(domain: string): LucideIcon {
-  return DOMAIN_ICONS[domain.toLowerCase().replace(/[^a-z0-9]+/g, '')] ?? KeyRound;
-}
-
+/** Restaurant-scoped permission sets, displayed as the Square reference list. */
 export default function RolesPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('roles.manage');
+  const canViewStaff = hasAnyPermission('staff.view', 'staff.manage');
+  const [search, setSearch] = useState('');
+  const [passcodesOpen, setPasscodesOpen] = useState(false);
 
   const [roles, setRoles] = useState<RestaurantRole[]>([]);
   const [permissionGroups, setPermissionGroups] = useState<PermissionGroup[]>([]);
@@ -109,6 +78,7 @@ export default function RolesPage() {
     setRoles([]);
     setPermissionGroups([]);
     setShowEditor(false);
+    setPasscodesOpen(false);
     void reload();
     return () => guard.invalidate();
   }, [reload]);
@@ -228,255 +198,58 @@ export default function RolesPage() {
   const selectedCount = availableKeys.filter((k) => selectedPerms.has(k)).length;
   const allOn = availableKeys.length > 0 && availableKeys.every((k) => selectedPerms.has(k));
 
+  const filteredRoles = roles.filter(role => roleDisplayName(t, role.name, role.is_system_default).toLocaleLowerCase(locale).includes(search.trim().toLocaleLowerCase(locale)))
+    .sort((a, b) => roleDisplayName(t, a.name, a.is_system_default).localeCompare(roleDisplayName(t, b.name, b.is_system_default), locale));
+  const accessLabel = (role: RestaurantRole) => Array.from(new Set(role.permissions.map(permission => permissionDomainLabel(t, permission.permission.split('.')[0])))).join(', ') || '—';
+
   return (
-    <div className="space-y-6">
-      <PageHead
-        title={t('rolesPermissions') || 'Rôles & permissions'}
-        desc={t('manageStaffRoles')}
-        actions={
-          canManage && (
-            <Button variant="primary" size="md" onClick={openCreate} disabled={!!loadError}>
-              {t('createRole')}
-            </Button>
-          )
-        }
-      />
+    <div className="team-surface team-permissions">
+      <TeamPageHeader title={t('teamPermissions')}>
+        {canManage && <Button onClick={openCreate} disabled={!!loadError}>{t('teamCreatePermissions')}</Button>}
+      </TeamPageHeader>
+      <section className="team-passcodes" aria-labelledby="team-passcodes-heading">
+        <span className="team-passcodes-icon"><Lock aria-hidden /></span>
+        <div className="team-passcodes-copy"><h2 id="team-passcodes-heading">{t('teamPasscodes')}</h2><p>{t('teamPasscodesDescription')}</p></div>
+        {canViewStaff && <Button variant="secondary" className="team-secondary" onClick={() => setPasscodesOpen(true)}>{t('teamManagePasscodes')}</Button>}
+      </section>
+      <section className="team-toolbar" aria-label={t('listTools')}><TeamSearch label={t('teamFilterPermissions')} value={search} onChange={setSearch} /></section>
+      {loadError && <div role="alert" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[var(--danger-50)] p-4 text-[var(--danger-500)]"><span>{loadError}</span><Button variant="secondary" onClick={() => void reload()}>{t('retry')}</Button></div>}
+      {!loadError && <DataTable className="team-table team-roles-table">
+        <DataTableHead><DataTableHeadCell>{t('name')}</DataTableHeadCell><DataTableHeadCell>{t('teamAccess')}</DataTableHeadCell><DataTableHeadCell align="right">{t('teamMembers')}</DataTableHeadCell></DataTableHead>
+        <DataTableBody>{filteredRoles.map((role, index) => <DataTableRow key={role.id} index={index}>
+          <DataTableCell mobilePrimary><button type="button" className="team-role-name" aria-haspopup="dialog" onClick={() => openEdit(role)}>{roleDisplayName(t, role.name, role.is_system_default)}</button></DataTableCell>
+          <DataTableCell mobileLabel={t('teamAccess')}><span className="team-role-access" title={accessLabel(role)}>{accessLabel(role)}</span></DataTableCell>
+          <DataTableCell mobileLabel={t('teamMembers')} align="right" className="tabular-nums">{role.user_count}</DataTableCell>
+        </DataTableRow>)}</DataTableBody>
+      </DataTable>}
+      {!loadError && !filteredRoles.length && <p role="status" className="team-empty">{t(roles.length ? 'listNoMatches' : 'noRolesYet')}</p>}
+      {passcodesOpen && canViewStaff && <TeamPasscodesDrawer key={rid} restaurantId={rid} onClose={() => setPasscodesOpen(false)} />}
 
-      {loadError && <div role="alert" className="rounded-r-lg bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)] flex flex-wrap items-center justify-between gap-3"><span>{loadError}</span><Button variant="secondary" onClick={() => void reload()}>{t('retry')}</Button></div>}
-      {/* Role cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {roles.map((role) => (
-          <button
-            key={role.id} type="button" aria-haspopup="dialog"
-            className="text-start rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5 hover:border-[var(--line-strong)] transition-colors"
-            onClick={() => openEdit(role)}
-          >
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <h2 className="font-semibold break-words" style={{ color: 'var(--text-primary)' }}>
-                  {roleDisplayName(t, role.name, role.is_system_default)}
-                </h2>
-                {role.is_system_default && (
-                  <Badge tone="info" className="mt-2">
-                    {t('defaultBadge')}
-                  </Badge>
-                )}
-              </div>
-            </div>
-            {role.description && (
-              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
-                {roleDisplayDescription(t, role.name, role.description, role.is_system_default)}
-              </p>
-            )}
-            <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
-              <span>{t('permissionsCount').replace('{count}', String(role.permissions.length))}</span>
-              <span>{(role.user_count === 1 ? t('userCount') : t('usersCount')).replace('{count}', String(role.user_count))}</span>
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {!loadError && roles.length === 0 && (
-        <div className="text-center py-16" style={{ color: 'var(--text-secondary)' }}>
-          <p className="text-lg font-medium mb-2">{t('noRolesYet')}</p>
-          <p className="text-sm">{t('defaultRolesAutoCreated')}</p>
-        </div>
-      )}
-
-      {/* Role editor modal */}
-      {showEditor && (
-        <Modal
-          size="3xl"
-          icon={<ShieldCheck />}
-          title={editingRole ? t('editRole').replace('{name}', roleDisplayName(t, editingRole.name, editingRole.is_system_default)) : t('createRole')}
-          subtitle={t('permissionsSelectedSummary')
-            .replace('{count}', String(selectedCount))
-            .replace('{total}', String(availableKeys.length))}
-          onClose={requestClose}
-          footer={
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              {canManage && editingRole && !editingRole.is_system_default ? (
-                <button
-                  onClick={() => setDeleteTarget(editingRole)}
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--danger-500)] min-h-10 rounded-r-md px-2.5 py-1.5 transition-colors hover:bg-[var(--danger-50)] disabled:opacity-40 disabled:hover:bg-transparent"
-                  disabled={editingRole.user_count > 0 || saving}
-                  title={editingRole.user_count > 0 ? t('cannotDeleteWithUsers') : ''}
-                >
-                  <Trash2 className="w-4 h-4" />
-                  {t('deleteRole')}
-                </button>
-              ) : (
-                <span />
-              )}
-              <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
-                <Button variant="secondary" size="md" onClick={requestClose} disabled={saving}>
-                  {t('cancel')}
-                </Button>
-                {canManage && (
-                  <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
-                    {saving ? t('saving') : editingRole ? t('saveChanges') : t('createRole')}
-                  </Button>
-                )}
-              </div>
-            </div>
-          }
-        >
-          <div className="space-y-6">
-            {/* Name + description */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="role-name" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-                  {t('name')}
-                </label>
-                <input
-                  className="input w-full"
-                  id="role-name" value={isDefault ? roleDisplayName(t, editingRole!.name, true) : name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={fieldsLocked || saving}
-                  placeholder={t('roleNamePlaceholder')}
-                />
-                {isDefault && (
-                  <p className="flex items-center gap-1 text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>
-                    <Lock className="w-3 h-3" />
-                    {t('systemDefaultNoRename')}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label htmlFor="role-description" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-                  {t('description')}
-                </label>
-                <input
-                  className="input w-full"
-                  id="role-description" value={isDefault ? roleDisplayDescription(t, editingRole!.name, editingRole!.description, true) : description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  disabled={fieldsLocked || saving}
-                  placeholder={t('briefDescription')}
-                />
-              </div>
-            </div>
-
-            {/* Permissions */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    {t('permissions')}
-                  </label>
-                  <span className="text-xs font-medium tabular-nums px-2 py-0.5 rounded-full bg-[var(--brand-soft)] text-[var(--brand-ink)]">
-                    {selectedCount}/{availableKeys.length}
-                  </span>
-                </div>
-                {canManage && permissionGroups.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPerms(allOn ? new Set() : new Set(availableKeys))}
-                    disabled={saving} className="text-xs font-semibold text-[var(--brand-ink)] hover:underline min-h-10 transition-colors"
-                  >
-                    {allOn ? t('deselectAll') : t('selectAll')}
-                  </button>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {permissionGroups.map((group) => {
-                  const allKeys = group.permissions.map((p) => p.key);
-                  const groupSelected = allKeys.filter((k) => selectedPerms.has(k)).length;
-                  const allSelected = groupSelected === allKeys.length;
-                  const someSelected = groupSelected > 0;
-                  const Icon = domainIcon(group.domain);
-                  return (
-                    <div
-                      key={group.domain}
-                      className={cn(
-                        'rounded-r-lg border overflow-hidden transition-colors',
-                        someSelected ? 'border-brand-500/40' : 'border-[var(--line)]',
-                      )}
-                      style={{ background: 'var(--surface)' }}
-                    >
-                      {/* Domain header — toggles the whole group */}
-                      <label
-                        className={[cn(
-                          'group/d flex items-center gap-2.5 px-3 py-2.5 border-b transition-colors',
-                          canManage ? 'cursor-pointer hover:bg-[var(--surface-2)]' : 'cursor-default',
-                        ), "selection-row"].filter(Boolean).join(" ")}
-                        style={{ borderColor: 'var(--line)' }}
-                      >
-                        <input
-                          type="checkbox"
-                          className="peer"
-                          checked={allSelected}
-                          ref={element => { if (element) element.indeterminate = someSelected && !allSelected; }}
-                          onChange={() => toggleDomain(group)}
-                          disabled={!canManage || saving}
-                        />
-                        <span className="grid place-items-center w-7 h-7 rounded-lg bg-[var(--brand-soft)] text-[var(--brand-ink)] shrink-0">
-                          <Icon className="w-4 h-4" />
-                        </span>
-                        <span className="flex-1 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                          {permissionDomainLabel(t, group.domain)}
-                        </span>
-                        <span
-                          className={cn(
-                            'text-xs font-semibold tabular-nums px-1.5 py-0.5 rounded-full shrink-0',
-                            allSelected
-                              ? 'bg-[var(--action)] text-[var(--action-fg)]'
-                              : someSelected
-                                ? 'bg-[var(--brand-soft)] text-[var(--brand-ink)]'
-                                : 'bg-[var(--surface-2)] text-[var(--text-secondary)]',
-                          )}
-                        >
-                          {groupSelected}/{allKeys.length}
-                        </span>
-                      </label>
-
-                      {/* Individual permissions */}
-                      <div className="p-1.5 space-y-0.5">
-                        {group.permissions.map((perm) => {
-                          const sel = selectedPerms.has(perm.key);
-                          return (
-                            <label
-                              key={perm.key}
-                              className={[cn(
-                                'group/r flex items-start gap-2.5 min-h-11 rounded-r-md px-2 py-2.5 transition-colors',
-                                canManage ? 'cursor-pointer' : 'cursor-default',
-                                sel ? 'bg-[var(--brand-soft)]' : canManage && 'hover:bg-[var(--surface-2)]',
-                              ), "selection-row"].filter(Boolean).join(" ")}
-                            >
-                              <input
-                                type="checkbox"
-                                className="peer"
-                                checked={sel}
-                                onChange={() => togglePerm(perm.key)}
-                                disabled={!canManage || saving}
-                              />
-                              <span className="min-w-0">
-                                <span className="block text-sm font-medium leading-tight" style={{ color: 'var(--text-primary)' }}>
-                                  {permissionLabel(t, perm.key, perm.label)}
-                                </span>
-                                <span className="block text-xs leading-snug mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                                  {permissionDescription(t, perm.key, perm.description)}
-                                </span>
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {error && (
-              <div role="alert" className="flex items-start gap-2 text-sm rounded-r-lg px-3 py-2.5 bg-[var(--danger-50)] text-[var(--danger-500)]">
-                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
+      {showEditor && <TeamEditor
+        title={editingRole ? roleDisplayName(t, editingRole.name, editingRole.is_system_default) : t('teamCreatePermissions')}
+        onClose={requestClose} busy={saving}
+        actions={canManage && <Button onClick={() => void handleSave()} disabled={saving}>{t(saving ? 'saving' : 'save')}</Button>}
+      >
+        <div className="team-form">
+          <label className="team-field"><span>{t('teamPermissionsName')}</span><input id="role-name" aria-label={t('name')} value={isDefault ? roleDisplayName(t, editingRole!.name, true) : name} onChange={event => setName(event.target.value)} disabled={fieldsLocked || saving} placeholder={t('teamPermissionsName')} /></label>
+          {isDefault && <p className="text-xs text-[var(--fg-muted)]">{t('systemDefaultNoRename')}</p>}
+          <label className="team-field"><span>{t('description')}</span><input id="role-description" aria-label={t('description')} value={isDefault ? roleDisplayDescription(t, editingRole!.name, editingRole!.description, true) : description} onChange={event => setDescription(event.target.value)} disabled={fieldsLocked || saving} /></label>
+          <div className="mt-6 flex items-center justify-between gap-4"><h2 className="text-lg font-bold">{t('teamPermissions')}</h2><span className="text-sm text-[var(--fg-muted)]">{selectedCount}/{availableKeys.length}</span></div>
+          {canManage && <label className="team-permission-row"><span><strong>{t('selectAll')}</strong></span><input type="checkbox" checked={allOn} disabled={saving} onChange={() => setSelectedPerms(allOn ? new Set() : new Set(availableKeys))} /></label>}
+          <div className="team-permission-groups">
+            {permissionGroups.map(group => {
+              const keys = group.permissions.map(permission => permission.key);
+              const count = keys.filter(key => selectedPerms.has(key)).length;
+              return <section key={group.domain} className="team-permission-group">
+                <label className="team-permission-row"><span><h3>{permissionDomainLabel(t, group.domain)}</h3><small>{count}/{keys.length}</small></span><input type="checkbox" aria-label={permissionDomainLabel(t, group.domain)} checked={count === keys.length} ref={element => { if (element) element.indeterminate = count > 0 && count < keys.length; }} disabled={!canManage || saving} onChange={() => toggleDomain(group)} /></label>
+                {group.permissions.map(permission => <label key={permission.key} className="team-permission-row"><span><strong>{permissionLabel(t, permission.key, permission.label)}</strong><small>{permissionDescription(t, permission.key, permission.description)}</small></span><input type="checkbox" aria-label={permissionLabel(t, permission.key, permission.label)} checked={selectedPerms.has(permission.key)} disabled={!canManage || saving} onChange={() => togglePerm(permission.key)} /></label>)}
+              </section>;
+            })}
           </div>
-        </Modal>
-      )}
+          {error && <p role="alert" className="rounded-lg bg-[var(--danger-50)] p-4 text-[var(--danger-500)]">{error}</p>}
+          {canManage && editingRole && !isDefault && <Button variant="danger" className="mt-6 justify-self-start" disabled={editingRole.user_count > 0 || saving} title={editingRole.user_count > 0 ? t('cannotDeleteWithUsers') : undefined} onClick={() => setDeleteTarget(editingRole)}>{t('deleteRole')}</Button>}
+        </div>
+      </TeamEditor>}
       <ConfirmDialog open={!!deleteTarget} onOpenChange={open => { if (!open) setDeleteTarget(null); }} title={t('deleteRole')}
         description={t('deleteRoleConfirm').replace('{name}', deleteTarget?.name ?? '')} confirmLabel={t('deleteRole')} cancelLabel={t('cancel')} danger
         onConfirm={() => { if (deleteTarget) void handleDelete(deleteTarget); }} />
