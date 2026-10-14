@@ -10,7 +10,7 @@ function positionalBody(body: string, count: number): boolean {
 
 /** Validate the current creation contract, including all variable positions. */
 export function validMetaTemplateBody(kind: MetaTemplateKind, body: string): boolean {
-  return positionalBody(body, { order_recap: 8, delivery_reminder: 4, order_status: 3, receipt: 4 }[kind]);
+  return positionalBody(body, { order_recap: 8, delivery_reminder: 4, order_status: 3, receipt: 4, satisfaction: 2 }[kind]);
 }
 
 /** Limit selection to approved positional body-only Utility templates supported by Foody. */

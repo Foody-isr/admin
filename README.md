@@ -565,6 +565,21 @@ All calls go to `NEXT_PUBLIC_API_URL/api/v1/...` with `Authorization: Bearer <to
 
 ## Validation & Pre-push
 
+WhatsApp settings exposes **Satisfaction after an order** with a manual,
+Sunday/time or 1–168-hour post-fulfillment policy. The restaurant owns its text
+and submits the native template to Meta. Selecting a policy does not enable
+Meta notifications. Automatic sends apply only to orders fulfilled after saving
+the schedule and use the restaurant timezone; manual and automatic sends share
+one order claim. The completed order's Actions menu offers a reviewed manual
+send. Disable the satisfaction policy to stop it and detach its template.
+
+The template library offers confirmed deletion of one unused language variant.
+Used templates must first be detached from their notifications and saved.
+Status and receipt are optional; confirmation and courier reminder remain
+required for global Meta activation. Custom text uses the supported notification
+triggers rather than creating arbitrary order events. Deploy API migration 244
+and the matching endpoints before releasing this Admin.
+
 ```bash
 cd foodyadmin
 npm run lint          # ESLint

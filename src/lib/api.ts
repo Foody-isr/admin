@@ -9214,6 +9214,12 @@ export interface MetaWhatsAppConnection {
   order_status_language?: string;
   receipt_name?: string;
   receipt_language?: string;
+  satisfaction_name?: string;
+  satisfaction_language?: string;
+  satisfaction_mode?: MetaSatisfactionSettings['mode'];
+  satisfaction_delay_hours?: number;
+  satisfaction_sunday_time?: string;
+  satisfaction_since?: string | null;
 }
 export interface MetaWhatsAppStatus {
   configured: boolean;
@@ -9241,7 +9247,7 @@ export function resumeMetaWhatsAppSignup(restaurantId: number): Promise<MetaWhat
   return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/resume`, restaurantId, { method: 'POST' });
 }
 
-export type MetaTemplateKind = 'order_recap' | 'delivery_reminder' | 'order_status' | 'receipt';
+export type MetaTemplateKind = 'order_recap' | 'delivery_reminder' | 'order_status' | 'receipt' | 'satisfaction';
 export interface MetaTemplateRef { name: string; language: string }
 export interface MetaWhatsAppTemplate extends MetaTemplateRef {
   id: string; status: string; category: string; parameter_format?: string;
@@ -9256,8 +9262,23 @@ export function createMetaWhatsAppTemplate(restaurantId: number, input: MetaTemp
   return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/templates`, restaurantId, { method: 'POST', body: JSON.stringify(input) });
 }
 /** Explicitly selects Meta notifications after live template checks, or restores existing Twilio routing. */
-export function configureMetaWhatsAppNotifications(restaurantId: number, input: { enabled: boolean; templates?: Record<MetaTemplateKind, MetaTemplateRef> }): Promise<MetaWhatsAppStatus> {
+export function configureMetaWhatsAppNotifications(restaurantId: number, input: { enabled: boolean; templates?: Record<Exclude<MetaTemplateKind, 'satisfaction'>, MetaTemplateRef> }): Promise<MetaWhatsAppStatus> {
   return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/notifications`, restaurantId, { method: 'PUT', body: JSON.stringify(input) });
+}
+
+export interface MetaSatisfactionSettings {
+  mode: 'disabled' | 'manual' | 'sunday' | 'delay';
+  template: MetaTemplateRef;
+  delay_hours: number;
+  sunday_time: string;
+}
+/** Saves the restaurant's reviewed post-fulfillment policy without activating the provider. */
+export function configureMetaSatisfaction(restaurantId: number, input: MetaSatisfactionSettings): Promise<MetaWhatsAppStatus> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/satisfaction`, restaurantId, { method: 'PUT', body: JSON.stringify(input) });
+}
+/** Deletes one unused native Meta language variant after user confirmation. */
+export function deleteMetaWhatsAppTemplate(restaurantId: number, templateId: string): Promise<{ deleted: boolean }> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/templates/${encodeURIComponent(templateId)}`, restaurantId, { method: 'DELETE' });
 }
 
 // ─── Social reels (Instagram/TikTok Stories page) ────────────────────────────
@@ -10724,7 +10745,7 @@ export function getAddressAutocompleteConfig(restaurantId: number) {
 /** Exact approved, server-derived order message reviewed before a Twilio dispatch. */
 export interface OrderWhatsAppPreview {
   id: string;
-  kind: 'order_recap' | 'delivery_reminder';
+  kind: 'order_recap' | 'delivery_reminder' | 'satisfaction';
   status: 'ready' | 'sending' | 'accepted' | 'unknown' | 'sent' | 'delivered' | 'read' | 'failed';
   language: string;
   provider?: 'twilio' | 'meta';

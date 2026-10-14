@@ -73,9 +73,9 @@ export function OrderTwilioMessage({ restaurantId, orderId, kind }: {
     finally { lock.current = false; if (generation.active) setBusy(false); }
   };
   const deliveryLabels: Record<string, string> = { accepted: 'waMetaAccepted', sent: 'waMetaSent', delivered: 'waMetaDelivered', read: 'waMetaRead', failed: 'waMetaFailed', unknown: 'waMetaUnknown', sending: 'waMetaUnknown' };
-  return <section aria-label={t('waOrderTwilio')} className="mt-5 space-y-3 rounded-r-md border border-[var(--line)] p-3">
-    <p className="font-semibold text-sm">{t('waOrderTwilio')}</p>
-    <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('waOrderTwilioHint')}</p>
+  return <section aria-label={t(kind === 'satisfaction' ? 'waSatisfactionTitle' : 'waOrderTwilio')} className="mt-5 space-y-3 rounded-r-md border border-[var(--line)] p-3">
+    <p className="font-semibold text-sm">{t(kind === 'satisfaction' ? 'waSatisfactionTitle' : 'waOrderTwilio')}</p>
+    {kind !== 'satisfaction' && <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('waOrderTwilioHint')}</p>}
     {kind === 'delivery_reminder' && <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('waOrderReminderTomorrowHint')}</p>}
     {error && <p role="alert" className="text-sm leading-6 text-[var(--danger-500)]">{error}</p>}
     {preview && <>

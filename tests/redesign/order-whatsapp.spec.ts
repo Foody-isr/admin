@@ -1,9 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createFixture } from './fixtures.mjs';
 
-async function install(page: Page, lostResponse = false, meta = false) {
+async function install(page: Page, lostResponse = false, meta = false, completed = false) {
   const fixture = createFixture({ empty: false });
-  Object.assign(fixture.orders[0], { order_type: 'delivery', customer_phone: '+972500000000', courier_name: 'Livreur démo', courier_phone: '+972500000001', scheduled_for: new Date(Date.now() + 86400000).toISOString(), scheduled_pickup_window_start: '10:45', scheduled_pickup_window_end: '12:15' });
+  Object.assign(fixture.orders[0], { ...(completed ? { status: 'delivered', received_at: new Date().toISOString(), completed_at: new Date().toISOString() } : {}), order_type: 'delivery', customer_phone: '+972500000000', courier_name: 'Livreur démo', courier_phone: '+972500000001', scheduled_for: new Date(Date.now() + 86400000).toISOString(), scheduled_pickup_window_start: '10:45', scheduled_pickup_window_end: '12:15' });
   const writes: Array<{ path: string; body: unknown; restaurant?: string }> = [];
   const control = { status: 'ready', kind: 'order_recap' };
   await page.addInitScript(() => {
@@ -97,4 +97,18 @@ test('Meta delivery evidence is refreshed without another send', async ({ page }
   await region.getByRole('button', { name: 'Actualiser le suivi de livraison', exact: true }).click();
   await expect(region.getByRole('status')).toContainText('Marqué comme lu');
   expect(state.writes.filter(row => row.path.endsWith('/send'))).toHaveLength(1);
+});
+
+
+test('completed order exposes satisfaction review and sends only a scoped preview', async ({ page }) => {
+  const state = await install(page, false, true, true);
+  await page.goto('/2/orders/1048');
+  await page.getByRole('button', { name: 'Actions', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Envoyer le message de satisfaction', exact: true }).click();
+  const region = page.getByRole('region', { name: 'Satisfaction après commande', exact: true });
+  await region.getByRole('button', { name: 'Préparer le message', exact: true }).click();
+  expect(state.writes[0]).toEqual({ path: '/api/v1/restaurants/2/whatsapp/orders/1048/preview', body: { kind: 'satisfaction' }, restaurant: '2' });
+  await region.getByRole('button', { name: 'Confirmer l’envoi', exact: true }).click();
+  await expect(region.getByRole('status')).toContainText('Accepté par Meta');
+  expect(state.writes.filter(write => write.path.endsWith('/send'))).toHaveLength(1);
 });

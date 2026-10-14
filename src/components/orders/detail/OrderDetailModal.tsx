@@ -8,6 +8,8 @@ import { groupOrder } from '@/lib/orders/group-order';
 import { deriveOrderCapabilities, type PrimaryAction } from '@/lib/orders/order-actions';
 import { WhatsAppRecapDialog } from '@/components/orders/WhatsAppRecapDialog';
 import { WhatsAppDeliveryReminderDialog } from '@/components/orders/WhatsAppDeliveryReminderDialog';
+import { OrderTwilioMessage } from '@/components/orders/OrderTwilioMessage';
+import { Drawer } from '@/components/ds';
 import type { AcceptOrderResult, CheckoutConfig, Order } from '@/lib/api';
 import { isDeliveryReminderDue } from '@/lib/orders/delivery-reminder';
 import { pickWorkflow, useOrderWorkflows } from '@/lib/orders/use-order-workflows';
@@ -98,8 +100,10 @@ export function OrderDetailModal({
   const [deliveryReminderOpen, setDeliveryReminderOpen] = useState(false);
   const [referenceView, setReferenceView] = useState<OrderReferenceView | null>(null);
   const workflows = useOrderWorkflows(order?.restaurant_id);
+  const [satisfactionOpen, setSatisfactionOpen] = useState(false);
   useEffect(() => {
     setRecapOpen(false);
+    setSatisfactionOpen(false);
     setDeliveryReminderOpen(false);
     setReferenceView(null);
   }, [order?.id]);
@@ -237,6 +241,7 @@ export function OrderDetailModal({
                 onToggleForceProduction={onToggleForceProduction}
                 onCancel={onReject}
                 onDelete={onDelete}
+                onSatisfaction={canManage && !!order.customer_phone && ((order.order_type === 'delivery' && order.status === 'delivered') || (order.order_type === 'pickup' && ['picked_up', 'received', 'served'].includes(order.status))) ? () => setSatisfactionOpen(true) : undefined}
                 disabled={isLoading}
               >{utilities}</OrderOverflowMenu>
             )}
@@ -343,6 +348,10 @@ export function OrderDetailModal({
         restaurantDefaultLocale={restaurantDefaultLocale}
         checkoutConfig={checkoutConfig}
       />
+      <Drawer open={satisfactionOpen} onOpenChange={setSatisfactionOpen} title={t('waSatisfactionTitle')} width={600}>
+        <p className="text-sm text-[var(--fg-muted)]">{t('waSatisfactionOrderHint')}</p>
+        {satisfactionOpen && <OrderTwilioMessage key={`${order.restaurant_id}:${order.id}:satisfaction`} restaurantId={order.restaurant_id} orderId={order.id} kind="satisfaction" />}
+      </Drawer>
       <WhatsAppDeliveryReminderDialog
         open={deliveryReminderOpen}
         onOpenChange={setDeliveryReminderOpen}
