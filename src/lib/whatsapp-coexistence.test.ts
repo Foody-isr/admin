@@ -13,15 +13,24 @@ test('SDK authorization accepts a bounded code and never a browser token', () =>
   assert.equal(coexistenceCode({ authResponse: { code: 'once' } }), 'once');
   for (const value of [null, {}, { authResponse: { accessToken: 'secret' } }, { authResponse: { code: '' } }, { authResponse: { code: 'x'.repeat(8193) } }]) assert.equal(coexistenceCode(value), null);
 });
-test('code and identity join once in either arrival order', () => {
+test('authorization is consumed once without waiting for session identity', () => {
   for (const order of ['code-first', 'identity-first']) {
     const attempt = new CoexistenceAttempt('session');
     if (order === 'code-first') attempt.acceptCode('once'); else attempt.acceptIdentity({ waba_id: '123' });
-    assert.equal(attempt.take(), null);
-    if (order === 'code-first') attempt.acceptIdentity({ waba_id: '123' }); else attempt.acceptCode('once');
-    assert.deepEqual(attempt.take(), { state: 'session', code: 'once', waba_id: '123' });
+    if (order === 'identity-first') {
+      assert.equal(attempt.take(), null);
+      attempt.acceptCode('once');
+    }
+    assert.deepEqual(attempt.take(), { state: 'session', code: 'once', ...(order === 'identity-first' ? { waba_id: '123' } : {}) });
     attempt.acceptCode('late'); attempt.acceptIdentity({ waba_id: '456' }); assert.equal(attempt.take(), null);
   }
+});
+test('a missing session message still produces a code-only server verification request', () => {
+  const attempt = new CoexistenceAttempt('session');
+  attempt.acceptCode('once');
+  assert.deepEqual(attempt.take(), { state: 'session', code: 'once' });
+  attempt.acceptIdentity({ waba_id: '123' });
+  assert.equal(attempt.take(), null);
 });
 test('cancellation isolates stale callbacks from a new restaurant attempt', () => {
   const old = new CoexistenceAttempt('old'); old.acceptCode('secret'); old.cancel();

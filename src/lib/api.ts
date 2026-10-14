@@ -9230,7 +9230,7 @@ export function beginMetaWhatsAppSignup(restaurantId: number, phone: string): Pr
   return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/signup`, restaurantId, { method: 'POST', body: JSON.stringify({ phone_number: phone }) });
 }
 /** Exchange a code server-side and verify the selected number before requesting synchronization. */
-export function completeMetaWhatsAppSignup(restaurantId: number, input: { state: string; code: string; waba_id: string; phone_number_id?: string }): Promise<MetaWhatsAppStatus> {
+export function completeMetaWhatsAppSignup(restaurantId: number, input: { state: string; code: string; waba_id?: string; phone_number_id?: string }): Promise<MetaWhatsAppStatus> {
   return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/connect`, restaurantId, { method: 'POST', body: JSON.stringify(input) });
 }
 /** Resume persisted setup without replaying an uncertain one-shot synchronization. */

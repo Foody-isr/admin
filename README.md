@@ -56,7 +56,11 @@ Settings → WhatsApp also includes a direct Meta coexistence pilot for an exist
 WhatsApp Business app number. Deploy API migrations 240–241 first and configure its
 distinct v4 Login configuration and signed webhook; the Admin obtains public SDK
 settings from the scoped API and needs no new public environment variable. This
-flow verifies connection and synchronization. Native Meta Utility templates can
+flow verifies connection and synchronization.
+The SDK authorization code is exchanged immediately, even if Meta's separate
+session-completion message is missing or delayed. The API resolves the expected
+coexisting number only within the authorization's explicitly granted accounts.
+Native Meta Utility templates can
 then be submitted, checked for approval and explicitly selected for automatic
 confirmation and optional status/receipt notifications. Courier reminders retain
 the reviewed order action. A Meta failure never triggers a Twilio send. The order

@@ -99,7 +99,7 @@ const notice = (page: Page) => page.locator('main [role=status]').filter({ hasNo
 const guarded = (page: Page) => page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; });
 
 const coexistence = (page: Page) => page.getByRole('region', { name: 'Conserver l’application WhatsApp Business · pilote', exact: true });
-for (const order of ['code-first', 'event-first']) test(`Meta coexistence joins ${order} without activating Twilio routing`, async ({ page }) => {
+for (const order of ['code-first', 'event-first', 'missing-event']) test(`Meta coexistence completes ${order} without activating Twilio routing`, async ({ page }) => {
   const state = await install(page, { connected: false, coexistence: true });
   await page.goto('/2/settings/whatsapp');
   await coexistence(page).getByRole('textbox', { name: 'Numéro WhatsApp Business actuel' }).fill('+1 (202) 555-0123');
@@ -107,14 +107,13 @@ for (const order of ['code-first', 'event-first']) test(`Meta coexistence joins 
   await coexistence(page).getByRole('button', { name: 'Continuer avec Meta' }).click();
   const code = () => page.evaluate(() => (window as any).__waCallback({ authResponse: { code: 'one-use-code' } }));
   const identity = () => page.evaluate(() => window.dispatchEvent(new MessageEvent('message', { origin: 'https://www.facebook.com', data: { type: 'WA_EMBEDDED_SIGNUP', event: 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING', data: { waba_id: '123' } } })));
-  if (order === 'code-first') await code(); else await identity();
-  expect(state.writes).toHaveLength(1);
-  if (order === 'code-first') await identity(); else await code();
+  if (order === 'event-first') { await identity(); expect(state.writes).toHaveLength(1); await code(); }
+  else { await code(); if (order === 'code-first') await identity(); }
   await expect(coexistence(page)).toContainText('Synchronisation en cours');
   await expect(coexistence(page)).toContainText('Les notifications automatiques ne sont pas encore activées');
   expect(state.writes).toEqual([
     expect.objectContaining({ path: '/api/v1/restaurants/2/whatsapp/meta/signup', restaurant: '2', body: { phone_number: '+12025550123' } }),
-    expect.objectContaining({ path: '/api/v1/restaurants/2/whatsapp/meta/connect', restaurant: '2', body: { state: 'a'.repeat(64), code: 'one-use-code', waba_id: '123' } }),
+    expect.objectContaining({ path: '/api/v1/restaurants/2/whatsapp/meta/connect', restaurant: '2', body: { state: 'a'.repeat(64), code: 'one-use-code', ...(order === 'event-first' ? { waba_id: '123' } : {}) } }),
   ]);
   const login = await page.evaluate(() => (window as any).__wa.logins[0]);
   expect(login).toMatchObject({ config_id: '200', extras: { setup: {}, featureType: 'whatsapp_business_app_onboarding', sessionInfoVersion: '3' } });
