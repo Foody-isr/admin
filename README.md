@@ -906,8 +906,12 @@ renderer before enabling these settings.
 ## Restaurant calendar
 
 `/[restaurantId]/calendar` is the restaurant's private agenda, available with
-`settings.view` or `settings.edit`. Editing requires `settings.edit`. Month and
-agenda views show manual catering events, other events and full-day closures.
+`settings.view` or `settings.edit`. Editing requires `settings.edit`. Week, day,
+month and agenda views show manual catering events, other events and full-day
+closures. Desktop opens on the week; mobile opens on the agenda. The Square-style
+toolbar keeps date navigation together, with full-width tables and a centered
+event editor. Clicking a week cell or day hour prefills the date, event type and
+optional time; overlapping timed events occupy separate lanes.
 Confirmed events from the catering module appear as read-only references when
 the user also has catering permission; creating an agenda entry does not create
 a commercial catering booking or quote.
