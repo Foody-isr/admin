@@ -1,5 +1,7 @@
 'use client';
 
+import { StopServiceField, validStopServiceMinutes } from '@/components/delivery/StopServiceField';
+
 import { ChoiceRow } from '@/components/ds/Selection';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
@@ -379,6 +381,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [zoneCouriers, setZoneCouriers] = useState<Map<string, number>>(new Map());
   const [manualCouriers, setManualCouriers] = useState<Map<number, number>>(new Map());
   const [departure, setDeparture] = useState(defaultDepartureValue);
+  const [serviceMinutes, setServiceMinutes] = useState('3');
   const [planning, setPlanning] = useState(false);
   const [selectedCourier, setSelectedCourier] = useState<number | null>(null);
   const [selectedStopId, setSelectedStopId] = useState<number | null>(null);
@@ -633,7 +636,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   });
 
   const createPlan = async () => {
-    if (picked.size === 0 || !departure) return;
+    if (picked.size === 0 || !departure || !validStopServiceMinutes(serviceMinutes)) return;
     let assignments: Array<{ courier_id: number; order_ids: number[] }> | undefined;
     let selectedCourierIds = Array.from(plannerCouriers);
 
@@ -679,6 +682,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
         Array.from(picked),
         new Date(departure).toISOString(),
         assignments,
+        Number(serviceMinutes),
       );
       setPicked(new Set());
       setPlannerOpen(false);
@@ -810,7 +814,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const movableRoutes = selectedEntry
     ? routes.filter((route) => route.id !== selectedEntry.route.id && route.status === 'draft')
     : [];
-  const canCreatePlan = picked.size > 0 && Boolean(departure) && (
+  const canCreatePlan = picked.size > 0 && Boolean(departure) && validStopServiceMinutes(serviceMinutes) && (
     distributionMode === 'smart'
       ? plannerCouriers.size > 0
       : distributionMode === 'zone'
@@ -1100,12 +1104,13 @@ export default function DispatcherView({ rid }: { rid: number }) {
           .replace('{available}', String(unplannedOrders.length))}
         width={760}
         footer={(
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+          <div className="grid gap-3 sm:grid-cols-2">
             <label htmlFor="delivery-departure">
               <span className="mb-2 block text-fs-xs font-semibold text-[var(--fg-muted)]">{t('deliveryPlanDeparture')}</span>
               <Input id="delivery-departure" type="datetime-local" value={departure} onChange={(event) => setDeparture(event.target.value)} />
             </label>
-            <Button size="lg" className="w-full sm:w-auto" disabled={planning || !canCreatePlan} onClick={() => void createPlan()}>
+            <StopServiceField value={serviceMinutes} onChange={setServiceMinutes} disabled={planning} t={t} />
+            <Button size="lg" className="w-full sm:col-span-2" disabled={planning || !canCreatePlan} onClick={() => void createPlan()}>
               <RouteIcon />
               {planning ? t('deliveryPlanGenerating') : t('deliveryPlanGenerate').replace('{count}', String(picked.size))}
             </Button>

@@ -936,3 +936,28 @@ to guests. Only closure dates and affected services reach the public API.
 Deploy the API with migration `246_restaurant_calendar.sql`, then Web and Admin.
 Checks: `npx tsx --test src/lib/__tests__/restaurant-calendar.test.ts` and
 `npx playwright test -c playwright.redesign.config.ts tests/redesign/restaurant-calendar.spec.ts`.
+
+## Courier actions, stop duration and destination preflight
+
+Couriers see every unfinished assigned route (including future plans) directly,
+without Assigned/Available tabs or self-pick requests. Each stop exposes tap-to-call
+before departure and a visible delivered action. Delivery completion requires an
+active route, but no separate Arrived action. A current run must finish before the
+UI starts another; GPS reporting uses only the first active run. Future-route maps
+load only when expanded, avoiding tile requests for every assignment.
+
+Planning and pre-departure route settings accept `stop_service_minutes` (integer
+0–60, default 3). It is stored per route and included in optimizer handovers,
+subsequent arrivals and the final duration. Existing clients may omit the field.
+Deploy the matching API and migration 247 before this client.
+
+The courier preflights each changed set of destinations through an owner-scoped
+API call. Missing, imprecise or mismatched coordinates are warned before departure.
+Provider outages are visible and retryable without disabling call/completion.
+Waze receives a checked GPS point, avoiding language-dependent text matching.
+Unverified text searches require an explicit warning; the correction editor accepts
+local/Hebrew addresses or a manually checked point. This checks Foody's destination,
+not Waze's private address index, and never silently changes a saved destination.
+
+Isolated synthetic checks: `npx playwright test -c playwright.courier.config.ts` and
+`npx tsx --test src/lib/__tests__/delivery-links.test.ts src/lib/__tests__/delivery-planning.test.ts`.

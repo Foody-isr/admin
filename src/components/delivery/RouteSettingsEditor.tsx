@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Clock3Icon, FlagIcon, MapPinIcon, PencilIcon, SaveIcon, XIcon } from 'lucide-react';
 import { Button, Input } from '@/components/ds';
+import { StopServiceField, validStopServiceMinutes } from '@/components/delivery/StopServiceField';
 import type { DeliveryRoute, RouteSettingsInput } from '@/lib/delivery';
 
 type Translator = (key: string) => string;
@@ -26,16 +27,19 @@ function localDateTimeValue(value: string | null | undefined, routeDate: string)
 export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t }: RouteSettingsEditorProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
   const [departure, setDeparture] = useState(() => localDateTimeValue(route.planned_departure_at, route.date));
   const [startAddress, setStartAddress] = useState(route.start_address ?? '');
   const [endAddress, setEndAddress] = useState(route.end_address ?? '');
+  const [serviceMinutes, setServiceMinutes] = useState(String(route.stop_service_minutes ?? 3));
 
   useEffect(() => {
     if (editing) return;
     setDeparture(localDateTimeValue(route.planned_departure_at, route.date));
     setStartAddress(route.start_address ?? '');
     setEndAddress(route.end_address ?? '');
-  }, [editing, route.date, route.end_address, route.planned_departure_at, route.start_address]);
+    setServiceMinutes(String(route.stop_service_minutes ?? 3));
+  }, [editing, route.date, route.end_address, route.planned_departure_at, route.start_address, route.stop_service_minutes]);
 
   const departureDate = departure ? new Date(departure) : null;
   const departureValid = departureDate != null && !Number.isNaN(departureDate.getTime());
@@ -47,20 +51,25 @@ export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t
     setDeparture(localDateTimeValue(route.planned_departure_at, route.date));
     setStartAddress(route.start_address ?? '');
     setEndAddress(route.end_address ?? '');
+    setServiceMinutes(String(route.stop_service_minutes ?? 3));
     setEditing(false);
   };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!departureValid) return;
+    if (!departureValid || !validStopServiceMinutes(serviceMinutes)) return;
     setSaving(true);
+    setSaveFailed(false);
     try {
       await onSave({
         planned_departure_at: departureDate.toISOString(),
         start_address: startAddress.trim(),
         end_address: endAddress.trim(),
+        stop_service_minutes: Number(serviceMinutes),
       });
       setEditing(false);
+    } catch {
+      setSaveFailed(true);
     } finally {
       setSaving(false);
     }
@@ -75,6 +84,7 @@ export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t
               <Clock3Icon className="h-3.5 w-3.5 shrink-0 text-[var(--brand-500)]" />
               <span className="font-medium text-[var(--fg)]">{departureLabel}</span>
             </p>
+            <p className="flex items-center gap-2"><Clock3Icon className="h-3.5 w-3.5 shrink-0" /><span>{t('stopServiceMinutesSummary').replace('{minutes}', String(route.stop_service_minutes ?? 3))}</span></p>
             <p className="flex items-center gap-2">
               <MapPinIcon className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{route.start_address || t('routeSettingsOptionalStart')}</span>
@@ -145,13 +155,15 @@ export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t
           />
         </label>
       </div>
+      <div className="mt-3"><StopServiceField value={serviceMinutes} onChange={setServiceMinutes} disabled={disabled || saving} t={t} /></div>
       <p className="mt-3 text-fs-xs leading-relaxed text-[var(--fg-subtle)]">{t('routeSettingsGeocodeHint')}</p>
+      {saveFailed && <p role="alert" className="mt-3 text-fs-xs text-[var(--danger-500)]">{t('routeSettingsSaveFailed')}</p>}
       <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
         <Button type="button" variant="ghost" size="md" className="w-full sm:w-auto" disabled={saving} onClick={reset}>
           <XIcon />
           {t('cancel')}
         </Button>
-        <Button type="submit" variant="primary" size="md" className="w-full sm:w-auto" disabled={disabled || saving || !departureValid}>
+        <Button type="submit" variant="primary" size="md" className="w-full sm:w-auto" disabled={disabled || saving || !departureValid || !validStopServiceMinutes(serviceMinutes)}>
           <SaveIcon />
           {t(saving ? 'saving' : 'save')}
         </Button>

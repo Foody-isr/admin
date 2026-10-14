@@ -23,6 +23,7 @@ export interface RouteStop {
   eta_seconds: number;
   total_amount: number;
   needs_geocode: boolean;
+  navigation_verified?: boolean;
 }
 
 export interface CourierLocationDTO {
@@ -51,6 +52,7 @@ export interface DeliveryRoute {
   eta_reference_at?: string | null;
   total_distance_m: number;
   est_duration_s: number;
+  stop_service_minutes?: number;
   stops: RouteStop[];
   last_location?: CourierLocationDTO | null;
   routing_provider?: 'geoapify' | 'approximate';
@@ -61,6 +63,7 @@ export interface DeliveryRoute {
 export interface RoadLeg { order_id: number; path: [number, number][] }
 
 export interface RouteSettingsInput {
+  stop_service_minutes?: number;
   planned_departure_at: string;
   start_address: string;
   end_address: string;
@@ -214,6 +217,7 @@ export async function planDeliveryRoutes(
   orderIds: number[],
   plannedDepartureAt: string,
   assignments?: Array<{ courier_id: number; order_ids: number[] }>,
+  stopServiceMinutes?: number,
 ): Promise<DeliveryRoute[]> {
   const data = await apiFetch<{ routes: DeliveryRoute[] }>(
     `/api/v1/delivery/routes/plan?${q(restaurantId)}`, restaurantId,
@@ -224,6 +228,7 @@ export async function planDeliveryRoutes(
         order_ids: orderIds,
         planned_departure_at: plannedDepartureAt,
         assignments,
+        stop_service_minutes: stopServiceMinutes,
       }),
     },
   );
@@ -292,4 +297,21 @@ export async function reportLocation(
     `/api/v1/delivery/location?${q(restaurantId)}`, restaurantId,
     { method: 'POST', body: JSON.stringify(pos) },
   );
+}
+
+/** All unfinished routes assigned to the current courier, including future runs. */
+export async function getMyRoutes(restaurantId: number): Promise<DeliveryRoute[]> {
+  const data = await apiFetch<{ routes: DeliveryRoute[] }>(
+    `/api/v1/delivery/routes/mine/all?${q(restaurantId)}`, restaurantId,
+  );
+  return data.routes ?? [];
+}
+
+/** Preflight this courier's addresses against their saved destinations. */
+export async function checkMyRouteNavigation(restaurantId: number, routeId: number, signal?: AbortSignal): Promise<Array<{ stop_id: number; verified: boolean; reason: string }>> {
+  const data = await apiFetch<{ checks: Array<{ stop_id: number; verified: boolean; reason: string }> }>(
+    `/api/v1/delivery/routes/${routeId}/my-navigation-check?${q(restaurantId)}`, restaurantId,
+    { method: 'POST', signal },
+  );
+  return data.checks;
 }
