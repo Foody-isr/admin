@@ -824,6 +824,9 @@ export interface OrderItem {
 }
 
 export interface Order {
+  delivery_zone_id?: number;
+  delivery_schedule?: DeliverySchedule;
+  delivery_slot_pending?: boolean;
   check_id?: string | null;
   course_name?: string;
   kitchen_held?: boolean;
@@ -9497,9 +9500,17 @@ export async function confirmMenuItemImage(
 
 // --- Delivery Zones ---
 
-export type DeliveryZoneType = 'polygon' | 'radius' | 'cities';
+export type DeliveryZoneType = 'polygon' | 'radius' | 'cities' | 'departments';
+
+export interface DeliverySchedule {
+  mode: 'customer' | 'automatic' | 'restaurant';
+  windows: { days: number[]; start: string; end: string }[];
+  offer_pickup: boolean;
+}
 
 export interface DeliveryZone {
+  departments?: string[];
+  schedule?: DeliverySchedule | null;
   id: number;
   restaurant_id: number;
   name: string;
@@ -9522,6 +9533,8 @@ export interface DeliveryZone {
 }
 
 export interface DeliveryZoneInput {
+  departments?: string[];
+  schedule?: DeliverySchedule | null;
   name: string;
   type: DeliveryZoneType;
   is_active?: boolean;
