@@ -266,6 +266,15 @@ The legacy `/[restaurantId]/website` and `/[restaurantId]/website-v2` implementa
 
 Draft endpoints: `GET`/`PUT /restaurants/:id/website-draft`, `POST /restaurants/:id/website-publish`, and `POST /restaurants/:id/website-discard`. Website configuration endpoints also remain available to their other consumers.
 
+The **Text** appearance panel exposes section spacing, automatic or
+S/M/L/XL minimum height (240/400/560/720 px), and content width (automatic,
+640/960/1200 px, or full width). Width is independent of stacked/split layout;
+the background still fills the section. Automatic values preserve historical
+geometry, and long content expands the section on mobile. Autosave, undo/redo,
+preview and publication share `settings.padding`, `height` and `width`.
+Deploy API → Web (`text_section_dimensions: 1`) → Admin. Isolated regression:
+`FOODY_WEB_DIR=../foodyweb npx playwright test -c playwright.website-editor.config.ts text-section-dimensions.spec.ts`.
+
 The **Text and image** appearance panel exposes **Text background** and
 **Image background**, independently of the shared color style. Each accepts a
 hex color or transparency and can reset to the inherited section presentation.
