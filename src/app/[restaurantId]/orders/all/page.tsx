@@ -189,6 +189,7 @@ export default function OrdersPage() {
   const [directOrder, setDirectOrder] = useState<Order | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailLoadFailed, setDetailLoadFailed] = useState(false);
+  const [detailRefreshKey, setDetailRefreshKey] = useState(0);
   const detailOrder = directOrder?.id === detailId
     ? directOrder
     : orders.find((o) => o.id === detailId) ?? null;
@@ -228,7 +229,7 @@ export default function OrdersPage() {
       });
 
     return () => { active = false; };
-  }, [rid, detailId]);
+  }, [rid, detailId, detailRefreshKey]);
 
   // First day of the week + workdays for the date picker. Loaded with the
   // restaurant; both default to "everything on" until then so the picker
@@ -1024,7 +1025,10 @@ export default function OrdersPage() {
         open={weightsOpen}
         onOpenChange={setWeightsOpen}
         order={detailOrder}
-        onConfirmed={fetchOrders}
+        onConfirmed={() => {
+          setDetailRefreshKey((key) => key + 1);
+          void fetchOrders();
+        }}
       />
 
       <ConfirmDialog

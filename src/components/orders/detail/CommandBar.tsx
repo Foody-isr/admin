@@ -57,8 +57,8 @@ export function CommandBar({
     {actions(utilities)}
     {canManage && caps.primary && (
       <Button variant="primary" size="md" className={styles.primaryButton}
-        onClick={() => onPrimary(caps.primary!)} disabled={isLoading}>
-        {PRIMARY_LABEL[caps.primary]}
+        onClick={() => onPrimary(caps.primary!)} disabled={isLoading || caps.awaitingWeights}>
+        {caps.awaitingWeights ? t('weightsPending') : PRIMARY_LABEL[caps.primary]}
       </Button>
     )}
   </>;

@@ -45,7 +45,7 @@ export type OrderStatus =
   | 'pending_review' | 'accepted' | 'in_kitchen' | 'ready'
   | 'served' | 'received' | 'picked_up' | 'delivered' | 'rejected' | 'scheduled'
   | 'ready_for_pickup' | 'ready_for_delivery' | 'out_for_delivery' | 'cancelled' | 'refunded';
-export type PaymentStatus = 'unpaid' | 'pending' | 'partially_paid' | 'paid' | 'refunded';
+export type PaymentStatus = 'unpaid' | 'pending' | 'authorized' | 'partially_paid' | 'paid' | 'refunded';
 
 /** Payment methods staff can record by hand. Mirrors the server's
  *  `manualPaymentMethods` allow-list, which rejects anything else — provider
