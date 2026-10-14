@@ -20,6 +20,36 @@ export function calendarMoveMonth(month: string, offset: number): string {
   const date = new Date(`${month}-01T12:00:00Z`); date.setUTCMonth(date.getUTCMonth() + offset); return calendarDate(date).slice(0, 7);
 }
 
+/** Moves local calendar days without daylight-saving or browser-zone conversion. */
+export function calendarShiftDate(date: string, offset: number): string {
+  const value = new Date(`${date}T12:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + offset);
+  return calendarDate(value);
+}
+
+/** Returns the displayed week using the restaurant's configured first weekday. */
+export function calendarWeekDays(date: string, weekStartDay: number): string[] {
+  const start = weekStartDay >= 0 && weekStartDay <= 6 ? weekStartDay : 1;
+  const offset = (new Date(`${date}T12:00:00Z`).getUTCDay() - start + 7) % 7;
+  return Array.from({ length: 7 }, (_, index) => calendarShiftDate(date, index - offset));
+}
+
+/** Clips timed events to a local day and stacks overlaps in separate visible lanes. */
+export function calendarDayEventLanes(entries: CalendarEntry[], date: string) {
+  const minutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+  const laneEnds: number[] = [];
+  return calendarEntriesOnDate(entries, date).filter(event => !event.all_day).map(event => ({
+    event,
+    start: event.start_date < date ? 0 : minutes(event.start_time),
+    end: event.end_date > date ? 1440 : minutes(event.end_time),
+  })).filter(event => event.end > event.start).sort((a, b) => a.start - b.start || a.end - b.end).map(event => {
+    let lane = laneEnds.findIndex(end => end <= event.start);
+    if (lane === -1) lane = laneEnds.length;
+    laneEnds[lane] = event.end;
+    return { ...event, lane };
+  });
+}
+
 /** New entries are informational unless the operator explicitly chooses closure. */
 export function newCalendarEvent(date: string): RestaurantCalendarEvent {
   return { id: '', title: '', kind: 'other', start_date: date, end_date: date, all_day: true, start_time: '', end_time: '', location: '', notes: '', closed_services: [] };

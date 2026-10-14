@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calendarMonthDays, calendarMoveMonth, newCalendarEvent, calendarEntriesOnDate, calendarEventValid, cateringCalendarEntries } from '../restaurant-calendar';
+import { calendarMonthDays, calendarMoveMonth, calendarShiftDate, calendarWeekDays, calendarDayEventLanes, newCalendarEvent, calendarEntriesOnDate, calendarEventValid, cateringCalendarEntries } from '../restaurant-calendar';
 import { requiredPermissionsForPath } from '../route-permissions';
 
 test('month grid retains local dates across DST, month and leap-year boundaries', () => {
@@ -21,6 +21,25 @@ test('closures include both endpoints; ordinary events do not close service', ()
   assert.equal(calendarEventValid({ ...event, start_date: '2026-02-30' }), false);
   assert.equal(calendarEventValid({ ...event, kind: 'other', all_day: false, start_time: '22:00', end_time: '02:00', end_date: event.start_date }), false);
   assert.equal(calendarEventValid({ ...event, kind: 'other', all_day: false, start_time: '22:00', end_time: '02:00' }), true);
+});
+
+test('week and day navigation follow the restaurant week and retain dates across DST', () => {
+  assert.deepEqual(calendarWeekDays('2026-10-14', 1), ['2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17', '2026-10-18']);
+  assert.equal(calendarWeekDays('2026-10-14', 0)[0], '2026-10-11');
+  assert.equal(calendarShiftDate('2026-10-25', -1), '2026-10-24');
+  assert.equal(calendarShiftDate('2026-12-31', 1), '2027-01-01');
+});
+
+test('day timeline stacks overlapping events and clips overnight ranges without midnight ghosts', () => {
+  const base = { ...newCalendarEvent('2026-10-20'), title: 'Test', all_day: false };
+  const events = [
+    { ...base, id: 'a', start_time: '03:00', end_time: '04:00' },
+    { ...base, id: 'b', start_time: '03:30', end_time: '04:30' },
+    { ...base, id: 'c', start_time: '04:00', end_time: '05:00' },
+    { ...base, id: 'night', start_time: '23:00', end_time: '00:00', end_date: '2026-10-21' },
+  ];
+  assert.deepEqual(calendarDayEventLanes(events, '2026-10-20').map(({ event, start, end, lane }) => [event.id, start, end, lane]), [['a', 180, 240, 0], ['b', 210, 270, 1], ['c', 240, 300, 0], ['night', 1380, 1440, 0]]);
+  assert.deepEqual(calendarDayEventLanes(events, '2026-10-21'), []);
 });
 
 test('confirmed catering entries retain date-only identity and are read-only references', () => {
