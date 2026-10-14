@@ -227,6 +227,8 @@ function contract(
 }
 
 const FIELD_TEST_VALUES: Record<string, TestValue> = {
+  "section.settings.text_bg_color": "#ffffff",
+  "section.settings.image_bg_color": "#fff8ed",
   "section.settings.video_height": "m",
   "section.settings.video_controls": false,
   "section.settings.video_autoplay": true,
@@ -977,6 +979,8 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.settings.bg_image", ["settings", "bg_image"], "[data-website-section]", "style"),
   section("section.settings.bg_overlay", ["settings", "bg_overlay"], "[data-website-section]", "visible"),
   section("section.settings.image_only", ["settings", "image_only"], "text_and_image", "visible"),
+  section("section.settings.text_bg_color", ["settings", "text_bg_color"], "text_and_image", "color"),
+  section("section.settings.image_bg_color", ["settings", "image_bg_color"], "text_and_image", "color"),
   section("section.settings.word_animation", ["settings", "word_animation"], "[data-website-section]", "style"),
   section("section.settings.resize_width", ["settings", "resize_width"], "[data-website-section]", "style"),
   section("section.settings.carousel_autoplay", ["settings", "carousel_autoplay"], "[data-website-section]", "style"),

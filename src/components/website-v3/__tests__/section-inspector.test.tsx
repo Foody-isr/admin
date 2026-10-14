@@ -322,6 +322,25 @@ test("scrolling text has motion controls and a correct layout name", () => {
   assert.match(markup, /Scrolling direction/);
 });
 
+test("text/image backgrounds are local, optional and independently resettable", () => {
+  const inherited = renderSection({ section_type: "text_and_image" }, "appearance");
+  assert.match(inherited, /Text background/);
+  assert.match(inherited, /Image background/);
+  assert.match(inherited, /Section style/);
+  const custom = renderSection({ section_type: "text_and_image", settings: {
+    color_style: "style-6", text_bg_color: "#ffffff", image_bg_color: "#fff8ed",
+  } }, "appearance");
+  assert.match(custom, /section\.settings\.text_bg_color/);
+  assert.match(custom, /section\.settings\.image_bg_color/);
+  assert.match(custom, /value="#ffffff"/);
+  assert.match(custom, /value="#fff8ed"/);
+  assert.match(custom, /Text background — Reset to automatic/);
+  assert.match(custom, /Image background — Reset to automatic/);
+  for (const section_type of ["scrolling_text", "animated_text", "hero_banner"]) {
+    assert.doesNotMatch(renderSection({ section_type }, "appearance"), /section\.settings\.(text|image)_bg_color/);
+  }
+});
+
 test("new scrolling sections expose the same large display typography as the theme", () => {
   const defaults = squareDefaultSettings("scrolling_text");
   assert.equal(defaults.text_size, "xl");

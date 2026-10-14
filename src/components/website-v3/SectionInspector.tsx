@@ -3,6 +3,7 @@ import { EditorialAppearanceFields } from "./EditorialAppearanceFields";
 import { EditorialLayoutPreview } from "./EditorialLayoutPreview";
 import { VideoSettingsFields } from "./VideoSettingsFields";
 import { ColorStylePicker } from "./ColorStylePicker";
+import { TextImageBackgroundFields } from "./TextImageBackgroundFields";
 
 import { useI18n } from "@/lib/i18n";
 import {
@@ -282,6 +283,9 @@ export function SectionInspector({
                   />
                 </>
               ) : null}
+              {section.section_type === "text_and_image" && (
+                <TextImageBackgroundFields section={section} onChange={onChange} />
+              )}
               <ImageUploadField
                 restaurantId={restaurantId}
                 label={t("editorBackgroundMedia")}
