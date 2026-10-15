@@ -915,7 +915,7 @@ The order detail displays pending delivery confirmation and an explicit window
 editor. It validates allowed route times server-side, retains the delivery address
 and fee, and asks for a reason when changing the promised day. The confirmed
 window is visible in customer tracking; no message is sent by this editor.
-Deploy server migration 243 and matching Web before enabling these settings.
+Deploy server migration 249 and matching Web before enabling these settings.
 Browser regression: `FOODY_PREVIEW_PRODUCTION=1 npx playwright test -c
 playwright.redesign.config.ts delivery-zones.spec.ts --grep 'delivery route calendar admin'`.
 Fixtures are synthetic and never call a live geocoder or payment provider.
@@ -999,3 +999,26 @@ Deploy API migrations 249 (application DB) and 250 (dedicated Google budget DB)
 before enabling the production rollout. Credentials stay on the API. The API's
 `docs/GOOGLE_DELIVERY.md` describes activation, billing units and quota protection.
 Browser checks: `npx playwright test -c playwright.redesign.config.ts tests/redesign/delivery-planner.spec.ts tests/redesign/delivery-maps-settings.spec.ts`.
+
+## Temporary IP test access
+
+Restaurant Settings → Temporary test access allows up to 32 public IPv4/IPv6
+addresses with a required expiry within seven days. Activation pauses public
+ordering indefinitely; expiration/revocation does not reopen it. The guest Web
+rechecks authorization on checkout and the API enforces it on every order.
+Payment and fulfillment rules still apply, with real production side effects.
+
+Deploy API migration 251 before Web and Admin. API and guest Web require the same
+server-only `ORDERING_TEST_PROXY_SECRET` (32+ random characters) per environment.
+Never use a `NEXT_PUBLIC_` variable for this secret. The signed visitor IP comes
+only from Vercel’s platform-owned header; arbitrary local forwarded headers do
+not enable access. See the API README for the security and deployment contract.
+
+Focused browser checks: `npx playwright test -c playwright.test-access.config.ts`
+(Web uses an isolated synthetic API; Admin requires `npm run build` first).
+
+Vercel staged production artifacts carry both server-only Web keys:
+`ORDERING_TEST_PROXY_SECRET` for the production API and
+`ORDERING_TEST_PROXY_SECRET_DEV` for `dev-api.foody-pos.co.il`. Each API uses its
+own environment’s key as `ORDERING_TEST_PROXY_SECRET`. Preview deployments need
+only the development key; never copy the production key into Preview.

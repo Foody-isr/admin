@@ -275,6 +275,9 @@ export interface RestaurantSettings {
   // blocked, overriding opening hours and both pre-order modes. Send
   // orders_paused_until as an RFC3339 string, or "" to clear it (pause until
   // manually reopened).
+  /** Staff-only temporary exception; IPs are never included in public responses. */
+  ordering_test_access?: { enabled: boolean; allowed_ips: string[]; expires_at: string | null };
+  ordering_test_access_available?: boolean;
   orders_paused?: boolean;
   orders_paused_until?: string | null;
   calendar_closures?: { start_date: string; end_date: string; services: ('pickup' | 'delivery' | 'dine_in')[] }[];
