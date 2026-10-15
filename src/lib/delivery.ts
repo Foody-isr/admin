@@ -57,7 +57,7 @@ export interface DeliveryRoute {
   stop_service_minutes?: number;
   stops: RouteStop[];
   last_location?: CourierLocationDTO | null;
-  routing_provider?: 'geoapify' | 'approximate';
+  routing_provider?: 'google' | 'geoapify' | 'approximate';
   route_geometry?: RoadLeg[];
 }
 
