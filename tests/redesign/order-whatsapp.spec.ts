@@ -1,22 +1,33 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createFixture } from './fixtures.mjs';
+import type { OrderWhatsAppHistoryEntry } from '../../src/lib/api';
 
-async function install(page: Page, lostResponse = false, meta = false, completed = false) {
-  const fixture = createFixture({ empty: false });
+async function install(page: Page, lostResponse = false, meta = false, completed = false, options: { pending?: boolean; readOnly?: boolean; locale?: string } = {}) {
+  const fixture = createFixture({ empty: false, ...(options.readOnly ? { permissions: ['orders.view'] } : {}) });
   Object.assign(fixture.orders[0], { ...(completed ? { status: 'delivered', received_at: new Date().toISOString(), completed_at: new Date().toISOString() } : {}), order_type: 'delivery', customer_phone: '+972500000000', courier_name: 'Livreur démo', courier_phone: '+972500000001', scheduled_for: new Date(Date.now() + 86400000).toISOString(), scheduled_pickup_window_start: '10:45', scheduled_pickup_window_end: '12:15' });
   const writes: Array<{ path: string; body: unknown; restaurant?: string }> = [];
-  const control = { status: 'ready', kind: 'order_recap' };
-  await page.addInitScript(() => {
+  if (options.pending) fixture.orders[0].status = 'pending_review';
+  const control = { status: 'ready', kind: 'order_recap', history: [] as OrderWhatsAppHistoryEntry[], historyError: false, nextCursor: '', older: [] as OrderWhatsAppHistoryEntry[], reads: [] as string[] };
+  await page.addInitScript(locale => {
     localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Équipe démo', role: 'owner' }));
     localStorage.setItem('foody_restaurant_ids', '[1,2]');
-    localStorage.setItem('foody-admin-locale', 'fr');
-  });
+    localStorage.setItem('foody-admin-locale', locale);
+  }, options.locale ?? 'fr');
   await page.route('**/*', route => ['localhost', '127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
   await page.route('**/api/v1/**', async route => {
     const req = route.request(), path = new URL(req.url()).pathname, body = req.postDataJSON() ?? {}, restaurant = req.headers()['x-restaurant-id'];
     if (path === '/api/v1/order-workflows') return route.fulfill({ json: { workflows: [{ id: 1, order_type: 'delivery', template_source: 'simple', delivery_reminder_enabled: true, stages: [] }] } });
+    if (path === '/api/v1/orders/1048/accept') {
+      writes.push({ path, body, restaurant });
+      fixture.orders[0].status = 'accepted';
+      return route.fulfill({ json: { order: { ...fixture.orders[0], restaurant_id: Number(restaurant) }, follow_up: { whatsapp_recap: true } } });
+    }
     if (path.includes('/whatsapp/orders/')) {
+      if (req.method() === 'GET' && path.endsWith('/messages')) {
+        control.reads.push(`${path}:${restaurant}`);
+        return control.historyError ? route.fulfill({ status: 503, json: { error: 'synthetic unavailable' } }) : route.fulfill({ json: { messages: new URL(req.url()).searchParams.has('before') ? control.older : control.history, next_cursor: new URL(req.url()).searchParams.has('before') ? '' : control.nextCursor } });
+      }
       if (req.method() === 'GET') return route.fulfill({ json: { id: '11111111-1111-4111-8111-111111111111', status: control.status, provider: meta ? 'meta' : 'twilio' } });
       writes.push({ path, body, restaurant });
       if (path.endsWith('/preview')) {
@@ -111,4 +122,112 @@ test('completed order exposes satisfaction review and sends only a scoped previe
   await region.getByRole('button', { name: 'Confirmer l’envoi', exact: true }).click();
   await expect(region.getByRole('status')).toContainText('Accepté par Meta');
   expect(state.writes.filter(write => write.path.endsWith('/send'))).toHaveLength(1);
+});
+
+const historyEntry = (id: string, status: OrderWhatsAppHistoryEntry['status'], kind = 'order_recap', provider: 'meta' | 'twilio' = 'meta'): OrderWhatsAppHistoryEntry => ({
+  id, kind, status, provider, updated_at: '2026-10-15T09:05:00Z', ...(provider === 'meta' && ['delivered', 'read', 'failed'].includes(status) ? { status_at: '2026-10-15T09:04:00Z' } : {}),
+});
+
+async function history(page: Page, restaurant = 1, title = 'Messages au client') {
+  await page.goto(`/${restaurant}/orders/1048`);
+  await page.getByRole('button', { name: title, exact: true }).click();
+  return page.getByRole('dialog', { name: title, exact: true });
+}
+
+test('acceptance does not open manual WhatsApp even when the server suggests a recap', async ({ page }) => {
+  const state = await install(page, false, false, false, { pending: true });
+  await page.goto('/1/orders/1048');
+  await page.getByRole('button', { name: 'Accepter', exact: true }).click();
+  await expect.poll(() => state.writes.filter(row => row.path.endsWith('/accept')).length).toBe(1);
+  await expect(page.getByRole('button', { name: 'Accepter', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Ouvrir WhatsApp', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Actions', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Envoyer la confirmation', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Ouvrir WhatsApp', exact: true })).toBeVisible();
+  expect(state.writes.filter(row => row.path.includes('/whatsapp/'))).toHaveLength(0);
+});
+
+test('order history shows genuine Meta delivery/read evidence and refreshes without sending', async ({ page }, info) => {
+  const state = await install(page, false, true);
+  state.control.history = [historyEntry('a', 'accepted'), historyEntry('b', 'failed', 'delivery_reminder'), historyEntry('c', 'unknown', 'satisfaction'), historyEntry('d', 'accepted', 'receipt', 'twilio')];
+  state.control.history[1].failure_code = 131026;
+  const drawer = await history(page, 2);
+  await expect(drawer.getByRole('listitem')).toHaveCount(4);
+  await expect(drawer).toContainText('La livraison n’est pas encore confirmée');
+  await expect(drawer).toContainText('131026');
+  await expect(drawer).toContainText('n’est pas disponible dans Foody');
+  await expect(drawer.getByText('Lu', { exact: true })).toHaveCount(0);
+  state.control.history[0] = historyEntry('a', 'delivered');
+  await drawer.getByRole('button', { name: 'Actualiser les messages' }).click();
+  await expect(drawer.getByText('Livré', { exact: true })).toBeVisible();
+  state.control.history[0] = historyEntry('a', 'read');
+  await drawer.getByRole('button', { name: 'Actualiser les messages' }).click();
+  await expect(drawer.getByText('Lu', { exact: true })).toBeVisible();
+  await expect(drawer).toContainText('Statut reçu le');
+  await expect(drawer.getByRole('link', { name: 'Configurer les notifications' })).toHaveAttribute('href', '/2/settings/whatsapp');
+  await page.screenshot({ path: info.outputPath('order-messages-desktop-fr.png'), animations: 'disabled' });
+  expect(state.control.reads.every(path => path.startsWith('/api/v1/restaurants/2/whatsapp/orders/1048/messages:2'))).toBe(true);
+  expect(state.writes).toHaveLength(0);
+});
+
+test('message history is readable with orders.view and distinguishes an outage from emptiness', async ({ page }) => {
+  const state = await install(page, false, true, false, { readOnly: true });
+  state.control.historyError = true;
+  const drawer = await history(page);
+  await expect(drawer.getByRole('alert')).toContainText('Impossible d’actualiser');
+  await expect(drawer).not.toContainText('Aucun message suivi');
+  await expect(drawer.getByRole('link', { name: 'Configurer les notifications' })).toHaveCount(0);
+  state.control.historyError = false;
+  await drawer.getByRole('button', { name: 'Réessayer', exact: true }).click();
+  await expect(drawer).toContainText('Aucun message suivi pour le moment');
+  await expect(drawer).toContainText('Les messages envoyés depuis l’application WhatsApp');
+  expect(state.writes).toHaveLength(0);
+});
+
+test('history pagination preserves messages and a failed refresh does not erase evidence', async ({ page }) => {
+  const state = await install(page);
+  state.control.history = [historyEntry('recent', 'read')];
+  state.control.nextCursor = 'recent';
+  state.control.older = [historyEntry('older', 'sent', 'receipt')];
+  const drawer = await history(page);
+  await drawer.getByRole('button', { name: 'Voir les messages précédents' }).click();
+  await expect(drawer.getByRole('listitem')).toHaveCount(2);
+  await expect(drawer.getByRole('button', { name: 'Voir les messages précédents' })).toHaveCount(0);
+  state.control.historyError = true;
+  await drawer.getByRole('button', { name: 'Actualiser les messages' }).click();
+  await expect(drawer.getByRole('alert')).toBeVisible();
+  await expect(drawer.getByText('Lu', { exact: true })).toBeVisible();
+  expect(state.writes).toHaveLength(0);
+});
+
+test('mobile Hebrew history respects RTL and remains available from order Actions', async ({ page }, info) => {
+  const state = await install(page, false, true, false, { locale: 'he' });
+  state.control.history = [historyEntry('read', 'read')];
+  await page.setViewportSize({ width: 375, height: 900 });
+  await page.goto('/1/orders/1048');
+  await page.getByRole('button', { name: 'פעולות', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'הודעות ללקוח', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'הודעות ללקוח', exact: true });
+  await expect(drawer.getByText('נקראה', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('order-messages-mobile-he.png'), animations: 'disabled' });
+  expect(state.writes).toHaveLength(0);
+});
+
+test('open history polls provider evidence and closing it stops polling without closing the order', async ({ page }) => {
+  const state = await install(page, false, true);
+  await page.clock.install();
+  state.control.history = [historyEntry('a', 'delivered')];
+  const drawer = await history(page);
+  await expect(drawer.getByText('Livré', { exact: true })).toBeVisible();
+  state.control.history[0] = historyEntry('a', 'read');
+  await page.clock.fastForward(11000);
+  await expect(drawer.getByText('Lu', { exact: true })).toBeVisible();
+  await drawer.getByRole('button', { name: 'Fermer', exact: true }).click();
+  await expect(drawer).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Messages au client', exact: true })).toBeVisible();
+  const reads = state.control.reads.length;
+  await page.clock.fastForward(30000);
+  expect(state.control.reads).toHaveLength(reads);
+  expect(state.writes).toHaveLength(0);
 });

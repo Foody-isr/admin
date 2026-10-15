@@ -10790,6 +10790,24 @@ export function getOrderWhatsAppStatus(restaurantId: number, orderId: number, me
   return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/messages/${encodeURIComponent(messageId)}`, restaurantId);
 }
 
+/** Recorded dispatch evidence. No historical message body or send time is inferred from the current order. */
+export interface OrderWhatsAppHistoryEntry {
+  id: string;
+  kind: string;
+  provider: 'twilio' | 'meta';
+  status: Exclude<OrderWhatsAppPreview['status'], 'ready'>;
+  failure_code?: number;
+  updated_at: string;
+  status_at?: string;
+}
+
+/** Reads one page of tracked attempts without contacting the provider or sending a message. */
+export async function getOrderWhatsAppHistory(restaurantId: number, orderId: number, before?: string): Promise<{ messages: OrderWhatsAppHistoryEntry[]; next_cursor: string }> {
+  const data = await apiFetch<{ messages: OrderWhatsAppHistoryEntry[]; next_cursor: string }>(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/messages${before ? `?before=${encodeURIComponent(before)}` : ''}`, restaurantId);
+  if (!Array.isArray(data?.messages) || typeof data.next_cursor !== 'string') throw new Error('Incomplete message history');
+  return data;
+}
+
 
 /** A private agenda entry; closure dates include both their first and last day. */
 export interface RestaurantCalendarEvent {
