@@ -73,6 +73,8 @@ test('planner separates completed deliveries from work and preserves history', a
   const state = await install(page);
   await page.goto('/1/orders/deliveries');
   await expect(page.getByRole('heading', { name: 'Livraisons', exact: true })).toBeVisible();
+  await expect(page.locator('[data-page-actions]').getByRole('link', { name: 'Cartes et itinéraires', exact: true })).toHaveAttribute('href', '/1/settings/delivery/maps');
+  await expect(page.locator('[data-page-actions]').getByRole('link', { name: 'Cartes et itinéraires', exact: true })).toHaveAttribute('data-variant', 'secondary');
   await expect(page.getByText('1 sur 3 livrés', { exact: true })).toBeVisible();
   await expect(page.getByText('Client démo 1', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Client démo 4', { exact: true })).toHaveCount(0);
@@ -122,6 +124,7 @@ test('mobile stop details and map stay usable without horizontal overflow', asyn
   await install(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/1/orders/deliveries');
+  await expect(page.locator('[data-page-actions]').getByRole('link', { name: 'Cartes et itinéraires', exact: true })).toBeVisible();
   await page.getByRole('button', { name: /2 Rue de démonstration/ }).click();
   await expect(page.getByRole('button', { name: 'Corriger l’adresse', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -205,13 +208,16 @@ test('routing quota failure keeps the route and explains the failure locally', a
 
 test('legend highlights distinct routes assigned to the same courier', async ({ page }, info) => {
   const state = await install(page);
-  state.routes = [route(11, [stop(2)]), { ...route(12, [stop(3)]), courier_id: 11 }];
+  state.routes = [{ ...route(39, [stop(2)]), courier_id: 1 }, { ...route(40, [stop(3)]), courier_id: 1 }];
   await page.goto('/1/orders/deliveries');
   const legend = page.getByLabel('Tournées sur la carte');
   await expect(legend).toBeVisible();
-  const first = legend.getByRole('button', { name: /Tournée 11/ });
-  const second = legend.getByRole('button', { name: /Tournée 12/ });
+  const first = legend.getByRole('button', { name: 'Livreur démo · Tournée 1', exact: true });
+  const second = legend.getByRole('button', { name: 'Livreur démo · Tournée 2', exact: true });
   await expect(first).toBeVisible(); await expect(second).toBeVisible();
+  await expect(page.getByText(/Tournée (39|40)/)).toHaveCount(0);
+  const ribbon = page.getByRole('button', { name: 'Livreur démo Tournée 1', exact: true });
+  await expect(ribbon).toBeVisible();
   const paths = page.locator('.leaflet-overlay-pane path');
   await expect(paths).toHaveCount(2);
   expect(await paths.nth(0).getAttribute('stroke')).not.toEqual(await paths.nth(1).getAttribute('stroke'));
@@ -221,6 +227,9 @@ test('legend highlights distinct routes assigned to the same courier', async ({ 
   await second.focus(); await page.keyboard.press('Enter');
   await expect(second).toHaveAttribute('aria-pressed', 'true');
   await expect(paths.nth(0)).toHaveAttribute('stroke-opacity', '0.15');
+  await ribbon.click();
+  await expect(first).toHaveAttribute('aria-pressed', 'true');
+  await expect(paths.nth(1)).toHaveAttribute('stroke-opacity', '0.15');
   await page.screenshot({ path: info.outputPath('delivery-route-legend.png'), animations: 'disabled' });
 });
 
