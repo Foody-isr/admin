@@ -113,6 +113,7 @@ function OverviewWorkspace({ rid, embedded, latestOrdering }: { rid: number; emb
   const destinations = [
     { id: 'processing', title: 'ordersProcessingTitle', desc: 'ordersProcessingDesc', icon: Settings2 },
     { id: 'workflow', title: 'orderWorkflow', desc: 'ordersWorkflowDesc', icon: ListChecks },
+    { id: 'test-access', title: 'orderingTestAccessTitle', desc: 'orderingTestAccessDescription', icon: Settings2 },
   ];
   const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const batchOpen = !!batch?.enabled && Date.parse(batch.current_batch_open_at) <= now && now < Date.parse(batch.current_batch_cutoff);

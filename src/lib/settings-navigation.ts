@@ -27,6 +27,7 @@ export function settingsNavigation(restaurantId: number): SettingsNavigationGrou
       { href: `${base}/settings`, labelKey: 'general', exact: true },
       { href: `${base}/settings/orders/processing`, labelKey: 'ordersProcessingShort' },
       { href: `${base}/settings/orders/workflow`, labelKey: 'orderWorkflow' },
+      { href: `${base}/settings/orders/test-access`, labelKey: 'orderingTestAccessTitle', perm: ['settings.view', 'settings.edit'] },
       { href: `${base}/settings/stock`, labelKey: 'stockSettings' },
       { href: `${base}/restaurant/floor-plans`, labelKey: 'floorPlans', desktopOnly: true },
       { href: `${base}/restaurant/sections`, labelKey: 'sections' },
