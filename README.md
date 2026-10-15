@@ -90,6 +90,19 @@ collapsed. Existing Twilio-only installations still open their connection settin
 directly. This presentation does not change sending rules, provider selection or
 the mandatory confirmation/reminder pair.
 
+Accepting an order leaves the order open and never automatically opens the manual
+WhatsApp composer. Its explicit Actions → Send confirmation action remains available;
+server-side automatic notifications retain their configured triggers.
+Order details → **Customer messages** (also under Actions) opens a read-only drawer
+of tracked attempts with current provider status and evidence timestamps. It refreshes
+while open, supports older pages and is available with `orders.view` or `orders.manage`.
+It includes native Meta dispatches and ledger-backed Twilio sends, excludes prepared
+previews, and does not claim to track app/deep-link sends or older unrecorded Twilio
+notifications. Twilio acceptance is distinguished from delivery/read evidence.
+The drawer links to Settings → Communications → WhatsApp; workflow-stage triggers
+and customer-notification switches live at `/[restaurantId]/settings/orders/workflow`.
+Deploy the matching history API before this UI; no migration is required.
+
 ## Selection controls
 
 Admin selections follow the Square reference: white option rows with separators,

@@ -106,7 +106,7 @@ export function OrderDetailModal({
     setSatisfactionOpen(false);
     setDeliveryReminderOpen(false);
     setReferenceView(null);
-  }, [order?.id]);
+  }, [order?.restaurant_id, order?.id]);
 
   // Reference fetches live above their drawers so the closed menu and dock can
   // show counts and warnings without mounting the full content.
@@ -179,8 +179,7 @@ export function OrderDetailModal({
   const handlePrimary = async (action: PrimaryAction) => {
     if (caps.awaitingWeights || isLoading) return;
     if (action === 'accept') {
-      const result = await onAccept();
-      if (result?.follow_up.whatsapp_recap) setRecapOpen(true);
+      await onAccept();
       return;
     }
     PRIMARY_HANDLER[action]();
@@ -224,6 +223,7 @@ export function OrderDetailModal({
                 activityPending={audit.status === 'loading'}
                 activityFailed={audit.status === 'error'}
                 onViewActivity={() => setReferenceView('activity')}
+                onViewMessages={() => setReferenceView('messages')}
                 invoiceCount={invoiceCount}
                 onViewInvoice={invoiceCount > 0 ? () => setReferenceView('invoice') : undefined}
                 canCorrect={caps.canCorrectStatus && !!onOverride}
@@ -296,6 +296,7 @@ export function OrderDetailModal({
                 canManage={canManage}
                 onEditCustomer={onEditCustomer}
                 customFields={customFields.customer}
+                onViewMessages={() => setReferenceView('messages')}
                 t={t}
               />
               <DeliveryPanel order={order} customFields={customFields.address} t={t} />
