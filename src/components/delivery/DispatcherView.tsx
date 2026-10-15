@@ -207,18 +207,18 @@ function RouteRibbon({
             <div className="text-fs-xs text-[var(--fg-subtle)]">{t(history ? 'deliveryPlanStops' : 'deliveryPlanRemaining')}</div>
           </div>
           <div>
-            <div className="text-fs-sm font-semibold text-[var(--fg)]">{formatDuration(route.est_duration_s, t) || '—'}</div>
+            <div className="text-fs-sm font-semibold text-[var(--fg)]">{route.needs_recalculation ? '—' : formatDuration(route.est_duration_s, t) || '—'}</div>
             <div className="text-[11px] text-[var(--fg-subtle)]">{t('deliveryPlanDuration')}</div>
           </div>
           <div>
-            <div className="text-fs-sm font-semibold text-[var(--fg)]"><bdi dir="ltr">{formatDistance(route.total_distance_m) || '—'}</bdi></div>
+            <div className="text-fs-sm font-semibold text-[var(--fg)]"><bdi dir="ltr">{route.needs_recalculation ? '—' : formatDistance(route.total_distance_m) || '—'}</bdi></div>
             <div className="text-[11px] text-[var(--fg-subtle)]">{t('deliveryPlanDistance')}</div>
           </div>
         </div>
-        {unresolved > 0 && (
+        {(route.needs_recalculation || unresolved > 0) && (
           <p className="mb-2 flex items-center gap-1.5 text-[11px] leading-snug text-[var(--warning-500)]">
             <AlertCircleIcon className="h-3 w-3 shrink-0" />
-            {t('routeEstimatePartial')}
+            {t(route.needs_recalculation ? 'deliveryRouteNeedsRecalculation' : 'routeEstimatePartial')}
           </p>
         )}
 
@@ -239,7 +239,7 @@ function RouteRibbon({
           />
         </div>
 
-        {!history && route.status === 'draft' && (
+        {!history && (route.status === 'draft' || (route.status === 'active' && route.needs_recalculation)) && (
           <div className="mb-2 flex flex-wrap items-center justify-end gap-1.5 border-b border-[var(--line)] pb-2">
             <Button
               type="button"
@@ -251,7 +251,7 @@ function RouteRibbon({
               <RefreshCwIcon className={busy ? 'animate-spin' : undefined} />
               {t('deliveryPlanRecalculate')}
             </Button>
-            <Button
+            {route.status === 'draft' && <Button
               type="button"
               variant="ghost"
               disabled={busy}
@@ -261,7 +261,7 @@ function RouteRibbon({
             >
               <Undo2Icon />
               {t('deliveryPlanUnassignRoute')}
-            </Button>
+            </Button>}
           </div>
         )}
 

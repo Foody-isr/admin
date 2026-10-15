@@ -24,10 +24,11 @@ export interface DeliveryEtaWindow {
 
 /** Convert a route's cumulative ETA into a deliberately honest arrival range. */
 export function deliveryEtaWindow(
-  route: Pick<DeliveryRoute, 'started_at' | 'planned_departure_at' | 'eta_reference_at'>,
+  route: Pick<DeliveryRoute, 'started_at' | 'planned_departure_at' | 'eta_reference_at' | 'needs_recalculation'>,
   stop: Pick<RouteStop, 'eta_seconds'>,
   locale: string,
 ): DeliveryEtaWindow | null {
+  if (route.needs_recalculation) return null;
   const anchor = route.eta_reference_at || route.started_at || route.planned_departure_at;
   if (!anchor || stop.eta_seconds <= 0) return null;
   const arrival = new Date(anchor).getTime() + stop.eta_seconds * 1000;

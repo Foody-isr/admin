@@ -194,6 +194,12 @@ Failed list requests show a retry action. Regression checks use synthetic data:
 
 ### Deliveries (`/[restaurantId]/orders/deliveries`)
 
+Routes marked `needs_recalculation` hide obsolete distances, durations and arrival
+estimates, with an explicit recalculation notice. Draft unassignment remains
+available. The matching API omits legacy stops whose orders were removed and
+cleans them during recalculation; permanent order deletion removes its stops
+transactionally. Deploy that API before this Admin update.
+
 The dispatcher uses the shared monochrome workspace components, an explicit route
 date, and In progress/History tabs. Delivered and skipped stops leave the active
 list and map; completed routes remain available by date in History. Mobile users
