@@ -21,9 +21,22 @@ import {
 } from '@simplewebauthn/browser';
 import { normalizeRichExtraction } from './menu-import/normalize-extraction';
 
-import { RUNTIME_API_URL } from './runtime-origins';
+import { RUNTIME_API_URL, RUNTIME_WEB_URL } from './runtime-origins';
 
 export const API_URL = RUNTIME_API_URL;
+
+/** Detects this browser's IP on the guest host without forwarding staff credentials. */
+export async function getOrderingTestCurrentIP(): Promise<string> {
+  const response = await fetch(`${RUNTIME_WEB_URL}/api/ordering-test-ip`, {
+    cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer',
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!response.ok) throw new Error('orderingTestAccessCurrentIPError');
+  const data: unknown = await response.json();
+  const ip = data && typeof data === 'object' && 'ip' in data ? data.ip : undefined;
+  if (typeof ip !== 'string' || ip.length > 45 || !/^[\da-f:.]+$/i.test(ip)) throw new Error('orderingTestAccessCurrentIPError');
+  return ip;
+}
 
 /** Credential-free basemap configuration for the active restaurant. */
 export async function getDeliveryMapConfig(restaurantId: number): Promise<{ provider: 'google' | 'geoapify' | 'openstreetmap'; tile_url: string }> {

@@ -1026,6 +1026,12 @@ ordering indefinitely; expiration/revocation does not reopen it. The guest Web
 rechecks authorization on checkout and the API enforces it on every order.
 Payment and fulfillment rules still apply, with real production side effects.
 
+**Allow my current IP** detects the browser's address directly on the guest Web
+host and immediately saves it for the selected restaurant. Existing IPs and a
+future chosen deadline are preserved; a missing/expired deadline defaults to one
+hour. Detection failures leave saved settings unchanged. Staff credentials are
+never sent to the guest host. This requires the Web `/api/ordering-test-ip` route.
+
 Deploy API migration 251 before Web and Admin. API and guest Web require the same
 server-only `ORDERING_TEST_PROXY_SECRET` (32+ random characters) per environment.
 Never use a `NEXT_PUBLIC_` variable for this secret. The signed visitor IP comes
