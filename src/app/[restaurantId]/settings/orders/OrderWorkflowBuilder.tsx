@@ -8,6 +8,7 @@ import { useI18n } from '@/lib/i18n';
 import { invalidateOrderWorkflows } from '@/lib/orders/use-order-workflows';
 import { Badge, Button, ConfirmDialog, Field, Input, Select } from '@/components/ds';
 import { Switch } from './_components';
+import { WorkflowStageMessage, useWorkflowMetaCatalog } from './WorkflowStageMessage';
 import { ACTIONS, ORDER_TYPES, STAGE_KINDS, TRIGGERS, emptyWorkflow, readWorkflow, validateWorkflow, workflowSignature, type WorkflowDraft, type WorkflowIssue } from './workflow-state';
 
 type Flows = Partial<Record<WorkflowOrderType, WorkflowDraft>>;
@@ -24,6 +25,7 @@ const wrappingButton = 'whitespace-normal py-2 leading-5';
 /** Edit each service's stages and guided actions, recovering uncertain writes before retrying. */
 export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: boolean }) {
   const { t } = useI18n(), router = useRouter();
+  const meta = useWorkflowMetaCatalog(rid);
   const [drafts, setDrafts] = useState<Flows>({}), [baselines, setBaselines] = useState<Flows>({});
   const [sources, setSources] = useState<Partial<Record<WorkflowOrderType, string>>>({});
   const [activeType, setActiveType] = useState<WorkflowOrderType>('pickup');
@@ -143,7 +145,7 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
       {review && <div className="space-y-3 border-t border-[var(--line)] pt-4">
         <p className="text-sm leading-6">{t('wfServerDifferent')}</p>
         <details className="rounded-r-md bg-[var(--surface-2)] p-3"><summary className="cursor-pointer text-sm font-semibold">{t('wfServerVersion')}</summary>
-          <ol className="mt-3 space-y-3">{review.stages.map((stage, index) => <li key={stage.id ?? index} className="text-sm"><p className="font-medium">{index + 1}. <bdi>{stage.name}</bdi> · {t(kindKeys[stage.kind])}</p><p className="mt-1 text-[var(--fg-muted)]">{TRIGGERS.filter(key => stage[key]).map(key => t(triggerKeys[key])).join(' · ') || t('wfTrigManual')}</p><p className="mt-1">{t('wfNotify')} : {t(stage.notify_customer ? 'yes' : 'no')}</p>{stage.customer_message && <p dir="auto" className="mt-1 whitespace-pre-wrap break-words">{stage.customer_message}</p>}</li>)}</ol>
+          <ol className="mt-3 space-y-3">{review.stages.map((stage, index) => <li key={stage.id ?? index} className="text-sm"><p className="font-medium">{index + 1}. <bdi>{stage.name}</bdi> · {t(kindKeys[stage.kind])}</p><p className="mt-1 text-[var(--fg-muted)]">{TRIGGERS.filter(key => stage[key]).map(key => t(triggerKeys[key])).join(' · ') || t('wfTrigManual')}</p><p className="mt-1">{t('wfNotify')} : {t(stage.notify_customer ? 'yes' : 'no')}</p>{stage.whatsapp_template?.name && <p className="mt-1 break-words"><bdi>{stage.whatsapp_template.name}</bdi> · {stage.whatsapp_template.language} · {t(stage.whatsapp_template.timing === 'day_before' ? 'wfWhatsAppDayBefore' : 'wfWhatsAppAtStage')} {stage.whatsapp_template.send_time}</p>}{stage.customer_message && <p dir="auto" className="mt-1 whitespace-pre-wrap break-words">{stage.customer_message}</p>}</li>)}</ol>
           <ul className="mt-4 space-y-2 border-t border-[var(--line)] pt-3">{ACTIONS.map(key => <li key={key} className="text-sm">{t(actionKeys[key])} : {t(review[key] ? 'yes' : 'no')}</li>)}</ul>
         </details>
         <Button className={wrappingButton} disabled={!!busy} onClick={() => setConfirmation({ action: 'adopt' })}>{t('wfUseServerVersion')}</Button>
@@ -159,7 +161,7 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
         return <li key={stage.id ?? `new-${index}`} data-workflow-stage={index} className="min-w-0 rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
           <button type="button" aria-expanded={expanded} aria-controls={`workflow-panel-${index}`} onClick={() => setOpenIndex(expanded ? null : index)} className="flex w-full items-start gap-3 rounded-r-lg p-4 text-start outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-500)]">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)] text-xs font-semibold" style={{ color: colors[stage.kind] }}>{index + 1}</span>
-            <span className="min-w-0 flex-1"><span dir="auto" className="block break-words text-base font-semibold">{name}</span><span className="mt-1 block text-xs text-[var(--fg-muted)]">{t(kindKeys[stage.kind])}</span><span className="mt-2 block text-sm leading-6 text-[var(--fg-muted)]">{triggers.map(key => t(triggerKeys[key])).join(' · ') || t('wfTrigManual')}</span>{stage.notify_customer && <span className="mt-2 inline-flex items-center gap-1 text-xs text-[var(--fg-muted)]"><Bell className="size-3" aria-hidden="true" />{t('wfNotify')}</span>}</span>
+            <span className="min-w-0 flex-1"><span dir="auto" className="block break-words text-base font-semibold">{name}</span><span className="mt-1 block text-xs text-[var(--fg-muted)]">{t(kindKeys[stage.kind])}</span><span className="mt-2 block text-sm leading-6 text-[var(--fg-muted)]">{triggers.map(key => t(triggerKeys[key])).join(' · ') || t('wfTrigManual')}</span>{stage.notify_customer && <span className="mt-2 inline-flex items-center gap-1 text-xs text-[var(--fg-muted)]"><Bell className="size-3" aria-hidden="true" />{stage.whatsapp_template?.name || t('wfNotify')}</span>}</span>
             <ChevronDown className={`mt-1 size-4 shrink-0 text-[var(--fg-muted)] transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden="true" />
           </button>
           {expanded && <div id={`workflow-panel-${index}`} className="space-y-5 border-t border-[var(--line)] p-4">
@@ -171,8 +173,8 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
             <fieldset disabled={frozen} className="space-y-3"><legend className="mb-2 text-sm font-semibold">{t('wfAutomations')}</legend><p className="text-sm leading-6 text-[var(--fg-muted)]">{t('wfMultipleTriggersHint')}</p>
               {TRIGGERS.filter(key => activeType === 'delivery' || !key.includes('courier') || stage[key]).map(key => <label key={key} className="flex min-h-10 items-start gap-3 rounded-r-md border border-[var(--line)] p-3 text-sm selection-row"><input id={fieldId(key)} type="checkbox" checked={stage[key]} aria-invalid={issue?.index === index && issue.field === key || undefined} onChange={event => patchStage(index, { [key]: event.target.checked })} className="mt-0.5 size-4 shrink-0 accent-[var(--brand-ink)]" /><span>{t(triggerKeys[key])}</span></label>)}
             </fieldset>
-            <div className="space-y-3 rounded-r-md bg-[var(--surface-2)] p-4"><div className="flex items-start justify-between gap-4"><span className="text-sm font-semibold">{t('wfNotify')}</span><Switch checked={stage.notify_customer} disabled={frozen} label={t('wfNotify')} onChange={value => patchStage(index, { notify_customer: value })} /></div>
-              <Field label={t('wfCustomerMessage')}><textarea dir="auto" rows={3} value={stage.customer_message ?? ''} readOnly={frozen} onChange={event => patchStage(index, { customer_message: event.target.value })} className="w-full rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-500)]" /></Field><p className="text-xs leading-5 text-[var(--fg-muted)]">{t('wfMessageHint')}</p>
+            <div data-workflow-notification className="space-y-3 rounded-r-md bg-[var(--surface-2)] p-4"><div className="flex items-start justify-between gap-4"><span className="text-sm font-semibold">{t('wfNotify')}</span><Switch checked={stage.notify_customer} disabled={frozen} label={t('wfNotify')} onChange={value => patchStage(index, { notify_customer: value })} /></div>
+              <WorkflowStageMessage key={`${activeType}-${stage.id ?? index}`} rid={rid} meta={meta} stage={stage} orderType={activeType} frozen={frozen} fieldId={fieldId('whatsapp_template')} invalid={issue?.index === index && issue.field === 'whatsapp_template'} onChange={patch => patchStage(index, patch)} />
             </div>
             {canEdit && <div className="flex flex-wrap gap-2 border-t border-[var(--line)] pt-4">
               {([-1, 1] as const).map(direction => { const Icon = direction === -1 ? ArrowUp : ArrowDown; return <Button key={direction} type="button" variant="secondary" size="sm" disabled={frozen || index + direction < 0 || index + direction >= draft.stages.length} onClick={() => { const next = [...draft.stages]; [next[index], next[index + direction]] = [next[index + direction], next[index]]; change({ ...draft, stages: next }); setOpenIndex(index + direction); }}><Icon aria-hidden="true" />{t(direction === -1 ? 'wfMoveUp' : 'wfMoveDown')}</Button>; })}

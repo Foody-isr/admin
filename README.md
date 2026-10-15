@@ -1059,3 +1059,26 @@ Vercel staged production artifacts carry both server-only Web keys:
 `ORDERING_TEST_PROXY_SECRET_DEV` for `dev-api.foody-pos.co.il`. Each API uses its
 own environment’s key as `ORDERING_TEST_PROXY_SECRET`. Preview deployments need
 only the development key; never copy the production key into Preview.
+
+## WhatsApp messages in the order workflow
+
+In Settings → Restaurant → Order workflow, each stage can select its own approved
+Meta template and message type (status, confirmation, receipt, delivery reminder,
+or satisfaction on completion). The event checkboxes advance into that stage;
+its notification then sends once per order/stage. Selection and preview are inline;
+the template library remains in Settings → Communications → WhatsApp.
+
+Delivery reminders can send at stage entry or at a chosen restaurant-local time
+the day before the saved delivery date. Four-variable templates announcing
+“tomorrow” require that calendar day, an assigned courier and a saved window.
+Rescheduling the delivery moves a pending reminder. Disabling, deleting or changing
+the stage rule cancels pending work; it never sends retroactively for old orders.
+A stage-specific confirmation replaces the automatic global confirmation trigger.
+Satisfaction retains its shared once-per-order protection across manual and automatic sends.
+
+Workflow changes save explicitly and participate in lost-response recovery. Older
+workflows retain the global status template / legacy Twilio text until an explicit
+per-stage model is selected. Native template bodies and variable contracts remain
+validated by the API; no provider credentials reach the browser. Deploy API migration
+255 and its scheduler before this Admin version. POS reads this additive stage
+contract and continues to use the same canonical lifecycle statuses.
