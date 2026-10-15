@@ -1008,7 +1008,7 @@ ordering indefinitely; expiration/revocation does not reopen it. The guest Web
 rechecks authorization on checkout and the API enforces it on every order.
 Payment and fulfillment rules still apply, with real production side effects.
 
-Deploy API migration 249 before Web and Admin. API and guest Web require the same
+Deploy API migration 251 before Web and Admin. API and guest Web require the same
 server-only `ORDERING_TEST_PROXY_SECRET` (32+ random characters) per environment.
 Never use a `NEXT_PUBLIC_` variable for this secret. The signed visitor IP comes
 only from Vercel’s platform-owned header; arbitrary local forwarded headers do
