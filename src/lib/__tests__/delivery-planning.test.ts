@@ -26,6 +26,14 @@ test('deliveryEtaWindow anchors cumulative ETA to the planned departure', () => 
   assert.ok(window.day);
 });
 
+test('arrival estimates stay hidden until a changed route is recalculated', () => {
+  assert.equal(deliveryEtaWindow(
+    { planned_departure_at: '2026-08-27T18:00:00.000Z', needs_recalculation: true },
+    { eta_seconds: 3600 },
+    'fr',
+  ), null);
+});
+
 test('deliveryEtaWindow prefers the actual start and rejects missing anchors', () => {
   const active = deliveryEtaWindow(
     {

@@ -131,6 +131,53 @@ test('mobile stop details and map stay usable without horizontal overflow', asyn
   await expect(page.getByText('1 sur 3 livrés', { exact: true })).toBeVisible();
 });
 
+test('a changed itinerary hides stale totals and can still be unassigned', async ({ page }) => {
+  const state = await install(page);
+  state.routes = [{ ...route(1, [stop(2), stop(3)]), needs_recalculation: true }];
+  await page.goto('/1/orders/deliveries');
+  await expect(page.getByText('Des commandes ont été retirées ou modifiées.', { exact: false })).toBeVisible();
+  await expect(page.getByText('8.0 km', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('08:15–08:30', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Désassigner', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Confirmer', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Désassigner', exact: true })).toHaveCount(0);
+  expect(state.writes).toEqual([{ path: '/api/v1/delivery/routes/1', rid: '1' }]);
+});
+
+test('three zones assigned to two couriers send two complete allocations', async ({ page }) => {
+  const state = await install(page);
+  state.routes = [];
+  state.candidates = ['Zone A', 'Zone B', 'Zone C'].map((city, index) => ({
+    id: 2001 + index, restaurant_id: 1, order_type: 'delivery', status: 'in_kitchen',
+    customer_name: `Client démo ${index}`, delivery_address: '1 Rue de démonstration', delivery_city: city,
+  }));
+  await page.route('**/api/v1/delivery/routes/plan**', intercepted => intercepted.fulfill({ json: { routes: [] } }));
+  await page.goto('/1/orders/deliveries');
+  await page.getByRole('checkbox', { name: 'Tout sélectionner', exact: true }).check();
+  await page.getByRole('button', { name: 'Répartir entre les livreurs', exact: true }).first().click();
+  await page.getByRole('radio', { name: /Par zone/ }).click();
+  await page.locator('label').filter({ hasText: 'Zone A' }).getByRole('combobox').selectOption('1');
+  await page.locator('label').filter({ hasText: 'Zone B' }).getByRole('combobox').selectOption('1');
+  await page.locator('label').filter({ hasText: 'Zone C' }).getByRole('combobox').selectOption('2');
+  const request = page.waitForRequest(request => request.url().includes('/delivery/routes/plan') && request.method() === 'POST');
+  await page.getByRole('button', { name: 'Planifier 3 livraisons', exact: true }).click();
+  const submitted = await request;
+  expect(submitted.headers()['x-restaurant-id']).toBe('1');
+  expect(submitted.postDataJSON().assignments).toEqual([
+    { courier_id: 1, order_ids: [2001, 2002] },
+    { courier_id: 2, order_ids: [2003] },
+  ]);
+  expect(submitted.postDataJSON().courier_ids).toEqual([1, 2]);
+});
+
+test('a changed active route offers recalculation without draft unassignment', async ({ page }) => {
+  const state = await install(page);
+  state.routes = [{ ...route(1, [stop(2), stop(3)], 'active'), needs_recalculation: true }];
+  await page.goto('/1/orders/deliveries');
+  await expect(page.getByRole('button', { name: 'Recalculer', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Désassigner', exact: true })).toHaveCount(0);
+});
+
 test('Hebrew dark mode keeps requests scoped to the active restaurant', async ({ page }, info) => {
   const state = await install(page, 'he');
   await page.goto('/2/orders/deliveries');

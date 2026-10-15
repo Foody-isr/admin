@@ -643,10 +643,10 @@ function CourierRouteView({ rid, assignedRoute, onReload, canStart, reportLocati
                 <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
                   <div className="min-w-0">
                     <p className="whitespace-nowrap text-fs-sm font-semibold text-[var(--fg)]">
-                      {formatEta(route.est_duration_s, t) || '—'} · {unresolvedStops.length > 0 ? `${locatedStops}/${stops.length}` : stops.length} {t('deliveryPlanStops')}
+                      {route.needs_recalculation ? '—' : formatEta(route.est_duration_s, t) || '—'} · {unresolvedStops.length > 0 ? `${locatedStops}/${stops.length}` : stops.length} {t('deliveryPlanStops')}
                     </p>
-                    {unresolvedStops.length > 0 && (
-                      <p className="mt-0.5 text-[11px] text-[var(--warning-500)]">{t('routeEstimatePartial')}</p>
+                    {(route.needs_recalculation || unresolvedStops.length > 0) && (
+                      <p className="mt-0.5 text-[11px] text-[var(--warning-500)]">{t(route.needs_recalculation ? 'deliveryRouteNeedsRecalculation' : 'routeEstimatePartial')}</p>
                     )}
                   </div>
                   <Button
