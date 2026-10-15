@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { MapPin, RefreshCw } from 'lucide-react';
 import { Button, PageHead, Section, ConfirmDialog } from '@/components/ds';
 import { ChoiceRow } from '@/components/ds/Selection';
 import { usePermissions } from '@/lib/permissions-context';
@@ -41,8 +41,7 @@ function DeliveryMapsWorkspace({ rid }: { rid: number }) {
   };
   const reset = status?.google.resets_at && !Number.isNaN(Date.parse(status.google.resets_at)) ? new Date(status.google.resets_at).toLocaleString(locale, { dateStyle: 'long', timeStyle: 'short' }) : null;
   return <div className="mx-auto max-w-[980px] pb-8">
-    <Link href={`/${rid}/settings/delivery`} className="mb-5 inline-flex items-center gap-2 text-fs-sm underline"><ArrowLeft className="size-4 rtl:rotate-180" />{t('deliveryZones')}</Link>
-    <PageHead title={t('mapsTitle')} desc={t('mapsDescription')} actions={<Button variant="secondary" disabled={busy || !canView} onClick={() => void load()}><RefreshCw className="size-4" />{t('refresh')}</Button>} />
+    <PageHead title={t('mapsTitle')} desc={t('mapsDescription')} actions={<><Button variant="secondary" asChild><Link href={`/${rid}/settings/delivery`}><MapPin aria-hidden />{t('deliveryZones')}</Link></Button><Button variant="secondary" icon aria-label={t('refresh')} disabled={busy || !canView} onClick={() => void load()}><RefreshCw className="size-4" /></Button></>} />
     {!canView ? <p role="status">{t('mapsNoPermission')}</p> : <>
       {error && <p role="alert" className="mb-5 text-[var(--danger-500)]">{t(error)}</p>}
       {notice && <p role="status" className="mb-5">{t(notice)}</p>}

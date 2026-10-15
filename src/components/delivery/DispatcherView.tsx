@@ -17,6 +17,7 @@ import {
   PencilIcon,
   RefreshCwIcon,
   RouteIcon,
+  Settings2Icon,
   SparklesIcon,
   Undo2Icon,
   UserIcon,
@@ -143,6 +144,7 @@ function deliveryMessage(t: Translator, stop: RouteStop, window: DeliveryEtaWind
 
 interface RouteRibbonProps {
   route: DeliveryRoute;
+  routeNumber: number;
   courier?: StaffMember;
   color: string;
   locale: string;
@@ -159,6 +161,7 @@ interface RouteRibbonProps {
 
 function RouteRibbon({
   route,
+  routeNumber,
   courier,
   color,
   locale,
@@ -184,8 +187,9 @@ function RouteRibbon({
       <CardHeader className="px-4 py-3">
         <button type="button" onClick={onSelectCourier} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-r-md text-start focus-visible:outline-none focus-visible:shadow-ring">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-r-md bg-[var(--surface-2)]" style={{ color: courierInk }}><UserIcon className="h-5 w-5" /></span>
-          <span className="truncate text-fs-sm font-semibold text-[var(--fg)]">
-            {courier?.full_name ?? `#${route.courier_id}`}
+          <span className="min-w-0">
+            <span className="block truncate text-fs-sm font-semibold text-[var(--fg)]">{courier?.full_name ?? t('courier')}</span>
+            <span className="mt-1 flex items-center gap-2 text-fs-xs text-[var(--fg-muted)]"><span aria-hidden className="h-1 w-5 shrink-0 rounded-full" style={{ background: color }} />{t('mapsRoute')} {routeNumber}</span>
           </span>
         </button>
         <span className="flex shrink-0 items-center gap-1">
@@ -520,9 +524,9 @@ export default function DispatcherView({ rid }: { rid: number }) {
   }, [routes]);
 
   const layers = useMemo<RouteLayer[]>(
-    () => routes.map((route) => ({
+    () => routes.map((route, index) => ({
       routeId: route.id,
-      label: `${courierById.get(route.courier_id)?.full_name ?? t('courier')} · ${t('mapsRoute')} ${route.id}`,
+      label: `${courierById.get(route.courier_id)?.full_name ?? t('courier')} · ${t('mapsRoute')} ${index + 1}`,
       geometry: route.route_geometry,
       routingProvider: route.routing_provider,
       courierId: route.courier_id,
@@ -846,9 +850,9 @@ export default function DispatcherView({ rid }: { rid: number }) {
         </div>
       )}
 
-      <Link href={`/${rid}/settings/delivery/maps`} className="mb-3 inline-block text-fs-sm underline">{t('mapsTitle')}</Link>
       <PageHead className="mb-0" title={t('deliveries')} desc={t('deliveryPlanWorkspaceIntro')} actions={
         <>
+          <Button variant="secondary" asChild><Link href={`/${rid}/settings/delivery/maps`}><Settings2Icon aria-hidden />{t('mapsTitle')}</Link></Button>
           <Button variant="secondary" icon aria-label={t('refresh')} disabled={loading} onClick={() => void load()}><RefreshCwIcon className={loading ? 'animate-spin' : undefined} /></Button>
           {view === 'open' && unplannedOrders.length > 0 && <Button disabled={picked.size === 0} onClick={() => setPlannerOpen(true)}>{t('deliveryPlanStepTwo')}</Button>}
         </>
@@ -964,10 +968,11 @@ export default function DispatcherView({ rid }: { rid: number }) {
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
             {routes.length === 0 ? (
               <EmptyState icon={view === 'history' ? <CheckIcon /> : <RouteIcon />} title={t(loading ? 'loading' : view === 'history' ? 'deliveryPlanNoHistory' : 'deliveryPlanNoActiveRoutes')} desc={loading ? undefined : t(view === 'history' ? 'deliveryPlanHistoryHint' : 'deliveryPlanActiveHint')} />
-            ) : routes.map((route) => (
+            ) : routes.map((route, index) => (
               <RouteRibbon
                 key={route.id}
                 route={route}
+                routeNumber={index + 1}
                 courier={courierById.get(route.courier_id)}
                 color={routeColorMap.get(route.id) ?? colorFor(0)}
                 locale={locale}

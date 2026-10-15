@@ -1002,10 +1002,15 @@ Isolated synthetic checks: `npx playwright test -c playwright.courier.config.ts`
 
 ## Delivery maps and usage
 
-Settings → Delivery → Maps and routes exposes this restaurant's Google usage,
+Settings → Ordering & delivery → Maps and routes exposes this restaurant's Google usage,
 platform availability and a protected provider choice. Google resumes after the
 monthly quota reset unless Geoapify was pinned manually. The planner's legend
-selects individual routes, including several routes for the same courier.
+selects individual routes, including several routes for the same courier. Routes
+are numbered from 1 within the displayed list; the ribbon and map legend share
+that number, courier name and route color. Internal route IDs no longer appear in
+map labels; route actions continue to use the persisted IDs.
+The delivery planner and delivery-zone page expose Maps and routes as an outlined
+header action, and the settings sidebar offers it directly beside Delivery zones.
 Upgrade currently opens contact-Foody information without initiating payment.
 
 Deploy API migrations 249 (application DB) and 250 (dedicated Google budget DB)
