@@ -10863,6 +10863,34 @@ export async function getCalendarConflicts(restaurantId: number, event: Restaura
 }
 
 export type DeliveryProviderPreference = 'auto' | 'google' | 'geoapify';
+export interface FoodyMapsOffer {
+  version: number;
+  status: 'planned';
+  currency: 'ILS';
+  monthly_price: number;
+  per_establishment: boolean;
+  excluding_tax: boolean;
+  optimization_credits: number;
+  single_stop_credits: number;
+  fleet_stop_credits: number;
+  map_tiles: number;
+  geocoding_requests: number;
+  route_requests: number;
+  automatic_billing: false;
+}
+export interface GeoapifyUsageStatus {
+  configured: boolean;
+  tracking_available: boolean;
+  daily_limit: number;
+  requests_per_second: number;
+  day: string;
+  month: string;
+  next_period_at: string;
+  tracked_since?: string;
+  credits_today: number;
+  credits_month: number;
+  counters: { sku: string; requests: number; credits: number }[];
+}
 export interface DeliveryProviderStatus {
   preference: DeliveryProviderPreference;
   active_provider: 'google' | 'geoapify';
@@ -10873,6 +10901,8 @@ export interface DeliveryProviderStatus {
     resets_at: string;
     counters: { sku: string; used: number; limit: number; available: boolean }[];
   };
+  geoapify?: GeoapifyUsageStatus;
+  foody_offer?: FoodyMapsOffer;
 }
 /** Read this restaurant's map usage and the shared platform's availability. */
 export function getDeliveryProviderStatus(restaurantId: number): Promise<DeliveryProviderStatus> {
