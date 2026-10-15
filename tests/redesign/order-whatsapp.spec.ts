@@ -1,13 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createFixture } from './fixtures.mjs';
-import type { OrderWhatsAppHistoryEntry } from '../../src/lib/api';
+import type { BlockedOrderWhatsAppAutomation, OrderWhatsAppHistoryEntry } from '../../src/lib/api';
 
 async function install(page: Page, lostResponse = false, meta = false, completed = false, options: { pending?: boolean; readOnly?: boolean; locale?: string } = {}) {
   const fixture = createFixture({ empty: false, ...(options.readOnly ? { permissions: ['orders.view'] } : {}) });
   Object.assign(fixture.orders[0], { ...(completed ? { status: 'delivered', received_at: new Date().toISOString(), completed_at: new Date().toISOString() } : {}), order_type: 'delivery', customer_phone: '+972500000000', courier_name: 'Livreur démo', courier_phone: '+972500000001', scheduled_for: new Date(Date.now() + 86400000).toISOString(), scheduled_pickup_window_start: '10:45', scheduled_pickup_window_end: '12:15' });
   const writes: Array<{ path: string; body: unknown; restaurant?: string }> = [];
   if (options.pending) fixture.orders[0].status = 'pending_review';
-  const control = { status: 'ready', kind: 'order_recap', history: [] as OrderWhatsAppHistoryEntry[], historyError: false, nextCursor: '', older: [] as OrderWhatsAppHistoryEntry[], reads: [] as string[] };
+  const control = { status: 'ready', kind: 'order_recap', history: [] as OrderWhatsAppHistoryEntry[], blocked: [] as BlockedOrderWhatsAppAutomation[], blockedTotal: 0, historyError: false, nextCursor: '', older: [] as OrderWhatsAppHistoryEntry[], reads: [] as string[] };
   await page.addInitScript(locale => {
     localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Équipe démo', role: 'owner' }));
@@ -26,7 +26,7 @@ async function install(page: Page, lostResponse = false, meta = false, completed
     if (path.includes('/whatsapp/orders/')) {
       if (req.method() === 'GET' && path.endsWith('/messages')) {
         control.reads.push(`${path}:${restaurant}`);
-        return control.historyError ? route.fulfill({ status: 503, json: { error: 'synthetic unavailable' } }) : route.fulfill({ json: { messages: new URL(req.url()).searchParams.has('before') ? control.older : control.history, next_cursor: new URL(req.url()).searchParams.has('before') ? '' : control.nextCursor } });
+        return control.historyError ? route.fulfill({ status: 503, json: { error: 'synthetic unavailable' } }) : route.fulfill({ json: { messages: new URL(req.url()).searchParams.has('before') ? control.older : control.history, next_cursor: new URL(req.url()).searchParams.has('before') ? '' : control.nextCursor, blocked_automations: control.blocked, blocked_automations_total: control.blockedTotal } });
       }
       if (req.method() === 'GET') return route.fulfill({ json: { id: '11111111-1111-4111-8111-111111111111', status: control.status, provider: meta ? 'meta' : 'twilio' } });
       writes.push({ path, body, restaurant });
@@ -229,5 +229,43 @@ test('open history polls provider evidence and closing it stops polling without 
   const reads = state.control.reads.length;
   await page.clock.fastForward(30000);
   expect(state.control.reads).toHaveLength(reads);
+  expect(state.writes).toHaveLength(0);
+});
+
+test('blocked stage notification explains missing variables without claiming a send or retrying', async ({ page }, info) => {
+  const state = await install(page, false, true);
+  state.control.history = [historyEntry('confirmation', 'read')];
+  state.control.blocked = [{ id: 1, kind: 'delivery_reminder', template_name: 'delivery_fr', updated_at: '2026-10-15T19:50:00Z' }];
+  state.control.blockedTotal = 1;
+  const drawer = await history(page, 2);
+  const blocked = drawer.getByRole('region', { name: 'Notifications non envoyées', exact: true });
+  await expect(blocked.getByText('Non envoyé', { exact: true })).toBeVisible();
+  await expect(blocked).toContainText('le nom et le téléphone du livreur');
+  await expect(blocked).toContainText('ne seront pas relancées automatiquement');
+  await expect(blocked).not.toContainText('Statut reçu le');
+  await expect(blocked.getByRole('link', { name: 'Vérifier le parcours de commande' })).toHaveAttribute('href', '/2/settings/orders/workflow');
+  await expect(drawer.getByText('Lu', { exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath('order-blocked-workflow-fr.png'), animations: 'disabled' });
+  state.control.historyError = true;
+  await drawer.getByRole('button', { name: 'Actualiser les messages' }).click();
+  await expect(drawer.getByRole('alert')).toBeVisible();
+  await expect(blocked).toBeVisible();
+  expect(state.writes).toHaveLength(0);
+});
+
+test('blocked history works on mobile RTL for read-only staff and refresh replaces its snapshot', async ({ page }, info) => {
+  const state = await install(page, false, true, false, { locale: 'he', readOnly: true });
+  state.control.blocked = [{ id: 1, kind: 'delivery_reminder', template_name: 'delivery_fr', updated_at: '2026-10-15T19:50:00Z' }];
+  state.control.blockedTotal = 53;
+  await page.setViewportSize({ width: 375, height: 900 });
+  const drawer = await history(page, 1, 'הודעות ללקוח');
+  await expect(drawer.getByText('לא נשלחה', { exact: true })).toBeVisible();
+  await expect(drawer.getByRole('link')).toHaveCount(0);
+  await expect(drawer).toContainText('מתוך 53');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('order-blocked-workflow-he.png'), animations: 'disabled' });
+  state.control.blocked = []; state.control.blockedTotal = 0;
+  await drawer.getByRole('button', { name: 'רענון הודעות' }).click();
+  await expect(drawer.getByText('לא נשלחה', { exact: true })).toHaveCount(0);
   expect(state.writes).toHaveLength(0);
 });

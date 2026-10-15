@@ -153,6 +153,8 @@ test('workflow delivery trigger can select a reminder and schedule a restaurant-
   const state = await install(page); enableMeta(state); await page.setViewportSize({ width: 390, height: 1000 }); await page.goto('/1/settings/orders/workflow'); await typeButton(page, 'Livraison').click(); await expand(page, 1); const panel = row(page, 1);
   await panel.getByRole('combobox', { name: 'Type de message', exact: true }).selectOption('delivery_reminder');
   await panel.getByRole('combobox', { name: 'Modèle WhatsApp', exact: true }).selectOption('rappel_fr|fr');
+  await expect(panel).toContainText('quelle que soit la date de livraison');
+  await expect(panel).not.toContainText('ne peut partir que la veille');
   await panel.getByRole('combobox', { name: 'Quand envoyer ?', exact: true }).selectOption('day_before'); await panel.getByLabel('Heure (fuseau du restaurant)', { exact: true }).fill('10:15');
   await panel.getByRole('switch', { name: 'Prévenir le client', exact: true }).click(); await panel.getByRole('checkbox', { name: 'Livreur assigné', exact: true }).check();
   await save(page).click(); await expect(save(page)).toBeDisabled(); expect(state.writes[0].body.stages[1]).toMatchObject({ trigger_courier_assigned: true, notify_customer: true, whatsapp_template: { kind: 'delivery_reminder', name: 'rappel_fr', timing: 'day_before', send_time: '10:15' } });

@@ -1069,8 +1069,10 @@ its notification then sends once per order/stage. Selection and preview are inli
 the template library remains in Settings → Communications → WhatsApp.
 
 Delivery reminders can send at stage entry or at a chosen restaurant-local time
-the day before the saved delivery date. Four-variable templates announcing
-“tomorrow” require that calendar day, an assigned courier and a saved window.
+the day before the saved delivery date. Explicit stage timing is honored regardless
+of the delivery date; the dedicated manual reminder's J-1 rule does not override
+the workflow. Staff choose wording appropriate to their selected trigger. Saved
+courier name/phone and the delivery window are still required template variables.
 Rescheduling the delivery moves a pending reminder. Disabling, deleting or changing
 the stage rule cancels pending work; it never sends retroactively for old orders.
 A stage-specific confirmation replaces the automatic global confirmation trigger.
@@ -1082,3 +1084,8 @@ per-stage model is selected. Native template bodies and variable contracts remai
 validated by the API; no provider credentials reach the browser. Deploy API migration
 255 and its scheduler before this Admin version. POS reads this additive stage
 contract and continues to use the same canonical lifecycle statuses.
+
+Order details → Customer messages shows stage notifications blocked before sending
+separately from provider delivery/read evidence, with required-data guidance and
+a scoped link to the workflow. The latest blocked snapshot refreshes without
+resending; older APIs can omit this additive snapshot during a rolling release.
