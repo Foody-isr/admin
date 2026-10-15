@@ -5,6 +5,7 @@ import { StopServiceField, validStopServiceMinutes } from '@/components/delivery
 import { ChoiceRow } from '@/components/ds/Selection';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import {
   AlertCircleIcon,
   ArrowRightLeftIcon,
@@ -383,6 +384,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [departure, setDeparture] = useState(defaultDepartureValue);
   const [serviceMinutes, setServiceMinutes] = useState('3');
   const [planning, setPlanning] = useState(false);
+  const [selectedRoute, setSelectedRoute] = useState<number | null>(null);
   const [selectedCourier, setSelectedCourier] = useState<number | null>(null);
   const [selectedStopId, setSelectedStopId] = useState<number | null>(null);
   const [moveTarget, setMoveTarget] = useState<number | null>(null);
@@ -505,15 +507,22 @@ export default function DispatcherView({ rid }: { rid: number }) {
     if (lastEvent.type === 'route.updated' || lastEvent.type.startsWith('order.')) void load();
   }, [lastEvent, load]);
 
+  const courierById = useMemo(() => {
+    const map = new Map<number, StaffMember>();
+    couriers.forEach((courier) => map.set(courier.id, courier));
+    return map;
+  }, [couriers]);
+
   const routeColorMap = useMemo(() => {
     const colors = new Map<number, string>();
-    routes.forEach((route, index) => colors.set(route.id, colorFor(index)));
+    routes.forEach(route => colors.set(route.id, `hsl(${(route.id * 137.508) % 360} 64% 36%)`));
     return colors;
   }, [routes]);
 
   const layers = useMemo<RouteLayer[]>(
     () => routes.map((route) => ({
       routeId: route.id,
+      label: `${courierById.get(route.courier_id)?.full_name ?? t('courier')} · ${t('mapsRoute')} ${route.id}`,
       geometry: route.route_geometry,
       routingProvider: route.routing_provider,
       courierId: route.courier_id,
@@ -526,7 +535,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
         ? { lat: route.end_lat, lng: route.end_lng }
         : undefined,
     })),
-    [routes, routeColorMap, view],
+    [routes, routeColorMap, view, courierById, t],
   );
 
   const courierMarkers = useMemo<CourierMarker[]>(() => {
@@ -545,11 +554,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
     return markers;
   }, [routes, livePositions, nowTick, routeColorMap]);
 
-  const courierById = useMemo(() => {
-    const map = new Map<number, StaffMember>();
-    couriers.forEach((courier) => map.set(courier.id, courier));
-    return map;
-  }, [couriers]);
+
 
   const openRouteByOrderId = useMemo(() => {
     const map = new Map<number, DeliveryRoute>();
@@ -841,6 +846,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
         </div>
       )}
 
+      <Link href={`/${rid}/settings/delivery/maps`} className="mb-3 inline-block text-fs-sm underline">{t('mapsTitle')}</Link>
       <PageHead className="mb-0" title={t('deliveries')} desc={t('deliveryPlanWorkspaceIntro')} actions={
         <>
           <Button variant="secondary" icon aria-label={t('refresh')} disabled={loading} onClick={() => void load()}><RefreshCwIcon className={loading ? 'animate-spin' : undefined} /></Button>
@@ -968,9 +974,10 @@ export default function DispatcherView({ rid }: { rid: number }) {
                 selectedStopId={selectedStopId}
                 busy={loading || routeBusy === route.id}
                 history={view === 'history'}
-                onSelectCourier={() => setSelectedCourier((current) => current === route.courier_id ? null : route.courier_id)}
+                onSelectCourier={() => { setSelectedRoute(current => current === route.id ? null : route.id); setSelectedCourier(null); }}
                 onSelectStop={(stopId) => {
                   setSelectedStopId(stopId);
+                  setSelectedRoute(route.id);
                   setSelectedCourier(route.courier_id);
                   setMoveTarget(null);
                 }}
@@ -990,9 +997,12 @@ export default function DispatcherView({ rid }: { rid: number }) {
             routes={layers}
             couriers={courierMarkers}
             highlightCourierId={selectedCourier}
+            highlightRouteId={selectedRoute}
+            onRouteSelect={id => { setSelectedRoute(id); setSelectedCourier(null); setSelectedStopId(null); }}
             onStopClick={(stop) => {
               setSelectedStopId(stop.id);
               const route = routes.find((candidate) => candidate.stops.some((candidateStop) => candidateStop.id === stop.id));
+              setSelectedRoute(route?.id ?? null);
               setSelectedCourier(route?.courier_id ?? null);
               setMoveTarget(null);
             }}

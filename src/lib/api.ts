@@ -26,9 +26,9 @@ import { RUNTIME_API_URL } from './runtime-origins';
 export const API_URL = RUNTIME_API_URL;
 
 /** Credential-free basemap configuration for the active restaurant. */
-export async function getDeliveryMapConfig(restaurantId: number): Promise<{ provider: 'geoapify' | 'openstreetmap'; tile_url: string }> {
-  const config = await apiFetch<{ provider: 'geoapify' | 'openstreetmap'; tile_url: string }>(`/api/v1/public/delivery/map-config?restaurant_id=${restaurantId}`, restaurantId);
-  if (!['geoapify', 'openstreetmap'].includes(config.provider) || typeof config.tile_url !== 'string') throw new Error('Map configuration unavailable');
+export async function getDeliveryMapConfig(restaurantId: number): Promise<{ provider: 'google' | 'geoapify' | 'openstreetmap'; tile_url: string }> {
+  const config = await apiFetch<{ provider: 'google' | 'geoapify' | 'openstreetmap'; tile_url: string }>(`/api/v1/public/delivery/map-config?restaurant_id=${restaurantId}&capabilities=google-tiles-v1`, restaurantId);
+  if (!['google', 'geoapify', 'openstreetmap'].includes(config.provider) || typeof config.tile_url !== 'string') throw new Error('Map configuration unavailable');
   return config;
 }
 const TOKEN_KEY = 'foody_restaurant_token';
@@ -10826,4 +10826,30 @@ export async function deleteRestaurantCalendarEvent(restaurantId: number, event:
 /** Counts commitments overlapping a proposed full-day closure. */
 export async function getCalendarConflicts(restaurantId: number, event: RestaurantCalendarEvent): Promise<CalendarConflicts> {
   return apiFetch(`/api/v1/restaurants/${restaurantId}/calendar/conflicts`, restaurantId, { method: 'POST', body: JSON.stringify(event) });
+}
+
+export type DeliveryProviderPreference = 'auto' | 'google' | 'geoapify';
+export interface DeliveryProviderStatus {
+  preference: DeliveryProviderPreference;
+  active_provider: 'google' | 'geoapify';
+  reason: '' | 'manual' | 'quota' | 'unconfigured' | 'unavailable';
+  google: {
+    available: boolean;
+    month: string;
+    resets_at: string;
+    counters: { sku: string; used: number; limit: number; available: boolean }[];
+  };
+}
+/** Read this restaurant's map usage and the shared platform's availability. */
+export function getDeliveryProviderStatus(restaurantId: number): Promise<DeliveryProviderStatus> {
+  return apiFetch(`/api/v1/delivery/providers?restaurant_id=${restaurantId}`, restaurantId);
+}
+/** Save the provider preference; every Google request still respects the hard cap. */
+export function updateDeliveryProviderPreference(restaurantId: number, preference: DeliveryProviderPreference): Promise<DeliveryProviderStatus> {
+  return apiFetch(`/api/v1/delivery/providers?restaurant_id=${restaurantId}`, restaurantId, { method: 'PUT', body: JSON.stringify({ preference }) });
+}
+/** Fetch mandatory Google attribution for the visible map bounds. */
+export function getDeliveryMapAttribution(restaurantId: number, bounds: { north: number; south: number; east: number; west: number; zoom: number }): Promise<{ copyright: string }> {
+  const query = new URLSearchParams({ restaurant_id: String(restaurantId), ...Object.fromEntries(Object.entries(bounds).map(([key, value]) => [key, String(value)])) });
+  return apiFetch(`/api/v1/public/delivery/map-viewport?${query}`, restaurantId);
 }

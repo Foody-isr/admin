@@ -1,0 +1,3 @@
+Official Google Maps attribution asset, unchanged.
+Source: https://developers.google.com/static/maps/documentation/images/Google_Maps_Attribution_Assets.zip
+Usage: https://developers.google.com/maps/documentation/tile/policies

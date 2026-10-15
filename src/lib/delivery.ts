@@ -23,6 +23,7 @@ export interface RouteStop {
   eta_seconds: number;
   total_amount: number;
   needs_geocode: boolean;
+  coordinate_provider?: string;
   navigation_verified?: boolean;
 }
 

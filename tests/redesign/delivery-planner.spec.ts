@@ -27,7 +27,7 @@ async function install(page: Page, locale = 'fr') {
   const state = {
     routes: [route(1, [stop(1, 'delivered'), stop(2), stop(3)]), route(2, [stop(4, 'delivered')])],
     candidates: [] as object[], writes: [] as { path: string; rid?: string }[],
-    reads: [] as { date: string | null; rid?: string }[], tiles: [] as string[], failUndo: false, failRouting: false,
+    reads: [] as { date: string | null; rid?: string }[], tiles: [] as string[], mapProvider: 'geoapify', failUndo: false, failRouting: false,
   };
   await page.addInitScript(({ locale }) => {
     localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
@@ -39,7 +39,8 @@ async function install(page: Page, locale = 'fr') {
   await page.route('**/api/v1/**', async intercepted => {
     const request = intercepted.request(), url = new URL(request.url()), path = url.pathname;
     const rid = request.headers()['x-restaurant-id'];
-    if (path === '/api/v1/public/delivery/map-config') return intercepted.fulfill({ json: { provider: 'geoapify', tile_url: `/api/v1/public/delivery/map/{style}/{z}/{x}/{y}.png?restaurant_id=${rid}` } });
+    if (path === '/api/v1/public/delivery/map-config') return intercepted.fulfill({ json: { provider: state.mapProvider, tile_url: `/api/v1/public/delivery/map/${state.mapProvider === 'google' ? 'google' : '{style}'}/{z}/{x}/{y}.png?restaurant_id=${rid}` } });
+    if (path === '/api/v1/public/delivery/map-viewport') return intercepted.fulfill({ json: { copyright: 'Synthetic map data ©2026' } });
     if (path.startsWith('/api/v1/public/delivery/map/')) { state.tiles.push(request.url()); return intercepted.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#edf0ee"/><path d="M0 80H256M90 0V256" stroke="#cbd0cd" stroke-width="8"/></svg>' }); }
     if (path === '/api/v1/users/me') return intercepted.fulfill({ json: { role_name: 'Manager', permissions: ['orders.manage', 'settings.view'], user: { id: 1, role: 'manager' } } });
     if (path === '/api/v1/delivery/routes') {
@@ -200,4 +201,45 @@ test('routing quota failure keeps the route and explains the failure locally', a
   await expect(page.getByRole('alert').filter({ hasText: 'Le quota du service de localisation est atteint' })).toBeVisible();
   await expect(page.getByText('1 sur 3 livrés', { exact: true })).toBeVisible();
   expect(state.routes[0].stops).toHaveLength(3);
+});
+
+test('legend highlights distinct routes assigned to the same courier', async ({ page }, info) => {
+  const state = await install(page);
+  state.routes = [route(11, [stop(2)]), { ...route(12, [stop(3)]), courier_id: 11 }];
+  await page.goto('/1/orders/deliveries');
+  const legend = page.getByLabel('Tournées sur la carte');
+  await expect(legend).toBeVisible();
+  const first = legend.getByRole('button', { name: /Tournée 11/ });
+  const second = legend.getByRole('button', { name: /Tournée 12/ });
+  await expect(first).toBeVisible(); await expect(second).toBeVisible();
+  const paths = page.locator('.leaflet-overlay-pane path');
+  await expect(paths).toHaveCount(2);
+  expect(await paths.nth(0).getAttribute('stroke')).not.toEqual(await paths.nth(1).getAttribute('stroke'));
+  await first.click();
+  await expect(first).toHaveAttribute('aria-pressed', 'true');
+  await expect(paths.nth(1)).toHaveAttribute('stroke-opacity', '0.15');
+  await second.focus(); await page.keyboard.press('Enter');
+  await expect(second).toHaveAttribute('aria-pressed', 'true');
+  await expect(paths.nth(0)).toHaveAttribute('stroke-opacity', '0.15');
+  await page.screenshot({ path: info.outputPath('delivery-route-legend.png'), animations: 'disabled' });
+});
+
+
+test('map quota switch hides Google content and automatically returns after reset', async ({ page }) => {
+ const state = await install(page); state.mapProvider = 'google';
+ state.routes = [{ ...route(1, [{ ...stop(2), coordinate_provider: 'google' }]), routing_provider: 'google' }];
+ await page.goto('/1/orders/deliveries');
+ await expect(page.locator('.leaflet-control-attribution')).toContainText('Synthetic map data');
+ await expect(page.locator('.foody-stop-pin')).toHaveCount(1);
+ await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(1);
+ state.mapProvider = 'geoapify';
+ await page.clock.runFor(61000);
+ await expect(page.locator('.leaflet-control-attribution')).toContainText('Geoapify');
+ await expect(page.locator('.foody-stop-pin')).toHaveCount(0);
+ await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(0);
+ state.mapProvider = 'google';
+ await page.clock.runFor(61000);
+ await expect(page.locator('.leaflet-control-attribution')).toContainText('Synthetic map data');
+ await expect(page.locator('.foody-stop-pin')).toHaveCount(1);
+ await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(1);
 });
