@@ -10820,11 +10820,22 @@ export interface OrderWhatsAppHistoryEntry {
   status_at?: string;
 }
 
+/** Stage notification stopped before contacting WhatsApp. It has no provider delivery evidence. */
+export interface BlockedOrderWhatsAppAutomation {
+  id: number;
+  kind: string;
+  template_name: string;
+  updated_at: string;
+}
+
 /** Reads one page of tracked attempts without contacting the provider or sending a message. */
-export async function getOrderWhatsAppHistory(restaurantId: number, orderId: number, before?: string): Promise<{ messages: OrderWhatsAppHistoryEntry[]; next_cursor: string }> {
-  const data = await apiFetch<{ messages: OrderWhatsAppHistoryEntry[]; next_cursor: string }>(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/messages${before ? `?before=${encodeURIComponent(before)}` : ''}`, restaurantId);
+export async function getOrderWhatsAppHistory(restaurantId: number, orderId: number, before?: string): Promise<{ messages: OrderWhatsAppHistoryEntry[]; next_cursor: string; blocked_automations: BlockedOrderWhatsAppAutomation[]; blocked_automations_total: number }> {
+  const data = await apiFetch<{ messages: OrderWhatsAppHistoryEntry[]; next_cursor: string; blocked_automations?: BlockedOrderWhatsAppAutomation[]; blocked_automations_total?: number }>(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/messages${before ? `?before=${encodeURIComponent(before)}` : ''}`, restaurantId);
   if (!Array.isArray(data?.messages) || typeof data.next_cursor !== 'string') throw new Error('Incomplete message history');
-  return data;
+  if (data.blocked_automations !== undefined && !Array.isArray(data.blocked_automations)) throw new Error('Incomplete blocked automation history');
+  if (data.blocked_automations_total !== undefined && (!Number.isSafeInteger(data.blocked_automations_total) || data.blocked_automations_total < 0)) throw new Error('Incomplete blocked automation count');
+  // Older APIs omit the additive blocked snapshot during a rolling release.
+  return { ...data, blocked_automations: data.blocked_automations ?? [], blocked_automations_total: data.blocked_automations_total ?? data.blocked_automations?.length ?? 0 };
 }
 
 
