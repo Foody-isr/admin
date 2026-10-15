@@ -17,7 +17,7 @@ export default function DeliveryMapsPage() {
   return <DeliveryMapsWorkspace key={String(restaurantId)} rid={Number(restaurantId)} />;
 }
 function DeliveryMapsWorkspace({ rid }: { rid: number }) {
-  const { t, locale } = useI18n();
+  const { t, locale, direction } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canView = hasAnyPermission('settings.view', 'settings.edit', 'orders.manage');
   const canEdit = hasAnyPermission('settings.edit');
@@ -54,7 +54,7 @@ function DeliveryMapsWorkspace({ rid }: { rid: number }) {
           <p className="max-w-md text-fs-sm text-[var(--fg-muted)]">{t(`mapsReason_${status.reason || 'ready'}`)}</p>
           <Button variant="secondary" onClick={() => setSection('overview')}>{t('mapsChangeProvider')}</Button>
         </div>
-        <Tabs value={section} onValueChange={setSection} variant="underline">
+        <Tabs value={section} onValueChange={setSection} variant="underline" dir={direction}>
           <TabsList aria-label={t('mapsSections')}><Tab value="usage">{t('mapsUsageTab')}</Tab><Tab value="overview">{t('mapsOverviewTab')}</Tab><Tab value="pricing">{t('mapsPricingTab')}</Tab></TabsList>
           <TabsContent value="overview" className="space-y-7">
         <MapsServiceComparison restaurantId={rid} canPlan={hasAnyPermission('orders.manage')} />
@@ -66,7 +66,7 @@ function DeliveryMapsWorkspace({ rid }: { rid: number }) {
         </Section>
           </TabsContent>
           <TabsContent value="usage">
-        <Tabs defaultValue="google">
+        <Tabs defaultValue="google" dir={direction}>
           <TabsList aria-label={t('mapsProviderTabs')} className="w-fit max-w-full"><Tab value="google">Google</Tab><Tab value="geoapify">Geoapify</Tab></TabsList>
           <TabsContent value="google">
         <Section title={t('mapsUsage')} desc={t('mapsUsageHint')} aside={<span className="text-fs-sm" dir="ltr">{status.google.month || '—'}</span>}>

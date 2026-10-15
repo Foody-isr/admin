@@ -94,7 +94,9 @@ test('map settings track tenant usage, preserve caps and contact Foody for upgra
   await page.reload();
   await expect(page.getByRole('heading', { name: 'מפות ומסלולים', exact: true })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-  await page.getByRole('tab', { name: 'Geoapify', exact: true }).click();
+  await page.getByRole('tab', { name: 'Google', exact: true }).focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.getByRole('tab', { name: 'Geoapify', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByText('12.25', { exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath('delivery-maps-settings-he.png'), animations: 'disabled' });
   geoapify.tracking_available = false;
