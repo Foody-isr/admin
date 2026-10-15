@@ -2329,6 +2329,11 @@ export async function apiFetch<T>(
 export type WorkflowStageKind = 'received' | 'in_progress' | 'ready' | 'out_for_delivery' | 'completed';
 export type WorkflowOrderType = 'pickup' | 'dine_in' | 'delivery';
 
+/** Approved Meta template and timing attached to one workflow stage. */
+export interface WorkflowWhatsAppTemplate {
+ name: string; language: string; kind: MetaTemplateKind | ''; timing: 'stage' | 'day_before' | ''; send_time: string;
+}
+
 export interface WorkflowStage {
   id?: number;
   name: string;
@@ -2340,6 +2345,7 @@ export interface WorkflowStage {
   trigger_courier_delivered: boolean;
   notify_customer: boolean;
   customer_message?: string;
+  whatsapp_template?: WorkflowWhatsAppTemplate;
 }
 
 export interface OrderWorkflow {

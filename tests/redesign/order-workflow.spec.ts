@@ -10,11 +10,13 @@ function flows() {
 }
 async function install(page: Page, options: { locale?: string; permissions?: string[] } = {}) {
   const fixtureOptions = { empty: false, permissions: options.permissions }, fixture = createFixture(fixtureOptions);
-  const control = { workflows: flows(), reads: 0, failRead: false, failSave: 0, applyAndFail: false, resetActions: false, gate: null as Promise<void> | null, nextId: 100 };
+  const control = { workflows: flows(), reads: 0, failRead: false, failSave: 0, applyAndFail: false, resetActions: false, gate: null as Promise<void> | null, nextId: 100, meta: null as any, templates: [] as any[], metaFailure: false };
   const writes: { method: string; body: any; restaurant?: string; type: string }[] = [];
   await page.addInitScript(({ locale }) => { localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture'); localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Équipe démo', role: 'owner', email: 'demo@foody.test' })); localStorage.setItem('foody_restaurant_ids', '[1,2]'); localStorage.setItem('foody-admin-locale', locale); localStorage.setItem('foody_admin_theme', locale === 'he' ? 'dark' : 'light'); }, { locale: options.locale ?? 'fr' });
   await page.route('**/api/v1/**', async route => {
     const request = route.request(), path = new URL(request.url()).pathname, method = request.method(), body = request.postDataJSON() ?? {}, restaurant = request.headers()['x-restaurant-id'];
+    if (/\/restaurants\/\d+\/whatsapp\/meta$/.test(path)) return route.fulfill({ status: control.metaFailure ? 503 : 200, json: { configured: true, connection: control.meta, notifications_active: !!control.meta?.notifications_enabled } });
+    if (/\/restaurants\/\d+\/whatsapp\/meta\/templates$/.test(path)) return route.fulfill({ json: { templates: control.templates } });
     if (path === '/api/v1/order-workflows') {
       control.reads++;
       if (control.failRead) return route.fulfill({ status: 503, json: { error: 'Synthetic workflow read failure' } });
@@ -121,4 +123,50 @@ test('workflow catering preset keeps stage identities and saves delivery guidanc
 
 test('workflow legacy link preserves the restaurant and English labels', async ({ page }) => {
   const state = await install(page, { locale: 'en' }); await page.goto('/2/restaurant/workflow'); await expect(page).toHaveURL(/\/2\/settings\/orders\/workflow$/); await expand(page); await page.getByRole('textbox', { name: 'Step name', exact: true }).fill('Receiving'); await page.getByRole('button', { name: 'Save this flow', exact: true }).click(); await expect(page.getByRole('button', { name: 'Save this flow', exact: true })).toBeDisabled(); expect(state.writes[0].restaurant).toBe('2'); await expect(page.getByText('Flow saved', { exact: true })).toBeVisible();
+});
+
+function enableMeta(state: Awaited<ReturnType<typeof install>>) {
+  state.control.meta = { status: 'ready', notifications_enabled: true, order_status_name: 'status_fr', order_status_language: 'fr' };
+  state.control.templates = [
+    { id: '501', name: 'status_fr', language: 'fr', status: 'APPROVED', category: 'UTILITY', components: [{ type: 'BODY', text: 'Commande {{1}} chez {{2}} : {{3}}.' }] },
+    { id: '502', name: 'rappel_fr', language: 'fr', status: 'APPROVED', category: 'UTILITY', components: [{ type: 'BODY', text: 'Bonjour {{1}}, livraison demain entre {{2}}. Livreur {{3}}. Merci {{4}}.' }] },
+    { id: '503', name: 'confirmation_fr', language: 'fr', status: 'APPROVED', category: 'UTILITY', components: [{ type: 'BODY', text: '{{1}}. Commande {{2}} pour {{3}}. {{4}}. {{5}}. {{6}}. {{7}}. {{8}}.' }] },
+    { id: '504', name: 'pending_status', language: 'fr', status: 'PENDING', category: 'UTILITY', components: [{ type: 'BODY', text: '{{1}} {{2}} {{3}}' }] },
+  ];
+}
+
+test('workflow selects a template per stage, saves its contract and preserves it when disabled', async ({ page }, info) => {
+  const state = await install(page); enableMeta(state); await page.goto('/1/settings/orders/workflow'); await expand(page, 2);
+  const panel = row(page, 2); await expect(panel.getByRole('textbox', { name: 'Message au client', exact: true })).toHaveCount(0);
+  await panel.getByRole('combobox', { name: 'Modèle WhatsApp', exact: true }).selectOption('status_fr|fr');
+  await panel.getByText('Aperçu du message · Exemple', { exact: true }).click(); await expect(panel.getByText('Commande 1234 chez Restaurant : Prête pour le client.', { exact: true })).toBeVisible();
+  await expect(panel.locator('option', { hasText: 'pending_status' })).toHaveCount(0);
+  await panel.locator('[data-workflow-notification]').screenshot({ path: info.outputPath('workflow-whatsapp-desktop-fr.png') });
+  await save(page).click(); await expect(save(page)).toBeDisabled();
+  expect(state.writes[0].body.stages[2].whatsapp_template).toEqual({ name: 'status_fr', language: 'fr', kind: 'order_status', timing: 'stage', send_time: '' });
+  expect(state.writes[0].body.stages[2].customer_message).toBe('');
+  await panel.getByRole('switch', { name: 'Prévenir le client', exact: true }).click(); await save(page).click(); await expect(save(page)).toBeDisabled();
+  expect(state.writes[1].body.stages[2].whatsapp_template.name).toBe('status_fr'); expect(state.writes[1].body.stages[2].notify_customer).toBe(false);
+});
+
+test('workflow delivery trigger can select a reminder and schedule a restaurant-local hour', async ({ page }, info) => {
+  const state = await install(page); enableMeta(state); await page.setViewportSize({ width: 390, height: 1000 }); await page.goto('/1/settings/orders/workflow'); await typeButton(page, 'Livraison').click(); await expand(page, 1); const panel = row(page, 1);
+  await panel.getByRole('combobox', { name: 'Type de message', exact: true }).selectOption('delivery_reminder');
+  await panel.getByRole('combobox', { name: 'Modèle WhatsApp', exact: true }).selectOption('rappel_fr|fr');
+  await panel.getByRole('combobox', { name: 'Quand envoyer ?', exact: true }).selectOption('day_before'); await panel.getByLabel('Heure (fuseau du restaurant)', { exact: true }).fill('10:15');
+  await panel.getByRole('switch', { name: 'Prévenir le client', exact: true }).click(); await panel.getByRole('checkbox', { name: 'Livreur assigné', exact: true }).check();
+  await save(page).click(); await expect(save(page)).toBeDisabled(); expect(state.writes[0].body.stages[1]).toMatchObject({ trigger_courier_assigned: true, notify_customer: true, whatsapp_template: { kind: 'delivery_reminder', name: 'rappel_fr', timing: 'day_before', send_time: '10:15' } });
+  await panel.evaluate(el => el.scrollIntoView({ block: 'start' })); await page.screenshot({ path: info.outputPath('workflow-whatsapp-mobile-fr.png'), fullPage: true }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('workflow catalogue failure is explicit and cannot restore a misleading free-text editor', async ({ page }) => {
+  const state = await install(page); enableMeta(state); state.control.metaFailure = true; await page.goto('/1/settings/orders/workflow'); await expand(page, 2); const panel = row(page, 2); await expect(panel.getByRole('alert')).toContainText('Impossible de charger les réglages WhatsApp'); await expect(panel.getByRole('textbox', { name: 'Message au client', exact: true })).toHaveCount(0); state.control.metaFailure = false; await panel.getByRole('button', { name: 'Réessayer', exact: true }).click(); await expect(panel.getByRole('combobox', { name: 'Modèle WhatsApp', exact: true })).toBeVisible(); expect(state.writes).toHaveLength(0);
+});
+
+test('workflow template controls remain read-only on mobile RTL', async ({ page }, info) => {
+  const state = await install(page, { locale: 'he', permissions: ['settings.view'] }); enableMeta(state);
+  Object.assign(state.control.workflows[0].stages[2], { whatsapp_template: { kind: 'order_status', name: 'status_fr', language: 'fr', timing: 'stage', send_time: '' } });
+  await page.setViewportSize({ width: 390, height: 1000 }); await page.goto('/1/settings/orders/workflow'); await expand(page, 2); const panel = row(page, 2);
+  await expect(panel.getByRole('combobox').nth(1)).toBeDisabled(); await expect(panel.getByRole('combobox').nth(2)).toBeDisabled();
+  await panel.getByText('תצוגה מקדימה · דוגמה', { exact: true }).click(); await panel.locator('[data-workflow-notification]').screenshot({ path: info.outputPath('workflow-whatsapp-mobile-he.png') }); expect(state.writes).toHaveLength(0); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
