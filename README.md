@@ -986,3 +986,16 @@ not Waze's private address index, and never silently changes a saved destination
 
 Isolated synthetic checks: `npx playwright test -c playwright.courier.config.ts` and
 `npx tsx --test src/lib/__tests__/delivery-links.test.ts src/lib/__tests__/delivery-planning.test.ts`.
+
+## Delivery maps and usage
+
+Settings → Delivery → Maps and routes exposes this restaurant's Google usage,
+platform availability and a protected provider choice. Google resumes after the
+monthly quota reset unless Geoapify was pinned manually. The planner's legend
+selects individual routes, including several routes for the same courier.
+Upgrade currently opens contact-Foody information without initiating payment.
+
+Deploy API migrations 249 (application DB) and 250 (dedicated Google budget DB)
+before enabling the production rollout. Credentials stay on the API. The API's
+`docs/GOOGLE_DELIVERY.md` describes activation, billing units and quota protection.
+Browser checks: `npx playwright test -c playwright.redesign.config.ts tests/redesign/delivery-planner.spec.ts tests/redesign/delivery-maps-settings.spec.ts`.

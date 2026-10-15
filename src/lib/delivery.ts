@@ -23,6 +23,7 @@ export interface RouteStop {
   eta_seconds: number;
   total_amount: number;
   needs_geocode: boolean;
+  coordinate_provider?: string;
   navigation_verified?: boolean;
 }
 
@@ -56,7 +57,7 @@ export interface DeliveryRoute {
   stop_service_minutes?: number;
   stops: RouteStop[];
   last_location?: CourierLocationDTO | null;
-  routing_provider?: 'geoapify' | 'approximate';
+  routing_provider?: 'google' | 'geoapify' | 'approximate';
   route_geometry?: RoadLeg[];
 }
 

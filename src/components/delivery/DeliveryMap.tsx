@@ -1,18 +1,20 @@
 'use client';
 
-import { Fragment, useEffect, useMemo } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Marker, Polyline, useMap } from 'react-leaflet';
 import { DeliveryTiles } from '@/components/delivery/DeliveryTiles';
 import { LeafletSurface } from '@/components/delivery/LeafletSurface';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { RoadLeg, RouteStop } from '@/lib/delivery';
+import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 export interface RouteLayer {
   geometry?: RoadLeg[];
   routingProvider?: string;
   routeId?: number;
+  label?: string;
   courierId: number;
   color: string;
   stops: RouteStop[];
@@ -43,6 +45,8 @@ export interface DeliveryMapProps {
   couriers?: CourierMarker[];
   restaurant?: { lat: number; lng: number };
   highlightCourierId?: number | null;
+  highlightRouteId?: number | null;
+  onRouteSelect?: (id: number | null) => void;
   onStopClick?: (stop: RouteStop) => void;
   className?: string;
 }
@@ -156,13 +160,15 @@ function FitBounds({ points }: { points: [number, number][] }) {
 }
 
 export default function DeliveryMap({
-  restaurantId, geometry, routingProvider, stops, start, end, routes, couriers, restaurant, highlightCourierId, onStopClick, className,
+  restaurantId, geometry, routingProvider, stops, start, end, routes, couriers, restaurant, highlightCourierId, highlightRouteId, onRouteSelect, onStopClick, className,
 }: DeliveryMapProps) {
+  const { t } = useI18n();
+  const [provider, setProvider] = useState('unavailable');
   const layers: RouteLayer[] = useMemo(() => {
-    if (routes && routes.length) return routes;
-    if (stops && stops.length) return [{ courierId: 0, color: BRAND, stops, start, end, geometry, routingProvider }];
+    if (routes && routes.length) return routes.map(layer => ({ ...layer, geometry: layer.routingProvider === 'google' && provider !== 'google' ? undefined : layer.geometry, stops: layer.stops.filter(stop => stop.coordinate_provider !== 'google' || provider === 'google') }));
+    if (stops && stops.length) return [{ courierId: 0, color: BRAND, stops: stops.filter(stop => stop.coordinate_provider !== 'google' || provider === 'google'), start, end, geometry: routingProvider === 'google' && provider !== 'google' ? undefined : geometry, routingProvider }];
     return [];
-  }, [end, routes, start, stops, geometry, routingProvider]);
+  }, [end, routes, start, stops, geometry, routingProvider, provider]);
 
   const points = useMemo<[number, number][]>(() => {
     const pts: [number, number][] = [];
@@ -184,10 +190,10 @@ export default function DeliveryMap({
   return (
     <div className={cn('relative isolate', className)}>
       <LeafletSurface center={{ lat: center[0], lng: center[1] }}>
-        <DeliveryTiles restaurantId={restaurantId} />
+        <DeliveryTiles restaurantId={restaurantId} onProviderChange={setProvider} />
         {restaurant && <Marker position={[restaurant.lat, restaurant.lng]} icon={HOME_ICON} />}
         {layers.map((layer) => {
-          const dim = highlightCourierId != null && layer.courierId !== highlightCourierId;
+          const dim = highlightRouteId != null ? layer.routeId !== highlightRouteId : highlightCourierId != null && layer.courierId !== highlightCourierId;
           const seq = located(layer.stops).sort((a, b) => a.sequence - b.sequence);
           const line: [number, number][] = [];
           if (layer.start) line.push([layer.start.lat, layer.start.lng]);
@@ -197,8 +203,8 @@ export default function DeliveryMap({
           return (
             <Fragment key={layer.routeId ?? layer.courierId}>
               {layer.geometry?.length ? layer.geometry.filter(leg => leg.order_id === 0 ? !!layer.end : seq.some(stop => stop.order_id === leg.order_id)).map((leg, index) => (
-                <Polyline key={`${leg.order_id}-${index}`} positions={leg.path} pathOptions={{ color: layer.color, opacity: dim ? 0.2 : 0.85, weight: 4 }} />
-              )) : layer.routingProvider !== 'geoapify' && line.length > 1 && (
+                <Polyline key={`${leg.order_id}-${index}`} positions={leg.path} eventHandlers={onRouteSelect && layer.routeId ? { click: () => onRouteSelect(layer.routeId!) } : undefined} pathOptions={{ color: layer.color, opacity: dim ? 0.15 : 0.9, weight: dim ? 3 : 5 }} />
+              )) : !['geoapify', 'google'].includes(layer.routingProvider ?? '') && line.length > 1 && (
                 <Polyline positions={line} pathOptions={{ color: layer.color, opacity: dim ? 0.2 : 0.7, dashArray: '6 8' }} />
               )}
               {layer.start && <Marker position={[layer.start.lat, layer.start.lng]} icon={START_ICON} />}
@@ -219,6 +225,12 @@ export default function DeliveryMap({
         ))}
         <FitBounds points={points} />
       </LeafletSurface>
+      {routes && routes.length > 0 && onRouteSelect && <div aria-label={t('mapsLegend')} className="absolute end-3 top-3 z-[500] max-h-48 max-w-[240px] overflow-auto rounded-r-md border border-[var(--line)] bg-[var(--surface)] p-2 shadow-sm">
+        <p className="px-2 py-1 text-fs-xs font-semibold">{t('mapsLegend')}</p>
+        <button type="button" aria-pressed={highlightRouteId == null && highlightCourierId == null} onClick={() => onRouteSelect(null)} className="w-full rounded px-2 py-2 text-start text-fs-xs focus-visible:outline focus-visible:outline-2">{t('mapsAllRoutes')}</button>
+        {routes.map(layer => <button key={layer.routeId} type="button" aria-pressed={highlightRouteId === layer.routeId} onClick={() => onRouteSelect(highlightRouteId === layer.routeId ? null : layer.routeId ?? null)} className="flex w-full items-center gap-2 rounded px-2 py-2 text-start text-fs-xs hover:bg-[var(--surface-2)] focus-visible:outline focus-visible:outline-2" style={{ background: highlightRouteId === layer.routeId ? 'var(--surface-2)' : undefined }}><span aria-hidden="true" className="h-1 w-5 shrink-0 rounded" style={{ background: layer.color }} /><span>{layer.label ?? `${t('mapsRoute')} ${layer.routeId}`}</span></button>)}
+      </div>}
+      {routes?.some(layer => layer.routingProvider === 'google') && provider !== 'google' && <p role="status" className="absolute bottom-10 start-3 end-3 z-[500] rounded bg-[var(--surface)] p-2 text-fs-xs">{t('mapsProviderChanged')}</p>}
     </div>
   );
 }
