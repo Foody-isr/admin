@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MapPin, RefreshCw } from 'lucide-react';
-import { Button, PageHead, Section, ConfirmDialog } from '@/components/ds';
+import { Button, PageHead, Section, ConfirmDialog, Tabs, TabsList, Tab, TabsContent } from '@/components/ds';
+import { GeoapifyUsage, MapsPricing, MapsServiceComparison } from '@/components/delivery/MapsProviderDetails';
 import { ChoiceRow } from '@/components/ds/Selection';
 import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
@@ -16,12 +17,13 @@ export default function DeliveryMapsPage() {
   return <DeliveryMapsWorkspace key={String(restaurantId)} rid={Number(restaurantId)} />;
 }
 function DeliveryMapsWorkspace({ rid }: { rid: number }) {
-  const { t, locale } = useI18n();
+  const { t, locale, direction } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canView = hasAnyPermission('settings.view', 'settings.edit', 'orders.manage');
   const canEdit = hasAnyPermission('settings.edit');
   const [status, setStatus] = useState<DeliveryProviderStatus | null>(null);
   const [choice, setChoice] = useState<DeliveryProviderPreference>('auto');
+  const [section, setSection] = useState('usage');
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState(''), [upgrade, setUpgrade] = useState(false);
   const alive = useRef(true), lock = useRef(false), sequence = useRef(0);
   const load = useCallback(async () => {
@@ -49,14 +51,24 @@ function DeliveryMapsWorkspace({ rid }: { rid: number }) {
       {status && <>
         <div className="mb-7 flex flex-wrap items-center justify-between gap-4 border-y border-[var(--line)] py-5">
           <div><p className="text-fs-sm text-[var(--fg-muted)]">{t('mapsActiveProvider')}</p><p className="mt-1 text-fs-xl font-semibold">{status.active_provider === 'google' ? 'Google Maps' : 'Geoapify'}</p></div>
-          <p className="max-w-lg text-fs-sm text-[var(--fg-muted)]">{t(`mapsReason_${status.reason || 'ready'}`)}</p>
+          <p className="max-w-md text-fs-sm text-[var(--fg-muted)]">{t(`mapsReason_${status.reason || 'ready'}`)}</p>
+          <Button variant="secondary" onClick={() => setSection('overview')}>{t('mapsChangeProvider')}</Button>
         </div>
+        <Tabs value={section} onValueChange={setSection} variant="underline" dir={direction}>
+          <TabsList aria-label={t('mapsSections')}><Tab value="usage">{t('mapsUsageTab')}</Tab><Tab value="overview">{t('mapsOverviewTab')}</Tab><Tab value="pricing">{t('mapsPricingTab')}</Tab></TabsList>
+          <TabsContent value="overview" className="space-y-7">
+        <MapsServiceComparison restaurantId={rid} canPlan={hasAnyPermission('orders.manage')} />
         <Section title={t('mapsProvider')} desc={t('mapsProviderHint')}>
           <fieldset disabled={!canEdit || busy} aria-label={t('mapsProvider')}>
             {(['auto', 'google', 'geoapify'] as const).map(value => <ChoiceRow key={value} type="radio" name="maps-provider" checked={choice === value} onChange={() => setChoice(value)} label={t(`mapsChoice_${value}`)} description={t(`mapsChoiceHint_${value}`)} />)}
           </fieldset>
           {canEdit && <div className="mt-5 flex justify-end"><Button variant="primary" disabled={busy || choice === status.preference} onClick={() => void save()}>{t('save')}</Button></div>}
         </Section>
+          </TabsContent>
+          <TabsContent value="usage">
+        <Tabs defaultValue="google" dir={direction}>
+          <TabsList aria-label={t('mapsProviderTabs')} className="w-fit max-w-full"><Tab value="google">Google</Tab><Tab value="geoapify">Geoapify</Tab></TabsList>
+          <TabsContent value="google">
         <Section title={t('mapsUsage')} desc={t('mapsUsageHint')} aside={<span className="text-fs-sm" dir="ltr">{status.google.month || '—'}</span>}>
           {status.google.counters.length === 0 ? <p className="text-fs-sm text-[var(--fg-muted)]">{t('mapsCountersUnavailable')}</p> : <div className="divide-y divide-[var(--line)]">
             {status.google.counters.map(counter => <div key={counter.sku} className="grid gap-2 py-4 sm:grid-cols-[1fr_auto]">
@@ -66,7 +78,13 @@ function DeliveryMapsWorkspace({ rid }: { rid: number }) {
           </div>}
           {reset && <p className="mt-4 border-t border-[var(--line)] pt-4 text-fs-sm text-[var(--fg-muted)]">{t('mapsReset').replace('{date}', reset)}</p>}
         </Section>
-        <div className="flex flex-col items-start justify-between gap-4 py-5 sm:flex-row sm:items-center"><div><h2 className="text-fs-lg font-semibold">{t('mapsUpgradeTitle')}</h2><p className="mt-2 max-w-xl text-fs-sm text-[var(--fg-muted)]">{t('mapsUpgradeHint')}</p></div><Button variant="primary" onClick={() => setUpgrade(true)}>{t('mapsUpgrade')}</Button></div>
+          </TabsContent>
+          <TabsContent value="geoapify"><GeoapifyUsage status={status.geoapify} /></TabsContent>
+        </Tabs>
+        <div className="mt-5 flex justify-end"><Button variant="secondary" onClick={() => setSection('pricing')}>{t('mapsSeePricing')}</Button></div>
+          </TabsContent>
+          <TabsContent value="pricing"><MapsPricing offer={status.foody_offer} onContact={() => setUpgrade(true)} /></TabsContent>
+        </Tabs>
       </>}
     </>}
     <ConfirmDialog open={upgrade} onOpenChange={setUpgrade} title={t('mapsContactTitle')} description={t('mapsContactHint')} confirmLabel={t('close')} cancelLabel={t('cancel')} onConfirm={() => setUpgrade(false)} />

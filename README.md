@@ -1011,7 +1011,20 @@ that number, courier name and route color. Internal route IDs no longer appear i
 map labels; route actions continue to use the persisted IDs.
 The delivery planner and delivery-zone page expose Maps and routes as an outlined
 header action, and the settings sidebar offers it directly beside Delivery zones.
-Upgrade currently opens contact-Foody information without initiating payment.
+Pricing contact actions open contact-Foody information without initiating payment.
+
+The workspace separates Usage, Services and choice, and Foody pricing. Usage has
+Google and Geoapify tabs. Geoapify displays restaurant-scoped credit estimates,
+the declared shared Free-plan allowance (3,000 credits/day, 5 requests/second),
+the tracking start and UTC counter periods. Earlier history and account use outside
+the current API environment are not included; unavailable tracking never appears
+as zero usage. The comparison describes the implemented features and explicitly
+distinguishes estimated traffic from live traffic.
+
+The API supplies the planned Maps Plus offer: 149 ILS excluding VAT per
+establishment/month, 500 weighted Foody optimization credits and defined Google
+volumes. Its contact dialog takes no payment, creates no entitlement and leaves
+all current provider caps intact. Public pricing mirrors the canonical API JSON.
 
 Deploy API migrations 249 (application DB) and 250 (dedicated Google budget DB)
 before enabling the production rollout. Credentials stay on the API. The API's
