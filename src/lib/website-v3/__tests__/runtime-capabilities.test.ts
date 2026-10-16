@@ -11,7 +11,7 @@ const compatible = {
   editor_catalog: 2,
   text_image_backgrounds: 1,
   text_section_dimensions: 1,
-  animated_text: true, component_animations: 1, video_playback: 1, video_height: 1, order_list_styles: 1, order_wolt_preset: 1,
+  animated_text: true, component_animations: 1, video_playback: 1, video_height: 1, receipt_editor: 1, order_list_styles: 1, order_wolt_preset: 1,
   version: 1,
   page_types: ["landing", "content", "order", "catering"],
   surfaces: ["page", "checkout", "branches"],
@@ -176,4 +176,9 @@ test("rejects renderers that cannot show compact menu styles", async () => {
 
 test("rejects runtimes without the local Wolt palette", async () => {
   await assert.rejects(requireWebsiteV3RuntimeCapabilities("https://store.example", async () => Response.json({ ...compatible, order_wolt_preset: undefined })), /site public n’est pas compatible/);
+});
+
+test("rejects renderers that cannot preview and publish receipts", async () => {
+  await assert.rejects(requireWebsiteV3RuntimeCapabilities("https://example.test", async () =>
+    Response.json({ ...compatible, receipt_editor: undefined })), /site public n’est pas compatible/);
 });

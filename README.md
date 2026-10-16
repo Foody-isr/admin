@@ -1089,3 +1089,20 @@ Order details → Customer messages shows stage notifications blocked before sen
 separately from provider delivery/read evidence, with required-data guidance and
 a scoped link to the workflow. The latest blocked snapshot refreshes without
 resending; older APIs can omit this additive snapshot during a rolling release.
+
+## Digital receipt editor
+
+Open **Website V3 → Parcours de commande → Écran → Reçu** to edit the receipt
+title and thank-you message in French, English or Hebrew, spacing, visible
+restaurant/customer information and print/share/navigation actions. The preview
+uses a synthetic order and follows the selected text language. Fonts and button
+shape inherit Site design; the colour picker inherits the menu by default or
+selects another shared style for the receipt. Content is shared across order
+pages, with screen colour assignments stored per page. Guest receipt links retain
+the originating published order page; generic links use the restaurant's default
+order page.
+
+Edits use the existing autosaved draft and become public only after publication.
+Deploy the receipt API contract and Foody Web advertising `receipt_editor: 1`
+before this editor. Run the isolated regression with
+`npx playwright test -c playwright.website-editor.config.ts receipt-editor.spec.ts`.

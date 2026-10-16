@@ -412,7 +412,7 @@ test("Restaurant is a layout in the shared header editor with no local color con
 
 test("journey colours reuse six global styles and an explicit menu-inheritance choice", () => {
   const noop = () => undefined;
-  const markup = render(<OrderJourneyEditor restaurantId={24} colorStyle="style-2"
+  const markup = render(<OrderJourneyEditor receiptLocale="fr" onReceiptLocaleChange={noop} restaurantId={24} colorStyle="style-2"
     colors={{cart: "style-5"}} onColorsChange={noop} screen="cart" onScreenChange={noop}
     orderType="pickup" onOrderTypeChange={noop} value={null} onChange={noop}
     placesAvailable={false} onEditCartButton={noop} />);
