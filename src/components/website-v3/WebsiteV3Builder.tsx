@@ -221,7 +221,7 @@ function DesktopWebsiteV3Builder({
   restaurantId: number;
   chainOverview: ChainOverview;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [addressAutocompleteAvailable, setAddressAutocompleteAvailable] = useState(false);
   useEffect(() => {
     let active = true;
@@ -262,6 +262,7 @@ function DesktopWebsiteV3Builder({
   const [selection, setSelection] = useState<RailSelection>({ kind: "site" });
   const [sectionPanel, setSectionPanel] = useState<SectionPanel>("content");
   const [device, setDevice] = useState<PreviewDevice>("desktop");
+  const [receiptLocale, setReceiptLocale] = useState<"en" | "fr" | "he" | null>(null);
   const [journeyScreen, setJourneyScreen] = useState<OrderJourneyScreen>("cart");
   const [journeyOrderType, setJourneyOrderType] = useState<"delivery" | "pickup">("delivery");
   /** Which surface of the active page the preview shows. Only order pages have
@@ -1425,6 +1426,7 @@ function DesktopWebsiteV3Builder({
               />
             )}
             orderEditor={region => region === "order-journey" ? <OrderJourneyEditor
+              receiptLocale={receiptLocale ?? locale} onReceiptLocaleChange={setReceiptLocale}
               restaurantId={restaurantId} colorStyle={String((activePage.appearance_overrides.website_order as {color_style?: string} | undefined)?.color_style ?? "default")} screen={journeyScreen} onScreenChange={setJourneyScreen}
               colors={activePage.appearance_overrides.order_journey}
               onColorsChange={value => updatePage(pageKey(activePage), ["appearance_overrides", "order_journey"], value)}
@@ -1473,6 +1475,7 @@ function DesktopWebsiteV3Builder({
           <PreviewCanvas
             onOpenOrderJourney={() => openOrderJourney()}
             journeyScreen={journeyScreen}
+            journeyLocale={receiptLocale ?? locale}
             journeyOrderType={journeyOrderType}
             webOrigin={webOrigin}
             restaurantSlug={loaded.restaurant.slug}

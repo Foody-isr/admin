@@ -1389,10 +1389,27 @@ export interface CheckoutFormConfig {
   fields: CheckoutFieldConfig[];
 }
 
+/** Owner-controlled digital receipt content; omitted flags inherit the defaults. */
+export type ReceiptConfig = {
+  title?: Record<string, string>;
+  message?: Record<string, string>;
+  layout?: "comfortable" | "compact";
+  show_logo?: boolean;
+  show_address?: boolean;
+  show_phone?: boolean;
+  show_status?: boolean;
+  show_customer_info?: boolean;
+  show_print?: boolean;
+  show_share?: boolean;
+  show_order_history?: boolean;
+  show_new_order?: boolean;
+};
+
 export interface CheckoutConfig {
   delivery?: CheckoutFormConfig | null;
   pickup?: CheckoutFormConfig | null;
   confirmation?: ConfirmationConfig | null;
+  receipt?: ReceiptConfig | null;
   // When true, the guest order page's fulfilment chip is read-only (no
   // "Modifier" affordance) and the customer picks pickup/delivery only at
   // checkout. Mirrors foodyserver CheckoutConfig.LockOrderType.
