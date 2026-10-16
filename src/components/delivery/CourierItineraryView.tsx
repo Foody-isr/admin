@@ -1,5 +1,7 @@
 'use client';
 
+import { DeliveryDuration } from '@/components/delivery/DeliveryDuration';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useI18n, useCurrency } from '@/lib/i18n';
@@ -643,8 +645,9 @@ function CourierRouteView({ rid, assignedRoute, onReload, canStart, reportLocati
                 <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
                   <div className="min-w-0">
                     <p className="whitespace-nowrap text-fs-sm font-semibold text-[var(--fg)]">
-                      {route.needs_recalculation ? '—' : formatEta(route.est_duration_s, t) || '—'} · {unresolvedStops.length > 0 ? `${locatedStops}/${stops.length}` : stops.length} {t('deliveryPlanStops')}
+                      {unresolvedStops.length > 0 ? `${locatedStops}/${stops.length}` : stops.length} {t('deliveryPlanStops')}
                     </p>
+                    <DeliveryDuration route={route} t={t} />
                     {(route.needs_recalculation || unresolvedStops.length > 0) && (
                       <p className="mt-0.5 text-[11px] text-[var(--warning-500)]">{t(route.needs_recalculation ? 'deliveryRouteNeedsRecalculation' : 'routeEstimatePartial')}</p>
                     )}

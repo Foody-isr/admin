@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Clock3Icon, FlagIcon, MapPinIcon, PencilIcon, SaveIcon, XIcon } from 'lucide-react';
 import { Button, Input } from '@/components/ds';
 import { StopServiceField, validStopServiceMinutes } from '@/components/delivery/StopServiceField';
+import { deliveryRoutingError } from '@/lib/delivery-planning';
 import type { DeliveryRoute, RouteSettingsInput } from '@/lib/delivery';
 
 type Translator = (key: string) => string;
@@ -27,7 +28,7 @@ function localDateTimeValue(value: string | null | undefined, routeDate: string)
 export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t }: RouteSettingsEditorProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saveFailed, setSaveFailed] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [departure, setDeparture] = useState(() => localDateTimeValue(route.planned_departure_at, route.date));
   const [startAddress, setStartAddress] = useState(route.start_address ?? '');
   const [endAddress, setEndAddress] = useState(route.end_address ?? '');
@@ -59,7 +60,7 @@ export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t
     event.preventDefault();
     if (!departureValid || !validStopServiceMinutes(serviceMinutes)) return;
     setSaving(true);
-    setSaveFailed(false);
+    setSaveError(null);
     try {
       await onSave({
         planned_departure_at: departureDate.toISOString(),
@@ -68,8 +69,8 @@ export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t
         stop_service_minutes: Number(serviceMinutes),
       });
       setEditing(false);
-    } catch {
-      setSaveFailed(true);
+    } catch (cause) {
+      setSaveError(deliveryRoutingError(cause, t) ?? t('routeSettingsSaveFailed'));
     } finally {
       setSaving(false);
     }
@@ -157,7 +158,7 @@ export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t
       </div>
       <div className="mt-3"><StopServiceField value={serviceMinutes} onChange={setServiceMinutes} disabled={disabled || saving} t={t} /></div>
       <p className="mt-3 text-fs-xs leading-relaxed text-[var(--fg-subtle)]">{t('routeSettingsGeocodeHint')}</p>
-      {saveFailed && <p role="alert" className="mt-3 text-fs-xs text-[var(--danger-500)]">{t('routeSettingsSaveFailed')}</p>}
+      {saveError && <p role="alert" className="mt-3 text-fs-xs text-[var(--danger-500)]">{saveError}</p>}
       <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
         <Button type="button" variant="ghost" size="md" className="w-full sm:w-auto" disabled={saving} onClick={reset}>
           <XIcon />
