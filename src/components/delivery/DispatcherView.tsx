@@ -1,5 +1,6 @@
 'use client';
 
+import { DeliveryDuration } from '@/components/delivery/DeliveryDuration';
 import { StopServiceField, validStopServiceMinutes } from '@/components/delivery/StopServiceField';
 
 import { ChoiceRow } from '@/components/ds/Selection';
@@ -30,6 +31,7 @@ import {
   buildDeliveryEtaLabel,
   buildDeliveryEtaMessage,
   deliveryEtaWindow,
+  deliveryMatchesRouteDate,
   isOpenDeliveryRoute,
   isPendingDeliveryStop,
   type DeliveryEtaWindow,
@@ -50,7 +52,6 @@ import {
 } from '@/lib/delivery';
 import { RouteSettingsEditor } from '@/components/delivery/RouteSettingsEditor';
 import {
-  ApiError,
   geocodeAddress,
   getOrder,
   listOrders,
@@ -89,15 +90,6 @@ function deliveryZone(order: Order, fallback: string): string {
 
 function colorFor(index: number): string {
   return COURIER_COLORS[index % COURIER_COLORS.length];
-}
-
-function formatDuration(seconds: number, t: Translator): string {
-  if (seconds <= 0) return '';
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes} ${t('unitMin')}`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest > 0 ? `${hours}${t('unitHour')} ${rest}${t('unitMin')}` : `${hours}${t('unitHour')}`;
 }
 
 function formatDistance(metres: number): string {
@@ -212,8 +204,7 @@ function RouteRibbon({
             <div className="text-fs-xs text-[var(--fg-subtle)]">{t(history ? 'deliveryPlanStops' : 'deliveryPlanRemaining')}</div>
           </div>
           <div>
-            <div className="text-fs-sm font-semibold text-[var(--fg)]">{route.needs_recalculation ? '—' : formatDuration(route.est_duration_s, t) || '—'}</div>
-            <div className="text-[11px] text-[var(--fg-subtle)]">{t('deliveryPlanDuration')}</div>
+            <DeliveryDuration route={route} t={t} />
           </div>
           <div>
             <div className="text-fs-sm font-semibold text-[var(--fg)]"><bdi dir="ltr">{route.needs_recalculation ? '—' : formatDistance(route.total_distance_m) || '—'}</bdi></div>
@@ -458,8 +449,9 @@ export default function DispatcherView({ rid }: { rid: number }) {
       setOpenRoutes(managerOpenRouteRows);
       setReady(candidateRows.orders);
       setCouriers(courierRows);
+      const visibleDate = visibleRoutes[0]?.date ?? departure.slice(0, 10);
       setPicked((current) => {
-        const availableIds = new Set(available.map((order) => order.id));
+        const availableIds = new Set(available.filter(order => deliveryMatchesRouteDate(order, visibleDate)).map((order) => order.id));
         const retained = new Set(Array.from(current).filter((id) => availableIds.has(id)));
         return current.size === 0 ? availableIds : retained;
       });
@@ -569,8 +561,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
   }, [openRoutes]);
 
   const unplannedOrders = useMemo(
-    () => ready.filter((order) => !openRouteByOrderId.has(order.id)),
-    [ready, openRouteByOrderId],
+    () => ready.filter((order) => !openRouteByOrderId.has(order.id) && deliveryMatchesRouteDate(order, departure)),
+    [ready, openRouteByOrderId, departure],
   );
 
   const activeCourierIds = useMemo(
@@ -582,8 +574,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
     [couriers, activeCourierIds],
   );
   const selectedOrders = useMemo(
-    () => ready.filter((order) => picked.has(order.id)),
-    [ready, picked],
+    () => unplannedOrders.filter((order) => picked.has(order.id)),
+    [unplannedOrders, picked],
   );
   const selectedZones = useMemo(
     () => Array.from(new Set(selectedOrders.map((order) => deliveryZone(order, t('deliveryPlanUnknownZone'))))),
@@ -646,6 +638,10 @@ export default function DispatcherView({ rid }: { rid: number }) {
 
   const createPlan = async () => {
     if (picked.size === 0 || !departure || !validStopServiceMinutes(serviceMinutes)) return;
+    if (selectedOrders.length !== picked.size) {
+      setError(t('deliveryRouteDateMismatch'));
+      return;
+    }
     let assignments: Array<{ courier_id: number; order_ids: number[] }> | undefined;
     let selectedCourierIds = Array.from(plannerCouriers);
 
@@ -712,7 +708,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
       setMoveTarget(null);
       await load();
     } catch (cause) {
-      setError((cause as Error)?.message || t('deliveryPlanMoveFailed'));
+      setError(deliveryRoutingError(cause, t) ?? t('deliveryPlanMoveFailed'));
     } finally {
       setMoving(false);
     }
@@ -738,9 +734,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
       setRoutes((current) => current.map((route) => route.id === routeId ? updated : route));
       setOpenRoutes((current) => current.map((route) => route.id === routeId ? updated : route));
     } catch (cause) {
-      setError(cause instanceof ApiError
-        ? cause.details || cause.message
-        : (cause as Error)?.message || t('routeSettingsSaveFailed'));
+      setError(deliveryRoutingError(cause, t) ?? t('routeSettingsSaveFailed'));
       throw cause;
     } finally {
       setRouteBusy(null);
@@ -821,7 +815,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
     entryCode: selectedEntry.stop.delivery_entry_code,
   }, t) : null;
   const movableRoutes = selectedEntry
-    ? routes.filter((route) => route.id !== selectedEntry.route.id && route.status === 'draft')
+    ? routes.filter((route) => route.id !== selectedEntry.route.id && route.status === 'draft' && route.date.slice(0, 10) === selectedEntry.route.date.slice(0, 10))
     : [];
   const canCreatePlan = picked.size > 0 && Boolean(departure) && validStopServiceMinutes(serviceMinutes) && (
     distributionMode === 'smart'

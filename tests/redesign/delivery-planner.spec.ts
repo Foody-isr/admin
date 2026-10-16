@@ -252,3 +252,44 @@ test('map quota switch hides Google content and automatically returns after rese
  await expect(page.locator('.foody-stop-pin')).toHaveCount(1);
  await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(1);
 });
+
+
+test('duration separates driving, waiting and handovers on mobile', async ({ page }, info) => {
+  const state = await install(page);
+  state.routes = [{ ...route(1, [stop(2)]), est_duration_s: 3900, est_travel_s: 180, est_waiting_s: 3540, est_service_s: 180 }];
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/1/orders/deliveries');
+  await expect(page.getByText('1h 5min', { exact: true })).toBeVisible();
+  await expect(page.getByText('durée totale', { exact: true })).toBeVisible();
+  const breakdown = page.locator('dl').filter({ hasText: 'Attente' });
+  await expect(breakdown).toContainText('Trajet : 3 min');
+  await expect(breakdown).toContainText('Attente : 59 min');
+  await expect(breakdown).toContainText('Remise : 3 min');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('delivery-duration-breakdown-fr.png'), animations: 'disabled' });
+});
+
+test('planning pool follows the selected delivery date', async ({ page }) => {
+  const state = await install(page);
+  state.routes = [];
+  state.candidates = [{ id: 2001, restaurant_id: 1, order_type: 'delivery', status: 'in_kitchen', customer_name: 'Delivery next week', delivery_address: '1 Synthetic street', delivery_city: 'Synthetic city', scheduled_for: '2026-10-19T00:00:00Z' }];
+  await page.goto('/1/orders/deliveries');
+  await expect(page.getByText('Delivery next week', { exact: true })).toHaveCount(0);
+  await page.getByLabel('Date des tournées', { exact: true }).fill('2026-10-19');
+  await expect(page.getByText('Delivery next week', { exact: true })).toBeVisible();
+  await page.getByLabel('Date des tournées', { exact: true }).fill(day);
+  await expect(page.getByText('Delivery next week', { exact: true })).toHaveCount(0);
+  expect(state.writes).toHaveLength(0);
+});
+
+test('changing a route to another delivery day shows a localized rejection', async ({ page }) => {
+  const state = await install(page);
+  state.routes = [route(1, [stop(2)])];
+  await page.route('**/api/v1/delivery/routes/1/settings**', intercepted => intercepted.fulfill({ status: 400, json: { error: 'delivery date differs from route date' } }));
+  await page.goto('/1/orders/deliveries');
+  await page.getByRole('button', { name: 'Modifier', exact: true }).click();
+  await page.getByLabel('Départ prévu', { exact: true }).fill('2026-10-19T08:00');
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Choisissez des livraisons prévues à la même date que la tournée.' }).first()).toBeVisible();
+  expect(state.routes[0].date).toBe(day);
+});

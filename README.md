@@ -1,5 +1,11 @@
 # Foody Admin
 
+Delivery planning limits scheduled deliveries to the selected route date and
+displays total duration with separate driving, waiting and handover times in the
+dispatcher and courier views. Unknown historic breakdowns are omitted until
+recalculation. Requires API migration `256_delivery_duration_breakdown.sql`;
+date rejection is enforced by the API and localized in French, Hebrew and English.
+
 In Website V3 → Liste des articles → Disposition et couleurs, **Appliquer le
 style Wolt** restores flat compact rows, landscape photos on the right,
 descriptions, category headings and a local black/gray/cyan palette. It replaces

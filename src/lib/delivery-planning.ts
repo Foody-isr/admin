@@ -1,7 +1,22 @@
 import type { DeliveryRoute, RouteStop } from '@/lib/delivery';
+import type { Order } from '@/lib/api';
 
 const ETA_EARLY_MINUTES = 5;
 const ETA_LATE_MINUTES = 10;
+
+/** Scheduled delivery dates are civil dates; immediate orders have no promised day. */
+export function deliveryMatchesRouteDate(order: Pick<Order, 'scheduled_for'>, date: string): boolean {
+  return !order.scheduled_for || order.scheduled_for.slice(0, 10) === date.slice(0, 10);
+}
+
+/** Format a duration in seconds, including an explicitly measured zero. */
+export function formatDeliveryDuration(seconds: number, t: (key: string) => string): string {
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} ${t('unitMin')}`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest > 0 ? `${hours}${t('unitHour')} ${rest}${t('unitMin')}` : `${hours}${t('unitHour')}`;
+}
 
 /** Whether a route still contains delivery work for the dispatcher. */
 export function isOpenDeliveryRoute(route: DeliveryRoute): boolean {
@@ -70,6 +85,7 @@ export function buildDeliveryEtaMessage(
 export function deliveryRoutingError(error: unknown, t: (key: string) => string): string | null {
   const message = error instanceof Error ? error.message : '';
   const key = ({
+    'delivery date differs from route date': 'deliveryRouteDateMismatch',
     'location service quota exceeded': 'deliveryRoutingQuota',
     'routing service unavailable': 'deliveryRoutingUnavailable',
     'some deliveries could not be routed': 'deliveryRoutingInfeasible',
