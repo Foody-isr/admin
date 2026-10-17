@@ -185,6 +185,7 @@ export function TicketLineRow({
             {variantText}
           </span>
         )}
+        {item.dining_option && <span className="basis-full text-fs-xs text-[var(--fg-muted)]">{item.dining_option_label || t(item.dining_option === 'dine_in' ? 'dineIn' : item.dining_option === 'collect' ? 'posDiningCollect' : item.dining_option)}</span>}
         {item.adjustment && <span className="basis-full text-fs-xs text-[var(--fg-muted)]">{t(item.adjustment.kind === 'comp' ? 'orderLineComped' : 'orderLineVoided')} · {item.adjustment.reason}</span>}
         {showUnpaidChip && <Badge tone="warning">{t('notPaidChip')}</Badge>}
       </span>

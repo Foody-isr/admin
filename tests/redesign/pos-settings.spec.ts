@@ -17,7 +17,7 @@ async function install(page:Page,locale='fr',theme='light',permissions?:string[]
   const r=route.request(),path=new URL(r.url()).pathname,body=r.postDataJSON()??{};
   if(path==='/api/v1/restaurants/1/settings'){
    if(r.method()==='PUT'){expect(r.headers()['x-restaurant-id']).toBe('1');expect(Object.keys(body)).toEqual(['full_service']);policy=body.full_service;writes.push(structuredClone(policy));}
-   return route.fulfill({json:{settings:{full_service:policy}}});
+   return route.fulfill({json:{settings:{full_service:policy,pos_custom_dining_supported:true}}});
   }
   if(path==='/api/v1/restaurants/1/devices')return route.fulfill({json:{devices:[{id:deviceId,restaurant_id:1,kind:'tablet',display_name:'iPad Salle',system_name:'iPad',capabilities:[]}]}});
   if(path==='/api/v1/menu/item-categories')return route.fulfill({json:{categories:[{id:10,name:'Boissons'}]}});
@@ -101,4 +101,25 @@ for(const [locale,theme,width,height] of [['fr','light',1440,756],['fr','dark',3
  await page.locator('.pos-editor-head').getByRole('button').last().click();
  expect(writes[0].modes?.[0].check_behavior).toMatchObject({open_checks_enabled:false,open_checks_home:true,predefined_tickets:true});
  expect(writes[0].send_and_stay).toBe(false);
+});
+
+for(const [locale,theme,width] of [['fr','light',1440],['fr','dark',390],['he','dark',390]] as const) test(`custom dining catalogue ${locale} ${theme} ${width}`,async({page},info)=>{
+ const writes=await install(page,locale,theme);await page.setViewportSize({width,height:844});await page.goto('/1/settings/fulfillment');
+ await page.getByRole('button',{name:locale==='he'?'ניהול לפי סניף':'Gérer par point de vente',exact:true}).click();
+ const editor=page.locator('.pos-fulfillment-editor');
+ await editor.getByRole('button',{name:locale==='he'?'הוספת אפשרות מסירה':'Ajouter un mode de traitement'}).click();
+ const drawer=page.getByRole('dialog').last();
+ await drawer.getByRole('textbox').fill('Boutique');
+ await drawer.getByRole('radio').first().check();
+ await drawer.getByRole('button',{name:locale==='he'?'סיום':'Terminé',exact:true}).click();
+ expect(writes).toEqual([]);
+ for(let i=0;i<4;i++) await editor.getByRole('button',{name:locale==='he'?'הזזה למעלה Boutique':'Monter Boutique',exact:true}).click();
+ await expect(editor.getByRole('button',{name:/^Boutique/}).first()).toBeVisible();
+ expect(await editor.locator('main').evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+ await page.screenshot({path:info.outputPath(`dining-${locale}-${theme}-${width}.png`)});
+ await editor.locator('.pos-editor-head').getByRole('button').last().click();
+ expect(writes).toHaveLength(1);
+ const saved=writes[0].fulfillment!;expect(saved.methods?.[0]).toMatchObject({name:'Boutique',order_type:'dine_in'});
+ expect(saved.default).toBe(saved.methods?.[0].id);expect(saved.enabled[0]).toBe(saved.default);
+ await page.reload();await expect(page.getByText('Boutique',{exact:true})).toBeVisible();
 });

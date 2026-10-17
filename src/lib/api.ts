@@ -215,9 +215,11 @@ export interface POSMode {
  tile_size: 'tall' | 'wide'; sort_cart: FullServiceSettings['sort_cart'];
 }
 /** Staff fulfillment prompts are independent from guest checkout. */
+export interface POSFulfillmentMethod { id: string; name: string; order_type: 'dine_in' | 'pickup' | 'delivery'; }
 export interface POSFulfillment {
- prompt: 'never' | 'start' | 'checkout'; default: 'dine_in' | 'pickup' | 'delivery';
- enabled: ('dine_in' | 'pickup' | 'delivery')[];
+ methods?: POSFulfillmentMethod[];
+ prompt: 'never' | 'start' | 'checkout'; default: string;
+ enabled: string[];
 }
 /** Restaurant POS policy, independent of online/QR checkout payment requirements. */
 export interface FullServiceSettings {
@@ -240,6 +242,7 @@ export interface FullServiceSettings {
 }
 
 export interface RestaurantSettings {
+  pos_custom_dining_supported?: boolean;
  full_service?: FullServiceSettings;
   /** Require the configured calendar for guest pickup and delivery. */
   preorders_only?: boolean;
@@ -806,10 +809,15 @@ export interface OrderItemModifier {
 }
 
 export interface OrderItem {
+  /** Preparation override; empty/absent inherits the order method. */
+  dining_option?: string;
+  dining_option_label?: string;
+  dining_option_version?: number;
   /** Immutable financial/production adjustment; original price snapshots remain. */
   adjustment?: { kind: 'comp' | 'void'; reason: string; at: string } | null;
   /** Numbered table seat; absent/null means shared by the table. */
   seat_number?: number | null;
+  seat_numbers?: number[];
   id: number;
   menu_item_id: number;
   name: string;
@@ -850,6 +858,10 @@ export interface OrderItem {
 }
 
 export interface Order {
+  dining_option?: string;
+  dining_option_label?: string;
+  dining_option_is_default?: boolean;
+  pos_discount_rules?: POSDiscountSelection[];
   delivery_zone_id?: number;
   delivery_schedule?: DeliverySchedule;
   delivery_slot_pending?: boolean;
@@ -5058,7 +5070,9 @@ export interface CreateOrderModifierInput {
 /** One line on a manually-built order. Price is recomputed server-side from the
  *  menu item, selected variant, and modifiers — the client value is ignored. */
 export interface CreateOrderItemInput {
+  dining_option?: string;
   seat_number?: number | null;
+  seat_numbers?: number[];
   menu_item_id: number;
   quantity: number;
   selected_variant_id?: number;
@@ -5078,7 +5092,9 @@ export interface CreateOrderComboSelectionInput {
 /** One combo (meal-deal) on a manually-built order. The server validates the
  *  step picks (min/max, availability) and computes the price. */
 export interface CreateOrderComboInput {
+  dining_option?: string;
   seat_number?: number | null;
+  seat_numbers?: number[];
   combo_item_id: number;
   selections: CreateOrderComboSelectionInput[];
   notes?: string;
@@ -5187,6 +5203,7 @@ export async function removeOrderItem(
  *  order's scheduled date, else today). */
 export interface ReplaceComboInput {
   seat_number?: number | null;
+  seat_numbers?: number[];
   combo_item_id: number;
   selections: CreateOrderComboSelectionInput[];
   serie_date?: string; // "YYYY-MM-DD"
@@ -10950,4 +10967,27 @@ export function updateDeliveryProviderPreference(restaurantId: number, preferenc
 export function getDeliveryMapAttribution(restaurantId: number, bounds: { north: number; south: number; east: number; west: number; zoom: number }): Promise<{ copyright: string }> {
   const query = new URLSearchParams({ restaurant_id: String(restaurantId), ...Object.fromEntries(Object.entries(bounds).map(([key, value]) => [key, String(value)])) });
   return apiFetch(`/api/v1/public/delivery/map-viewport?${query}`, restaurantId);
+}
+
+/** Staff-selected reductions, separate from customer coupon codes. */
+export interface POSDiscountDefinition {
+  id: string; name: string; type: 'fixed' | 'percent'; variable: boolean;
+  value: number; active: boolean; version: number;
+}
+/** Frozen check reduction displayed on saved kitchen batches. */
+export interface POSDiscountSelection {
+  id: string; name: string; type: 'fixed' | 'percent'; value: number; version: number;
+}
+/** Lists only the active restaurant's staff reduction catalogue. */
+export async function listPOSDiscounts(rid: number): Promise<POSDiscountDefinition[]> {
+  const result = await apiFetch<{ discounts: POSDiscountDefinition[] }>(`/api/v1/orders/pos-discounts?restaurant_id=${rid}`, rid);
+  return result.discounts;
+}
+/** Creates or edits a revision; identical uncertain retries do not duplicate it. */
+export async function savePOSDiscount(rid: number, value: POSDiscountDefinition): Promise<POSDiscountDefinition> {
+  const { id, ...input } = value;
+  const result = await apiFetch<{ discount: POSDiscountDefinition }>(`/api/v1/orders/pos-discounts/${encodeURIComponent(id)}?restaurant_id=${rid}`, rid, { method: 'PUT', body: JSON.stringify(input) });
+  const saved = result.discount;
+  if (saved.id !== id || saved.name !== value.name.trim() || saved.type !== value.type || saved.variable !== value.variable || saved.value !== value.value || saved.active !== value.active || saved.version < value.version) throw new Error('Unconfirmed staff discount');
+  return saved;
 }

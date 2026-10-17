@@ -859,7 +859,8 @@ only until the corresponding operational actions are implemented. Additive
 mode/fulfillment/menu/printing policies reuse `full_service` JSONB and need no new
 migration. POS reloads settings explicitly; changing Admin does not push a live
 mode update. Fired/held printing currently adds held context to fired tickets;
-standalone held-only printing and custom fulfillment labels remain unsupported.
+standalone held-only printing remains unsupported. Custom dining labels are now
+implemented in the newer follow-up below.
 
 Isolated checks: `npx playwright test -c playwright.redesign.config.ts pos-settings.spec.ts item-checkout.spec.ts`.
 
@@ -1066,6 +1067,26 @@ Vercel staged production artifacts carry both server-only Web keys:
 own environment’s key as `ORDERING_TEST_PROXY_SECRET`. Preview deployments need
 only the development key; never copy the production key into Preview.
 
+## Staff POS discounts
+
+Menu → POS discounts (`/[restaurantId]/menu/pos-discounts`) manages fixed/variable
+amounts and percentages shared with the POS Library. These staff reductions are
+independent of Marketing coupon codes and require `menu.edit` to change.
+Deploy API migration `253_pos_check_discounts.sql` before this page. Archiving
+a definition preserves frozen selections on existing unpaid checks.
+
+POS fulfillment methods also determine the choices in **Item details → Options**.
+The existing settings page now describes this scope and order details show a
+recorded per-item override. Manage by location now edits up to ten stable named
+methods mapped to dine-in/pickup/delivery, including a distinct Retrait preset.
+Drag or accessible up/down controls set the shared choice order; the first active
+method is the new-sale default. The edit drawer and explicit Save preserve staged
+changes/cancellation. Existing checks retain frozen names after rename/archive. Deploy the matching API
+with migrations `254_item_dining_option.sql` and `255_custom_pos_dining_methods.sql`,
+`item_dining: true`/`custom_dining: true` capabilities and the settings response
+`pos_custom_dining_supported: true` before the POS/Admin client. Catalogue-aware
+KDS/printer filters, progress tracking and reports remain separate work. An override changes preparation context only; it
+does not create another delivery, charge, or order lifecycle.
 ## WhatsApp messages in the order workflow
 
 In Settings → Restaurant → Order workflow, each stage can select its own approved

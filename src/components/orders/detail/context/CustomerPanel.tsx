@@ -35,6 +35,7 @@ export function CustomerPanel({ order, canManage, onEditCustomer, onViewMessages
         {order.customer_phone && <ContextRow label={t('phone')}><a className={styles.factLink} href={`tel:${dialable}`} dir="ltr">{order.customer_phone}</a></ContextRow>}
         {order.customer_email && <ContextRow label={t('email')}><a className={styles.factLink} href={`mailto:${order.customer_email}`}>{order.customer_email}</a></ContextRow>}
         <ContextRow label={t('orderDate')}><span dir="auto">{Number.isNaN(created.getTime()) ? '—' : created.toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></ContextRow>
+        {order.dining_option && <ContextRow label={t('posDiningEdit')}>{order.dining_option_label || t(order.dining_option === 'dine_in' ? 'dineIn' : order.dining_option === 'collect' ? 'posDiningCollect' : order.dining_option)}</ContextRow>}
         <ContextRow label={t('source')}>{localizeSource(order.order_source, t)}</ContextRow>
         {order.table_number && <ContextRow label="Table">{order.table_number}</ContextRow>}
         {customFields.map(f => <ContextRow key={f.id} label={f.label}>{f.value}</ContextRow>)}
