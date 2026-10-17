@@ -5,12 +5,13 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import * as Dialog from '@radix-ui/react-dialog';
 import { ArrowDown, ArrowUp, ChevronRight, GripVertical, Plus, Trash2, X, ArrowLeft } from 'lucide-react';
-import { getAllCategories, listDevices, type FullServiceSettings, type MenuCategory, type POSMode, type POSCheckBehavior, type RestaurantDevice } from '@/lib/api';
+import { getAllCategories, listDevices, type FullServiceSettings, type MenuCategory, type POSMode, type POSFulfillment, type POSFulfillmentMethod, type POSCheckBehavior, type RestaurantDevice } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Button, ConfirmDialog, Drawer, Input } from '@/components/ds';
 import { ChoiceRow } from '@/components/ds/Selection';
 import { usePOSSettings } from './usePOSSettings';
 import './pos-settings.css';
+import { fulfillmentCatalog, withFulfillmentCatalog, validFulfillment } from '@/lib/pos-fulfillment';
 
 type View = 'services' | 'menu-behavior' | 'fulfillment' | 'modes' | 'mode' | 'adjustments';
 type Policy = ReturnType<typeof usePOSSettings>;
@@ -102,27 +103,51 @@ function MenuBehavior({policy}:{policy:Policy}) {
 }
 function Fulfillment({policy}:{policy:Policy}) {
  const {t}=useI18n(),draft=policy.draft!;
- const [open,setOpen]=useState(false),[discard,setDiscard]=useState(false);
+ const [open,setOpen]=useState(false),[discard,setDiscard]=useState(false),[editing,setEditing]=useState<POSFulfillmentMethod|null>(null),[methodError,setMethodError]=useState(''),[dragged,setDragged]=useState<number|null>(null);
  const snapshot=useRef(draft.fulfillment);
+ const value:POSFulfillment=draft.fulfillment??{prompt:'never',default:'pickup',enabled:['dine_in','pickup','delivery']};
+ const methods=fulfillmentCatalog(value);
+ const label=(method:POSFulfillmentMethod)=>method.name||t(method.id==='dine_in'?'dineIn':method.id==='collect'?'posDiningCollect':['pickup','delivery'].includes(method.id)?method.id:'posDiningNamePlaceholder');
+ const patch=(next:Partial<POSFulfillment>)=>policy.patch({fulfillment:{...withFulfillmentCatalog(value,methods),...next}});
+ const commit=(next:POSFulfillmentMethod[],enabled=value.enabled)=>policy.patch({fulfillment:withFulfillmentCatalog(value,next,enabled)});
  const close=()=>{if(policy.saving)return;if(JSON.stringify(snapshot.current)!==JSON.stringify(policy.draft?.fulfillment))setDiscard(true);else setOpen(false);};
- const value=draft.fulfillment??{prompt:'never' as const,default:'pickup' as const,enabled:['dine_in','pickup','delivery'] as const};
- const patch=(next:Partial<NonNullable<FullServiceSettings['fulfillment']>>)=>policy.patch({fulfillment:{...value,enabled:[...value.enabled],...next}});
- const label=(type:string)=>t(type==='dine_in'?'dineIn':type);
+ const move=(from:number,to:number)=>{if(from===to||to<0||to>=methods.length||!policy.editable||policy.saving)return;const next=[...methods];next.splice(to,0,next.splice(from,1)[0]);commit(next);};
+ const edit=(method:POSFulfillmentMethod)=>{setMethodError('');setEditing({...method});};
+ const apply=()=>{if(!editing)return;const method={...editing,name:editing.name.trim()};const exists=methods.some(m=>m.id===method.id);const next=exists?methods.map(m=>m.id===method.id?method:m):[...methods,method];const nextPolicy=withFulfillmentCatalog(value,next,exists?value.enabled:[...value.enabled,method.id]);if(!validFulfillment(nextPolicy)){setMethodError(t('fullServiceInvalid'));return;}policy.patch({fulfillment:nextPolicy});setEditing(null);};
+ const remove=()=>{if(!editing)return;const next=methods.filter(m=>m.id!==editing.id);const nextPolicy=withFulfillmentCatalog(value,next);if(!validFulfillment(nextPolicy)){setMethodError(t('posDiningKeepOne'));return;}policy.patch({fulfillment:nextPolicy});setEditing(null);};
  return <>
   <p className="pos-setting-hint">{t('posFulfillmentIntro')}</p>
   <Button type="button" className="my-8" onClick={()=>{snapshot.current=draft.fulfillment;setOpen(true);}}>{t('posManageLocation')}</Button>
-  {!open&&<div>{value.enabled.map(type=><div className="pos-setting-row" key={type}><strong>{label(type)}</strong><span className="pos-row-detail">{value.default===type?t('posDefault'):''}</span></div>)}</div>}
-  <Dialog.Root open={open} onOpenChange={value=>{if(!value)close();}}><Dialog.Portal><Dialog.Overlay className="fixed inset-0 z-50 bg-[var(--overlay)]"/><Dialog.Content aria-describedby={undefined} className="pos-settings pos-fulfillment-editor">
+  {!open&&<div>{value.enabled.map(id=>{const method=methods.find(m=>m.id===id);return method&&<div className="pos-setting-row" key={id}><strong>{label(method)}</strong><span className="pos-row-detail">{value.default===id?t('posDefault'):''}</span></div>;})}</div>}
+  <Dialog.Root open={open} onOpenChange={next=>{if(!next)close();}}><Dialog.Portal><Dialog.Overlay className="fixed inset-0 z-50 bg-[var(--overlay)]"/><Dialog.Content aria-describedby={undefined} className="pos-settings pos-fulfillment-editor">
    <header className="pos-editor-head"><Button type="button" variant="secondary" icon aria-label={t('close')} disabled={policy.saving} onClick={close}><X/></Button><Dialog.Title>{t('posFulfillmentLocation')}</Dialog.Title><Button type="button" disabled={!policy.editable||!policy.dirty||policy.saving} onClick={async()=>{if(await policy.save())setOpen(false);}}>{t(policy.saving?'saving':'save')}</Button></header>
-   <main><p className="pos-setting-hint">{t('posFulfillmentDefaultHint')}</p><fieldset disabled={!policy.editable||policy.saving}>
-  <SettingSection title={t('posFulfillmentLocation')}>
-   <label className="pos-setting-row"><span><strong>{t('posFulfillmentPrompt')}</strong></span><BooleanInput aria-label={t('posFulfillmentPrompt')} checked={value.prompt!=='never'} onChange={e=>patch({prompt:e.target.checked?'start':'never'})}/></label>
-   {value.prompt!=='never'&&(['start','checkout'] as const).map(when=><ChoiceRow key={when} name="fulfillment-prompt" type="radio" label={t(when==='start'?'posPromptStart':'posPromptCheckout')} checked={value.prompt===when} onChange={()=>patch({prompt:when})}/>)}
-  </SettingSection>
-  <SettingSection title={t('posFulfillmentMethods')} hint={t('posFulfillmentDefaultHint')}>
-   {(['dine_in','pickup','delivery'] as const).map(type=><div className="pos-setting-row" key={type}><span><strong>{label(type)}</strong>{value.default===type&&<span className="pos-default-badge">{t('posDefault')}</span>}</span><span className="flex flex-wrap items-center justify-end gap-3"><Button type="button" variant="ghost" disabled={!value.enabled.includes(type)||value.default===type||!policy.editable||policy.saving} onClick={()=>patch({default:type})}>{t('posSetDefault')}</Button><BooleanInput aria-label={label(type)} checked={value.enabled.includes(type)} disabled={value.default===type||!policy.editable||policy.saving} onChange={e=>patch({enabled:e.target.checked?[...value.enabled,type]:value.enabled.filter(v=>v!==type)})}/></span></div>)}
-  </SettingSection>
-  </fieldset>{policy.error&&<p role="alert" className="pos-error">{policy.error}</p>}</main></Dialog.Content></Dialog.Portal></Dialog.Root>
+   <main><p className="pos-setting-hint">{t('posDiningFirstDefault')}</p><fieldset disabled={!policy.editable||policy.saving}>
+    <SettingSection title={t('posFulfillmentLocation')}>
+     <label className="pos-setting-row"><span><strong>{t('posFulfillmentPrompt')}</strong></span><BooleanInput aria-label={t('posFulfillmentPrompt')} checked={value.prompt!=='never'} onChange={e=>patch({prompt:e.target.checked?'start':'never'})}/></label>
+     {value.prompt!=='never'&&(['start','checkout'] as const).map(when=><ChoiceRow key={when} name="fulfillment-prompt" type="radio" label={t(when==='start'?'posPromptStart':'posPromptCheckout')} checked={value.prompt===when} onChange={()=>patch({prompt:when})}/>)}
+    </SettingSection>
+    <SettingSection title={t('posFulfillmentMethods')} hint={t('posDiningFirstDefault')}>
+     {methods.map((method,index)=><div key={method.id} className="pos-setting-row pos-course-row" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(dragged!==null)move(dragged,index);setDragged(null);}}>
+      <button type="button" className="pos-course-name" onClick={()=>edit(method)}>{label(method)}{value.default===method.id&&<span className="pos-default-badge">{t('posDefault')}</span>}</button>
+      <span className="pos-course-controls">
+       <Button type="button" variant="ghost" icon aria-label={`${t('posMoveUp')} ${label(method)}`} disabled={index===0} onClick={()=>move(index,index-1)}><ArrowUp/></Button>
+       <Button type="button" variant="ghost" icon aria-label={`${t('posMoveDown')} ${label(method)}`} disabled={index===methods.length-1} onClick={()=>move(index,index+1)}><ArrowDown/></Button>
+       <span draggable={!policy.saving&&policy.editable} onDragStart={()=>setDragged(index)} onDragEnd={()=>setDragged(null)} className="pos-grip" aria-hidden><GripVertical/></span>
+       <BooleanInput aria-label={label(method)} checked={value.enabled.includes(method.id)} disabled={value.enabled.length===1&&value.enabled.includes(method.id)} onChange={e=>commit(methods,e.target.checked?[...value.enabled,method.id]:value.enabled.filter(id=>id!==method.id))}/>
+      </span>
+     </div>)}
+     <Button type="button" variant="secondary" disabled={methods.length>=10} onClick={()=>edit({id:crypto.randomUUID(),name:'',order_type:'pickup'})}><Plus/>{t('posDiningAdd')}</Button>
+    </SettingSection>
+   </fieldset>{policy.error&&<p role="alert" className="pos-error">{policy.error}</p>}</main>
+  </Dialog.Content></Dialog.Portal></Dialog.Root>
+  <Drawer open={editing!==null} onOpenChange={next=>{if(!next)setEditing(null);}} title={t('posDiningEdit')} footer={<><Button type="button" variant="secondary" onClick={()=>setEditing(null)}>{t('cancel')}</Button><Button type="button" disabled={!policy.editable||policy.saving} onClick={apply}>{t('done')}</Button></>}>
+   {editing&&<fieldset disabled={!policy.editable||policy.saving} className="space-y-6">
+    <label className="block"><span className="block mb-2 font-semibold">{t('posDiningDisplayText')}</span><Input value={editing.name} maxLength={80} placeholder={label({...editing,name:''})} onChange={e=>setEditing({...editing,name:e.target.value})}/></label>
+    <fieldset><legend className="font-semibold mb-2">{t('orderType')}</legend>{(['dine_in','pickup','delivery'] as const).map(type=><ChoiceRow key={type} name="dining-order-type" type="radio" label={t(type==='dine_in'?'dineIn':type)} checked={editing.order_type===type} onChange={()=>setEditing({...editing,order_type:type})}/>)}</fieldset>
+    {methodError&&<p role="alert" className="pos-error">{methodError}</p>}
+    {methods.some(m=>m.id===editing.id)&&<Button type="button" variant="ghost" onClick={remove}>{t('delete')}</Button>}
+   </fieldset>}
+  </Drawer>
   <ConfirmDialog open={discard} onOpenChange={setDiscard} title={t('discardUnsavedChanges')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={()=>{policy.patch({fulfillment:snapshot.current});setDiscard(false);setOpen(false);}}/>
  </>;
 }

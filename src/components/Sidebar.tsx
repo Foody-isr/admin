@@ -126,6 +126,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         { href: `${base}/menu/categories`, labelKey: 'categories' },
         { href: `${base}/menu/modifier-sets`, labelKey: 'modifierSets' },
         { href: `${base}/menu/options`, labelKey: 'options' },
+        { href: `${base}/menu/pos-discounts`, labelKey: 'posStaffDiscounts', perm: ['menu.view', 'menu.edit'] },
       ],
     },
     {
