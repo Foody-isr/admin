@@ -1401,10 +1401,27 @@ export interface CheckoutFormConfig {
   fields: CheckoutFieldConfig[];
 }
 
+/** Owner-controlled digital receipt content; omitted flags inherit the defaults. */
+export type ReceiptConfig = {
+  title?: Record<string, string>;
+  message?: Record<string, string>;
+  layout?: "comfortable" | "compact";
+  show_logo?: boolean;
+  show_address?: boolean;
+  show_phone?: boolean;
+  show_status?: boolean;
+  show_customer_info?: boolean;
+  show_print?: boolean;
+  show_share?: boolean;
+  show_order_history?: boolean;
+  show_new_order?: boolean;
+};
+
 export interface CheckoutConfig {
   delivery?: CheckoutFormConfig | null;
   pickup?: CheckoutFormConfig | null;
   confirmation?: ConfirmationConfig | null;
+  receipt?: ReceiptConfig | null;
   // When true, the guest order page's fulfilment chip is read-only (no
   // "Modifier" affordance) and the customer picks pickup/delivery only at
   // checkout. Mirrors foodyserver CheckoutConfig.LockOrderType.
@@ -2341,6 +2358,11 @@ export async function apiFetch<T>(
 export type WorkflowStageKind = 'received' | 'in_progress' | 'ready' | 'out_for_delivery' | 'completed';
 export type WorkflowOrderType = 'pickup' | 'dine_in' | 'delivery';
 
+/** Approved Meta template and timing attached to one workflow stage. */
+export interface WorkflowWhatsAppTemplate {
+ name: string; language: string; kind: MetaTemplateKind | ''; timing: 'stage' | 'day_before' | ''; send_time: string;
+}
+
 export interface WorkflowStage {
   id?: number;
   name: string;
@@ -2352,6 +2374,7 @@ export interface WorkflowStage {
   trigger_courier_delivered: boolean;
   notify_customer: boolean;
   customer_message?: string;
+  whatsapp_template?: WorkflowWhatsAppTemplate;
 }
 
 export interface OrderWorkflow {
@@ -10831,11 +10854,22 @@ export interface OrderWhatsAppHistoryEntry {
   status_at?: string;
 }
 
+/** Stage notification stopped before contacting WhatsApp. It has no provider delivery evidence. */
+export interface BlockedOrderWhatsAppAutomation {
+  id: number;
+  kind: string;
+  template_name: string;
+  updated_at: string;
+}
+
 /** Reads one page of tracked attempts without contacting the provider or sending a message. */
-export async function getOrderWhatsAppHistory(restaurantId: number, orderId: number, before?: string): Promise<{ messages: OrderWhatsAppHistoryEntry[]; next_cursor: string }> {
-  const data = await apiFetch<{ messages: OrderWhatsAppHistoryEntry[]; next_cursor: string }>(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/messages${before ? `?before=${encodeURIComponent(before)}` : ''}`, restaurantId);
+export async function getOrderWhatsAppHistory(restaurantId: number, orderId: number, before?: string): Promise<{ messages: OrderWhatsAppHistoryEntry[]; next_cursor: string; blocked_automations: BlockedOrderWhatsAppAutomation[]; blocked_automations_total: number }> {
+  const data = await apiFetch<{ messages: OrderWhatsAppHistoryEntry[]; next_cursor: string; blocked_automations?: BlockedOrderWhatsAppAutomation[]; blocked_automations_total?: number }>(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/messages${before ? `?before=${encodeURIComponent(before)}` : ''}`, restaurantId);
   if (!Array.isArray(data?.messages) || typeof data.next_cursor !== 'string') throw new Error('Incomplete message history');
-  return data;
+  if (data.blocked_automations !== undefined && !Array.isArray(data.blocked_automations)) throw new Error('Incomplete blocked automation history');
+  if (data.blocked_automations_total !== undefined && (!Number.isSafeInteger(data.blocked_automations_total) || data.blocked_automations_total < 0)) throw new Error('Incomplete blocked automation count');
+  // Older APIs omit the additive blocked snapshot during a rolling release.
+  return { ...data, blocked_automations: data.blocked_automations ?? [], blocked_automations_total: data.blocked_automations_total ?? data.blocked_automations?.length ?? 0 };
 }
 
 
@@ -10880,6 +10914,34 @@ export async function getCalendarConflicts(restaurantId: number, event: Restaura
 }
 
 export type DeliveryProviderPreference = 'auto' | 'google' | 'geoapify';
+export interface FoodyMapsOffer {
+  version: number;
+  status: 'planned';
+  currency: 'ILS';
+  monthly_price: number;
+  per_establishment: boolean;
+  excluding_tax: boolean;
+  optimization_credits: number;
+  single_stop_credits: number;
+  fleet_stop_credits: number;
+  map_tiles: number;
+  geocoding_requests: number;
+  route_requests: number;
+  automatic_billing: false;
+}
+export interface GeoapifyUsageStatus {
+  configured: boolean;
+  tracking_available: boolean;
+  daily_limit: number;
+  requests_per_second: number;
+  day: string;
+  month: string;
+  next_period_at: string;
+  tracked_since?: string;
+  credits_today: number;
+  credits_month: number;
+  counters: { sku: string; requests: number; credits: number }[];
+}
 export interface DeliveryProviderStatus {
   preference: DeliveryProviderPreference;
   active_provider: 'google' | 'geoapify';
@@ -10890,6 +10952,8 @@ export interface DeliveryProviderStatus {
     resets_at: string;
     counters: { sku: string; used: number; limit: number; available: boolean }[];
   };
+  geoapify?: GeoapifyUsageStatus;
+  foody_offer?: FoodyMapsOffer;
 }
 /** Read this restaurant's map usage and the shared platform's availability. */
 export function getDeliveryProviderStatus(restaurantId: number): Promise<DeliveryProviderStatus> {

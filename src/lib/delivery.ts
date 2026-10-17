@@ -53,6 +53,9 @@ export interface DeliveryRoute {
   eta_reference_at?: string | null;
   total_distance_m: number;
   est_duration_s: number;
+  est_travel_s?: number;
+  est_waiting_s?: number;
+  est_service_s?: number;
   needs_recalculation?: boolean;
   stop_service_minutes?: number;
   stops: RouteStop[];

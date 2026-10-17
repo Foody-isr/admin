@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCheck, ChevronDown, MessageSquareText, Plus, ReceiptText, RefreshCw, Trash2, Truck } from 'lucide-react';
 import { Badge, Button, ConfirmDialog, Drawer, Field, Input } from '@/components/ds';
@@ -127,7 +128,7 @@ export function MetaWhatsAppTemplates({ rid, status, canEdit, disabled, onChange
       <span className="wa-icon"><Icon aria-hidden="true" /></span>
       <div className="min-w-0">
         <h3>{t(labels[kind])}{['order_status', 'receipt'].includes(kind) && <span className="ms-2 text-xs font-normal text-[var(--fg-muted)]">{t('waWorkspaceOptional')}</span>}</h3>
-        <p className="wa-muted">{t(`waWorkspaceTrigger_${kind}`)}</p>
+        <p className="wa-muted">{t(`waWorkspaceTrigger_${kind}`)}</p>{kind === 'order_status' && <Link href={`/${rid}/settings/orders/workflow`} className="mt-2 inline-block text-sm font-medium underline underline-offset-4">{t('wfWhatsAppWorkflowLink')}</Link>}
         <div className="wa-template-value">{template ? <><bdi>{template.name}</bdi><Badge tone={compatibleMetaTemplate(kind, template) ? 'success' : 'neutral'}>{stateLabel(template)}</Badge></> : <span>{selected[kind] || t('waWorkspaceUnassigned')}</span>}</div>
       </div>
       <Button variant="secondary" disabled={disabled || busy || loading || loadFailed || uncertain} onClick={() => setEditor(kind)} aria-label={`${t(canEdit ? 'waWorkspaceConfigure' : 'waWorkspaceView')} · ${t(labels[kind])}`}>{t(canEdit ? 'waWorkspaceConfigure' : 'waWorkspaceView')}</Button>

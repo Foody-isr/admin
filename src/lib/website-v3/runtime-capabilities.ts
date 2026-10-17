@@ -22,6 +22,7 @@ export type WebsiteV3RuntimeCapabilities = {
   text_section_dimensions: 1;
   video_playback: 1;
   video_height: 1;
+  receipt_editor: 1;
   order_list_styles: 1;
   order_wolt_preset: 1;
   page_types: string[];
@@ -67,7 +68,7 @@ function isCompatible(value: unknown): value is WebsiteV3RuntimeCapabilities {
     value.editor_catalog !== 2 ||
     value.text_image_backgrounds !== 1 ||
     value.text_section_dimensions !== 1 ||
-    value.animated_text !== true || value.component_animations !== 1 || value.video_playback !== 1 || value.video_height !== 1 || value.order_list_styles !== 1 || value.order_wolt_preset !== 1
+    value.animated_text !== true || value.component_animations !== 1 || value.video_playback !== 1 || value.video_height !== 1 || value.receipt_editor !== 1 || value.order_list_styles !== 1 || value.order_wolt_preset !== 1
   ) {
     return false;
   }

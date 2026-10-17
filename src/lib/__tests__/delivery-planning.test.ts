@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildDeliveryEtaLabel, buildDeliveryEtaMessage, deliveryEtaWindow, deliveryRoutingError, isOpenDeliveryRoute } from '@/lib/delivery-planning';
+import { deliveryMatchesRouteDate, formatDeliveryDuration, buildDeliveryEtaLabel, buildDeliveryEtaMessage, deliveryEtaWindow, deliveryRoutingError, isOpenDeliveryRoute } from '@/lib/delivery-planning';
 import type { DeliveryRoute } from '@/lib/delivery';
 
 test('completed, skipped and empty routes do not remain operational plans', () => {
@@ -88,4 +88,19 @@ test('routing failures have localized, bounded feedback', () => {
   assert.equal(deliveryRoutingError(new Error('routing service unavailable'), key => key), 'deliveryRoutingUnavailable');
   assert.equal(deliveryRoutingError(new Error('some deliveries could not be routed'), key => key), 'deliveryRoutingInfeasible');
   assert.equal(deliveryRoutingError(new Error('unknown error'), key => key), null);
+});
+
+
+test('scheduled deliveries are limited to the selected civil date', () => {
+  assert.equal(deliveryMatchesRouteDate({ scheduled_for: '2026-10-23T00:00:00Z' }, '2026-10-16T15:30'), false);
+  assert.equal(deliveryMatchesRouteDate({ scheduled_for: '2026-10-23T00:00:00Z' }, '2026-10-23'), true);
+  assert.equal(deliveryMatchesRouteDate({}, '2026-10-23'), true);
+  assert.equal(deliveryRoutingError(new Error('delivery date differs from route date'), key => key), 'deliveryRouteDateMismatch');
+});
+
+test('duration formatting distinguishes a measured zero and preserves hours', () => {
+  const t = (key: string) => key === 'unitHour' ? 'h' : 'min';
+  assert.equal(formatDeliveryDuration(0, t), '0 min');
+  assert.equal(formatDeliveryDuration(1980, t), '33 min');
+  assert.equal(formatDeliveryDuration(9633 * 60, t), '160h 33min');
 });

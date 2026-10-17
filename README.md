@@ -1,5 +1,11 @@
 # Foody Admin
 
+Delivery planning limits scheduled deliveries to the selected route date and
+displays total duration with separate driving, waiting and handover times in the
+dispatcher and courier views. Unknown historic breakdowns are omitted until
+recalculation. Requires API migration `256_delivery_duration_breakdown.sql`;
+date rejection is enforced by the API and localized in French, Hebrew and English.
+
 In Website V3 → Liste des articles → Disposition et couleurs, **Appliquer le
 style Wolt** restores flat compact rows, landscape photos on the right,
 descriptions, category headings and a local black/gray/cyan palette. It replaces
@@ -1012,7 +1018,20 @@ that number, courier name and route color. Internal route IDs no longer appear i
 map labels; route actions continue to use the persisted IDs.
 The delivery planner and delivery-zone page expose Maps and routes as an outlined
 header action, and the settings sidebar offers it directly beside Delivery zones.
-Upgrade currently opens contact-Foody information without initiating payment.
+Pricing contact actions open contact-Foody information without initiating payment.
+
+The workspace separates Usage, Services and choice, and Foody pricing. Usage has
+Google and Geoapify tabs. Geoapify displays restaurant-scoped credit estimates,
+the declared shared Free-plan allowance (3,000 credits/day, 5 requests/second),
+the tracking start and UTC counter periods. Earlier history and account use outside
+the current API environment are not included; unavailable tracking never appears
+as zero usage. The comparison describes the implemented features and explicitly
+distinguishes estimated traffic from live traffic.
+
+The API supplies the planned Maps Plus offer: 149 ILS excluding VAT per
+establishment/month, 500 weighted Foody optimization credits and defined Google
+volumes. Its contact dialog takes no payment, creates no entitlement and leaves
+all current provider caps intact. Public pricing mirrors the canonical API JSON.
 
 Deploy API migrations 249 (application DB) and 250 (dedicated Google budget DB)
 before enabling the production rollout. Credentials stay on the API. The API's
@@ -1068,3 +1087,49 @@ with migrations `254_item_dining_option.sql` and `255_custom_pos_dining_methods.
 `pos_custom_dining_supported: true` before the POS/Admin client. Catalogue-aware
 KDS/printer filters, progress tracking and reports remain separate work. An override changes preparation context only; it
 does not create another delivery, charge, or order lifecycle.
+## WhatsApp messages in the order workflow
+
+In Settings → Restaurant → Order workflow, each stage can select its own approved
+Meta template and message type (status, confirmation, receipt, delivery reminder,
+or satisfaction on completion). The event checkboxes advance into that stage;
+its notification then sends once per order/stage. Selection and preview are inline;
+the template library remains in Settings → Communications → WhatsApp.
+
+Delivery reminders can send at stage entry or at a chosen restaurant-local time
+the day before the saved delivery date. Explicit stage timing is honored regardless
+of the delivery date; the dedicated manual reminder's J-1 rule does not override
+the workflow. Staff choose wording appropriate to their selected trigger. Saved
+courier name/phone and the delivery window are still required template variables.
+Rescheduling the delivery moves a pending reminder. Disabling, deleting or changing
+the stage rule cancels pending work; it never sends retroactively for old orders.
+A stage-specific confirmation replaces the automatic global confirmation trigger.
+Satisfaction retains its shared once-per-order protection across manual and automatic sends.
+
+Workflow changes save explicitly and participate in lost-response recovery. Older
+workflows retain the global status template / legacy Twilio text until an explicit
+per-stage model is selected. Native template bodies and variable contracts remain
+validated by the API; no provider credentials reach the browser. Deploy API migration
+255 and its scheduler before this Admin version. POS reads this additive stage
+contract and continues to use the same canonical lifecycle statuses.
+
+Order details → Customer messages shows stage notifications blocked before sending
+separately from provider delivery/read evidence, with required-data guidance and
+a scoped link to the workflow. The latest blocked snapshot refreshes without
+resending; older APIs can omit this additive snapshot during a rolling release.
+
+## Digital receipt editor
+
+Open **Website V3 → Parcours de commande → Écran → Reçu** to edit the receipt
+title and thank-you message in French, English or Hebrew, spacing, visible
+restaurant/customer information and print/share/navigation actions. The preview
+uses a synthetic order and follows the selected text language. Fonts and button
+shape inherit Site design; the colour picker inherits the menu by default or
+selects another shared style for the receipt. Content is shared across order
+pages, with screen colour assignments stored per page. Guest receipt links retain
+the originating published order page; generic links use the restaurant's default
+order page.
+
+Edits use the existing autosaved draft and become public only after publication.
+Deploy the receipt API contract and Foody Web advertising `receipt_editor: 1`
+before this editor. Run the isolated regression with
+`npx playwright test -c playwright.website-editor.config.ts receipt-editor.spec.ts`.
