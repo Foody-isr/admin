@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "11e1ecca43359bce32852f29432f48803a4f54f8",
-  "documentationRevision": "756b3728923021ab2155b6033c2df9914243cb95cf759e6d1232f95150b00449",
+  "documentationRef": "da278cfc9b6587f39e1f476b40c619caf9118e75",
+  "documentationRevision": "6bc54f656a245e54de5ed9b50e56d66abc914925c82b205df21a586f803c21f9",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -221,15 +221,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/using-support.mdx",
-          "sha256": "c4df311b6878a62eeaf8933e4f2fbfbdf737973fc9d7e117a7dacde4e4db1dc2"
+          "sha256": "f73adcbb56dd2cd2d815cc1c7f67f30181eb06980e464e94dde14b6cb7be949b"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/using-support.mdx",
-          "sha256": "ade38c8f4cc36522096b28705d93095573c0959bec44005a693b11db556d4598"
+          "sha256": "474d286c373c36ac712a736348aaa240b3b333a1aec562a72bd30951d135d1f2"
         },
         "he": {
           "path": "src/content/help/he/getting-started/using-support.mdx",
-          "sha256": "3b346b15d31f59c8a5191a8bc3b47254248c2bdc55068a0401e3c6b4f31dcc75"
+          "sha256": "eea0d37fea1caa4b3c279ea290a28f8d9841907bfec8c7d6d3752db37983ef62"
         }
       }
     },
@@ -354,15 +354,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/creating-a-menu-item.mdx",
-          "sha256": "e792eb7878fae4c4295b4a167fc7852cf9daf3ac2368678a32f511a7fed3cf74"
+          "sha256": "ca9311ca08f214dcb73ad7a281926bc6aa956cd427778586861654672fd45e35"
         },
         "fr": {
           "path": "src/content/help/fr/menu/creating-a-menu-item.mdx",
-          "sha256": "fca61aad1a4047d611071bb6980df322f57b2a5c88185c8d40a76e4270ff17d7"
+          "sha256": "65921ea08287567cabd195fbba5941694249f67de14791a5b7f25ef90a7b0d1f"
         },
         "he": {
           "path": "src/content/help/he/menu/creating-a-menu-item.mdx",
-          "sha256": "b90cbe356396d685e89c48d546be0726c82eb8d8008b92a323a5a2467ba76de2"
+          "sha256": "300d09deb44e01151d681205b4322788b749b4ece3d520d0ec1e56c0e9c94f99"
         }
       }
     },
