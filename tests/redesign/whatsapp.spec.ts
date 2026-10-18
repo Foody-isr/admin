@@ -53,6 +53,7 @@ async function install(page: Page, options: { locale?: string; connected?: boole
         for (const [kind, value] of Object.entries(body.templates ?? {})) {
           (control.meta.connection as any)[`${kind}_name`] = (value as any).name;
           (control.meta.connection as any)[`${kind}_language`] = (value as any).language;
+ control.meta.connection!.message_attachments={...control.meta.connection!.message_attachments,[kind]:(value as any).attachment};
         }
         if (control.metaLostResponse) return fail(); return send(control.meta);
       }
@@ -680,4 +681,88 @@ test('satisfaction edited policy requires confirmation before leaving to create 
   await page.getByRole('alertdialog').getByRole('button', { name: 'Annuler', exact: true }).click();
   await expect(drawer.getByLabel('Heure du dimanche', { exact: true })).toHaveValue('11:00');
   expect(state.writes).toHaveLength(0);
+});
+
+
+test('admin submits a photo model using a private file and configures its attachment',async({page},info)=>{
+ const state=await install(page,{coexistence:true,metaReady:true});
+ const asset={id:'11111111-1111-4111-8111-111111111111',filename:'menu-demo.png',mime_type:'image/png',format:'IMAGE',size:1024,created_at:'2026-10-18T10:00:00Z'};
+ const uploads:string[]=[];
+ await page.route('**/whatsapp/meta/media**',async route=>{
+  const request=route.request();expect(request.headers()['x-restaurant-id']).toBe('1');
+  if(request.method()==='POST'){expect(request.headers()['content-type']).toContain('multipart/form-data');uploads.push(request.postData() ?? '');return route.fulfill({json:asset,status:201})}
+  return route.fulfill({json:{media:uploads.length?[asset]:[]}});
+ });
+ await page.goto('/1/settings/whatsapp');
+ await page.getByRole('button',{name:'Créer un modèle',exact:true}).click();
+ const drawer=page.getByRole('dialog');
+ await drawer.getByLabel('Nom du modèle',{exact:true}).fill('recap_photo_fr');
+ await drawer.getByLabel('Pièce jointe au message',{exact:true}).selectOption('IMAGE');
+ await expect(drawer.getByRole('button',{name:'Soumettre à Meta',exact:true})).toBeDisabled();
+ await drawer.getByLabel('Ajouter un fichier',{exact:true}).setInputFiles({name:'menu-demo.png',mimeType:'image/png',buffer:Buffer.from('synthetic image fixture')});
+ await expect(drawer.getByLabel('Photo',{exact:true})).toHaveValue(asset.id);
+ await expect(drawer.getByRole('button',{name:'Soumettre à Meta',exact:true})).toBeEnabled();
+ await page.screenshot({path:info.outputPath('whatsapp-photo-model-fr.png'),animations:'disabled'});
+ await drawer.getByRole('button',{name:'Soumettre à Meta',exact:true}).click();
+ expect(uploads).toHaveLength(1);
+ expect(state.writes[0].body.attachment).toEqual({source:'fixed',asset_id:asset.id});
+ expect(state.writes.every(write=>write.path.endsWith('/templates'))).toBe(true);
+});
+
+test('PDF model accepts the order receipt without uploading a customer document',async({page},info)=>{
+ const state=await install(page,{coexistence:true,metaReady:true});
+ await page.route('**/whatsapp/meta/media',route=>route.fulfill({json:{media:[]}}));
+ await page.goto('/1/settings/whatsapp');
+ await page.getByRole('button',{name:'Créer un modèle',exact:true}).click();
+ const drawer=page.getByRole('dialog');
+ await drawer.getByLabel('Nom du modèle',{exact:true}).fill('recap_pdf_fr');
+ await drawer.getByLabel('Pièce jointe au message',{exact:true}).selectOption('DOCUMENT');
+ await drawer.getByLabel('Document à envoyer',{exact:true}).selectOption('receipt');
+ await expect(drawer).toContainText('chaque commande');
+ await expect(drawer.getByRole('button',{name:'Soumettre à Meta',exact:true})).toBeEnabled();
+ await page.setViewportSize({width:375,height:1000});
+ await page.screenshot({path:info.outputPath('whatsapp-order-receipt-mobile-fr.png'),animations:'disabled'});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await drawer.getByRole('button',{name:'Soumettre à Meta',exact:true}).click();
+ expect(state.writes[0].body.attachment).toEqual({source:'receipt',asset_id:''});
+ expect(state.writes).toHaveLength(1);
+});
+
+test('an approved PDF header can be assigned a receipt from the message configuration',async({page})=>{
+ const state=await install(page,{coexistence:true,metaReady:true});
+ state.control.catalogue[0].components.unshift({type:'HEADER',format:'DOCUMENT'});
+ state.control.meta.connection!.delivery_reminder_name='delivery_reminder';state.control.meta.connection!.delivery_reminder_language='fr';
+ await page.route('**/whatsapp/meta/media',route=>route.fulfill({json:{media:[]}}));
+ await page.goto('/1/settings/whatsapp');
+ await page.getByRole('button',{name:'Configurer · Confirmation détaillée de commande',exact:true}).click();
+ const drawer=page.getByRole('dialog');
+ await drawer.getByLabel('Confirmation détaillée de commande',{exact:true}).selectOption('order_recap|fr');
+ await drawer.getByLabel('Document à envoyer',{exact:true}).selectOption('receipt');
+ await expect(drawer).toContainText('Confirmation de commande');
+ await drawer.getByRole('button',{name:'Terminé',exact:true}).click();
+ await page.getByRole('button',{name:'Activer les notifications Meta',exact:true}).click();
+ expect(state.writes[0].body.templates.order_recap.attachment).toEqual({source:'receipt',asset_id:''});
+ await expect(page.getByRole('region',{name:'Modèles de notifications Meta',exact:true})).toContainText('Les notifications WhatsApp sont activées');
+});
+
+
+test('read-only staff preview a private photo using scoped headers without editing',async({page})=>{
+ const state=await install(page,{coexistence:true,metaReady:true,permissions:['settings.view']});
+ const asset={id:'11111111-1111-4111-8111-111111111111',filename:'menu-demo.png',mime_type:'image/png',format:'IMAGE',size:1024,created_at:'2026-10-18T10:00:00Z'};
+ state.control.catalogue[0].components.unshift({type:'HEADER',format:'IMAGE'});
+ Object.assign(state.control.meta.connection!,{order_recap_name:'order_recap',order_recap_language:'fr',message_attachments:{order_recap:{source:'fixed',asset_id:asset.id}}});
+ const reads:string[]=[];
+ await page.route('**/whatsapp/meta/media**',async route=>{
+  const request=route.request();expect(request.method()).toBe('GET');expect(request.headers()['x-restaurant-id']).toBe('1');expect(request.headers()['authorization']).toBe('Bearer isolated-ui-fixture');
+  if(new URL(request.url()).pathname.endsWith(asset.id)){reads.push(asset.id);return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6t4AAAAAASUVORK5CYII=','base64')})}
+  return route.fulfill({json:{media:[asset]}});
+ });
+ await page.goto('/1/settings/whatsapp');
+ await page.getByRole('button',{name:'Voir · Confirmation détaillée de commande',exact:true}).click();
+ const drawer=page.getByRole('dialog');
+ await expect(drawer.getByLabel('Photo',{exact:true})).toBeDisabled();
+ await expect(drawer.getByRole('button',{name:'Supprimer le fichier',exact:true})).toHaveCount(0);
+ const popupPromise=page.waitForEvent('popup');await drawer.getByRole('button',{name:'Voir le fichier',exact:true}).click();const popup=await popupPromise;
+ await expect(popup).toHaveURL(/^blob:/);expect(reads).toEqual([asset.id]);expect(state.writes).toHaveLength(0);
+ await popup.close();
 });

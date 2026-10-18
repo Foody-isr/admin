@@ -4,13 +4,15 @@ import { useEffect, useRef, useState } from 'react';
 import { Heart, Plus } from 'lucide-react';
 import { Badge, Button, ConfirmDialog, Drawer, Field, Input } from '@/components/ds';
 import { configureMetaSatisfaction, getMetaWhatsAppStatus, type MetaSatisfactionSettings, type MetaWhatsAppStatus, type MetaWhatsAppTemplate } from '@/lib/api';
-import { compatibleMetaTemplate } from '@/lib/whatsapp-meta-templates';
+import { metaTemplateHeader, validWhatsAppAttachment, compatibleMetaTemplate } from '@/lib/whatsapp-meta-templates';
 import { useI18n } from '@/lib/i18n';
+
+import { WhatsAppAttachmentPicker } from './WhatsAppAttachmentPicker';
 
 const inputClass = 'w-full rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm';
 function settings(status: MetaWhatsAppStatus): MetaSatisfactionSettings {
   const c = status.connection;
-  return { mode: c?.satisfaction_mode || 'disabled', delay_hours: c?.satisfaction_delay_hours || 24, sunday_time: c?.satisfaction_sunday_time || '10:00', template: { name: c?.satisfaction_name || '', language: c?.satisfaction_language || '' } };
+  return { mode: c?.satisfaction_mode || 'disabled', delay_hours: c?.satisfaction_delay_hours || 24, sunday_time: c?.satisfaction_sunday_time || '10:00', template: { name: c?.satisfaction_name || '', language: c?.satisfaction_language || '',attachment:c?.message_attachments?.satisfaction ?? {source:'none',asset_id:''} } };
 }
 
 /** Configure one post-fulfillment notification with a reviewed trigger and native template. */
@@ -21,7 +23,8 @@ export function MetaWhatsAppSatisfaction({ rid, status, templates, canEdit, disa
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<MetaSatisfactionSettings>(() => settings(status));
-  const [busy, setBusy] = useState(false);
+  const [attachmentBusy,setAttachmentBusy]=useState(false);
+ const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [uncertain, setUncertain] = useState(false);
   const [discard, setDiscard] = useState(false);
@@ -39,7 +42,7 @@ export function MetaWhatsAppSatisfaction({ rid, status, templates, canEdit, disa
   }, [dirty, busy]);
   const selected = templates.find(item => item.name === draft.template.name && item.language === draft.template.language);
   const current = templates.find(item => item.name === saved.template.name && item.language === saved.template.language);
-  const valid = draft.mode === 'disabled' || (!!selected && compatibleMetaTemplate('satisfaction', selected) && (draft.mode !== 'delay' || (Number.isInteger(draft.delay_hours) && draft.delay_hours >= 1 && draft.delay_hours <= 168)) && (draft.mode !== 'sunday' || /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(draft.sunday_time)));
+  const valid = draft.mode === 'disabled' || (!!selected && compatibleMetaTemplate('satisfaction', selected) && validWhatsAppAttachment(selected,draft.template.attachment) && (draft.mode !== 'delay' || (Number.isInteger(draft.delay_hours) && draft.delay_hours >= 1 && draft.delay_hours <= 168)) && (draft.mode !== 'sunday' || /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(draft.sunday_time)));
   const close = () => { if (busy) return; if (dirty) setDiscard(true); else setOpen(false); };
   const save = async () => {
     if (!canEdit || disabled || busy || uncertain || lock.current || !valid) return;
@@ -65,7 +68,7 @@ export function MetaWhatsAppSatisfaction({ rid, status, templates, canEdit, disa
       <div className="min-w-0"><h3>{t('waSatisfactionTitle')} <span className="ms-2 text-xs font-normal text-[var(--fg-muted)]">{t('waWorkspaceOptional')}</span></h3><p className="wa-muted">{description}</p><div className="wa-template-value">{current && saved.mode !== 'disabled' ? <><bdi>{current.name}</bdi><Badge tone={compatibleMetaTemplate('satisfaction', current) ? 'success' : 'neutral'}>{t(compatibleMetaTemplate('satisfaction', current) ? 'waWorkspaceApproved' : 'waWorkspaceCheck')}</Badge></> : t('waSatisfactionDisabled')}</div></div>
       <Button variant="secondary" disabled={disabled || busy} aria-label={`${t(canEdit ? 'waWorkspaceConfigure' : 'waWorkspaceView')} · ${t('waSatisfactionTitle')}`} onClick={() => { setDraft(settings(status)); setError(''); setOpen(true); }}>{t(canEdit ? 'waWorkspaceConfigure' : 'waWorkspaceView')}</Button>
     </div>
-    <Drawer open={open} onOpenChange={value => { if (!value) close(); }} closeDisabled={busy} title={t('waSatisfactionTitle')} width={600} className="wa-editor" primaryAction={canEdit ? <Button disabled={busy || disabled || uncertain || !valid} onClick={() => void save()}>{t('save')}</Button> : undefined}>
+    <Drawer open={open} onOpenChange={value => { if (!value) close(); }} closeDisabled={busy} title={t('waSatisfactionTitle')} width={600} className="wa-editor" primaryAction={canEdit ? <Button disabled={busy || attachmentBusy || disabled || uncertain || !valid} onClick={() => void save()}>{t('save')}</Button> : undefined}>
       {error && <p role="alert" className="wa-feedback text-[var(--danger-500)]">{error}</p>}
       <section className="wa-editor-section space-y-5">
         <Field label={t('waSatisfactionWhen')}><select className={inputClass} aria-label={t('waSatisfactionWhen')} value={draft.mode} disabled={!canEdit || busy || uncertain} onChange={event => setDraft(old => ({ ...old, mode: event.target.value as MetaSatisfactionSettings['mode'] }))}>{(['disabled', 'manual', 'sunday', 'delay'] as const).map(mode => <option key={mode} value={mode}>{t(`waSatisfactionMode_${mode}`)}</option>)}</select></Field>
@@ -74,8 +77,9 @@ export function MetaWhatsAppSatisfaction({ rid, status, templates, canEdit, disa
         <p className="wa-muted">{t(draft.mode === 'manual' ? 'waSatisfactionManualHint' : draft.mode === 'disabled' ? 'waSatisfactionDisabledHint' : 'waSatisfactionAutomaticHint')}</p>
       </section>
       {draft.mode !== 'disabled' && <>
-        <section className="wa-editor-section space-y-4"><Field label={t('waWorkspaceSelect')}><select className={inputClass} aria-label={t('waWorkspaceSelect')} value={draft.template.name ? `${draft.template.name}|${draft.template.language}` : ''} disabled={!canEdit || busy || uncertain} onChange={event => { const [name = '', language = ''] = event.target.value.split('|'); setDraft(old => ({ ...old, template: { name, language } })); }}><option value="">{t('waMetaNoTemplate')}</option>{!!draft.template.name && !selected && <option disabled value={`${draft.template.name}|${draft.template.language}`}>{draft.template.name}</option>}{templates.map(item => <option key={item.id} value={`${item.name}|${item.language}`} disabled={!compatibleMetaTemplate('satisfaction', item)}>{item.name} · {item.language}</option>)}</select></Field>
-          {canEdit && <Button variant="ghost" disabled={busy} onClick={() => { if (dirty) { setCreateAfterDiscard(true); setDiscard(true); } else { setOpen(false); onCreate(); } }}><Plus aria-hidden="true" />{t('waWorkspaceCreateFor')}</Button>}
+        <section className="wa-editor-section space-y-4"><Field label={t('waWorkspaceSelect')}><select className={inputClass} aria-label={t('waWorkspaceSelect')} value={draft.template.name ? `${draft.template.name}|${draft.template.language}` : ''} disabled={!canEdit || busy || uncertain} onChange={event => { const [name = '', language = ''] = event.target.value.split('|'); setDraft(old => ({ ...old, template: { name, language,attachment:{source:metaTemplateHeader(templates.find(row=>row.name===name && row.language===language))?'fixed':'none',asset_id:''} } })); }}><option value="">{t('waMetaNoTemplate')}</option>{!!draft.template.name && !selected && <option disabled value={`${draft.template.name}|${draft.template.language}`}>{draft.template.name}</option>}{templates.map(item => <option key={item.id} value={`${item.name}|${item.language}`} disabled={!compatibleMetaTemplate('satisfaction', item)}>{item.name} · {item.language}</option>)}</select></Field>
+          {selected && metaTemplateHeader(selected) && <WhatsAppAttachmentPicker key={`${rid}:satisfaction:${selected.id}`} rid={rid} format={metaTemplateHeader(selected) as 'IMAGE'|'DOCUMENT'} value={draft.template.attachment} disabled={!canEdit || busy || uncertain} onBusyChange={setAttachmentBusy} onChange={attachment=>setDraft(old=>({...old,template:{...old.template,attachment}}))}/>}
+ {canEdit && <Button variant="ghost" disabled={busy || attachmentBusy} onClick={() => { if (dirty) { setCreateAfterDiscard(true); setDiscard(true); } else { setOpen(false); onCreate(); } }}><Plus aria-hidden="true" />{t('waWorkspaceCreateFor')}</Button>}
           {dirty && <p className="wa-muted">{t('waWorkspaceDirty')}</p>}
         </section>
         <section className="wa-editor-section"><h3>{t('waWorkspacePreview')}</h3>{selected ? <p className="wa-preview" dir={selected.language.startsWith('he') ? 'rtl' : 'ltr'}>{selected.components.find(item => item.type === 'BODY')?.text}</p> : <p className="wa-muted">{t('waWorkspaceNoPreview')}</p>}</section>

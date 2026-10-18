@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "256a0219cb9c6ebf6ceea0bac3f3b32ca762e2af",
-  "documentationRevision": "ffb6149b1c296d2ba0b362773d8175045ae2530d269046bf3e74ad90003dc790",
+  "documentationRef": "WORKSPACE",
+  "documentationRevision": "6bd12f44add88ab8be46f3749eb613f25da8ac1c47f919f1c06c269e74d378a9",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -430,15 +430,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/managing-orders.mdx",
-          "sha256": "0001213a44bc1e1e88f05bcad8edf97a0e9b8c472dc4033ef4d92300d6aebdbf"
+          "sha256": "6c3f058a9bd9d70890f145a4cc1b0f6d7e780fdf43f0bd5a7330a7c935607303"
         },
         "fr": {
           "path": "src/content/help/fr/orders/managing-orders.mdx",
-          "sha256": "caa0b782148b5556c9d18fd25887ff60a8c0592da53afa9868b05d55019e2301"
+          "sha256": "130be5cac8bc573d5408e88dfa69c750dc89c995f575fa2d56b810fa13316789"
         },
         "he": {
           "path": "src/content/help/he/orders/managing-orders.mdx",
-          "sha256": "02f93af563e229918ad1b0eb79c8c6d8d97ba2943bfaa3438882da81f4eba76b"
+          "sha256": "7cd734fad192d9dc282f9b51fd4b3de1c5dd1b4344d2971de93299474f0e9906"
         }
       }
     },
@@ -468,15 +468,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/printers/epson-tm-u220iib.mdx",
-          "sha256": "2bcff48f36354c5b27ad06be8b3c17fe4fc030670afe03ca2427e5e0b01c6528"
+          "sha256": "773f3a11d1a798357374e92da8e317ae9a8a751eae3e843ab8d093827351cbff"
         },
         "fr": {
           "path": "src/content/help/fr/printers/epson-tm-u220iib.mdx",
-          "sha256": "67a7003ad9184bbe244c2d18510314548f714196815d78b7a461c7b1796b83c5"
+          "sha256": "588c801eb49af21b881589929cebc1d5264fa5692ac9632ec3e42e68789eb5a8"
         },
         "he": {
           "path": "src/content/help/he/printers/epson-tm-u220iib.mdx",
-          "sha256": "96b6fa26629ceae13ed1782b90d7a061b665054ede6505a3e27e875b8a625c39"
+          "sha256": "0ab971abea24b973e9fa933a404fa88e678581f5d8a24c5ff8a030bc1aa4662e"
         }
       }
     },
@@ -525,15 +525,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/order-types.mdx",
-          "sha256": "db78dbc1c2e7bd35d23324fa50de39086de382b55532d7ab16029ab50476440b"
+          "sha256": "b763612c07f6a80080762f03f8742f91852f84725c09df10729910c359cb0344"
         },
         "fr": {
           "path": "src/content/help/fr/orders/order-types.mdx",
-          "sha256": "b576b268d1dc6a7bb0edd88bf5f1dd63579ea0eda929775ef639cdef9a576a60"
+          "sha256": "bfab17d63245c66f2fc08cd216131d6f33a25ea4862cedeccb69f3ec55aadd23"
         },
         "he": {
           "path": "src/content/help/he/orders/order-types.mdx",
-          "sha256": "bcbe9ac110255dd4222cd122500939c559112680d7342df8333367fa02d1c018"
+          "sha256": "dad570de655ffd18529e459e3757814266c230e70e6e75181a13122bfcc63cd0"
         }
       }
     },
@@ -544,15 +544,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/taking-an-order-pos.mdx",
-          "sha256": "fe110cb461ed38a93a78d856cc9288d4ed3dfb430e00eec37b49266372c2ecba"
+          "sha256": "45e25f035e20afa43ad550c9665fa80a132e4c757319ce8a87b906d35de9a1b0"
         },
         "fr": {
           "path": "src/content/help/fr/orders/taking-an-order-pos.mdx",
-          "sha256": "f302dc136c5006c11505a0ec7d8ab33504dbb7f481e000f205623d2444d58f80"
+          "sha256": "ebf50ef73bb3a7b7e373980261843db3d09df0a5121a280e6f9150ccd1960744"
         },
         "he": {
           "path": "src/content/help/he/orders/taking-an-order-pos.mdx",
-          "sha256": "ac2269dc9e721a42da60abd9b49f938cc1ed49906ad11e27db70718c9c5dfbbf"
+          "sha256": "6ba139da43d96033c3f20c9bc357b9955e7bbe937e71e90219aa85e7cccec477"
         }
       }
     },
@@ -582,15 +582,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/workflow-settings.mdx",
-          "sha256": "1ae7155cd923419cc19e02753f8c889e2dbe099ba2280e8696505db88fe6c54c"
+          "sha256": "23f73c8300e4c272bbaea49fc81b87913475296f6529716a1a483d51fe40edb1"
         },
         "fr": {
           "path": "src/content/help/fr/settings/workflow-settings.mdx",
-          "sha256": "758ec9557ec7ac3a0aba966eed97dd25ccc27aee4c0449674c74fc72816aab46"
+          "sha256": "e4b523d9cd93ca1b93e540b4365251bfb382af8fa423a551bae39c218629511a"
         },
         "he": {
           "path": "src/content/help/he/settings/workflow-settings.mdx",
-          "sha256": "eb3176e0035415198203adc3e50f4a95e90cf5779ad78b0f33ca5ff694658a20"
+          "sha256": "e96e74178cb6d242b8fea06ac80baf363b1b967748c80e0c1fc686fc4daab260"
         }
       }
     },
@@ -620,15 +620,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/order-details.mdx",
-          "sha256": "1bd067f38475ae2c6d00f92c73c7e7d26af043f794f1d9beb6d409dba4a7b75e"
+          "sha256": "f751dc9008b53f7482a791dfe79a14319f8be57b6516ad4c86e455c4e2107278"
         },
         "fr": {
           "path": "src/content/help/fr/orders/order-details.mdx",
-          "sha256": "7e6d84e6a069d80ab1f5194beba4851951e8a76e2df44d3df5d5f223da4aa218"
+          "sha256": "7564bc7ad62e4aea034d66e44e76c95d60fd3716a68fe5f850aebce2e3fb4e7e"
         },
         "he": {
           "path": "src/content/help/he/orders/order-details.mdx",
-          "sha256": "c8a2de572e20e922395255c99d9f542e362cc6a48c3f7386f2d669db6ec3dc16"
+          "sha256": "4db80b22e961af43bea94cd6d0279da01da97fbef956c5171957cd6c5e9f00b0"
         }
       }
     },
@@ -1057,15 +1057,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/fulfillment-and-ordering.mdx",
-          "sha256": "d2d32d7bf3a0340933c327d93f72a530f51dac0f94200d2b3f019137f1eb6dcc"
+          "sha256": "ad410a91a5dd77d52ac419760bb5f36802f17c86ee7d40d5de4c9b4f6d4d82fb"
         },
         "fr": {
           "path": "src/content/help/fr/settings/fulfillment-and-ordering.mdx",
-          "sha256": "6ac5e6a8f9a289bfdc911dd46424d7db3ae375830c7a6ca59f5e06aa08a74e83"
+          "sha256": "f054cfb9a6d287123c369c2a6fa62b662ee3fa3eeab1f7327a6010e45a5caee0"
         },
         "he": {
           "path": "src/content/help/he/settings/fulfillment-and-ordering.mdx",
-          "sha256": "d1091d1f90b2c00138b039a4c01e44f958045660b479ec1993f101bf119ac9a2"
+          "sha256": "26e4c14eb37aa774d03366e1d2e270f3b3e99f3ff04edf69312383ff37c9c37c"
         }
       }
     },
@@ -1323,15 +1323,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/printers/status-and-history.mdx",
-          "sha256": "9c28ced388bcb7020d0dd8b1f87926bb512f8fbf82303eb1793cb94b87cc9ddc"
+          "sha256": "3a5f957a3e07619263d566cd5ae7e7f3a73da09792781633490b393dfd6379f5"
         },
         "fr": {
           "path": "src/content/help/fr/printers/status-and-history.mdx",
-          "sha256": "ed182113cd5feb4649a59d4afc652ad3874da37baf14dc2032101c83f73e8171"
+          "sha256": "c128ef780dce2754bba064c096df2e8793c92a4aa7f62c1f2c91f988ed88110c"
         },
         "he": {
           "path": "src/content/help/he/printers/status-and-history.mdx",
-          "sha256": "d4d187afce37a3577003c2c7c5c5dfdabe8dd0c40171d08c49b4482eb9894158"
+          "sha256": "bc6de18551f96da166f6e3080d527773767e5165ffd2b4059cc4e46deec9914a"
         }
       }
     },
@@ -1475,15 +1475,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/communications/whatsapp.mdx",
-          "sha256": "e6cfdc12d1cbd4c9ed2f246dbcbe8535bf90c469675c0807f684725e80f34ba7"
+          "sha256": "dd13b290d3e397979f54c134efb5557fa2b0bf5a70e1149fc41e9410d1bedb7c"
         },
         "fr": {
           "path": "src/content/help/fr/communications/whatsapp.mdx",
-          "sha256": "6a6e5461c5a39a5dcd263847b411d5667177e930902bc66330e3471ece0df500"
+          "sha256": "cb026e6bbbe9c1364da582ac01e0accd4630bbdf8cf5c7064c21fe13801ca58a"
         },
         "he": {
           "path": "src/content/help/he/communications/whatsapp.mdx",
-          "sha256": "f401d735d0f361190a8f7424142867ba4126d00ca660d8f0f2892fadc4bcec87"
+          "sha256": "8b8241b5acf20687367258ba58af987cd16625637bf8c4d00d3e849d1cc0b55f"
         }
       }
     },
@@ -1494,15 +1494,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/communications/templates-and-automation.mdx",
-          "sha256": "6131f72fca32d06bdf5fabd1d2c025066ceeb8670ab83382c15e8f9e5bcf92f4"
+          "sha256": "2cd77261d07843c855cadc11867f903c737a44afc9269330446bd30eff37b499"
         },
         "fr": {
           "path": "src/content/help/fr/communications/templates-and-automation.mdx",
-          "sha256": "4d5fff09a2b3ab6f7f462da3154c9d451dedfe3ce7725c45425ef134e74659e8"
+          "sha256": "3f257a1ef8a8c51a37db30399d3825c50529757f48fb79f4a83c1b21e420fc7f"
         },
         "he": {
           "path": "src/content/help/he/communications/templates-and-automation.mdx",
-          "sha256": "c05b3a53d6925176d46acc77732034280bdf38a276d7ec1b7fc3c2386cca1137"
+          "sha256": "b49e86dc74cf85f549f2a001d6ad1cbb1f37c286e06d680acdecddb87be4f7ff"
         }
       }
     },
@@ -1741,15 +1741,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "6449ed6f0d31b267223849e8d1b8858a6c844514989fdc40e1cf5fccb7b7a315"
+          "sha256": "05d42fbffe833978026c6765d1ce774128b8656538815dd0611d60277c42a053"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "d6609d24dceea844657cfe389e422f50fa06e9f5b94ce24a5831933ee7b44869"
+          "sha256": "832f3704713ea1bd35c1423e3dea37cbe6d63835e1567a248c2bbf2363429882"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "1759e125a4e79a28657383e8aecef7d8b9d641b58e6b9eac8bdd789ca1ea0f8a"
+          "sha256": "65e0ee95d14a34d6bb267584c655debe548599d301d9c13212f70f98fcaddc33"
         }
       }
     },
@@ -1779,15 +1779,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/shared-runtime.md",
-          "sha256": "4e074da7138343559993208079e1f8474d7a4d2b4a1687f6de5cecaf3d530719"
+          "sha256": "34c3d6e0e4307c57e6c205c9359cfe8f6acbcf9cdc68e9753c6af8a6ddb0b52b"
         },
         "fr": {
           "path": "docs/help/internal/fr/shared-runtime.md",
-          "sha256": "79fa80ce75d6f701508a9c29150f46c1b66259bff184bf30e03f732268e46d62"
+          "sha256": "97140df2e6fa151f7806984f64f6dcf5882fd80163b3543b1af82dcd2040db8f"
         },
         "he": {
           "path": "docs/help/internal/he/shared-runtime.md",
-          "sha256": "d01e115849517c315a72088c5f8a1f9af2744844c071ddcc83e5b2ea372c322e"
+          "sha256": "c0777810e9e96136ff7d22b35e9906674dc44874d0b9420e64c481449b1b1e7f"
         }
       }
     },
@@ -3102,7 +3102,7 @@
       ]
     },
     "src/app/[restaurantId]/settings/orders/WorkflowStageMessage.tsx": {
-      "sha256": "6a9f684a31a1833d8b3621e02a4f588a5ffc3bd3d3ceef681d8b0989fbaab542",
+      "sha256": "5fae5341fc502ee9008a3fe3136ca7306bc839d46eac0a419cc294a5c59ce11e",
       "features": [
         "order-types",
         "order-workflow",
@@ -3138,7 +3138,7 @@
       ]
     },
     "src/app/[restaurantId]/settings/orders/workflow-state.ts": {
-      "sha256": "e1faa2f68100d5f7263130ae2bc3260834604b2bf11d02eb22af0b3261f2c98d",
+      "sha256": "b3b4d7092558357bbce110f1c0e0178ab06e5102c642ac3a794e1ec6684e0db9",
       "features": [
         "order-types",
         "fulfillment-policy"
@@ -4757,7 +4757,7 @@
       ]
     },
     "src/components/orders/OrderTwilioMessage.tsx": {
-      "sha256": "46fcb067123c4507e758862fcc34fe5f3935f4720b4ccfd8a19e57585e52c35c",
+      "sha256": "cfec69017ed14100acc4f612bf9f655cbf43c9ece3c94db068d8b7699c088b75",
       "features": [
         "orders-managing-orders",
         "order-detail"
@@ -4911,7 +4911,7 @@
       ]
     },
     "src/components/orders/detail/context/OrderMessageHistory.tsx": {
-      "sha256": "1c4c63f883e7bdba7c2fcad912d36622b3898e48de20bd137317999a56e482c1",
+      "sha256": "dab4e5ae38d90df84695699edce8be5a56d3e4b3047cf10fd29b63931b67b203",
       "features": [
         "orders-managing-orders",
         "order-detail"
@@ -5099,14 +5099,14 @@
       ]
     },
     "src/components/settings/MetaWhatsAppSatisfaction.tsx": {
-      "sha256": "2fb06297892b6d68e915f6a57e86d0658d900d64abad33df52b8f91315924163",
+      "sha256": "4e973321571b76f11d9d62f451210b6a0ba28570366cb15cf90476ceccdba8a6",
       "features": [
         "whatsapp",
         "message-templates"
       ]
     },
     "src/components/settings/MetaWhatsAppTemplates.tsx": {
-      "sha256": "eba99487baafa956b9271471790d23545bff921ebd63251381a21f41ca8c1a11",
+      "sha256": "913d1321d7ee0fe6140f86a1160e623e65fe7b2bd6e1e87f169d081810cee6f2",
       "features": [
         "whatsapp",
         "message-templates"
@@ -5148,6 +5148,13 @@
       "sha256": "2b5a795af8856205175113eb010e36b5879a28c9d3940fbf54a0bf2c0a6d36b2",
       "features": [
         "shared-runtime"
+      ]
+    },
+    "src/components/settings/WhatsAppAttachmentPicker.tsx": {
+      "sha256": "0da08776a06e3d8c0ea988249390feb0c7f25496279d447a1a311d166009650e",
+      "features": [
+        "whatsapp",
+        "message-templates"
       ]
     },
     "src/components/settings/pos-settings.css": {
@@ -5923,7 +5930,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "1fe3c83808b55237ef3dce013c1fc0c1c8d291b26d590b77522def3791f6a6ac",
+      "sha256": "01906a376fd127e4c642f9b8ffe49fb2de1d19b2491665249c35f66cbbc0d641",
       "features": [
         "shared-runtime"
       ]
@@ -6091,7 +6098,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "0ae671f4f88cb66bf93a431115aef856bfdcbf865b75d9b1a9c6617191599b23",
+      "sha256": "17db55ec9e20fd287110a8efa40ada8b180938a0a34b008d463d738109e128d9",
       "features": [
         "shared-runtime"
       ]
@@ -6985,8 +6992,9 @@
       ]
     },
     "src/lib/whatsapp-meta-templates.ts": {
-      "sha256": "8d00a6a1a0db3bfb91a716f850cb4c2c2d9d2838e577a1c1a5ab7c84a8f6ad20",
+      "sha256": "358a2b4d5fb16bf4c70071c3123705416789024d1266ae3947ef71b061f1a89d",
       "features": [
+        "message-templates",
         "shared-runtime"
       ]
     },
@@ -17939,6 +17947,9 @@
         "order-detail"
       ],
       "labels": [
+        "waAttachmentOrderPreview",
+        "waAttachmentPreviewFailed",
+        "waAttachmentTitle",
         "waMetaRefreshTracking",
         "waMetaTrackingFailed",
         "waOrderAccepted",
@@ -18558,6 +18569,7 @@
         "orderMessagesScope",
         "orderMessagesTitle",
         "retry",
+        "waAttachmentTitle",
         "waPersonalReady",
         "waPersonalRecap",
         "waPersonalReceipt",
@@ -19132,6 +19144,11 @@
         "discardChanges",
         "discardUnsavedChanges",
         "loading",
+        "waAttachmentApprovalHint",
+        "waAttachmentHeader",
+        "waAttachmentNone",
+        "waAttachmentPDF",
+        "waAttachmentPhoto",
         "waMetaAlreadyExists",
         "waMetaCreateUnconfirmed",
         "waMetaNoTemplate",
@@ -19357,6 +19374,37 @@
         "stockSettings"
       ],
       "actions": []
+    },
+    {
+      "id": "foodyadmin:src/components/settings/WhatsAppAttachmentPicker.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/settings/WhatsAppAttachmentPicker.tsx",
+      "line": 1,
+      "features": [
+        "whatsapp",
+        "message-templates"
+      ],
+      "labels": [
+        "cancel",
+        "delete",
+        "loading",
+        "retry",
+        "waAttachmentChoose",
+        "waAttachmentDelete",
+        "waAttachmentDeleteHint",
+        "waAttachmentFixed",
+        "waAttachmentMissing",
+        "waAttachmentPreview",
+        "waAttachmentReceipt",
+        "waAttachmentReceiptHint",
+        "waAttachmentSource",
+        "waAttachmentTitle",
+        "waAttachmentUpload",
+        "waAttachmentWorking"
+      ],
+      "actions": [
+        "deleteWhatsAppMedia"
+      ]
     },
     {
       "id": "foodyadmin:src/components/settings/usePOSSettings.ts:ui-controls:1",
@@ -23184,6 +23232,7 @@
         "deleteVariantGroup",
         "deleteWebsiteFonts",
         "deleteWebsiteSection",
+        "deleteWhatsAppMedia",
         "discardWebsiteDraft",
         "mergeCustomers",
         "publishWebsiteDraft",

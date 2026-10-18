@@ -1155,3 +1155,20 @@ checks local preparation. Remote CI uses a pinned immutable Landing commit and
 checks all French, Hebrew and English procedures. New source and behavior changes
 require an updated inventory/guide release or an exact reviewed no-user-impact
 explanation. See Landing’s `docs/help/MAINTENANCE.md` for the complete workflow.
+
+## Photo and PDF attachments in native Meta automations
+
+Create a model in Settings → Communications → WhatsApp and select Photo or PDF
+document under Message attachment. Upload a private JPEG/PNG (5 MiB max) or PDF
+(10 MiB max), or select Receipt for this order for a dynamic Foody PDF. After Meta
+approval, choose the model and its attachment in the message drawer or directly
+on an order-workflow stage, then save that page. A text-only model needs a new
+media-header version; each message supports one attachment. These controls apply
+to direct Meta routing, not Twilio.
+
+Requires API migration 262 first. Files are accessed through authenticated scoped
+API requests and temporary blob previews, without public storage URLs. The PDF
+is an informational order summary from saved items/totals, not a fiscal invoice.
+Order history retains attachment filenames with attempts and provider statuses.
+Regression: `npx playwright test -c playwright.whatsapp.config.ts` and
+`npx playwright test -c playwright.workflow-whatsapp.config.ts`.
