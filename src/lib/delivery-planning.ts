@@ -91,6 +91,7 @@ export function deliveryRoutingError(error: unknown, t: (key: string) => string)
     'routing service unavailable': 'deliveryRoutingUnavailable',
     'some deliveries could not be routed': 'deliveryRoutingInfeasible',
     'address lookup unavailable': 'deliveryRoutingUnavailable',
+    'address not located': 'deliveryAddressUnresolved',
   } as Record<string, string>)[message];
   return key ? t(key) : null;
 }
