@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: node --test scripts/help-contract.test.mjs
+      - run: node --test scripts/help-contract.test.mjs scripts/help-ui.test.mjs
       - name: Resolve immutable documentation reference
         id: docs
         run: |
@@ -33,6 +33,8 @@ jobs:
           sparse-checkout: |
             docs/help
             src/content/help
+      - name: Check guides against current Admin screens
+        run: node scripts/check-help-ui.mjs --documentation-root .help-docs --admin-root .
       - name: Check source impact and three-language procedures
         env:
           HELP_BASE: ${{ github.event.pull_request.base.sha }}

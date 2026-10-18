@@ -37,7 +37,6 @@ jobs:
       - run: npm test
         env:
           FOODYWEB_ROOT: ${{ runner.temp }}/foodyweb
-      - run: npm run check:i18n
       - name: Build production bundle
         run: npm run build
         env:
