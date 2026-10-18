@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "12ba464840dac0cd34bacfa6191a8dc28caf973b",
-  "documentationRevision": "e7f4c24c981eec38a04b0330bfa571eda9767163990b52ea5572d4d858da86b3",
+  "documentationRef": "ae34282f4998e737aaa76503bc8e9de6ed323dc4",
+  "documentationRevision": "9e4b6c6e150eff9d3e3a9f6244cb1c89b76729b5cdd86fd5a9b6e5a4d745b08a",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -240,15 +240,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/kitchen/availability.mdx",
-          "sha256": "4e3155b53b09c0da1748ef010f84c549fb22c4ecc949c48036af64108acd70d6"
+          "sha256": "c2922bad900e3f36dc2db408c4e782f5d97a4e44f78444ee797ae7430b9331bf"
         },
         "fr": {
           "path": "src/content/help/fr/kitchen/availability.mdx",
-          "sha256": "ab89ce6373de115296947a8064117db146cec6fa0db1e583064f140dfc16cc25"
+          "sha256": "1d488b984612c83a54fffea368c88ee47bfba1da5de2405becbdc767c1d19cc4"
         },
         "he": {
           "path": "src/content/help/he/kitchen/availability.mdx",
-          "sha256": "fe228bc02d6accc20ae70048a795b7cbdffbdd0b7063bae1a2dc8feb5677b1be"
+          "sha256": "424a9c236616e155cef7c9f8dd954e36e9b1e3bc6b2598c3144f5267173ddff1"
         }
       }
     },
@@ -1304,15 +1304,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/printers/profiles-and-routing.mdx",
-          "sha256": "b612a2c29429fd20f7c4179f510b8f18770ce3a63f14a131210b728cb65fb815"
+          "sha256": "da67e9a9ef0df7bda3574a9d53686dc27b5c42d6febdac360b58ee6700420547"
         },
         "fr": {
           "path": "src/content/help/fr/printers/profiles-and-routing.mdx",
-          "sha256": "f361d0357ea02cfc4477eea4b775b19b469889ea4cd16093460276f81e78bdb1"
+          "sha256": "e32d668c1b8190eea3f5d46fc640b71940a2c461defbe93742d5846947d5a83f"
         },
         "he": {
           "path": "src/content/help/he/printers/profiles-and-routing.mdx",
-          "sha256": "d65f4c12477ef758d3cba9f186000a06334a8a8161879da4a74bde39b2d99a11"
+          "sha256": "5c52414907d2f641c3064344af5d8dea283c189b4aa74dad12934ce85dd657f2"
         }
       }
     },
