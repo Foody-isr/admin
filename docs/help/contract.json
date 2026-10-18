@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "39b5b83653de804058ad150282861ed5b6b2ac53",
-  "documentationRevision": "44b0ee352bc53041ba4d8dd40d65b1bbeaa0353cbb68eda48a264928813f2e02",
+  "documentationRef": "12ba464840dac0cd34bacfa6191a8dc28caf973b",
+  "documentationRevision": "e7f4c24c981eec38a04b0330bfa571eda9767163990b52ea5572d4d858da86b3",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -202,15 +202,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/how-it-all-connects.mdx",
-          "sha256": "8801f68e0747a515dbd44bdfb23da7a8bfefe8031a3706ff20d5482f7fcfbf42"
+          "sha256": "306bf16822b404c81873e227afb2fd62e6f3007eed6a4a05eb19779b64bc6af3"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/how-it-all-connects.mdx",
-          "sha256": "d7132f613ecbac5880a600c35a8e8434af397819f37511d6ebccc7b09c4622d3"
+          "sha256": "530fe83d4f2190e99365ff7d3526e4131c96a9232a995478d0aaea127c95acc7"
         },
         "he": {
           "path": "src/content/help/he/getting-started/how-it-all-connects.mdx",
-          "sha256": "4f908c7ba30212eea14914de03bb6bad437d77af3e4dbf74095b8c18f48ca786"
+          "sha256": "de92c416dc956ba4ef9d15ea7547f45af24f7de39d773bbfd40762e0a039dcb8"
         }
       }
     },
@@ -221,15 +221,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/using-support.mdx",
-          "sha256": "b281902a697ed0fc8a284c65b3c8884b2a017af2fc15542174141e33644f7cab"
+          "sha256": "c4df311b6878a62eeaf8933e4f2fbfbdf737973fc9d7e117a7dacde4e4db1dc2"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/using-support.mdx",
-          "sha256": "129ddbafc87c2634aee5119d77e857a3f7d4e6a64d61fae33151c5a5d7403495"
+          "sha256": "ade38c8f4cc36522096b28705d93095573c0959bec44005a693b11db556d4598"
         },
         "he": {
           "path": "src/content/help/he/getting-started/using-support.mdx",
-          "sha256": "96755d986c76294e0d3263ea84928622d711896bb4e9685fe41d12990902d10a"
+          "sha256": "3b346b15d31f59c8a5191a8bc3b47254248c2bdc55068a0401e3c6b4f31dcc75"
         }
       }
     },
@@ -240,11 +240,11 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/kitchen/availability.mdx",
-          "sha256": "09f904c99ea77c5c3632363854c1444ca753ab6e7d955c1fe9fdf2a504bc1b09"
+          "sha256": "4e3155b53b09c0da1748ef010f84c549fb22c4ecc949c48036af64108acd70d6"
         },
         "fr": {
           "path": "src/content/help/fr/kitchen/availability.mdx",
-          "sha256": "8def6c66b73e485acbb64876f329f3ce92ae34cf0e18e735bd497fb9f368e00e"
+          "sha256": "ab89ce6373de115296947a8064117db146cec6fa0db1e583064f140dfc16cc25"
         },
         "he": {
           "path": "src/content/help/he/kitchen/availability.mdx",
@@ -259,15 +259,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/kitchen/daily-operations.mdx",
-          "sha256": "6518e1b504cfd0a1025713fe92f5585a3466d302193eee9b1abdc4869ca8ef67"
+          "sha256": "e42d7043e9acee942f239711ef23f63ac2be34f1a84a93c800fb3b6632318ef1"
         },
         "fr": {
           "path": "src/content/help/fr/kitchen/daily-operations.mdx",
-          "sha256": "3c27db62b880475a9558b30fcd9210df70b75b1aff5571887e2dc10363278016"
+          "sha256": "305b6f24200b92a80636c30664cb33d92a494b4fb7a7b729bb8f57690c23d9d5"
         },
         "he": {
           "path": "src/content/help/he/kitchen/daily-operations.mdx",
-          "sha256": "b290d46994643a437c0cefecb1bec0eadf5886690e79fd3b61245b271ea47979"
+          "sha256": "88fa3715771d426cb45828b50a61acfa1f1789089d8487ee0e4f5fa3bb26fe05"
         }
       }
     },
@@ -278,15 +278,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/kitchen/food-cost.mdx",
-          "sha256": "f167c836a93ac346188bc1cb1249f91bc384cd2cbbd17c90ba76017988c34c22"
+          "sha256": "fd3bdf63004267f2e229d1d48bbfe4d71bde53885621c14b2e96cb80cb66eb9c"
         },
         "fr": {
           "path": "src/content/help/fr/kitchen/food-cost.mdx",
-          "sha256": "e10ccccb574e87d2b9b84ed9ce411c271ef9c402f66916839991029feee1c372"
+          "sha256": "0e0a9b5085d331a077bab9d4f21d29168c63e6a522ffad8b2235e0afdba600a6"
         },
         "he": {
           "path": "src/content/help/he/kitchen/food-cost.mdx",
-          "sha256": "69faf163ca14ef58ad045f6389655f5d879257b7761e585fa127f1ead8bd3276"
+          "sha256": "6ccde25b0b32ac6151b62b658bde55788ee5aa3e036b95d55de7bb2e4e9b2a3b"
         }
       }
     },
@@ -297,15 +297,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/kitchen/preparations.mdx",
-          "sha256": "784be7e90634554e1f6d1da0559e29e5f78c4e010a75c4dc56e863282a701349"
+          "sha256": "f9d59c869af996231fbc16c4b395938d24d1556142348962d2be3d308505dd4e"
         },
         "fr": {
           "path": "src/content/help/fr/kitchen/preparations.mdx",
-          "sha256": "c5049bb788a0294fb79a7ecb419c6133e3f0a680abf91c5ca4210966cbaf9613"
+          "sha256": "afbd80552e2565fdede4a94e792d24a88be1d1a456e3fcfacf3491c997cbad92"
         },
         "he": {
           "path": "src/content/help/he/kitchen/preparations.mdx",
-          "sha256": "938d52c572552b12e785bcd92448dd526a69da0881dd4305197906d5b88198bb"
+          "sha256": "e120cb3f6c94fe225337e10f6a1d8c4e23f2bfb248e04e7d6798e57b1162d147"
         }
       }
     },
@@ -316,15 +316,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/kitchen/stock-management.mdx",
-          "sha256": "da7506d5d7bbc52a5aa103508f61c4278219bfc025b01b42e48894e202f7de65"
+          "sha256": "d25502a13234c85eba7762e350ba8c2655edbdb16b08f38d275738c83a4e91ca"
         },
         "fr": {
           "path": "src/content/help/fr/kitchen/stock-management.mdx",
-          "sha256": "81a8093799fa882ddda2e11b2891e31eaa4bc3ebad8d54fba2e435c5afe5b75b"
+          "sha256": "35975210bc36ea3b276a0cbd9a2e9a60801b1094189078fa685a4919904401a5"
         },
         "he": {
           "path": "src/content/help/he/kitchen/stock-management.mdx",
-          "sha256": "bfeb80ebe16d1ed4e5cb242654f6def080136703d9a41b0ff340b31f520231ad"
+          "sha256": "be5c6fa5fa059e42e6012809d2a498df22159162771aabeb19147cdd26e3c14d"
         }
       }
     },
@@ -335,15 +335,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/categories-and-items.mdx",
-          "sha256": "42691363b9c14baab0de14290d0539c6fdeef02c7dce7f8addc7d987360d4f12"
+          "sha256": "f2cb41ddbbdf7800109cdc4b759d4f4c79ab3483e77820447d46e3e238281e14"
         },
         "fr": {
           "path": "src/content/help/fr/menu/categories-and-items.mdx",
-          "sha256": "7df1c7a2b8cc70edce6284f8d5a8a4534693874909e6fa3112303052ac6c9e4e"
+          "sha256": "20aaf55b00bd1881e9772963e06cbbf7878c1626d1f5b9b166c96f9370c8a61f"
         },
         "he": {
           "path": "src/content/help/he/menu/categories-and-items.mdx",
-          "sha256": "dc302d8dd6c4ec71e4437f1c40335aa450e93e221ffda10895341d2f4ec1a5e1"
+          "sha256": "5fbd09b4e021636dc55fbe9670e7c5a867d4bd70b45b5700bc332d42ec5d841a"
         }
       }
     },
@@ -354,15 +354,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/creating-a-menu-item.mdx",
-          "sha256": "7bcb9eca5c5ec23913f9f640d2e8d79df4908a75787dd25264715f8d26d95b5e"
+          "sha256": "e792eb7878fae4c4295b4a167fc7852cf9daf3ac2368678a32f511a7fed3cf74"
         },
         "fr": {
           "path": "src/content/help/fr/menu/creating-a-menu-item.mdx",
-          "sha256": "bafe6a1ce28c0647a4dba7a4b03acc38f3ae360887bdec50c0ee4092b1a1fe46"
+          "sha256": "fca61aad1a4047d611071bb6980df322f57b2a5c88185c8d40a76e4270ff17d7"
         },
         "he": {
           "path": "src/content/help/he/menu/creating-a-menu-item.mdx",
-          "sha256": "4bbd94f8332b831c796c93778cd70957cb429c7d8e9e634b634fe36f35882a6d"
+          "sha256": "b90cbe356396d685e89c48d546be0726c82eb8d8008b92a323a5a2467ba76de2"
         }
       }
     },
@@ -373,15 +373,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/ingredients-and-portions.mdx",
-          "sha256": "6a17d83b5ba3ebeebdbc0a364d9e8d389d7d9212e9223a74fff10846df0196f8"
+          "sha256": "fdd315f069cd938a46055cb1c3bbbbd0e98fb539d4be4a09a6c76d7cecc1d902"
         },
         "fr": {
           "path": "src/content/help/fr/menu/ingredients-and-portions.mdx",
-          "sha256": "a5c057ea264f578f4cfd2acc5181c28c8a8cff4b4902d69a8c8ec69f75e2b3ef"
+          "sha256": "b2182d1558ab20a07b7ed6e111bfaf7e1fed63a7007cfd5f241bf9a2b7045833"
         },
         "he": {
           "path": "src/content/help/he/menu/ingredients-and-portions.mdx",
-          "sha256": "09a48e168f3a1b617fd777cafdb8f9d49beab87cc3be846d04c3d40f3ed415b7"
+          "sha256": "e9efb08fe76a0b82b2def6c3aa5239bd52de7ad392e6b08bf7bcb18ff3aef183"
         }
       }
     },
@@ -411,15 +411,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/variants-and-sizes.mdx",
-          "sha256": "2f80b87fd245bfe1204a12404789cd5a10fe341b350193655838557de286d496"
+          "sha256": "88ec7d1854f390820bc4254b8983d0660c4eb59870bf12fe62c9e2f11c0a6e4e"
         },
         "fr": {
           "path": "src/content/help/fr/menu/variants-and-sizes.mdx",
-          "sha256": "81917bfaab2c5a0e1ab8d1f49ba244f1968db32b89190c725966b08412e91860"
+          "sha256": "aabe51b435466df01512013c702eb7283729c511318acb6d99e65c01122a1ac4"
         },
         "he": {
           "path": "src/content/help/he/menu/variants-and-sizes.mdx",
-          "sha256": "9e2c623bea87255db494fa0fa49cac01a8bd9bcb21025f205e93c0cc6c35d6a5"
+          "sha256": "c7f5c784b5d46b9856ca17803e68158be204ca3a909e89784aca652f18366f84"
         }
       }
     },
