@@ -2383,6 +2383,7 @@ export type WorkflowOrderType = 'pickup' | 'dine_in' | 'delivery';
 
 /** Approved Meta template and timing attached to one workflow stage. */
 export interface WorkflowWhatsAppTemplate {
+ attachment?: WhatsAppAttachment;
  name: string; language: string; kind: MetaTemplateKind | ''; timing: 'stage' | 'day_before' | ''; send_time: string;
 }
 
@@ -9288,6 +9289,7 @@ export async function disconnectWhatsApp(restaurantId: number): Promise<void> {
 
 /** Direct Meta coexistence pilot. Credentials remain exclusively on the API. */
 export interface MetaWhatsAppConnection {
+ message_attachments?: Partial<Record<MetaTemplateKind,WhatsAppAttachment>>;
   waba_id: string;
   phone_number_id: string;
   phone_number: string;
@@ -9341,10 +9343,11 @@ export function resumeMetaWhatsAppSignup(restaurantId: number): Promise<MetaWhat
 }
 
 export type MetaTemplateKind = 'order_recap' | 'delivery_reminder' | 'order_status' | 'receipt' | 'satisfaction';
-export interface MetaTemplateRef { name: string; language: string }
+export interface WhatsAppAttachment { source: '' | 'none' | 'fixed' | 'receipt'; asset_id: string }
+export interface MetaTemplateRef { name: string; language: string; attachment?: WhatsAppAttachment }
 export interface MetaWhatsAppTemplate extends MetaTemplateRef {
   id: string; status: string; category: string; parameter_format?: string;
-  components: { type: string; text?: string }[];
+  components: { type: string; text?: string; format?: string }[];
 }
 /** Lists the restaurant's native Meta templates, including pending and rejected entries. */
 export function getMetaWhatsAppTemplates(restaurantId: number): Promise<{ templates: MetaWhatsAppTemplate[] }> {
@@ -9372,6 +9375,40 @@ export function configureMetaSatisfaction(restaurantId: number, input: MetaSatis
 /** Deletes one unused native Meta language variant after user confirmation. */
 export function deleteMetaWhatsAppTemplate(restaurantId: number, templateId: string): Promise<{ deleted: boolean }> {
   return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/templates/${encodeURIComponent(templateId)}`, restaurantId, { method: 'DELETE' });
+}
+
+/** A private, immutable file belonging to the active restaurant. */
+export interface WhatsAppMedia { id: string; filename: string; mime_type: string; format: 'IMAGE' | 'DOCUMENT'; size: number; created_at: string }
+/** List attachment metadata without public file URLs. */
+export function getWhatsAppMedia(rid: number): Promise<{ media: WhatsAppMedia[] }> {
+ return apiFetch(`/api/v1/restaurants/${rid}/whatsapp/meta/media`,rid);
+}
+/** Remove only a file unused by saved notifications and pending sends. */
+export function deleteWhatsAppMedia(rid: number,id: string): Promise<{deleted: boolean}> {
+ return apiFetch(`/api/v1/restaurants/${rid}/whatsapp/meta/media/${encodeURIComponent(id)}`,rid,{method:'DELETE'});
+}
+async function privateMetaFileRequest(rid: number,path: string,options?: RequestInit,retried=false): Promise<Response> {
+ const token=getToken();
+ const response=await fetch(`${API_URL}/api/v1/restaurants/${rid}/whatsapp/meta/${path}`,{...options,cache:'no-store',headers:{...(token?{Authorization:`Bearer ${token}`} : {}),'X-Restaurant-ID':String(rid)}});
+ if(response.status===401 && typeof window!=='undefined') {
+  if(!retried && await refreshToken())return privateMetaFileRequest(rid,path,options,true);
+  logout();window.location.href='/login';return new Promise<never>(()=>{});
+ }
+ if(!response.ok){const error=await response.json().catch(()=>({}));throw new ApiError(error.error || 'wa_meta_media_invalid',response.status);}
+ return response;
+}
+/** Store an image/PDF privately; no WhatsApp message is sent. */
+export async function uploadWhatsAppMedia(rid: number,file: File): Promise<WhatsAppMedia> {
+ const body=new FormData();body.append('file',file);
+ return (await privateMetaFileRequest(rid,'media',{method:'POST',body})).json();
+}
+/** Read one private file as a short-lived browser blob, without credentials in URLs. */
+export async function getWhatsAppMediaFile(rid: number,id: string): Promise<Blob> {
+ return (await privateMetaFileRequest(rid,`media/${encodeURIComponent(id)}`)).blob();
+}
+/** Preview the current order's PDF without sending it to WhatsApp. */
+export async function getWhatsAppReceiptFile(rid: number,orderId: number,language: string): Promise<Blob> {
+ return (await privateMetaFileRequest(rid,`orders/${orderId}/receipt.pdf?language=${encodeURIComponent(language)}`)).blob();
 }
 
 // ─── Social reels (Instagram/TikTok Stories page) ────────────────────────────
@@ -10837,6 +10874,7 @@ export function getAddressAutocompleteConfig(restaurantId: number) {
 
 /** Exact approved, server-derived order message reviewed before a Twilio dispatch. */
 export interface OrderWhatsAppPreview {
+ attachment?: { source: 'fixed' | 'receipt'; asset_id?: string; filename: string; mime_type: string; format: 'IMAGE' | 'DOCUMENT' };
   id: string;
   kind: 'order_recap' | 'delivery_reminder' | 'satisfaction';
   status: 'ready' | 'sending' | 'accepted' | 'unknown' | 'sent' | 'delivered' | 'read' | 'failed';
@@ -10868,6 +10906,7 @@ export function getOrderWhatsAppStatus(restaurantId: number, orderId: number, me
 
 /** Recorded dispatch evidence. No historical message body or send time is inferred from the current order. */
 export interface OrderWhatsAppHistoryEntry {
+ attachment_source?: string; attachment_format?: string; attachment_filename?: string;
   id: string;
   kind: string;
   provider: 'twilio' | 'meta';

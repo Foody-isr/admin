@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Field, Input, Select } from '@/components/ds';
 import { getMetaWhatsAppStatus, getMetaWhatsAppTemplates, type MetaTemplateKind, type MetaWhatsAppStatus, type MetaWhatsAppTemplate, type WorkflowOrderType, type WorkflowStage, type WorkflowWhatsAppTemplate } from '@/lib/api';
-import { compatibleMetaTemplate } from '@/lib/whatsapp-meta-templates';
+import { metaTemplateBody, metaTemplateHeader, compatibleMetaTemplate } from '@/lib/whatsapp-meta-templates';
 import { useI18n } from '@/lib/i18n';
+
+import { WhatsAppAttachmentPicker } from '@/components/settings/WhatsAppAttachmentPicker';
 
 const kindKeys: Record<MetaTemplateKind, string> = { order_status: 'waPersonalReady', order_recap: 'waPersonalRecap', delivery_reminder: 'waPersonalReminder', receipt: 'waPersonalReceipt', satisfaction: 'waSatisfactionTitle' };
 const empty: WorkflowWhatsAppTemplate = { name: '', language: '', kind: '', timing: '', send_time: '' };
@@ -51,18 +53,19 @@ export function WorkflowStageMessage({ rid, meta, stage, orderType, frozen, fiel
   const examples: Record<MetaTemplateKind, string[]> = {
     order_status: ['1234', t('restaurant'), ref.name ? stage.name : stage.customer_message || stage.name],
     order_recap: [t('restaurant'), '1234', 'Anael', '23/10/2026, 09:00–10:30', t('address'), '150.00 ILS', t('paid'), 'https://example.com/receipt/1234'],
-    delivery_reminder: selected?.components[0]?.text?.includes('{{5}}') ? ['Anael', t('restaurant'), '23/10/2026, 09:00–10:30', t('wfPreviewCourier'), '+12025550123'] : ['Anael', '09:00–10:30', `${t('wfPreviewCourier')} : +12025550123`, t('restaurant')],
+    delivery_reminder: metaTemplateBody(selected).includes('{{5}}') ? ['Anael', t('restaurant'), '23/10/2026, 09:00–10:30', t('wfPreviewCourier'), '+12025550123'] : ['Anael', '09:00–10:30', `${t('wfPreviewCourier')} : +12025550123`, t('restaurant')],
     receipt: ['1234', t('restaurant'), '150.00 ILS', 'https://example.com/receipt/1234'],
     satisfaction: ['Anael', '1234'],
   };
-  const body = (ref.name ? selected?.components[0]?.text : '')?.replace(/\{\{(\d+)\}\}/g, (_, position: string) => examples[kind][Number(position) - 1] ?? '') ?? '';
+  const body = (ref.name ? metaTemplateBody(selected) : '')?.replace(/\{\{(\d+)\}\}/g, (_, position: string) => examples[kind][Number(position) - 1] ?? '') ?? '';
   return <div className="space-y-4">
     <p className="max-w-prose text-sm leading-6 text-[var(--fg-muted)]">{t('wfWhatsAppAtStageHint')}</p>
     {!meta.status?.notifications_active && <p className="text-sm text-[var(--fg-muted)]">{t('wfWhatsAppInactive')}</p>}
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label={t('wfWhatsAppMessageType')}><Select disabled={frozen} value={kind} onChange={event => onChange({ whatsapp_template: { ...empty, kind: event.target.value as MetaTemplateKind, timing: 'stage' }, customer_message: '' })}>{!kinds.includes(kind) && <option value={kind}>{t(kindKeys[kind])}</option>}{kinds.map(value => <option key={value} value={value}>{t(kindKeys[value])}</option>)}</Select></Field>
-      <Field label={t('wfWhatsAppTemplate')}><Select id={fieldId} aria-invalid={invalid || undefined} disabled={frozen} value={key} onChange={event => { const template = choices.find(template => `${template.name}|${template.language}` === event.target.value); onChange({ whatsapp_template: template ? { ...ref, kind, timing: ref.timing || 'stage', name: template.name, language: template.language } : kind === 'order_status' ? empty : { ...ref, name: '', language: '' }, customer_message: template ? '' : stage.customer_message }); }}><option value="">{t(kind === 'order_status' ? 'wfWhatsAppDefault' : 'waMetaNoTemplate')}</option>{ref.name && !choices.some(template => `${template.name}|${template.language}` === key) && <option value={key}>{ref.name} · {t('wfWhatsAppUnavailable')}</option>}{choices.map(template => <option key={template.id + template.language} value={`${template.name}|${template.language}`}>{template.name} · {template.language}</option>)}</Select></Field>
+      <Field label={t('wfWhatsAppTemplate')}><Select id={fieldId} aria-invalid={invalid || undefined} disabled={frozen} value={key} onChange={event => { const template = choices.find(template => `${template.name}|${template.language}` === event.target.value); onChange({ whatsapp_template: template ? { ...ref, kind, timing: ref.timing || 'stage', name: template.name, language: template.language,attachment:{source:metaTemplateHeader(template)?'fixed':'none',asset_id:''} } : kind === 'order_status' ? empty : { ...ref, name: '', language: '' }, customer_message: template ? '' : stage.customer_message }); }}><option value="">{t(kind === 'order_status' ? 'wfWhatsAppDefault' : 'waMetaNoTemplate')}</option>{ref.name && !choices.some(template => `${template.name}|${template.language}` === key) && <option value={key}>{ref.name} · {t('wfWhatsAppUnavailable')}</option>}{choices.map(template => <option key={template.id + template.language} value={`${template.name}|${template.language}`}>{template.name} · {template.language}</option>)}</Select></Field>
     </div>
+    {ref.name && selected && metaTemplateHeader(selected) && <WhatsAppAttachmentPicker key={`${rid}:${fieldId}:${selected.id}`} rid={rid} format={metaTemplateHeader(selected) as 'IMAGE'|'DOCUMENT'} value={ref.attachment} disabled={frozen} onChange={attachment=>update({attachment})}/>}
     {choices.length === 0 && <p className="text-sm text-[var(--fg-muted)]">{t('wfWhatsAppEmpty')}</p>}
     {ref.name && kind === 'delivery_reminder' && <div className="grid gap-4 sm:grid-cols-2"><Field label={t('wfWhatsAppWhen')}><Select disabled={frozen} value={ref.timing || 'stage'} onChange={event => update({ timing: event.target.value as 'stage' | 'day_before', send_time: event.target.value === 'day_before' ? '09:00' : '' })}><option value="stage">{t('wfWhatsAppAtStage')}</option>{kind === 'delivery_reminder' && <option value="day_before">{t('wfWhatsAppDayBefore')}</option>}</Select></Field>{ref.timing === 'day_before' && <Field label={t('wfWhatsAppTime')}><Input type="time" readOnly={frozen} value={ref.send_time} onChange={event => update({ send_time: event.target.value })} /></Field>}</div>}
     {kind === 'delivery_reminder' && <p className="max-w-prose text-xs leading-5 text-[var(--fg-muted)]">{t(ref.timing === 'day_before' ? 'wfWhatsAppScheduleHint' : 'wfWhatsAppImmediateHint')}</p>}

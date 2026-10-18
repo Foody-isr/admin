@@ -123,6 +123,7 @@ export function OrderMessageHistory({ restaurantId, orderId }: { restaurantId: n
         </div>
         <p className="mt-2 text-xs text-[var(--fg-muted)]">{row.provider === 'meta' ? 'WhatsApp · Meta' : 'WhatsApp · Twilio'}</p>
         <p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">{t(row.status_at ? 'orderMessageStatusAt' : 'orderMessageUpdatedAt')} <time dateTime={row.status_at ?? row.updated_at}>{dateLabel(row.status_at ?? row.updated_at)}</time></p>
+        {row.attachment_filename && <p className="mt-2 text-xs text-[var(--fg-muted)]">{t('waAttachmentTitle')} · <bdi>{row.attachment_filename}</bdi></p>}
         {row.status === 'accepted' && <p className="mt-2 text-sm leading-6 text-[var(--fg-muted)]">{t(row.provider === 'meta' ? 'orderMessageAcceptedHint' : 'orderMessageTwilioHint')}</p>}
         {['unknown', 'sending'].includes(row.status) && <p className="mt-2 text-sm leading-6 text-[var(--fg-muted)]">{t('orderMessageUnknownHint')}</p>}
         {row.status === 'failed' && !!row.failure_code && <p className="mt-2 text-xs text-[var(--fg-muted)]">{t('orderMessageFailureCode').replace('{code}', String(row.failure_code))}</p>}

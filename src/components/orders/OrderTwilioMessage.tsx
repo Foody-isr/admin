@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ds';
-import { getOrderWhatsAppStatus, previewOrderWhatsApp, sendOrderWhatsApp, type OrderWhatsAppPreview } from '@/lib/api';
+import { getOrderWhatsAppStatus, getWhatsAppMediaFile, getWhatsAppReceiptFile, previewOrderWhatsApp, sendOrderWhatsApp, type OrderWhatsAppPreview } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 
@@ -72,6 +72,12 @@ export function OrderTwilioMessage({ restaurantId, orderId, kind }: {
     } catch { if (generation.active) setTrackingError(true); }
     finally { lock.current = false; if (generation.active) setBusy(false); }
   };
+  const previewAttachment=async()=>{
+   const attachment=preview?.attachment;if(!attachment || lock.current)return;
+   const tab=window.open('about:blank','_blank');if(!tab){setError(t('waAttachmentPreviewFailed'));return}tab.opener=null;
+   const generation=lifetime.current;lock.current=true;setBusy(true);setError('');
+   try{const blob=attachment.source==='receipt'?await getWhatsAppReceiptFile(restaurantId,orderId,preview.language):await getWhatsAppMediaFile(restaurantId,attachment.asset_id ?? '');if(!generation.active){tab.close();return}const url=URL.createObjectURL(blob);tab.location.replace(url);setTimeout(()=>URL.revokeObjectURL(url),60000)}catch{tab.close();if(generation.active)setError(t('waAttachmentPreviewFailed'))}finally{lock.current=false;if(generation.active)setBusy(false)}
+  };
   const deliveryLabels: Record<string, string> = { accepted: 'waMetaAccepted', sent: 'waMetaSent', delivered: 'waMetaDelivered', read: 'waMetaRead', failed: 'waMetaFailed', unknown: 'waMetaUnknown', sending: 'waMetaUnknown' };
   return <section aria-label={t(kind === 'satisfaction' ? 'waSatisfactionTitle' : 'waOrderTwilio')} className="mt-5 space-y-3 rounded-r-md border border-[var(--line)] p-3">
     <p className="font-semibold text-sm">{t(kind === 'satisfaction' ? 'waSatisfactionTitle' : 'waOrderTwilio')}</p>
@@ -82,6 +88,7 @@ export function OrderTwilioMessage({ restaurantId, orderId, kind }: {
       <p className="text-sm text-[var(--fg-muted)]">{t(preview.provider === 'meta' ? 'waOrderProviderMeta' : 'waOrderProviderTwilio')}</p>
       <p className="text-sm break-words"><span>{t('waOrderFrom')}: <bdi dir="ltr">{preview.from}</bdi></span><br /><span>{t('waOrderTo')}: <bdi dir="ltr">{preview.recipient}</bdi></span><br /><span>{t('whatsappRecapLanguage')}: {preview.language.toUpperCase()}</span></p>
       <textarea aria-label={t('waOrderExactPreview')} readOnly value={preview.message} dir={preview.language.split('_')[0] === 'he' ? 'rtl' : 'ltr'} rows={10} className="w-full rounded-r-md border border-[var(--line)] bg-[var(--surface)] p-3 text-sm leading-6" />
+      {preview.attachment && <div className="flex flex-wrap items-center gap-2 text-sm"><span>{t('waAttachmentTitle')} · <bdi>{preview.attachment.filename}</bdi></span><Button type="button" variant="ghost" size="sm" disabled={busy} onClick={()=>void previewAttachment()}>{t('waAttachmentOrderPreview')}</Button></div>}
       {preview.provider === 'meta' && deliveryLabels[preview.status] ? <p role="status" className="text-sm leading-6">{t(deliveryLabels[preview.status])}</p> : <>
         {preview.status === 'accepted' && <p role="status" className="text-sm">{t('waOrderAccepted')}</p>}
         {(preview.status === 'unknown' || preview.status === 'sending') && <p role="status" className="text-sm leading-6">{t('waOrderSendUnknown')}</p>}

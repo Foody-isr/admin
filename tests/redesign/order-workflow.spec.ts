@@ -143,7 +143,7 @@ test('workflow selects a template per stage, saves its contract and preserves it
   await expect(panel.locator('option', { hasText: 'pending_status' })).toHaveCount(0);
   await panel.locator('[data-workflow-notification]').screenshot({ path: info.outputPath('workflow-whatsapp-desktop-fr.png') });
   await save(page).click(); await expect(save(page)).toBeDisabled();
-  expect(state.writes[0].body.stages[2].whatsapp_template).toEqual({ name: 'status_fr', language: 'fr', kind: 'order_status', timing: 'stage', send_time: '' });
+  expect(state.writes[0].body.stages[2].whatsapp_template).toEqual({ name: 'status_fr', language: 'fr', kind: 'order_status', timing: 'stage', send_time: '',attachment:{source:'none',asset_id:''} });
   expect(state.writes[0].body.stages[2].customer_message).toBe('');
   await panel.getByRole('switch', { name: 'Prévenir le client', exact: true }).click(); await save(page).click(); await expect(save(page)).toBeDisabled();
   expect(state.writes[1].body.stages[2].whatsapp_template.name).toBe('status_fr'); expect(state.writes[1].body.stages[2].notify_customer).toBe(false);
@@ -171,4 +171,19 @@ test('workflow template controls remain read-only on mobile RTL', async ({ page 
   await page.setViewportSize({ width: 390, height: 1000 }); await page.goto('/1/settings/orders/workflow'); await expand(page, 2); const panel = row(page, 2);
   await expect(panel.getByRole('combobox').nth(1)).toBeDisabled(); await expect(panel.getByRole('combobox').nth(2)).toBeDisabled();
   await panel.getByText('תצוגה מקדימה · דוגמה', { exact: true }).click(); await panel.locator('[data-workflow-notification]').screenshot({ path: info.outputPath('workflow-whatsapp-mobile-he.png') }); expect(state.writes).toHaveLength(0); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+
+test('workflow binds an order receipt PDF to a stage without changing the trigger',async({page},info)=>{
+ const state=await install(page);enableMeta(state);
+ state.control.templates[0].components.unshift({type:'HEADER',format:'DOCUMENT'});
+ await page.route('**/whatsapp/meta/media',route=>route.fulfill({json:{media:[]}}));
+ await page.goto('/1/settings/orders/workflow');await expand(page,2);const panel=row(page,2);
+ await panel.getByRole('combobox',{name:'Modèle WhatsApp',exact:true}).selectOption('status_fr|fr');
+ await expect(save(page)).toBeEnabled();
+ await panel.getByRole('combobox',{name:'Document à envoyer',exact:true}).selectOption('receipt');
+ await panel.locator('[data-workflow-notification]').screenshot({path:info.outputPath('workflow-pdf-attachment-fr.png'),animations:'disabled'});
+ await save(page).click();await expect(save(page)).toBeDisabled();
+ expect(state.writes[0].body.stages[2]).toMatchObject({notify_customer:true,whatsapp_template:{kind:'order_status',name:'status_fr',timing:'stage',send_time:'',attachment:{source:'receipt',asset_id:''}}});
+ expect(state.writes[0].body.stages[2].trigger_courier_assigned).toBe(false);
 });
