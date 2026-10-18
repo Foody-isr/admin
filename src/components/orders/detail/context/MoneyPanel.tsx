@@ -34,6 +34,7 @@ const ORDER_META_STOCK_OVERSOLD = 'stock_oversold';
 export function MoneyPanel({
   order,
   isCancelled,
+  canManage,
   subtotal,
   discountAmount,
   deliveryFee,
@@ -43,6 +44,7 @@ export function MoneyPanel({
   order: Order;
   /** Dead orders keep their financial record, but expose no new collection action. */
   isCancelled: boolean;
+  canManage: boolean;
   subtotal: number;
   discountAmount: number;
   deliveryFee: number;
@@ -279,7 +281,7 @@ export function MoneyPanel({
 
           {/* Post-payment edit warning — the order's items were changed after
               the customer paid, so the collected amount no longer matches. */}
-          {editedAfterPayment && (
+          {(editedAfterPayment || (hasPartialPaidAmount && hasBalanceDue)) && (
             <div
               className="mt-[var(--s-2)] flex items-start gap-[var(--s-2)] rounded-md p-[var(--s-2)]"
               style={{
@@ -345,7 +347,7 @@ export function MoneyPanel({
                 {/* Keep the supplement controls on one compact receipt row.
                     The URL remains available to copy/share without adding a
                     nested card that can overflow the fixed context column. */}
-                {hasBalanceDue && (
+                {canManage && !isCancelled && hasBalanceDue && (
                   <div className="mt-1 border-t border-[color-mix(in_oklab,var(--warning-500)_24%,var(--line))] pt-1.5">
                     {balanceLink ? (
                       <div className="flex items-center justify-between gap-2" aria-live="polite">
@@ -421,7 +423,7 @@ export function MoneyPanel({
 
           {/* Payment link — for orders awaiting online payment. Lets staff
               re-fetch and re-share the link any time. */}
-          {!isCancelled && order.payment_status === 'pending' && (
+          {canManage && !isCancelled && order.payment_status === 'pending' && (
             <div className="mt-[var(--s-2)] flex flex-col gap-[var(--s-2)] border-t border-[var(--line)] pt-[var(--s-3)]">
               <span className="flex items-center gap-1.5 text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
                 <LinkIcon className="size-3.5" /> {t('paymentLink')}
