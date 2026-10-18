@@ -1133,3 +1133,25 @@ Edits use the existing autosaved draft and become public only after publication.
 Deploy the receipt API contract and Foody Web advertising `receipt_editor: 1`
 before this editor. Run the isolated regression with
 `npx playwright test -c playwright.website-editor.config.ts receipt-editor.spec.ts`.
+
+## Documentation support
+
+The navigation Help entry opens the support drawer and public guides on
+`foody-pos.co.il`. Documentation chat calls the current API’s
+`/api/v1/public/support/chat` without JWTs, cookies, referrers or restaurant records.
+The API owns the immutable public corpus, AI credential and Redis quota.
+`NEXT_PUBLIC_HELP_BASE_URL` configures article links only; it is not the AI backend.
+Deploy the API before this client. Canonical dev/prod host selection supports
+promotion of the same artifact; arbitrary preview domains retain existing CORS limits.
+
+Run the normal service validation plus the documentation contract below. Follow
+`../foodylanding/docs/help/MAINTENANCE.md` for feature/procedure changes.
+
+## Documentation release contract
+
+`docs/help/contract.json` records the reviewed source hashes and feature mappings.
+`node scripts/check-help-contract.mjs --documentation-root ../foodylanding --base origin/develop`
+checks local preparation. Remote CI uses a pinned immutable Landing commit and
+checks all French, Hebrew and English procedures. New source and behavior changes
+require an updated inventory/guide release or an exact reviewed no-user-impact
+explanation. See Landing’s `docs/help/MAINTENANCE.md` for the complete workflow.

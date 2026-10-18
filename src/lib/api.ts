@@ -22,6 +22,29 @@ import {
 import { normalizeRichExtraction } from './menu-import/normalize-extraction';
 
 import { RUNTIME_API_URL, RUNTIME_WEB_URL } from './runtime-origins';
+import { boundedSupportHistory } from './help/context';
+
+/** A documentation source verified by the public support service. */
+export interface SupportSource { id: string; title: string; url: string; lang: 'en' | 'fr' | 'he'; updatedAt: string }
+/** A completed documentation-only conversation turn. */
+export interface SupportTurn { role: 'user' | 'assistant'; content: string }
+/** The public support response carries no restaurant or account data. */
+export interface SupportAnswer { answer: string; sources: SupportSource[] }
+
+/** Asks the public assistant without forwarding JWTs, cookies, restaurant IDs or referrers. */
+export async function askSupportAssistant(message: string, lang: string, history: SupportTurn[], topic: string, signal: AbortSignal): Promise<SupportAnswer> {
+  const response = await fetch(`${RUNTIME_API_URL}/api/v1/public/support/chat`, {
+    method: 'POST', credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store', signal,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, lang, history: boundedSupportHistory(history), topic }),
+  });
+  if (!response.ok) throw new Error(response.status === 429 ? 'supportLimit' : 'supportUnavailable');
+  const result = await response.json() as SupportAnswer;
+  if (typeof result.answer !== 'string' || !result.answer.trim() || !Array.isArray(result.sources)
+    || result.sources.some(source => !source || typeof source.title !== 'string' || typeof source.id !== 'string'
+      || !/^\/(en|fr|he)\/help\/[a-z0-9-]+\/[a-z0-9-]+$/.test(source.url))) throw new Error('supportUnavailable');
+  return result;
+}
 
 export const API_URL = RUNTIME_API_URL;
 
