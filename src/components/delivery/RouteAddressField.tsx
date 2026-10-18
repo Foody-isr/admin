@@ -5,14 +5,22 @@ import { Input } from '@/components/ds';
 import { autocompleteRouteAddress, resolveRouteAddress, type AddressSuggestion } from '@/lib/delivery';
 
 /** Search and select an endpoint using the restaurant's existing address provider. */
-export function RouteAddressField({ restaurantId, locale, label, placeholder, value, onChange, disabled, t }: {
+export function RouteAddressField({ restaurantId, locale, label, placeholder, value, onChange, onResolvingChange, disabled, t }: {
   restaurantId: number; locale: string; label: string; placeholder?: string; value: string;
-  onChange: (value: string) => void; disabled?: boolean; t: (key: string) => string;
+  onChange: (value: string) => void; onResolvingChange?: (resolving: boolean) => void; disabled?: boolean; t: (key: string) => string;
 }) {
   const id = useId();
   const session = useRef('');
   const request = useRef(0);
   const selection = useRef('');
+  const resolution = useRef(0);
+  const resolvingCallback = useRef(onResolvingChange);
+  resolvingCallback.current = onResolvingChange;
+  const [resolving, setResolving] = useState(false);
+
+  useEffect(() => {
+    return () => { ++resolution.current; resolvingCallback.current?.(false); };
+  }, [restaurantId]);
   const [focused, setFocused] = useState(false);
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [active, setActive] = useState(0);
@@ -40,11 +48,12 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
   }, [value, focused, disabled, restaurantId, locale]);
 
   const select = async (suggestion: AddressSuggestion) => {
-    const version = ++request.current;
-    setBusy(true); setError(false); setSuggestions([]);
+    ++request.current;
+    const version = ++resolution.current;
+    setResolving(true); resolvingCallback.current?.(true); setError(false); setSuggestions([]);
     try {
       const resolved = suggestion.lookup_token ? await resolveRouteAddress(restaurantId, suggestion.lookup_token) : suggestion;
-      if (request.current !== version) return;
+      if (resolution.current !== version) return;
       const address = [resolved.address, resolved.city].filter(Boolean).join(', ');
       session.current = '';
       if (resolved.kind === 'street' || resolved.kind === 'place') {
@@ -53,8 +62,8 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
       selection.current = address;
       session.current = '';
       onChange(address); setFocused(false);
-    } catch { if (request.current === version) setError(true); }
-    finally { if (request.current === version) setBusy(false); }
+    } catch { if (resolution.current === version) setError(true); }
+    finally { if (resolution.current === version) { setResolving(false); resolvingCallback.current?.(false); } }
   };
 
   return <div className="relative flex min-w-0 flex-col gap-1.5">
@@ -64,7 +73,7 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
       aria-describedby={error ? `${id}-error` : undefined} value={value} placeholder={placeholder} disabled={disabled}
       autoComplete="off" dir="auto" maxLength={500} className="min-w-0 text-[16px] sm:text-fs-sm"
       onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-      onChange={event => { ++request.current; selection.current = ''; onChange(event.target.value); setFocused(true); }}
+      onChange={event => { ++request.current; ++resolution.current; setResolving(false); resolvingCallback.current?.(false); selection.current = ''; onChange(event.target.value); setFocused(true); }}
       onKeyDown={event => {
         if (event.key === 'Escape') { event.preventDefault(); setFocused(false); setSuggestions([]); }
         if (!focused || !suggestions.length) return;
@@ -82,7 +91,7 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
         </li>)}
       </ul><p className="px-3 py-1 text-fs-xs text-[var(--fg-subtle)]">Google</p>
     </div>}
-    {busy && <span role="status" className="text-fs-xs text-[var(--fg-muted)]">{t('checking')}</span>}
+    {(busy || resolving) && <span role="status" className="text-fs-xs text-[var(--fg-muted)]">{t('checking')}</span>}
     {error && <span id={`${id}-error`} role="status" className="text-fs-xs text-[var(--warning-600)]">{t('routeAddressSearchUnavailable')}</span>}
   </div>;
 }

@@ -379,6 +379,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [zoneCouriers, setZoneCouriers] = useState<Map<string, number>>(new Map());
   const [manualCouriers, setManualCouriers] = useState<Map<number, number>>(new Map());
   const [customerWindow, setCustomerWindow] = useState('1:30');
+  const [resolvingEndpoints, setResolvingEndpoints] = useState<Set<string>>(new Set());
   const [courierEndpoints, setCourierEndpoints] = useState<Record<number, { start_address: string; end_address: string }>>({});
   const [departure, setDeparture] = useState(defaultDepartureValue);
   const [serviceMinutes, setServiceMinutes] = useState('3');
@@ -641,7 +642,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   });
 
   const createPlan = async () => {
-    if (picked.size === 0 || !departure || !validStopServiceMinutes(serviceMinutes) || parseCustomerWindowMinutes(customerWindow) == null) return;
+    if (resolvingEndpoints.size > 0 || picked.size === 0 || !departure || !validStopServiceMinutes(serviceMinutes) || parseCustomerWindowMinutes(customerWindow) == null) return;
     if (selectedOrders.length !== picked.size) {
       setError(t('deliveryRouteDateMismatch'));
       return;
@@ -830,7 +831,14 @@ export default function DispatcherView({ rid }: { rid: number }) {
   };
   const setEndpoint = (id: number, field: 'start_address' | 'end_address', value: string) => setCourierEndpoints(current => ({ ...current, [id]: { ...(current[id] ?? savedCourierEndpoints(id)), [field]: value } }));
 
-  const canCreatePlan = picked.size > 0 && Boolean(departure) && validStopServiceMinutes(serviceMinutes) && parseCustomerWindowMinutes(customerWindow) != null && (
+  const setEndpointResolving = (key: string, resolving: boolean) => setResolvingEndpoints(current => {
+    if (current.has(key) === resolving) return current;
+    const next = new Set(current);
+    if (resolving) next.add(key); else next.delete(key);
+    return next;
+  });
+
+  const canCreatePlan = resolvingEndpoints.size === 0 && picked.size > 0 && Boolean(departure) && validStopServiceMinutes(serviceMinutes) && parseCustomerWindowMinutes(customerWindow) != null && (
     distributionMode === 'smart'
       ? plannerCouriers.size > 0
       : distributionMode === 'zone'
@@ -1190,8 +1198,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
             <legend className="px-1 text-fs-sm font-semibold">{courier.full_name}</legend>
             <p className="text-fs-xs text-[var(--fg-subtle)]">{t('routeSettingsHint')}</p>
             <div className="grid gap-3 sm:grid-cols-2">
-              <RouteAddressField restaurantId={rid} locale={locale} label={t('routeSettingsStartAddress')} placeholder={t('routeSettingsStartPlaceholder')} value={courierEndpoints[courier.id]?.start_address ?? savedCourierEndpoints(courier.id).start_address} onChange={value => setEndpoint(courier.id, 'start_address', value)} disabled={planning} t={t} />
-              <RouteAddressField restaurantId={rid} locale={locale} label={t('routeSettingsEndAddress')} placeholder={t('routeSettingsEndPlaceholder')} value={courierEndpoints[courier.id]?.end_address ?? savedCourierEndpoints(courier.id).end_address} onChange={value => setEndpoint(courier.id, 'end_address', value)} disabled={planning} t={t} />
+              <RouteAddressField restaurantId={rid} locale={locale} label={t('routeSettingsStartAddress')} placeholder={t('routeSettingsStartPlaceholder')} value={courierEndpoints[courier.id]?.start_address ?? savedCourierEndpoints(courier.id).start_address} onChange={value => setEndpoint(courier.id, 'start_address', value)} onResolvingChange={resolving => setEndpointResolving(`${courier.id}:start`, resolving)} disabled={planning} t={t} />
+              <RouteAddressField restaurantId={rid} locale={locale} label={t('routeSettingsEndAddress')} placeholder={t('routeSettingsEndPlaceholder')} value={courierEndpoints[courier.id]?.end_address ?? savedCourierEndpoints(courier.id).end_address} onChange={value => setEndpoint(courier.id, 'end_address', value)} onResolvingChange={resolving => setEndpointResolving(`${courier.id}:end`, resolving)} disabled={planning} t={t} />
             </div>
           </fieldset>)}
 

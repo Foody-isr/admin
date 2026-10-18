@@ -29,6 +29,8 @@ function localDateTimeValue(value: string | null | undefined, routeDate: string)
 
 export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t }: RouteSettingsEditorProps) {
   const [editing, setEditing] = useState(false);
+  const [resolvingStart, setResolvingStart] = useState(false);
+  const [resolvingEnd, setResolvingEnd] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [departure, setDeparture] = useState(() => localDateTimeValue(route.planned_departure_at, route.date));
@@ -63,7 +65,7 @@ export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!departureValid || !validStopServiceMinutes(serviceMinutes) || parseCustomerWindowMinutes(customerWindow) == null) return;
+    if (resolvingStart || resolvingEnd || !departureValid || !validStopServiceMinutes(serviceMinutes) || parseCustomerWindowMinutes(customerWindow) == null) return;
     setSaving(true);
     setSaveError(null);
     try {
@@ -129,8 +131,8 @@ export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t
             disabled={disabled || saving}
           />
         </label>
-        <RouteAddressField restaurantId={route.restaurant_id} locale={locale} label={t('routeSettingsStartAddress')} placeholder={t('routeSettingsStartPlaceholder')} value={startAddress} onChange={setStartAddress} disabled={disabled || saving} t={t} />
-        <RouteAddressField restaurantId={route.restaurant_id} locale={locale} label={t('routeSettingsEndAddress')} placeholder={t('routeSettingsEndPlaceholder')} value={endAddress} onChange={setEndAddress} disabled={disabled || saving} t={t} />
+        <RouteAddressField restaurantId={route.restaurant_id} locale={locale} label={t('routeSettingsStartAddress')} placeholder={t('routeSettingsStartPlaceholder')} value={startAddress} onChange={setStartAddress} onResolvingChange={setResolvingStart} disabled={disabled || saving} t={t} />
+        <RouteAddressField restaurantId={route.restaurant_id} locale={locale} label={t('routeSettingsEndAddress')} placeholder={t('routeSettingsEndPlaceholder')} value={endAddress} onChange={setEndAddress} onResolvingChange={setResolvingEnd} disabled={disabled || saving} t={t} />
       </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-2"><StopServiceField value={serviceMinutes} onChange={setServiceMinutes} disabled={disabled || saving} t={t} /><CustomerWindowField value={customerWindow} onChange={setCustomerWindow} disabled={disabled || saving} t={t} /></div>
       <p className="mt-3 text-fs-xs leading-relaxed text-[var(--fg-subtle)]">{t('routeSettingsGeocodeHint')}</p>
@@ -140,7 +142,7 @@ export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t
           <XIcon />
           {t('cancel')}
         </Button>
-        <Button type="submit" variant="primary" size="md" className="w-full sm:w-auto" disabled={disabled || saving || !departureValid || !validStopServiceMinutes(serviceMinutes) || parseCustomerWindowMinutes(customerWindow) == null}>
+        <Button type="submit" variant="primary" size="md" className="w-full sm:w-auto" disabled={disabled || saving || resolvingStart || resolvingEnd || !departureValid || !validStopServiceMinutes(serviceMinutes) || parseCustomerWindowMinutes(customerWindow) == null}>
           <SaveIcon />
           {t(saving ? 'saving' : 'save')}
         </Button>

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "81ecadf67e5ec2db9e3e5b14e3fed699ac9adc54",
+  "documentationRef": "83afa0ba128ab7748ed819ab707a87f485016cb1",
   "documentationRevision": "250ea492f6366da2de7e26c43ea8b37273aec27995e13d0c0d39c7febcd19c7e",
   "articles": {
     "getting-started/first-login": {
@@ -3771,7 +3771,7 @@
       ]
     },
     "src/components/delivery/DispatcherView.tsx": {
-      "sha256": "175da974b31a98de3501023d830a5231769362158486e92c646dd6b7fff1de2e",
+      "sha256": "1874aca607c4365fbd9dfded6017faf09b2c5ce57d4acefedc601f8a0719b66e",
       "features": [
         "delivery-dispatch"
       ]
@@ -3797,13 +3797,13 @@
       ]
     },
     "src/components/delivery/RouteAddressField.tsx": {
-      "sha256": "c407adfad0bb526789c1ae6d4b03a248887954c856e257ba9b057a0fcf3c8e19",
+      "sha256": "0061816a7d97633a6f0d3f8f4671a418add6ada22ec5aef6a7371bbcaec44f43",
       "features": [
         "delivery-dispatch"
       ]
     },
     "src/components/delivery/RouteSettingsEditor.tsx": {
-      "sha256": "d675fbc6c6e30671e531b335700ceabe8105f0d708597f43c5f34f966a5db61d",
+      "sha256": "7d2a0a52d9e4a961d9eaabf6d2ca3d9f9da98b43584ee1b19f26966d77d267e3",
       "features": [
         "delivery-dispatch"
       ]
