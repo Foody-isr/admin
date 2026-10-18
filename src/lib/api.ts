@@ -869,6 +869,7 @@ export interface OrderItem {
   /** Which combo step this pick came from. Snapshotted at order time; nil on
    *  pre-feature rows (re-derived when editing a combo's composition). */
   combo_step_id?: number;
+  combo_substitution?: boolean;
   combo_name?: string;
   combo_price?: number;
   // Snapshot of the item's category at order time. NULL on older/fake rows
@@ -5106,6 +5107,8 @@ export interface CreateOrderItemInput {
 
 /** One picked sub-item within a combo on a manually-built order. */
 export interface CreateOrderComboSelectionInput {
+  /** Staff-authorized component exception, included without an upcharge. */
+  is_substitution?: boolean;
   step_id: number;
   menu_item_id: number;
   option_id?: number;

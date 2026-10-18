@@ -1202,3 +1202,19 @@ unconfigured routes retain their previous reminder slot. An unavailable current
 range blocks the manual reminder until recalculation and review. Start route
 confirms departure for every unfinished assigned delivery together, including
 accepted and preparing orders; held kitchen/weight-settlement gates remain.
+
+## Internal combo exceptions
+
+In New order or Edit order → combo composition, each step exposes **Choose
+another item** to users with `orders.manage`. Remove a unit first if the step is
+full, then search the restaurant library and select a replacement and its size.
+**Exception · included** marks a zero-upcharge choice on this order only. Step
+quantities, per-item/size limits, pinned portions and availability still apply.
+Inactive, sold-out, weight-priced items and other combos are excluded. Other
+normal selections retain their configured supplements. The saved combo is not
+modified; saved-order editing preserves its original base price even if the
+catalog price changes. Drafts and subsequent composition edits retain the marker.
+Requires the matching API and migration 264 before this UI. Guest and POS pickers
+retain their standard choices. Copy and public help cover French, Hebrew and
+English. Synthetic browser checks:
+`npx playwright test -c playwright.redesign.config.ts internal-combo-substitutions.spec.ts internal-order-library.spec.ts`.

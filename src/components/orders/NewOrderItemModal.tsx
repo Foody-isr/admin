@@ -18,6 +18,7 @@ export interface NewOrderLineModifier {
 
 /** One picked sub-item inside a combo line. */
 export interface ComboSelection {
+  isSubstitution?: boolean;
   stepId: number;
   stepName: string;
   menuItemId: number;
