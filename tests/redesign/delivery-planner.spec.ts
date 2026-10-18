@@ -242,20 +242,23 @@ test('legend highlights distinct routes assigned to the same courier', async ({ 
 
 test('map quota switch hides Google content and automatically returns after reset', async ({ page }) => {
  const state = await install(page); state.mapProvider = 'google';
- state.routes = [{ ...route(1, [{ ...stop(2), coordinate_provider: 'google' }]), routing_provider: 'google' }];
+ state.routes = [{ ...route(1, [{ ...stop(2), coordinate_provider: 'google' }]), routing_provider: 'google', start_lat: 32.0, start_lng: 34.0, end_lat: 32.3, end_lng: 34.3 }];
  await page.goto('/1/orders/deliveries');
  await expect(page.locator('.leaflet-control-attribution')).toContainText('Synthetic map data');
  await expect(page.locator('.foody-stop-pin')).toHaveCount(1);
+ await expect(page.locator('.leaflet-marker-icon')).toHaveCount(3);
  await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(1);
  state.mapProvider = 'geoapify';
  await page.clock.runFor(61000);
  await expect(page.locator('.leaflet-control-attribution')).toContainText('Geoapify');
  await expect(page.locator('.foody-stop-pin')).toHaveCount(0);
+ await expect(page.locator('.leaflet-marker-icon')).toHaveCount(0);
  await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(0);
  state.mapProvider = 'google';
  await page.clock.runFor(61000);
  await expect(page.locator('.leaflet-control-attribution')).toContainText('Synthetic map data');
  await expect(page.locator('.foody-stop-pin')).toHaveCount(1);
+ await expect(page.locator('.leaflet-marker-icon')).toHaveCount(3);
  await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(1);
 });
 

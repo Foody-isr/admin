@@ -165,8 +165,8 @@ export default function DeliveryMap({
   const { t } = useI18n();
   const [provider, setProvider] = useState('unavailable');
   const layers: RouteLayer[] = useMemo(() => {
-    if (routes && routes.length) return routes.map(layer => ({ ...layer, geometry: layer.routingProvider === 'google' && provider !== 'google' ? undefined : layer.geometry, stops: layer.stops.filter(stop => stop.coordinate_provider !== 'google' || provider === 'google') }));
-    if (stops && stops.length) return [{ courierId: 0, color: BRAND, stops: stops.filter(stop => stop.coordinate_provider !== 'google' || provider === 'google'), start, end, geometry: routingProvider === 'google' && provider !== 'google' ? undefined : geometry, routingProvider }];
+    if (routes && routes.length) return routes.map(layer => ({ ...layer, start: layer.routingProvider === 'google' && provider !== 'google' ? undefined : layer.start, end: layer.routingProvider === 'google' && provider !== 'google' ? undefined : layer.end, geometry: layer.routingProvider === 'google' && provider !== 'google' ? undefined : layer.geometry, stops: layer.stops.filter(stop => stop.coordinate_provider !== 'google' || provider === 'google') }));
+    if (stops && stops.length) return [{ courierId: 0, color: BRAND, stops: stops.filter(stop => stop.coordinate_provider !== 'google' || provider === 'google'), start: routingProvider === 'google' && provider !== 'google' ? undefined : start, end: routingProvider === 'google' && provider !== 'google' ? undefined : end, geometry: routingProvider === 'google' && provider !== 'google' ? undefined : geometry, routingProvider }];
     return [];
   }, [end, routes, start, stops, geometry, routingProvider, provider]);
 
