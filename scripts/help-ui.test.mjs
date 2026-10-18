@@ -35,3 +35,19 @@ test('removing a reviewed current control forces another UI/guide review', t => 
   const {root,write}=fixture(t); write('src/items.tsx','<DifferentScreen />');
   assert.ok(checkUIEvidence(root,root).some(error=>error.includes('UI changed')));
 });
+test('navigation paths must use the rendered sidebar labels and their current translations', t => {
+  const {root,write}=fixture(t);
+  const evidence=JSON.parse(fs.readFileSync(path.join(root,'docs/help/ui-evidence.json'),'utf8'));
+  evidence.observations.push({id:'sidebar',source:'src/sidebar.tsx',required:["labelKey: 'itemLibrary'"],forbidden:[]});
+  evidence.observations.push({id:'translation',source:'src/i18n.tsx',required:["menu: 'Articles et cartes'","itemLibrary: 'Articles'"],forbidden:[]});
+  evidence.guides[0].required.fr.push('Articles et cartes → Articles');
+  write('docs/help/ui-evidence.json',evidence);
+  write('src/sidebar.tsx',"labelKey: 'itemLibrary'");
+  write('src/i18n.tsx',"menu: 'Articles et cartes', itemLibrary: 'Articles'");
+  write('src/content/help/fr/menu/items.mdx','Une liste continue dans Menu → Articles');
+  assert.ok(checkUIEvidence(root,root).some(error=>error.includes('fr missing')));
+  write('src/content/help/fr/menu/items.mdx','Une liste continue dans Articles et cartes → Articles');
+  assert.deepEqual(checkUIEvidence(root,root),[]);
+  write('src/i18n.tsx',"menu: 'Catalogue', itemLibrary: 'Articles'");
+  assert.ok(checkUIEvidence(root,root).some(error=>error.includes('UI changed')));
+});
