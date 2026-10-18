@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "e3e281c0ae9bad1fb9a7c77c37fe673314dea5ec",
-  "documentationRevision": "6ecdd13efb75284d46897397140ead9dc1be946352622f05d4307e5b1eee827c",
+  "documentationRef": "WORKSPACE",
+  "documentationRevision": "366d5b27707fb0158f4adfe8565e47222435feef2667fa0cf5f6182f376b7f44",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -715,15 +715,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "710ca8e26b74d2a175a5ca02470c1ef664cd0f983737f43d271709455685b76e"
+          "sha256": "e71e0b97d0974dc1d443bdf5938a8eb9c3fb7d31d7b2383ef6a02fa739af2aa3"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "1025bc9644a7a88237262b328daa25621f9884818fd37b368b24d90671659e11"
+          "sha256": "43f94e220630fcfb0f48fe65a17f1487ddbc55e3f448f4a26ffe7ca488cdd81d"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "d76ed3e4354d75b88ef2a519f65149457ffc158450380391348bf890b7d1833c"
+          "sha256": "c3ae56c98f24d1f8135e77381ebb2eb527c95d390ce22982f1e24befcbc0db09"
         }
       }
     },
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/courier-workspace.mdx",
-          "sha256": "0fc81e812f2df07586949319b71cae75be38b82d3a9595b0dcceac4e6715da85"
+          "sha256": "af6ee2096b34919170449eecfc8d506bf80539d636aa1577ada20fd7de9c0f99"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/courier-workspace.mdx",
-          "sha256": "23db74472318961755830d1174f088545887fa922984cdaa8edf30c2a7bfea40"
+          "sha256": "1562e2e1787d401624aa4da4574602d20c7ad7405757687402d7983e991d59ab"
         },
         "he": {
           "path": "src/content/help/he/delivery/courier-workspace.mdx",
-          "sha256": "06dac24f8d060e78dbca39706ba21aa1c63eeb6baa933094585a14d51bf25bf3"
+          "sha256": "efb435632aa5e31bb6292f00f517ab5a7787bd9c25a0a74c7db4ff1acbed6f37"
         }
       }
     },
@@ -6034,7 +6034,7 @@
       ]
     },
     "src/lib/delivery-planning.ts": {
-      "sha256": "6c0654d0176224fb79fc4b68d3883a70f84c3c611f0ab04d1e3fb52a63318ea7",
+      "sha256": "ab0d827580c6b567c52476cb20649f3b20472ec2182d134d72ce50c7592337c5",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -6110,7 +6110,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "dab6e2b340153aaa7fb0702f6ae5bde3755809d02663700c315a5197f33102db",
+      "sha256": "4a999c49407983e72631090e1ad581cc91b0e77336cbd9d87c8ba87f7953a3ab",
       "features": [
         "delivery-dispatch",
         "shared-runtime"

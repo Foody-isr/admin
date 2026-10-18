@@ -87,6 +87,7 @@ test('routing failures have localized, bounded feedback', () => {
   assert.equal(deliveryRoutingError(new Error('location service quota exceeded'), key => key), 'deliveryRoutingQuota');
   assert.equal(deliveryRoutingError(new Error('routing service unavailable'), key => key), 'deliveryRoutingUnavailable');
   assert.equal(deliveryRoutingError(new Error('some deliveries could not be routed'), key => key), 'deliveryRoutingInfeasible');
+  assert.equal(deliveryRoutingError(new Error('address not located'), key => key), 'deliveryAddressUnresolved');
   assert.equal(deliveryRoutingError(new Error('unknown error'), key => key), null);
 });
 
