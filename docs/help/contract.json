@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "da278cfc9b6587f39e1f476b40c619caf9118e75",
-  "documentationRevision": "6bc54f656a245e54de5ed9b50e56d66abc914925c82b205df21a586f803c21f9",
+  "documentationRef": "5d930eaa1573dec4056ffb0f6bf7275800172449",
+  "documentationRevision": "0e7a2867992c2db2fc8557438ee9e2052e8386a9e6ec83d0b0b9de339bbb1589",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -221,15 +221,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/using-support.mdx",
-          "sha256": "f73adcbb56dd2cd2d815cc1c7f67f30181eb06980e464e94dde14b6cb7be949b"
+          "sha256": "57828b46fb6f407c154bbdf8de61541186107b29c663a3c2b41b44079fb522be"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/using-support.mdx",
-          "sha256": "474d286c373c36ac712a736348aaa240b3b333a1aec562a72bd30951d135d1f2"
+          "sha256": "674fd843c670f147c0af0440f4f8a40bd5c50d9b6ca1833b4c54be0eaebf82ba"
         },
         "he": {
           "path": "src/content/help/he/getting-started/using-support.mdx",
-          "sha256": "eea0d37fea1caa4b3c279ea290a28f8d9841907bfec8c7d6d3752db37983ef62"
+          "sha256": "1bb54c10e068775c678c657c744494859e52f039ff73badbe1b83967db763f63"
         }
       }
     },
@@ -335,15 +335,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/categories-and-items.mdx",
-          "sha256": "f2cb41ddbbdf7800109cdc4b759d4f4c79ab3483e77820447d46e3e238281e14"
+          "sha256": "fc2216594ed096400e6e183f33e2bd353763eee9d9143db74b36476511f240f6"
         },
         "fr": {
           "path": "src/content/help/fr/menu/categories-and-items.mdx",
-          "sha256": "20aaf55b00bd1881e9772963e06cbbf7878c1626d1f5b9b166c96f9370c8a61f"
+          "sha256": "c1be2b89f525d180685b2a136f6c68f709fccb355f2648f703f205b2082a618d"
         },
         "he": {
           "path": "src/content/help/he/menu/categories-and-items.mdx",
-          "sha256": "5fbd09b4e021636dc55fbe9670e7c5a867d4bd70b45b5700bc332d42ec5d841a"
+          "sha256": "53728874627945ca62866d8b65699dcafafdcf871cdf37a9ed421aa4c6499d9b"
         }
       }
     },
@@ -354,15 +354,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/creating-a-menu-item.mdx",
-          "sha256": "ca9311ca08f214dcb73ad7a281926bc6aa956cd427778586861654672fd45e35"
+          "sha256": "958c3624c96a5b5ce00914210d447200408ab3c2ed861451756b1055163a8a35"
         },
         "fr": {
           "path": "src/content/help/fr/menu/creating-a-menu-item.mdx",
-          "sha256": "65921ea08287567cabd195fbba5941694249f67de14791a5b7f25ef90a7b0d1f"
+          "sha256": "f3d295e2619069ccb4e07650c5ec8b3ce853a43d535a933ebd88a4770a3fd0ef"
         },
         "he": {
           "path": "src/content/help/he/menu/creating-a-menu-item.mdx",
-          "sha256": "300d09deb44e01151d681205b4322788b749b4ece3d520d0ec1e56c0e9c94f99"
+          "sha256": "f9879cdd3abd92ac239c5329cb5d9827294a06b7426f4b57d5544f76caf4a62a"
         }
       }
     },
@@ -392,15 +392,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/menus-and-groups.mdx",
-          "sha256": "9bfc5bc3dc6c8e20878ba88035075096e4f860e898f17e9c38a9dc06bde28ec5"
+          "sha256": "1344c1672ed68ecfa378d2f1177e9a6bac35d17165a36513d20795af6d4b8636"
         },
         "fr": {
           "path": "src/content/help/fr/menu/menus-and-groups.mdx",
-          "sha256": "593a59105ecc14cf50736c63f5ac703abd33d8bd43cecdd626992d0aae815684"
+          "sha256": "5b537a90dbc0be6038c2f0ea6e5e154d830b84cf524bbb9b2f8b5b0c6b678a8b"
         },
         "he": {
           "path": "src/content/help/he/menu/menus-and-groups.mdx",
-          "sha256": "c0adbac2deb66cb45aa212296973e3e9370a722f1d456ad3cfe5989b965198be"
+          "sha256": "20049b95eb40eac1132dbe3bad6d5e8a08037462fab44572ad2849faa1b922ac"
         }
       }
     },
