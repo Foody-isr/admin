@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "ae34282f4998e737aaa76503bc8e9de6ed323dc4",
-  "documentationRevision": "9e4b6c6e150eff9d3e3a9f6244cb1c89b76729b5cdd86fd5a9b6e5a4d745b08a",
+  "documentationRef": "11e1ecca43359bce32852f29432f48803a4f54f8",
+  "documentationRevision": "756b3728923021ab2155b6033c2df9914243cb95cf759e6d1232f95150b00449",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -392,15 +392,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/menus-and-groups.mdx",
-          "sha256": "80c9f4897c63693ae64d2b350ff163c256283045662fa5fbcdc13bfcb8a19919"
+          "sha256": "9bfc5bc3dc6c8e20878ba88035075096e4f860e898f17e9c38a9dc06bde28ec5"
         },
         "fr": {
           "path": "src/content/help/fr/menu/menus-and-groups.mdx",
-          "sha256": "6af07ca5bf0ff1d689219e4f64b588b4ca6eb66c51adf267a4e856aa3c555064"
+          "sha256": "593a59105ecc14cf50736c63f5ac703abd33d8bd43cecdd626992d0aae815684"
         },
         "he": {
           "path": "src/content/help/he/menu/menus-and-groups.mdx",
-          "sha256": "e2cd2fa7bd9f43b6926c3f3c71113e86a17f0515285083d9a9aa73511f21c127"
+          "sha256": "c0adbac2deb66cb45aa212296973e3e9370a722f1d456ad3cfe5989b965198be"
         }
       }
     },
