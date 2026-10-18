@@ -290,6 +290,13 @@ Browser regressions use synthetic fixtures only:
 
 ### Settings (`/[restaurantId]/settings`)
 
+Payments & VAT → Card hold for by-weight items exposes the scoped 0–100% margin
+(20% default) to `settings.edit`. Only changed fields are sent; explicit zero,
+partial saves, failed drafts, reset and read-only users retain their semantics.
+The example adds a margin only to weighted items, not fixed items or delivery.
+Deploy the matching settings API first; an omitted legacy field stays unavailable.
+Synthetic checks: `npx playwright test -c playwright.redesign.config.ts payment-settings.spec.ts`.
+
 **Restaurant → General** includes **Country**, saved explicitly as the restaurant's
 ISO 3166-1 alpha-2 `country_code`. The country scopes delivery address suggestions
 and geocoding without changing currency, language, timezone or delivery zones.
