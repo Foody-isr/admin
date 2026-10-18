@@ -7,9 +7,8 @@
 // The server re-resolves prices, recomputes the total, and broadcasts
 // `order.updated`, which refreshes the board.
 //
-// Scope: regular items are fully editable; combos (multi-line meal deals) can be
-// removed as a whole but not edited here — editing a combo's contents means
-// recreating it from a new order.
+// Scope: regular items and combo compositions can be edited. A combo can also
+// be removed as a whole. Recomposition preserves its original base price.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Minus, Trash2, Search, Pencil } from 'lucide-react';
@@ -169,6 +168,7 @@ function comboItemsToSelections(items: OrderItem[], comboMenuItem: MenuItem): Co
     optionId: it.selected_variant_id ?? null,
     quantity: it.quantity,
     priceDelta: it.price,
+    isSubstitution: it.combo_substitution,
   }));
 }
 
@@ -480,7 +480,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     const staged = comboEdits[combo.group];
     const initial = staged ? staged.selections : comboItemsToSelections(combo.items, comboMenuItem);
     comboEditNonce.current += 1;
-    setEditingCombo({ group: combo.group, combo: comboMenuItem, initial, key: `${combo.group}#${comboEditNonce.current}` });
+    setEditingCombo({ group: combo.group, combo: { ...comboMenuItem, price: combo.items[0]?.combo_price ?? comboMenuItem.price }, initial, key: `${combo.group}#${comboEditNonce.current}` });
   }
 
   // Stage a re-composed combo from the picker. The display price keeps the
@@ -490,7 +490,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     if (!editingCombo) return;
     const group = editingCombo.group;
     const selections = nl.comboSelections ?? [];
-    const base = combos.find((c) => c.group === group)?.price ?? nl.item.price;
+    const base = combos.find((c) => c.group === group)?.items[0]?.combo_price ?? nl.item.price;
     const upcharge = selections.reduce((s, sel) => s + (sel.priceDelta || 0) * sel.quantity, 0);
     setComboEdits((prev) => ({
       ...prev,
@@ -607,6 +607,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
             menu_item_id: s.menuItemId,
             option_id: s.optionId ?? undefined,
             quantity: s.quantity,
+            is_substitution: s.isSubstitution || undefined,
           })),
           serie_date: order.scheduled_for ? order.scheduled_for.slice(0, 10) : undefined,
         });

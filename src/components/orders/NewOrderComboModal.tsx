@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Drawer } from '@/components/ds';
 import { cn } from '@/lib/utils';
+import { usePermissions } from '@/lib/permissions-context';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { resolveComboStepPreview, type AvailabilityState, type MenuItem, type ComboStep } from '@/lib/api';
 import { isEffectivelySoldOut } from '@/components/menu/AvailabilityPill';
@@ -11,6 +12,7 @@ import type { ComboSelection, NewOrderLine } from './NewOrderItemModal';
 // A single pickable option within a step. `key` uniquely identifies the
 // item+option pair so the same item with different sizes stays distinct.
 interface StepOption {
+  isSubstitution?: boolean;
   key: string;
   menuItemId: number;
   optionId: number | null;
@@ -26,6 +28,32 @@ interface StepOption {
    *  item still sells in 500g. Booking it anyway is rejected by the order guard,
    *  so the picker blocks it here. */
   soldOut?: boolean;
+}
+
+function replacementOptions(step: ComboStep, items: Map<number, MenuItem>): StepOption[] {
+  const pinned = step.source_type === 'group' ? step.source_variant_label : null;
+  const rules = step.variant_rules ?? [];
+  return Array.from(items.values()).filter((item) => item.is_active && item.item_type !== 'combo' && item.pricing_mode !== 'by_weight').flatMap((item) => {
+    const sizes = comboItemSizes(item);
+    const hasSizes = (item.option_sets ?? []).some((set) => (set.options ?? []).length > 0)
+      || (item.variant_groups ?? []).some((group) => (group.variants ?? []).length > 0);
+    const choices: Array<{ optionId: number | null; name: string; availabilityState?: AvailabilityState }> = hasSizes ? sizes : [{ optionId: null, name: '' }];
+    return choices.filter((size) => (!pinned || normLabel(size.name) === normLabel(pinned))
+      && (rules.length === 0 || rules.some((rule) => normLabel(rule.variant_label) === normLabel(size.name))))
+      .map((size) => ({
+        key: `sub:${item.id}:${size.optionId ?? ''}`,
+        menuItemId: item.id,
+        optionId: size.optionId,
+        name: item.name,
+        portion: size.name || undefined,
+        sizeLabel: rules.length > 0 ? size.name : undefined,
+        priceDelta: 0,
+        isSubstitution: true,
+        soldOut: isEffectivelySoldOut(item.availability_state, item.availability_override)
+          || item.availability_state === 'hidden'
+          || size.availabilityState === 'sold_out' || size.availabilityState === 'hidden',
+      }));
+  });
 }
 
 function uid(): string {
@@ -127,6 +155,8 @@ interface NewOrderComboModalProps {
 export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, open, onClose, onAdd, initialSelections, editKey }: NewOrderComboModalProps) {
   const { money } = useCurrency();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canSubstitute = hasAnyPermission('orders.manage');
   const steps = useMemo(() => (combo?.combo_steps ?? []).filter((s) => s.id != null), [combo]);
   const isEdit = !!editKey;
 
@@ -134,6 +164,9 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
   const [groupItems, setGroupItems] = useState<Record<number, StepOption[]>>({});
   // Picks: stepId → optionKey → quantity.
   const [picks, setPicks] = useState<Record<number, Record<string, number>>>({});
+  const [substitutions, setSubstitutions] = useState<Record<number, StepOption[]>>({});
+  const [libraryStep, setLibraryStep] = useState<number | null>(null);
+  const [librarySearch, setLibrarySearch] = useState('');
 
   // Reset local state whenever a different combo instance is opened. In edit
   // mode the seed key is the instance id (editKey) so switching between two
@@ -147,6 +180,9 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
     // default size the step doesn't expose. Start empty in both modes.
     setPicks({});
     setGroupItems({});
+    setSubstitutions({});
+    setLibraryStep(null);
+    setLibrarySearch('');
   }
 
   useEffect(() => {
@@ -227,11 +263,27 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
   useEffect(() => {
     if (!isEdit || !combo || !open || !initialSelections) return;
     const next: Record<number, Record<string, number>> = {};
+    const extra: Record<number, StepOption[]> = {};
     for (const step of steps) {
       const stepId = step.id as number;
       const opts = optionsFromStep(step, groupItems[stepId], itemMap);
       for (const sel of initialSelections) {
         if (sel.stepId !== stepId) continue;
+        if (sel.isSubstitution) {
+          // Restore the order snapshot even if the item is no longer in the
+          // active library. Saving still goes through server validation.
+          const opt = replacementOptions(step, itemMap).find((o) => o.menuItemId === sel.menuItemId && o.optionId === (sel.optionId ?? null)) ?? {
+            key: `sub:${sel.menuItemId}:${sel.optionId ?? ''}`,
+            menuItemId: sel.menuItemId, optionId: sel.optionId ?? null,
+            name: sel.menuItemName, priceDelta: 0, isSubstitution: true,
+            soldOut: true,
+          };
+          const options = (extra[stepId] ??= []);
+          if (!options.some((o) => o.key === opt.key)) options.push(opt);
+          const bucket = (next[stepId] ??= {});
+          bucket[opt.key] = (bucket[opt.key] ?? 0) + sel.quantity;
+          continue;
+        }
         const wanted = sel.optionId ?? null;
         const match =
           opts.find((o) => o.menuItemId === sel.menuItemId && o.optionId === wanted) ??
@@ -242,12 +294,17 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
       }
     }
     setPicks(next);
+    setSubstitutions(extra);
     // editKey is in the deps so switching between two instances of the same
     // combo (same `combo` object ref) still re-seeds.
   }, [isEdit, combo, open, steps, itemMap, groupItems, initialSelections, editKey]);
 
   if (!combo) return null;
   const activeCombo = combo;
+  const stepOptions = (step: ComboStep) => [
+    ...optionsFromStep(step, groupItems[step.id as number], itemMap),
+    ...(substitutions[step.id as number] ?? []),
+  ];
 
   const stepCount = (stepId: number) =>
     Object.values(picks[stepId] ?? {}).reduce((a, b) => a + b, 0);
@@ -255,7 +312,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
   // Picks in a step that use a given size label (sums across all items of that
   // size). Drives per-size cap enforcement for variant-rule steps.
   const sizeCount = (stepId: number, sizeLabel: string): number => {
-    const opts = groupItems[stepId] ?? [];
+    const opts = stepOptions(steps.find((s) => s.id === stepId)!);
     const byKey = picks[stepId] ?? {};
     return opts.reduce(
       (sum, o) => (o.sizeLabel && normLabel(o.sizeLabel) === normLabel(sizeLabel) ? sum + (byKey[o.key] ?? 0) : sum),
@@ -273,7 +330,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
 
   // Picks of one item in a step, summed across its sizes.
   const itemCount = (stepId: number, menuItemId: number): number => {
-    const opts = groupItems[stepId] ?? optionsFromStep(steps.find((s) => s.id === stepId)!, undefined, itemMap);
+    const opts = stepOptions(steps.find((s) => s.id === stepId)!);
     const byKey = picks[stepId] ?? {};
     return opts.reduce((sum, o) => (o.menuItemId === menuItemId ? sum + (byKey[o.key] ?? 0) : sum), 0);
   };
@@ -294,10 +351,10 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
     if (opt.soldOut) return;
     // Per-size cap: block a size once its max is reached.
     const remaining = sizeRemaining(step, opt.sizeLabel);
-    if (remaining != null && remaining <= 0) return;
+    if (max !== 1 && remaining != null && remaining <= 0) return;
     // Per-item cap: block an item once its max (across sizes) is reached.
     const cap = itemCap(step, opt.menuItemId);
-    if (cap != null && itemCount(stepId, opt.menuItemId) >= cap) return;
+    if (max !== 1 && cap != null && itemCount(stepId, opt.menuItemId) >= cap) return;
     setPicks((prev) => {
       const cur = { ...(prev[stepId] ?? {}) };
       // Single-choice step: selecting replaces the current pick.
@@ -329,7 +386,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
   });
 
   const extraDelta = steps.reduce((sum, step) => {
-    const opts = optionsFromStep(step, groupItems[step.id as number], itemMap);
+    const opts = stepOptions(step);
     const byKey = picks[step.id as number] ?? {};
     return sum + opts.reduce((s, o) => s + (byKey[o.key] ?? 0) * o.priceDelta, 0);
   }, 0);
@@ -338,7 +395,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
   function handleAdd() {
     const selections: ComboSelection[] = [];
     for (const step of steps) {
-      const opts = optionsFromStep(step, groupItems[step.id as number], itemMap);
+      const opts = stepOptions(step);
       const byKey = picks[step.id as number] ?? {};
       for (const [key, qty] of Object.entries(byKey)) {
         const opt = opts.find((o) => o.key === key);
@@ -352,6 +409,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
           optionId: opt.optionId,
           quantity: qty,
           priceDelta: opt.priceDelta,
+          isSubstitution: opt.isSubstitution,
         });
       }
     }
@@ -382,13 +440,13 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
       <div className="flex flex-col gap-[var(--s-5)]">
         {steps.map((step) => {
           const stepId = step.id as number;
-          const opts = optionsFromStep(step, groupItems[stepId], itemMap);
+          const opts = stepOptions(step).filter((o) => !o.isSubstitution || (picks[stepId]?.[o.key] ?? 0) > 0);
           const count = stepCount(stepId);
           const min = step.min_picks ?? 0;
           const max = step.max_picks ?? 0;
           const satisfied = count >= min;
           return (
-            <div key={stepId} className="flex flex-col gap-2">
+            <div key={stepId} role="group" aria-label={step.name} className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-fs-sm font-semibold">{step.name}</span>
                 <span
@@ -431,6 +489,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
                           <span className={cn('size-3.5 shrink-0 rounded-full border', selected ? 'border-[var(--action)] bg-[var(--action)]' : 'border-[var(--line-strong)]')} />
                         )}
                         <span className={cn(opt.soldOut && 'line-through')}>{opt.name}</span>
+                        {opt.isSubstitution && <span className="text-fs-xs text-[var(--fg-muted)]">{t('comboSubstitutionLabel')}</span>}
                         {opt.portion && (
                           <span className="rounded bg-[var(--surface-2)] px-1.5 py-0.5 text-fs-sm font-medium text-[var(--fg-muted)]">
                             {opt.portion}
@@ -467,6 +526,27 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
                   );
                 })}
               </div>
+              {canSubstitute && <button type="button" className="self-start text-fs-sm font-medium underline underline-offset-4" aria-expanded={libraryStep === stepId} onClick={() => {
+                setLibraryStep(libraryStep === stepId ? null : stepId);
+                setLibrarySearch('');
+              }}>{t('comboSubstitutionChoose')}</button>}
+              {canSubstitute && libraryStep === stepId && (
+                <div className="flex flex-col gap-2 rounded-md border border-[var(--line)] p-3">
+                  <p className="text-fs-xs text-[var(--fg-muted)]">{t('comboSubstitutionHint')}</p>
+                  <input type="search" aria-label={t('comboSubstitutionSearch')} placeholder={t('comboSubstitutionSearch')} value={librarySearch} onChange={(e) => setLibrarySearch(e.target.value)} className="w-full rounded-md border border-[var(--line)] bg-[var(--surface-1)] px-3 py-2 text-fs-sm" />
+                  <div className="max-h-64 overflow-y-auto">
+                    {replacementOptions(step, itemMap).filter((o) => `${o.name} ${o.portion ?? ''}`.toLocaleLowerCase().includes(librarySearch.trim().toLocaleLowerCase())).map((opt) => (
+                      <button key={opt.key} type="button" disabled={opt.soldOut || (max !== 1 && ((max > 0 && count >= max) || (sizeRemaining(step, opt.sizeLabel) ?? 1) <= 0 || (itemCap(step, opt.menuItemId) != null && itemCount(stepId, opt.menuItemId) >= itemCap(step, opt.menuItemId)!)))} className="flex w-full items-center justify-between gap-2 border-b border-[var(--line)] px-1 py-2 text-start text-fs-sm disabled:opacity-40" onClick={() => {
+                        setSubstitutions((prev) => ({ ...prev, [stepId]: [...(prev[stepId] ?? []).filter((o) => o.key !== opt.key), opt] }));
+                        pick(step, opt);
+                      }}>
+                        <span>{opt.name}{opt.portion ? ` · ${opt.portion}` : ''}</span>
+                        <span className="text-fs-xs text-[var(--fg-muted)]">{opt.soldOut ? t('outOfStock') : t('comboSubstitutionLabel')}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}

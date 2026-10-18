@@ -553,6 +553,7 @@ export default function NewOrderPage() {
                 menu_item_id: s.menuItemId,
                 option_id: s.optionId ?? undefined,
                 quantity: s.quantity,
+                is_substitution: s.isSubstitution || undefined,
               })),
             })),
           ),
@@ -900,6 +901,7 @@ export default function NewOrderPage() {
                               <li key={`${s.stepId}-${s.menuItemId}-${i}`} className="text-fs-xs text-[var(--fg-subtle)]">
                                 · {s.quantity > 1 ? `${s.quantity}× ` : ''}{s.menuItemName}
                                 {s.priceDelta > 0 ? ` (+${money(s.priceDelta)})` : ''}
+                                {s.isSubstitution ? ` · ${t('comboSubstitutionLabel')}` : ''}
                               </li>
                             ))}
                           </ul>
