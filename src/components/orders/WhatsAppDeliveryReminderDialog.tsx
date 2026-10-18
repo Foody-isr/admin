@@ -8,6 +8,7 @@ import { OrderTwilioMessage } from '@/components/orders/OrderTwilioMessage';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { buildWhatsAppUrl } from '@/lib/receipt-share';
+import { getDeliveryCustomerWindow } from '@/lib/delivery';
 import { buildDeliveryReminder } from '@/lib/orders/delivery-reminder';
 import { resolveRecapLocale, RECAP_LOCALES, type RecapLocale } from '@/lib/orders/whatsapp-recap';
 import { listMessageTemplates, type MessageTemplate, type Order } from '@/lib/api';
@@ -44,6 +45,18 @@ export function WhatsAppDeliveryReminderDialog({
   const [message, setMessage] = useState('');
   const [edited, setEdited] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [customerWindow, setCustomerWindow] = useState<{ start: string; end: string; timezone?: string } | null>(null);
+  const [windowState, setWindowState] = useState<'loading' | 'ready' | 'failed'>('loading');
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    setWindowState('loading'); setCustomerWindow(null);
+    getDeliveryCustomerWindow(order.restaurant_id, order.id).then(window => {
+      if (active) { setCustomerWindow(window); setWindowState('ready'); }
+    }).catch(() => { if (active) setWindowState('failed'); });
+    return () => { active = false; };
+  }, [open, order.restaurant_id, order.id]);
 
   useEffect(() => {
     if (!open) return;
@@ -56,8 +69,8 @@ export function WhatsAppDeliveryReminderDialog({
     const body = templates.find(
       (template) => template.key === 'delivery_reminder' && template.locale === target,
     )?.body;
-    return buildDeliveryReminder({ order, restaurantName, locale: target, body });
-  }, [order, restaurantName, templates]);
+    return buildDeliveryReminder({ order, restaurantName, locale: target, body, customerWindow });
+  }, [order, restaurantName, templates, customerWindow]);
 
   useEffect(() => {
     if (!open) return;
@@ -95,7 +108,7 @@ export function WhatsAppDeliveryReminderDialog({
   };
 
   const send = () => {
-    if (!waUrl) return;
+    if (!waUrl || windowState !== 'ready') return;
     window.open(waUrl, '_blank', 'noopener,noreferrer');
     onOpenChange(false);
   };
@@ -141,7 +154,10 @@ export function WhatsAppDeliveryReminderDialog({
               </div>
             </div>
 
+            {windowState === 'failed' && <p role="alert" className="mb-3 text-fs-sm text-[var(--danger-500)]">{t('deliveryCustomerWindowUnavailable')}</p>}
+            {windowState === 'loading' && <p role="status">{t('loading')}</p>}
             <textarea
+              disabled={windowState !== 'ready'}
               value={message}
               onChange={(event) => {
                 setMessage(event.target.value);
@@ -155,13 +171,13 @@ export function WhatsAppDeliveryReminderDialog({
             <OrderTwilioMessage key={`${order.restaurant_id}:${order.id}`} restaurantId={order.restaurant_id} orderId={order.id} kind="delivery_reminder" />
 
             <div className="flex items-center gap-[var(--s-3)] mt-[var(--s-5)]">
-              <Button variant="ghost" onClick={copy}>
+              <Button variant="ghost" onClick={copy} disabled={windowState !== 'ready'}>
                 {copied ? <CheckIcon className="w-4 h-4" /> : <CopyIcon className="w-4 h-4" />}
                 {copied ? t('copied') : t('copy')}
               </Button>
               <div className="flex-1" />
               <Button variant="ghost" onClick={() => onOpenChange(false)}>{t('back')}</Button>
-              <Button variant="primary" onClick={send} disabled={!waUrl}>
+              <Button variant="primary" onClick={send} disabled={!waUrl || windowState !== 'ready'}>
                 <MessageCircleIcon className="w-4 h-4" />
                 {t('whatsappRecapSend')}
               </Button>

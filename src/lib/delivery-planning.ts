@@ -39,24 +39,25 @@ export interface DeliveryEtaWindow {
 
 /** Convert a route's cumulative ETA into a deliberately honest arrival range. */
 export function deliveryEtaWindow(
-  route: Pick<DeliveryRoute, 'started_at' | 'planned_departure_at' | 'eta_reference_at' | 'needs_recalculation'>,
-  stop: Pick<RouteStop, 'eta_seconds'>,
+  route: Pick<DeliveryRoute, 'started_at' | 'planned_departure_at' | 'eta_reference_at' | 'needs_recalculation' | 'customer_window_minutes' | 'timezone'>,
+  stop: Pick<RouteStop, 'eta_seconds'> & Partial<Pick<RouteStop, 'needs_geocode'>>,
   locale: string,
 ): DeliveryEtaWindow | null {
-  if (route.needs_recalculation) return null;
+  if (route.needs_recalculation || stop.needs_geocode) return null;
   const anchor = route.eta_reference_at || route.started_at || route.planned_departure_at;
-  if (!anchor || stop.eta_seconds <= 0) return null;
+  if (!anchor || stop.eta_seconds < 0 || (stop.eta_seconds === 0 && route.customer_window_minutes == null)) return null;
   const arrival = new Date(anchor).getTime() + stop.eta_seconds * 1000;
-  const startAt = new Date(arrival - ETA_EARLY_MINUTES * 60_000);
-  const endAt = new Date(arrival + ETA_LATE_MINUTES * 60_000);
+  const margin = route.customer_window_minutes;
+  const startAt = new Date(margin != null ? Math.floor(arrival / 60_000) * 60_000 : arrival - ETA_EARLY_MINUTES * 60_000);
+  const endAt = new Date(margin != null ? startAt.getTime() + margin * 60_000 : arrival + ETA_LATE_MINUTES * 60_000);
   const language = locale === 'he' ? 'he-IL' : locale === 'fr' ? 'fr-FR' : 'en-GB';
-  const formatter = new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit' });
-  const dayFormatter = new Intl.DateTimeFormat(language, { weekday: 'long', day: 'numeric', month: 'long' });
+  const formatter = new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', timeZone: route.timezone });
+  const dayFormatter = new Intl.DateTimeFormat(language, { weekday: 'long', day: 'numeric', month: 'long', timeZone: route.timezone });
   const start = formatter.format(startAt);
   const end = formatter.format(endAt);
   const startDay = dayFormatter.format(startAt);
   const endDay = dayFormatter.format(endAt);
-  const day = startAt.toDateString() === endAt.toDateString() ? startDay : `${startDay} → ${endDay}`;
+  const day = startDay === endDay ? startDay : `${startDay} → ${endDay}`;
   return { label: `${start}–${end}`, day, start, end, startAt, endAt };
 }
 

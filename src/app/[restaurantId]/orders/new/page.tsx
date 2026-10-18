@@ -139,8 +139,8 @@ export default function NewOrderPage() {
 
   // Category filter: 'all' shows every section, otherwise a single group id.
   const [activeSection, setActiveSection] = useState<number | 'all'>('all');
-  // Selected carte (menu). null until menus load.
-  const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
+  // The library is independent of menu membership, channels and rotation.
+  const [activeMenuId, setActiveMenuId] = useState<number | 'library' | null>(null);
   // Weekly-rotating carte state (only populated when the active carte rotates).
   const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
   const [selectedCycleIndex, setSelectedCycleIndex] = useState(0);
@@ -176,8 +176,8 @@ export default function NewOrderPage() {
         const firstCarte =
           [...menuList]
             .filter((m) => m.pos_enabled !== false)
-            .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id)[0] ?? menuList[0];
-        setActiveMenuId((prev) => prev ?? firstCarte?.id ?? null);
+            .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id)[0];
+        setActiveMenuId((prev) => prev ?? firstCarte?.id ?? 'library');
       } catch (err) {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : String(err));
       } finally {
@@ -278,6 +278,8 @@ export default function NewOrderPage() {
         .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id),
     [menus],
   );
+  const libraryLabel = t('catering_choice_article_library');
+  const catalogSources = [...cartes, { id: 'library' as const, name: libraryLabel }];
   const activeMenu = useMemo(() => menus.find((m) => m.id === activeMenuId) ?? null, [menus, activeMenuId]);
 
   // Weekly-rotation context for the active carte.
@@ -322,6 +324,12 @@ export default function NewOrderPage() {
   const sections = useMemo<Section[]>(() => {
     const q = search.trim().toLowerCase();
     const out: Section[] = [];
+    if (activeMenuId === 'library') {
+      const items = Array.from(itemMap.values())
+        .filter((it) => it.is_active && (!q || it.name.toLowerCase().includes(q)))
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id);
+      return items.length > 0 ? [{ id: 0, name: libraryLabel, items }] : [];
+    }
     if (!activeMenu) return out;
     // For a weekly-rotating carte, the staff menu endpoint (GET /menu/) pre-filters
     // each group's items to TODAY. That hides items whose série window opens on a
@@ -346,7 +354,7 @@ export default function NewOrderPage() {
       if (items.length > 0) out.push({ id: group.id, name: group.name, items });
     }
     return out;
-  }, [activeMenu, itemMap, search, isRotating, selectedDay, membershipsByGroup]);
+  }, [activeMenuId, activeMenu, itemMap, search, isRotating, selectedDay, membershipsByGroup, libraryLabel]);
 
   // Drop the category filter if the active section disappears (e.g. cleared by
   // a search), so the grid never ends up showing nothing unexpectedly.
@@ -646,35 +654,33 @@ export default function NewOrderPage() {
               </Button>
               <div className="min-w-0">
                 <h1 className="text-fs-lg font-semibold leading-tight">{t('newOrder')}</h1>
-                {activeMenu && (
-                  <p className="truncate text-fs-xs text-[var(--fg-muted)]">{activeMenu.name}</p>
+                {activeMenuId !== null && (
+                  <p className="truncate text-fs-xs text-[var(--fg-muted)]">{activeMenu?.name ?? libraryLabel}</p>
                 )}
               </div>
             </div>
-            {cartes.length > 1 && (
-              <div className="no-scrollbar -mx-[var(--s-4)] mb-[var(--s-3)] flex gap-[var(--s-1)] overflow-x-auto border-b border-[var(--line)] px-[var(--s-4)]">
-                {cartes.map((m) => {
-                  const active = activeMenuId === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => setActiveMenuId(m.id)}
-                      aria-pressed={active}
-                      className={cn(
-                        'relative shrink-0 whitespace-nowrap px-[var(--s-2)] pb-[var(--s-2)] text-fs-sm font-medium transition-colors',
-                        active ? 'text-[var(--brand-ink)]' : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
-                      )}
-                    >
-                      {m.name}
-                      {active && (
-                        <span className="absolute inset-x-[var(--s-2)] -bottom-px h-[2px] rounded-full bg-[var(--brand-500)]" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            <div className="no-scrollbar -mx-[var(--s-4)] mb-[var(--s-3)] flex gap-[var(--s-1)] overflow-x-auto border-b border-[var(--line)] px-[var(--s-4)]">
+              {catalogSources.map((m) => {
+                const active = activeMenuId === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => { setActiveMenuId(m.id); setActiveSection('all'); }}
+                    aria-pressed={active}
+                    className={cn(
+                      'relative shrink-0 whitespace-nowrap px-[var(--s-2)] pb-[var(--s-2)] text-fs-sm font-medium transition-colors',
+                      active ? 'text-[var(--brand-ink)]' : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
+                    )}
+                  >
+                    {m.name}
+                    {active && (
+                      <span className="absolute inset-x-[var(--s-2)] -bottom-px h-[2px] rounded-full bg-[var(--brand-500)]" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
             <div className="mb-[var(--s-3)] flex flex-col gap-[var(--s-2)] sm:flex-row sm:items-center">
               <div className="relative flex-1">
                 <SearchIcon className="pointer-events-none absolute start-[var(--s-3)] top-1/2 size-4 -translate-y-1/2 text-[var(--fg-subtle)]" />
@@ -700,7 +706,7 @@ export default function NewOrderPage() {
                 <BatchPicker cycles={cycles} selectedIndex={selectedCycleIndex} onChange={setSelectedCycleIndex} />
               )}
             </div>
-            {sections.length > 0 && (
+            {activeMenuId !== 'library' && sections.length > 0 && (
               <div className="no-scrollbar -mx-[var(--s-4)] flex gap-[var(--s-2)] overflow-x-auto px-[var(--s-4)] pb-[var(--s-3)]">
                 <button
                   type="button"

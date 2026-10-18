@@ -204,6 +204,14 @@ Full order list with:
 - Status update buttons on each order (accept, send to kitchen, mark ready, mark served/delivered)
 - Real-time: page re-fetches automatically to stay current
 
+Internal orders (`/[restaurantId]/orders/new`) can select **Article library**
+beside the carte tabs. It lists the restaurant's active items independently of
+menu membership, POS channels and rotating-series composition, including when
+there is no POS carte. Search, customization, stock checks and checkout use the
+same item data and ticket. Switching sources preserves the cart and does not
+publish library items on customer channels. Browser regressions:
+`npx playwright test -c playwright.redesign.config.ts internal-order-library.spec.ts`.
+
 The list and order detail routes share a persistent workspace. Opening or closing
 an order, including browser Back/Forward, preserves the selected date/série,
 filters, search, page and scroll position. Search runs while typing or on submit;
@@ -1166,9 +1174,24 @@ on an order-workflow stage, then save that page. A text-only model needs a new
 media-header version; each message supports one attachment. These controls apply
 to direct Meta routing, not Twilio.
 
-Requires API migration 262 first. Files are accessed through authenticated scoped
+Requires API migration 263 first. Files are accessed through authenticated scoped
 API requests and temporary blob previews, without public storage URLs. The PDF
 is an informational order summary from saved items/totals, not a fiscal invoice.
 Order history retains attachment filenames with attempts and provider statuses.
 Regression: `npx playwright test -c playwright.whatsapp.config.ts` and
 `npx playwright test -c playwright.workflow-whatsapp.config.ts`.
+### Delivery endpoint and customer-window planning
+
+Deploy the matching API and migration 262 first. Allocation now accepts each
+courier's departure/final addresses, with server-backed address suggestions, and
+a customer window beside handover duration. New plans propose 90 minutes;
+`1:30`, `1h30` and `90` all mean 90 minutes. Route settings share these controls
+for admins and the assigned courier before departure. Endpoint changes reset a
+manual sequence and optimize towards the saved final destination.
+
+WhatsApp route links and delivery reminders use arrival plus the configured
+range. Original scheduled windows remain operational constraints. Historic
+unconfigured routes retain their previous reminder slot. An unavailable current
+range blocks the manual reminder until recalculation and review. Start route
+confirms departure for every unfinished assigned delivery together, including
+accepted and preparing orders; held kitchen/weight-settlement gates remain.

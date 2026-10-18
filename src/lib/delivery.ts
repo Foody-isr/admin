@@ -37,6 +37,7 @@ export interface CourierLocationDTO {
 }
 
 export interface DeliveryRoute {
+  timezone?: string;
   id: number;
   restaurant_id: number;
   courier_id: number;
@@ -58,6 +59,7 @@ export interface DeliveryRoute {
   est_service_s?: number;
   needs_recalculation?: boolean;
   stop_service_minutes?: number;
+  customer_window_minutes?: number | null;
   stops: RouteStop[];
   last_location?: CourierLocationDTO | null;
   routing_provider?: 'google' | 'geoapify' | 'approximate';
@@ -68,6 +70,7 @@ export interface DeliveryRoute {
 export interface RoadLeg { order_id: number; path: [number, number][] }
 
 export interface RouteSettingsInput {
+  customer_window_minutes?: number;
   stop_service_minutes?: number;
   planned_departure_at: string;
   start_address: string;
@@ -223,6 +226,8 @@ export async function planDeliveryRoutes(
   plannedDepartureAt: string,
   assignments?: Array<{ courier_id: number; order_ids: number[] }>,
   stopServiceMinutes?: number,
+  customerWindowMinutes?: number,
+  endpoints?: Array<{ courier_id: number; start_address: string; end_address: string }>,
 ): Promise<DeliveryRoute[]> {
   const data = await apiFetch<{ routes: DeliveryRoute[] }>(
     `/api/v1/delivery/routes/plan?${q(restaurantId)}`, restaurantId,
@@ -234,6 +239,8 @@ export async function planDeliveryRoutes(
         planned_departure_at: plannedDepartureAt,
         assignments,
         stop_service_minutes: stopServiceMinutes,
+        customer_window_minutes: customerWindowMinutes,
+        endpoints,
       }),
     },
   );
@@ -319,4 +326,29 @@ export async function checkMyRouteNavigation(restaurantId: number, routeId: numb
     { method: 'POST', signal },
   );
   return data.checks;
+}
+
+/** Server-backed address prediction or completed selection. */
+export interface AddressSuggestion { id: string; kind?: string; address: string; city: string; lookup_token?: string }
+
+/** Search addresses without exposing the provider credential. */
+export async function autocompleteRouteAddress(restaurantId: number, text: string, lang: string, sessionId: string, signal?: AbortSignal): Promise<AddressSuggestion[]> {
+  const data = await apiFetch<{ suggestions: AddressSuggestion[] }>(`/api/v1/public/address-autocomplete?${q(restaurantId)}`, restaurantId, {
+    method: 'POST', body: JSON.stringify({ text, lang, session_id: sessionId }), signal,
+  });
+  return data.suggestions;
+}
+
+/** Resolve a restaurant-bound prediction before accepting its full address. */
+export async function resolveRouteAddress(restaurantId: number, token: string): Promise<AddressSuggestion> {
+  const data = await apiFetch<{ suggestion: AddressSuggestion }>(`/api/v1/public/address-autocomplete/resolve?${q(restaurantId)}`, restaurantId, {
+    method: 'POST', body: JSON.stringify({ lookup_token: token }),
+  });
+  return data.suggestion;
+}
+
+/** Current customer range; null preserves the order's saved slot for unconfigured routes. */
+export async function getDeliveryCustomerWindow(restaurantId: number, orderId: number): Promise<{ start: string; end: string; timezone?: string } | null> {
+  const data = await apiFetch<{ window: { start: string; end: string; timezone?: string } | null }>(`/api/v1/delivery/orders/${orderId}/customer-window?${q(restaurantId)}`, restaurantId);
+  return data.window ?? null;
 }
