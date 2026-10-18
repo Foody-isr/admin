@@ -175,12 +175,35 @@ test('payments preserve fractional VAT and serialize saves with a recoverable dr
   await save(page).click(); await expect(notice(page)).toContainText('Enregistré'); expect(state.writes).toHaveLength(2); expect(state.writes[1].body).toEqual({ vat_rate: 8.5, tips_enabled: false });
 });
 
-test('payments do not invent card connection, rounding, suggested-tip or weight-buffer writes', async ({ page }) => {
+test('payments preserve a zero buffer while changing another setting', async ({ page }) => {
   const state = await install(page); state.control.settings.weight_hold_buffer_percent = 0; await page.goto('/1/settings/payments');
-  const weight = page.getByRole('textbox', { name: 'Marge d’empreinte au poids %', exact: true }); await expect(weight).toHaveValue('0'); await expect(weight).toHaveJSProperty('readOnly', true);
+  const weight = page.getByRole('textbox', { name: 'Marge d’empreinte au poids %', exact: true }); await expect(weight).toHaveValue('0'); await expect(weight).toHaveJSProperty('readOnly', false);
   await expect(page.locator('main')).toContainText('état de connexion n’est pas disponible'); await expect(page.getByRole('button', { name: 'Connecter', exact: true })).toHaveCount(0);
   await page.getByRole('switch').click(); await save(page).click(); await expect(notice(page)).toContainText('Enregistré'); expect(state.writes[0].body).toEqual({ tips_enabled: false });
   await page.getByRole('link', { name: 'Ouvrir les réglages Cibus', exact: true }).click(); await expect(page).toHaveURL('/1/settings/cibus'); await expect(review(page)).toBeDisabled();
+});
+
+test('weight hold margin saves only its own scoped field and survives reload', async ({ page }) => {
+  const state = await install(page); await page.goto('/2/settings/payments');
+  const weight = page.getByRole('textbox', { name: 'Marge d’empreinte au poids %', exact: true });
+  await expect(weight).toHaveValue('20'); await weight.fill('30'); await weight.blur();
+  await expect(page.locator('#weight-buffer-example')).toContainText('180');
+  await save(page).click(); await expect(notice(page)).toContainText('Enregistré');
+  expect(state.writes).toEqual([{ path: '/api/v1/restaurants/2/settings', restaurant: '2', body: { weight_hold_buffer_percent: 30 } }]);
+  await page.reload(); await expect(weight).toHaveValue('30');
+  await weight.fill('0'); await weight.blur(); await save(page).click(); await expect(notice(page)).toContainText('Enregistré');
+  expect(state.writes[1].body).toEqual({ weight_hold_buffer_percent: 0 });
+  await page.reload(); await expect(weight).toHaveValue('0');
+});
+
+test('weight hold margin retains a failed draft and stays within the configured range', async ({ page }) => {
+  const state = await install(page); await page.goto('/1/settings/payments');
+  const weight = page.getByRole('textbox', { name: 'Marge d’empreinte au poids %', exact: true });
+  await weight.fill('150'); await weight.blur(); await expect(weight).toHaveValue('100');
+  await weight.fill('12,5'); await weight.blur(); state.faults.settingsPut = 1;
+  await save(page).click(); await expect(page.locator('main [role=alert]')).toBeVisible(); await expect(weight).toHaveValue('12.5');
+  await save(page).click(); await expect(notice(page)).toContainText('Enregistré');
+  expect(state.writes[1].body).toEqual({ weight_hold_buffer_percent: 12.5 });
 });
 
 test('payments retain draft across locale changes and confirm reset to the saved baseline', async ({ page }) => {
@@ -201,4 +224,5 @@ test('payments protect navigation with an unsaved policy selection', async ({ pa
 test('payments read-only fields remain copyable without save actions', async ({ page }) => {
   const state = await install(page, { permissions: ['settings.view'] }); await page.goto('/1/settings/payments');
   await expect(vat(page)).toHaveJSProperty('readOnly', true); await expect(vat(page)).toBeEnabled(); await expect(policy(page)).toBeDisabled(); await expect(page.getByRole('switch')).toBeDisabled(); await expect(save(page)).toHaveCount(0); expect(state.writes).toHaveLength(0);
+  await expect(page.getByRole('textbox', { name: 'Marge d’empreinte au poids %', exact: true })).toHaveJSProperty('readOnly', true);
 });
