@@ -19,9 +19,16 @@ export type FeatureHelp = {
   blurbKey: string;
 };
 
-/** Base URL of the foodylanding Help center. Configurable per environment. */
-export const HELP_BASE_URL =
-  process.env.NEXT_PUBLIC_HELP_BASE_URL || 'https://foody-pos.co.il';
+/** Keeps promoted Admin artifacts linked to the canonical public help center. */
+export function runtimeHelpBase(hostname: string | undefined, configured: string) {
+  return hostname === 'admin.foody-pos.co.il' ? 'https://foody-pos.co.il' : configured.replace(/\/$/, '');
+}
+
+/** Public guide origin; development can point to the reviewed Landing preview. */
+export const HELP_BASE_URL = runtimeHelpBase(
+  typeof window === 'undefined' ? undefined : window.location.hostname,
+  process.env.NEXT_PUBLIC_HELP_BASE_URL || 'https://foody-pos.co.il',
+);
 
 export const FEATURE_HELP: Record<string, FeatureHelp> = {
   availability: {
