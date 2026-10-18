@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "5d930eaa1573dec4056ffb0f6bf7275800172449",
-  "documentationRevision": "0e7a2867992c2db2fc8557438ee9e2052e8386a9e6ec83d0b0b9de339bbb1589",
+  "documentationRef": "481a758fd5544b416ca2207faf4a1eec54d1f82a",
+  "documentationRevision": "7151d6e0108217f3205cd11f85e70f882c53b0458ec506ff407bf7b14fa6341a",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -221,15 +221,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/using-support.mdx",
-          "sha256": "57828b46fb6f407c154bbdf8de61541186107b29c663a3c2b41b44079fb522be"
+          "sha256": "dd09b928fa5128c761299dea100358b7f107c6250e38b3e5a6706cb061a76fde"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/using-support.mdx",
-          "sha256": "674fd843c670f147c0af0440f4f8a40bd5c50d9b6ca1833b4c54be0eaebf82ba"
+          "sha256": "cfa96af8c9bfe740f23e01f5deb8238dd1c76db1a572210f93cb363378573ffa"
         },
         "he": {
           "path": "src/content/help/he/getting-started/using-support.mdx",
-          "sha256": "1bb54c10e068775c678c657c744494859e52f039ff73badbe1b83967db763f63"
+          "sha256": "8896c41cfb162e2595da181ed1aa402ba6dbea2c70224b88c9078d8c85434994"
         }
       }
     },
@@ -259,15 +259,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/kitchen/daily-operations.mdx",
-          "sha256": "e42d7043e9acee942f239711ef23f63ac2be34f1a84a93c800fb3b6632318ef1"
+          "sha256": "547ffc21d6cdf55f5f77a838b19a44a552d52990dc3ceca963254787e5d00983"
         },
         "fr": {
           "path": "src/content/help/fr/kitchen/daily-operations.mdx",
-          "sha256": "305b6f24200b92a80636c30664cb33d92a494b4fb7a7b729bb8f57690c23d9d5"
+          "sha256": "c7a0a241671a229e5354ec814bf0dffed3ab20f503d08602e58ae6bf92ed2435"
         },
         "he": {
           "path": "src/content/help/he/kitchen/daily-operations.mdx",
-          "sha256": "88fa3715771d426cb45828b50a61acfa1f1789089d8487ee0e4f5fa3bb26fe05"
+          "sha256": "236aa92b376c3e6464332fa2b30bf6df586e5f959a6eb98c3f29ad91efbefb68"
         }
       }
     },
@@ -316,15 +316,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/kitchen/stock-management.mdx",
-          "sha256": "d25502a13234c85eba7762e350ba8c2655edbdb16b08f38d275738c83a4e91ca"
+          "sha256": "82a4e6ba04ca7dd1073c9d4f814de6b9d5f37a74422038907907a94d0acdfda1"
         },
         "fr": {
           "path": "src/content/help/fr/kitchen/stock-management.mdx",
-          "sha256": "35975210bc36ea3b276a0cbd9a2e9a60801b1094189078fa685a4919904401a5"
+          "sha256": "318b3d85951ec20a45595cec775e18c29893f498cc7fe5077ff5151fa84365c8"
         },
         "he": {
           "path": "src/content/help/he/kitchen/stock-management.mdx",
-          "sha256": "be5c6fa5fa059e42e6012809d2a498df22159162771aabeb19147cdd26e3c14d"
+          "sha256": "0d7f892e79575d0ba2161eec566415d425e89f5b80afa2754a94ca4373b99486"
         }
       }
     },
@@ -829,15 +829,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/kitchen/suppliers-and-purchases.mdx",
-          "sha256": "a5be55112b5b05cffa9c8b8744c8710f4d62842a16437004e3fde2af1c9a85b0"
+          "sha256": "2f72fe624ec12d622c625947a3dbc5542a3a42483a8419584102892d710e27be"
         },
         "fr": {
           "path": "src/content/help/fr/kitchen/suppliers-and-purchases.mdx",
-          "sha256": "375bc74a11fcdc63bcce81bb00b9f49e15354dea0241c36c09c79afc3b2e450f"
+          "sha256": "788b1c187bf939adb2d5a9aa68744ae0c18d9aa80ffeb67892d102dd8beeab23"
         },
         "he": {
           "path": "src/content/help/he/kitchen/suppliers-and-purchases.mdx",
-          "sha256": "185112907a80221351fac1092ed5bcd8785623ff89e0e04f34e3bc32cc98d68f"
+          "sha256": "8ab054ec1c6631e00bed741971dbc158d5adb34731e14f82261a7f55b166ee2b"
         }
       }
     },
