@@ -104,3 +104,10 @@ test('duration formatting distinguishes a measured zero and preserves hours', ()
   assert.equal(formatDeliveryDuration(1980, t), '33 min');
   assert.equal(formatDeliveryDuration(9633 * 60, t), '160h 33min');
 });
+
+test('configured customer range starts at arrival and lasts exactly 90 minutes', () => {
+  const window = deliveryEtaWindow({ planned_departure_at: '2026-10-19T05:00:00Z', customer_window_minutes: 90 }, { eta_seconds: 1835 }, 'fr');
+  assert.equal(window?.startAt.toISOString(), '2026-10-19T05:30:00.000Z');
+  assert.equal(window?.endAt.toISOString(), '2026-10-19T07:00:00.000Z');
+  assert.equal(deliveryEtaWindow({ planned_departure_at: '2026-10-19T05:00:00Z', customer_window_minutes: 90 }, { eta_seconds: 0, needs_geocode: true }, 'fr'), null);
+});

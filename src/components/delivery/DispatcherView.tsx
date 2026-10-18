@@ -1,6 +1,8 @@
 'use client';
 
 import { DeliveryDuration } from '@/components/delivery/DeliveryDuration';
+import { CustomerWindowField, parseCustomerWindowMinutes } from '@/components/delivery/CustomerWindowField';
+import { RouteAddressField } from '@/components/delivery/RouteAddressField';
 import { StopServiceField, validStopServiceMinutes } from '@/components/delivery/StopServiceField';
 
 import { ChoiceRow } from '@/components/ds/Selection';
@@ -376,6 +378,9 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [plannerCouriers, setPlannerCouriers] = useState<Set<number>>(new Set());
   const [zoneCouriers, setZoneCouriers] = useState<Map<string, number>>(new Map());
   const [manualCouriers, setManualCouriers] = useState<Map<number, number>>(new Map());
+  const [customerWindow, setCustomerWindow] = useState('1:30');
+  const [resolvingEndpoints, setResolvingEndpoints] = useState<Set<string>>(new Set());
+  const [courierEndpoints, setCourierEndpoints] = useState<Record<number, { start_address: string; end_address: string }>>({});
   const [departure, setDeparture] = useState(defaultDepartureValue);
   const [serviceMinutes, setServiceMinutes] = useState('3');
   const [planning, setPlanning] = useState(false);
@@ -637,7 +642,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   });
 
   const createPlan = async () => {
-    if (picked.size === 0 || !departure || !validStopServiceMinutes(serviceMinutes)) return;
+    if (resolvingEndpoints.size > 0 || picked.size === 0 || !departure || !validStopServiceMinutes(serviceMinutes) || parseCustomerWindowMinutes(customerWindow) == null) return;
     if (selectedOrders.length !== picked.size) {
       setError(t('deliveryRouteDateMismatch'));
       return;
@@ -688,6 +693,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
         new Date(departure).toISOString(),
         assignments,
         Number(serviceMinutes),
+        parseCustomerWindowMinutes(customerWindow)!,
+        selectedCourierIds.filter(id => courierEndpoints[id]).map(courier_id => ({ courier_id, ...courierEndpoints[courier_id] })),
       );
       setPicked(new Set());
       setPlannerOpen(false);
@@ -817,7 +824,21 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const movableRoutes = selectedEntry
     ? routes.filter((route) => route.id !== selectedEntry.route.id && route.status === 'draft' && route.date.slice(0, 10) === selectedEntry.route.date.slice(0, 10))
     : [];
-  const canCreatePlan = picked.size > 0 && Boolean(departure) && validStopServiceMinutes(serviceMinutes) && (
+  const endpointCouriers = planningCouriers.filter(courier => distributionMode === 'smart' ? plannerCouriers.has(courier.id) : distributionMode === 'zone' ? selectedZones.some(zone => zoneCouriers.get(zone) === courier.id) : selectedOrders.some(order => manualCouriers.get(order.id) === courier.id));
+  const savedCourierEndpoints = (id: number) => {
+    const existing = dayRoutes.find(route => route.courier_id === id && route.status === 'draft' && route.date.slice(0, 10) === departure.slice(0, 10));
+    return { start_address: existing?.start_address ?? '', end_address: existing?.end_address ?? '' };
+  };
+  const setEndpoint = (id: number, field: 'start_address' | 'end_address', value: string) => setCourierEndpoints(current => ({ ...current, [id]: { ...(current[id] ?? savedCourierEndpoints(id)), [field]: value } }));
+
+  const setEndpointResolving = (key: string, resolving: boolean) => setResolvingEndpoints(current => {
+    if (current.has(key) === resolving) return current;
+    const next = new Set(current);
+    if (resolving) next.add(key); else next.delete(key);
+    return next;
+  });
+
+  const canCreatePlan = resolvingEndpoints.size === 0 && picked.size > 0 && Boolean(departure) && validStopServiceMinutes(serviceMinutes) && parseCustomerWindowMinutes(customerWindow) != null && (
     distributionMode === 'smart'
       ? plannerCouriers.size > 0
       : distributionMode === 'zone'
@@ -1118,7 +1139,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
               <span className="mb-2 block text-fs-xs font-semibold text-[var(--fg-muted)]">{t('deliveryPlanDeparture')}</span>
               <Input id="delivery-departure" type="datetime-local" value={departure} onChange={(event) => setDeparture(event.target.value)} />
             </label>
-            <StopServiceField value={serviceMinutes} onChange={setServiceMinutes} disabled={planning} t={t} />
+            <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2"><StopServiceField value={serviceMinutes} onChange={setServiceMinutes} disabled={planning} t={t} /><CustomerWindowField value={customerWindow} onChange={setCustomerWindow} disabled={planning} t={t} /></div>
             <Button size="lg" className="w-full sm:col-span-2" disabled={planning || !canCreatePlan} onClick={() => void createPlan()}>
               <RouteIcon />
               {planning ? t('deliveryPlanGenerating') : t('deliveryPlanGenerate').replace('{count}', String(picked.size))}
@@ -1172,6 +1193,15 @@ export default function DispatcherView({ rid }: { rid: number }) {
               </div>
             </div>
           )}
+
+          {endpointCouriers.map(courier => <fieldset key={courier.id} className="space-y-3 rounded-r-md border border-[var(--line)] p-3">
+            <legend className="px-1 text-fs-sm font-semibold">{courier.full_name}</legend>
+            <p className="text-fs-xs text-[var(--fg-subtle)]">{t('routeSettingsHint')}</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <RouteAddressField restaurantId={rid} locale={locale} label={t('routeSettingsStartAddress')} placeholder={t('routeSettingsStartPlaceholder')} value={courierEndpoints[courier.id]?.start_address ?? savedCourierEndpoints(courier.id).start_address} onChange={value => setEndpoint(courier.id, 'start_address', value)} onResolvingChange={resolving => setEndpointResolving(`${courier.id}:start`, resolving)} disabled={planning} t={t} />
+              <RouteAddressField restaurantId={rid} locale={locale} label={t('routeSettingsEndAddress')} placeholder={t('routeSettingsEndPlaceholder')} value={courierEndpoints[courier.id]?.end_address ?? savedCourierEndpoints(courier.id).end_address} onChange={value => setEndpoint(courier.id, 'end_address', value)} onResolvingChange={resolving => setEndpointResolving(`${courier.id}:end`, resolving)} disabled={planning} t={t} />
+            </div>
+          </fieldset>)}
 
           {distributionMode === 'zone' && (
             <div className="space-y-2">

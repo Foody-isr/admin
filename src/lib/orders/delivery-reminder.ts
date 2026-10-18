@@ -19,7 +19,14 @@ function deliveryDate(order: Order): string {
   return order.scheduled_for || order.tour?.delivery_date || '';
 }
 
-function formatSlot(order: Order, locale: RecapLocale): string {
+function formatSlot(order: Order, locale: RecapLocale, window?: { start: string; end: string; timezone?: string } | null): string {
+  if (window) {
+    const from = new Date(window.start), to = new Date(window.end);
+    const dateOptions = { weekday: 'long', day: 'numeric', month: 'long', timeZone: window.timezone } as const;
+    const timeOptions = { hour: '2-digit', minute: '2-digit', timeZone: window.timezone } as const;
+    const endDay = from.toLocaleDateString(INTL_LOCALE[locale], dateOptions) === to.toLocaleDateString(INTL_LOCALE[locale], dateOptions) ? '' : ` (${to.toLocaleDateString(INTL_LOCALE[locale], dateOptions)})`;
+    return `${from.toLocaleDateString(INTL_LOCALE[locale], dateOptions)}, ${from.toLocaleTimeString(INTL_LOCALE[locale], timeOptions)}–${to.toLocaleTimeString(INTL_LOCALE[locale], timeOptions)}${endDay}`;
+  }
   const iso = deliveryDate(order);
   if (!iso) return '';
   const date = new Date(iso).toLocaleDateString(INTL_LOCALE[locale], {
@@ -50,6 +57,7 @@ export function buildDeliveryReminderContext(
   order: Order,
   restaurantName: string,
   locale: RecapLocale,
+  customerWindow?: { start: string; end: string; timezone?: string } | null,
 ): RenderContext {
   const labels = LABELS[locale];
   const street = [order.delivery_address, order.delivery_city]
@@ -68,7 +76,7 @@ export function buildDeliveryReminderContext(
     tokens: {
       restaurant: restaurantName.trim(),
       client: (order.customer_name || '').trim(),
-      creneau: formatSlot(order, locale),
+      creneau: formatSlot(order, locale, customerWindow),
       telephone: (order.customer_phone || '').trim(),
     },
     blocks: {
@@ -83,8 +91,9 @@ export function buildDeliveryReminder(options: {
   restaurantName: string;
   locale: RecapLocale;
   body?: string;
+  customerWindow?: { start: string; end: string; timezone?: string } | null;
 }): string {
   const definition = findTemplate('delivery_reminder');
   const body = options.body ?? definition?.defaults[options.locale] ?? '';
-  return renderTemplate(body, buildDeliveryReminderContext(options.order, options.restaurantName, options.locale));
+  return renderTemplate(body, buildDeliveryReminderContext(options.order, options.restaurantName, options.locale, options.customerWindow));
 }

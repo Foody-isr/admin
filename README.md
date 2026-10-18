@@ -1155,3 +1155,19 @@ checks local preparation. Remote CI uses a pinned immutable Landing commit and
 checks all French, Hebrew and English procedures. New source and behavior changes
 require an updated inventory/guide release or an exact reviewed no-user-impact
 explanation. See Landing’s `docs/help/MAINTENANCE.md` for the complete workflow.
+
+### Delivery endpoint and customer-window planning
+
+Deploy the matching API and migration 262 first. Allocation now accepts each
+courier's departure/final addresses, with server-backed address suggestions, and
+a customer window beside handover duration. New plans propose 90 minutes;
+`1:30`, `1h30` and `90` all mean 90 minutes. Route settings share these controls
+for admins and the assigned courier before departure. Endpoint changes reset a
+manual sequence and optimize towards the saved final destination.
+
+WhatsApp route links and delivery reminders use arrival plus the configured
+range. Original scheduled windows remain operational constraints. Historic
+unconfigured routes retain their previous reminder slot. An unavailable current
+range blocks the manual reminder until recalculation and review. Start route
+confirms departure for every unfinished assigned delivery together, including
+accepted and preparing orders; held kitchen/weight-settlement gates remain.
