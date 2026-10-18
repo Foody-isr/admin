@@ -163,6 +163,10 @@ test('three zones assigned to two couriers send two complete allocations', async
   await page.locator('label').filter({ hasText: 'Zone A' }).getByRole('combobox').selectOption('1');
   await page.locator('label').filter({ hasText: 'Zone B' }).getByRole('combobox').selectOption('1');
   await page.locator('label').filter({ hasText: 'Zone C' }).getByRole('combobox').selectOption('2');
+  const courierSettings = page.getByRole('group', { name: 'Livreur démo', exact: true });
+  await courierSettings.getByRole('combobox', { name: 'Adresse de départ' }).fill('Depot demo, Tel Aviv');
+  await courierSettings.getByRole('combobox', { name: 'Destination finale' }).fill('Herzl 10, Netanya');
+  await page.getByRole('textbox', { name: 'Marge du créneau communiqué au client' }).fill('1:30');
   const request = page.waitForRequest(request => request.url().includes('/delivery/routes/plan') && request.method() === 'POST');
   await page.getByRole('button', { name: 'Planifier 3 livraisons', exact: true }).click();
   const submitted = await request;
@@ -172,6 +176,8 @@ test('three zones assigned to two couriers send two complete allocations', async
     { courier_id: 2, order_ids: [2003] },
   ]);
   expect(submitted.postDataJSON().courier_ids).toEqual([1, 2]);
+  expect(submitted.postDataJSON().customer_window_minutes).toBe(90);
+  expect(submitted.postDataJSON().endpoints).toEqual([{ courier_id: 1, start_address: 'Depot demo, Tel Aviv', end_address: 'Herzl 10, Netanya' }]);
 });
 
 test('a changed active route offers recalculation without draft unassignment', async ({ page }) => {

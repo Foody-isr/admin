@@ -55,3 +55,16 @@ test('empty instructions remove the whole labelled line', () => {
   assert.doesNotMatch(message, /Consignes/);
   assert.doesNotMatch(message, /ℹ️/);
 });
+
+test('reminder prefers the calculated customer window to the broad scheduled slot', () => {
+  const candidate = order({ scheduled_pickup_window_start: '08:30', scheduled_pickup_window_end: '15:00' });
+  const message = buildDeliveryReminder({ order: candidate, restaurantName: 'Demo', locale: 'fr', customerWindow: { start: '2026-09-02T08:30:00', end: '2026-09-02T10:00:00' } });
+  assert.match(message, /08:30–10:00/);
+  assert.doesNotMatch(message, /15:00/);
+  assert.equal(candidate.scheduled_pickup_window_end, '15:00');
+});
+
+test('customer reminder clock follows the restaurant timezone', () => {
+  const message = buildDeliveryReminder({ order: order(), restaurantName: 'Demo', locale: 'en', customerWindow: { start: '2026-09-02T05:30:00Z', end: '2026-09-02T07:00:00Z', timezone: 'Asia/Jerusalem' } });
+  assert.match(message, /08:30–10:00/);
+});

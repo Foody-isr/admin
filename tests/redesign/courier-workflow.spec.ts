@@ -165,3 +165,30 @@ test('finishing the last delivery preserves the final destination without retain
   await expect(page.getByText('Dépôt retour', { exact: true })).toBeVisible();
   expect(state.errors).toEqual([]);
 });
+
+test('courier selects endpoint suggestions and saves a 90-minute communication range', async ({ page }, info) => {
+  const state = await install(page);
+  const lookups: Array<{ path: string; body: any; rid?: string }> = [];
+  await page.route('**/api/v1/public/address-autocomplete**', async intercepted => {
+    const request = intercepted.request(), path = new URL(request.url()).pathname;
+    lookups.push({ path, body: request.postDataJSON(), rid: request.headers()['x-restaurant-id'] });
+    if (path.endsWith('/resolve')) return intercepted.fulfill({ json: { suggestion: { id: 'demo-home', address: 'Herzl 10', city: 'Netanya', token: 'synthetic' } } });
+    return intercepted.fulfill({ json: { suggestions: [{ id: 'demo-home', address: 'Herzl 10', city: 'Netanya', kind: 'prediction', lookup_token: 'synthetic-lookup' }] } });
+  });
+  await page.goto('/2/orders/deliveries');
+  await run(page).getByRole('button', { name: 'Modifier', exact: true }).click();
+  await run(page).getByRole('combobox', { name: 'Adresse de départ' }).fill('Herzl');
+  await run(page).getByRole('option', { name: /Herzl 10/ }).click();
+  await run(page).getByRole('combobox', { name: 'Destination finale' }).fill('Netanya');
+  await run(page).getByRole('combobox', { name: 'Destination finale' }).press('ArrowDown');
+  await expect(run(page).getByRole('option', { name: /Herzl 10/ })).toBeVisible();
+  await run(page).getByRole('combobox', { name: 'Destination finale' }).press('Enter');
+  await run(page).getByRole('textbox', { name: 'Marge du créneau communiqué au client' }).fill('1h30');
+  await page.screenshot({ path: info.outputPath('courier-route-endpoints-fr.png'), fullPage: true });
+  await run(page).getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect.poll(() => state.writes.length).toBe(1);
+  expect(state.writes[0].body).toMatchObject({ start_address: 'Herzl 10, Netanya', end_address: 'Herzl 10, Netanya', customer_window_minutes: 90 });
+  expect(lookups.every(row => row.rid === '2')).toBe(true);
+  expect(lookups.filter(row => row.path.endsWith('/resolve'))).toHaveLength(2);
+  expect(state.errors).toEqual([]);
+});
