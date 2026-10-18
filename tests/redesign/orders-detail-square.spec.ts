@@ -171,3 +171,46 @@ for (const variant of [
   await page.screenshot({ path: info.outputPath('adjusted-lines.png') });
   expect(fixture.writes).toEqual([]);
 });
+
+for (const variant of [
+  { locale: 'fr', generate: 'Générer un lien de paiement', copy: 'Copier le lien' },
+  { locale: 'he', generate: 'צור קישור תשלום', copy: 'העתק קישור' },
+  { locale: 'en', generate: 'Generate payment link', copy: 'Copy link' },
+]) test(`partial payment exposes a supplement link without an order edit: ${variant.locale}`, async ({ page }) => {
+  const fixture = await install(page, variant.locale);
+  Object.assign(fixture.orders[0], {
+    status: 'accepted', payment_status: 'partially_paid', total_amount: 150, total: 150,
+    subtotal_amount: 150, balance_due: 100, external_metadata: { paid_amount: 50, payment_method: 'cash' },
+  });
+  let calls = 0;
+  await page.route('**/api/v1/orders/1048/payment/collect-balance?**', async route => {
+    calls++;
+    expect(route.request().method()).toBe('POST');
+    expect(route.request().headers()['x-restaurant-id']).toBe('1');
+    expect(new URL(route.request().url()).searchParams.get('restaurant_id')).toBe('1');
+    await route.fulfill({ json: { balance_due: 100, payment_url: 'https://example.test/synthetic-balance' } });
+  });
+  await page.goto('/1/orders/1048');
+  const generate = page.getByRole('button', { name: variant.generate, exact: true });
+  await expect(generate).toBeVisible();
+  expect(calls).toBe(0);
+  await generate.click();
+  await expect(page.getByRole('button', { name: variant.copy, exact: true })).toBeVisible();
+  expect(calls).toBe(1);
+  expect(fixture.orders[0].payment_status).toBe('partially_paid');
+  expect(fixture.writes).toEqual([]);
+});
+
+for (const state of ['reader', 'cancelled', 'fully-paid']) test(`supplement collection is hidden for ${state}`, async ({ page }) => {
+  const fixture = await install(page, 'fr', state === 'reader');
+  Object.assign(fixture.orders[0], {
+    status: state === 'cancelled' ? 'cancelled' : 'accepted',
+    payment_status: state === 'fully-paid' ? 'paid' : 'partially_paid',
+    total_amount: 150, total: 150, balance_due: state === 'fully-paid' ? 0 : 100,
+    external_metadata: { paid_amount: state === 'fully-paid' ? 150 : 50, payment_method: 'cash' },
+  });
+  await page.goto('/1/orders/1048');
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Générer un lien de paiement', exact: true })).toHaveCount(0);
+  expect(fixture.writes).toEqual([]);
+});

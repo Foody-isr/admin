@@ -312,6 +312,7 @@ export function OrderDetailModal({
             <MoneyPanel
               order={order}
               isCancelled={caps.isCancelled}
+              canManage={canManage}
               subtotal={subtotal}
               discountAmount={discountAmount}
               deliveryFee={deliveryFee}
