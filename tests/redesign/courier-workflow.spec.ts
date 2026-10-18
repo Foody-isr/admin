@@ -202,3 +202,28 @@ test('courier selects endpoint suggestions and saves a 90-minute communication r
   expect(lookups.filter(row => row.path.endsWith('/resolve'))).toHaveLength(2);
   expect(state.errors).toEqual([]);
 });
+
+test('unresolved final address shows recovery and keeps the saved route intact', async ({ page }) => {
+  const state = await install(page);
+  let rejected = false;
+  await page.route('**/api/v1/delivery/routes/1/my-settings**', async intercepted => {
+    if (!rejected) {
+      rejected = true;
+      return intercepted.fulfill({ status: 422, json: { error: 'address not located' } });
+    }
+    return intercepted.fallback();
+  });
+  await page.goto('/1/orders/deliveries');
+  await run(page).getByRole('button', { name: 'Modifier', exact: true }).click();
+  const destination = run(page).getByRole('combobox', { name: 'Destination finale' });
+  await destination.fill('Demo Street 14, Test City');
+  await run(page).getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(run(page).getByRole('alert')).toContainText('Adresse introuvable. Vérifiez le numéro et la ville');
+  await expect(destination).toHaveValue('Demo Street 14, Test City');
+  expect(state.routes[0].end_address).toBeUndefined();
+  expect(state.writes).toHaveLength(0);
+  await destination.fill('14 Demo, Test City');
+  await run(page).getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect.poll(() => state.routes[0].end_address).toBe('14 Demo, Test City');
+  expect(state.errors).toEqual([]);
+});
