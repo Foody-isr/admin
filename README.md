@@ -204,6 +204,14 @@ Full order list with:
 - Status update buttons on each order (accept, send to kitchen, mark ready, mark served/delivered)
 - Real-time: page re-fetches automatically to stay current
 
+Internal orders (`/[restaurantId]/orders/new`) can select **Article library**
+beside the carte tabs. It lists the restaurant's active items independently of
+menu membership, POS channels and rotating-series composition, including when
+there is no POS carte. Search, customization, stock checks and checkout use the
+same item data and ticket. Switching sources preserves the cart and does not
+publish library items on customer channels. Browser regressions:
+`npx playwright test -c playwright.redesign.config.ts internal-order-library.spec.ts`.
+
 The list and order detail routes share a persistent workspace. Opening or closing
 an order, including browser Back/Forward, preserves the selected date/série,
 filters, search, page and scroll position. Search runs while typing or on submit;
