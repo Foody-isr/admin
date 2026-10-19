@@ -227,6 +227,12 @@ sale or confirmed capture. Choose the full remaining amount or a partial amount,
 enter a reason and review the exact amount before confirming once. A full VOID
 is available only for a compatible provider settlement state, not simply an
 order placed today. Uncaptured holds use the existing cancellation/release flow.
+For a captured ABS sale still authorised/unsettled, only the full VOID action
+and **Available to void** are offered, with an explanation that refund is not
+available before settlement. **Available to refund** and partial/total refunds
+appear only after verified settlement (or matched partially-refunded history).
+Ambiguous states offer neither action. A rejected request is explicitly labelled
+as rejected by Verifone, not as refunded or necessarily an issuer decline.
 Mixed/table/session, external-terminal and catering payments are outside this
 first Admin control. The API rejects unsupported allocations.
 
