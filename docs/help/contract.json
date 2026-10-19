@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "31ad87f94724fc6149f14aa5ed8b026d3d4a434d",
+  "documentationRef": "e44a7ccc10da3e9f4a7c4082e9995378fee86e37",
   "documentationRevision": "f9746fbb1b02259cbada8579e69a29b680678f1309a46a3d598ad60771a3b6bf",
   "articles": {
     "getting-started/first-login": {
@@ -6119,7 +6119,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "322369ec3da9f19d07f0142327dda35dcddbb096888952c8a8cfd995e5bddc87",
+      "sha256": "6ede68510dd56490a09ee0e31f63b461568de5ec936b4a509a5d4706d65b5052",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -6458,13 +6458,6 @@
     "src/lib/partial-order.ts": {
       "sha256": "db268f441f9be7ec407fea65091f1ca368ae7e67cb9ca07dedbb957ca9818640",
       "features": [
-        "shared-runtime"
-      ]
-    },
-    "src/lib/payment-adjustment-copy.ts": {
-      "sha256": "49d2f55ce9a2750773bceeffe8c18e3513dbea9225bf86160b9fa22b3a74f5a9",
-      "features": [
-        "payments-how-payments-work",
         "shared-runtime"
       ]
     },
