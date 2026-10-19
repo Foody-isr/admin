@@ -2355,6 +2355,7 @@ export interface PaymentAdjustmentSummary {
   remaining_minor: number;
   can_void: boolean;
   can_refund: boolean;
+  settlement_state?: 'unsettled' | 'settled';
   operations: PaymentAdjustment[];
 }
 

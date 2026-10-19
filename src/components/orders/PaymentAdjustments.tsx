@@ -105,10 +105,11 @@ export function PaymentAdjustments({ order }: { order: Order }) {
       <p className="text-fs-xs text-[var(--fg-muted)]">{t('adjustmentIntro')}</p>
       {loading && <p role="status">{t('adjustmentLoading')}</p>}
       {view?.supported && <>
+        {view.settlement_state === 'unsettled' && view.can_void && <p className="text-fs-sm" role="status">{t('adjustmentUnsettled')}</p>}
         {view.paid_minor > 0 &&
         <dl className="grid grid-cols-[1fr_auto] gap-2 text-fs-sm">
           <dt>{t('adjustmentRefunded')}</dt><dd className="tabular-nums">{money(view.refunded_minor)}</dd>
-          <dt>{t('adjustmentRemaining')}</dt><dd className="font-semibold tabular-nums">{money(view.remaining_minor)}</dd>
+          <dt>{t(view.can_void ? 'adjustmentVoidable' : view.can_refund ? 'adjustmentRemaining' : 'adjustmentBalance')}</dt><dd className="font-semibold tabular-nums">{money(view.remaining_minor)}</dd>
         </dl>}
         <div className="flex flex-wrap gap-2">
           {view.can_refund && <Button variant="secondary" disabled={busy || loading || uncertain} onClick={() => open('refund')}>{t('adjustmentRefund')}</Button>}
@@ -118,7 +119,7 @@ export function PaymentAdjustments({ order }: { order: Order }) {
         {view.operations.length > 0 && <div className="space-y-2">
           <h5 className="text-fs-sm font-medium">{t('adjustmentHistory')}</h5>
           {view.operations.map(op => <div key={op.id} className="border-t border-[var(--line)] pt-2 text-fs-xs space-y-1">
-            <p className="flex justify-between gap-2"><span>{op.kind === 'void' ? 'VOID' : 'REFUND'}</span><span className="tabular-nums">{money(op.amount_minor)}</span></p>
+            <p className="flex justify-between gap-2"><span>{t(op.kind === 'void' ? 'adjustmentVoid' : 'adjustmentRefund')}</span><span className="tabular-nums">{money(op.amount_minor)}</span></p>
             <p>{t(op.state === 'succeeded' ? 'adjustmentSucceeded' : op.state === 'declined' ? 'adjustmentDeclined' : 'adjustmentUnknown')}</p>
             <p className="text-[var(--fg-muted)]">{new Date(op.created_at).toLocaleString(locale)} · {t('staff')} #{op.actor_user_id} · {op.reason}</p>
             {op.provider_transaction_id && <p className="break-all font-mono" dir="ltr">{op.provider_transaction_id}</p>}
