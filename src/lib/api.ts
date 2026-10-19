@@ -2333,6 +2333,48 @@ export class ApiError extends Error {
   }
 }
 
+export interface PaymentAdjustment {
+  id: string;
+  payment_id: number;
+  kind: 'refund' | 'void';
+  amount_minor: number;
+  currency: string;
+  reason: string;
+  state: 'processing' | 'unknown' | 'succeeded' | 'declined';
+  provider_transaction_id?: string;
+  actor_user_id: number;
+  created_at: string;
+}
+
+export interface PaymentAdjustmentSummary {
+  supported: boolean;
+  blocked_reason?: string;
+  currency: string;
+  paid_minor: number;
+  refunded_minor: number;
+  remaining_minor: number;
+  can_void: boolean;
+  can_refund: boolean;
+  operations: PaymentAdjustment[];
+}
+
+/** Read-only provider verification and staff money-movement history. */
+export function getOrderPaymentAdjustments(rid: number, oid: number): Promise<PaymentAdjustmentSummary> {
+  return apiFetch(`/api/v1/orders/${oid}/payment/adjustments`, rid);
+}
+
+/** Retain request_id on uncertain responses; never submit a replacement command. */
+export function createOrderPaymentAdjustment(rid: number, oid: number, input: {
+  request_id: string; kind: 'refund' | 'void'; amount_minor: number; reason: string;
+}): Promise<PaymentAdjustment> {
+  return apiFetch(`/api/v1/orders/${oid}/payment/adjustments`, rid, { method: 'POST', body: JSON.stringify(input) });
+}
+
+/** Reconciliation only: this endpoint never resends a provider money request. */
+export function refreshOrderPaymentAdjustment(rid: number, oid: number, id: string): Promise<PaymentAdjustment> {
+  return apiFetch(`/api/v1/orders/${oid}/payment/adjustments/${encodeURIComponent(id)}/refresh`, rid, { method: 'POST' });
+}
+
 export async function apiFetch<T>(
   path: string,
   restaurantId?: number,

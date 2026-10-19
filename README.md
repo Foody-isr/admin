@@ -219,6 +219,27 @@ older responses and live events cannot replace the current filtered results.
 Failed list requests show a retry action. Regression checks use synthetic data:
 `npx playwright test -c playwright.redesign.config.ts orders-square.spec.ts orders-detail-square.spec.ts`.
 
+### Verifone refunds and VOID
+
+The order payment section includes **Refund or void payment** for an owner or
+manager with `payments.manage`. It supports a single verified Verifone ILS online
+sale or confirmed capture. Choose the full remaining amount or a partial amount,
+enter a reason and review the exact amount before confirming once. A full VOID
+is available only for a compatible provider settlement state, not simply an
+order placed today. Uncaptured holds use the existing cancellation/release flow.
+Mixed/table/session, external-terminal and catering payments are outside this
+first Admin control. The API rejects unsupported allocations.
+
+History displays confirmation, refusal or verification-required states. An
+uncertain operation disables new money actions and **Check with Verifone** only
+reconciles the recorded request; it never resends a financial POST. A lost result
+without a recoverable provider ID needs Central/support verification. Food
+preparation, stock, items and fulfillment are unchanged. Invoice4U credit or
+cancellation documents require a separate check. Deploy API migration 265 before
+this UI; FoodyPOS buttons are not part of this version. Browser tests use only
+synthetic in-memory fixtures:
+`npx playwright test -c playwright.redesign.config.ts payment-adjustments.spec.ts`.
+
 ### Deliveries (`/[restaurantId]/orders/deliveries`)
 
 Routes marked `needs_recalculation` hide obsolete distances, durations and arrival

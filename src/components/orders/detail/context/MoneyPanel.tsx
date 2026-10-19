@@ -15,6 +15,7 @@ import { Button } from '@/components/ds';
 import { Money } from '../primitives/Money';
 import styles from '../order-detail.module.css';
 import { CashTag } from '@/components/orders/CashTag';
+import { PaymentAdjustments } from '@/components/orders/PaymentAdjustments';
 import { initOrderPaymentLink, collectOrderBalance, type Order } from '@/lib/api';
 import { formatMoney } from '@/lib/format-money';
 import { useCurrency } from '@/lib/i18n';
@@ -222,6 +223,7 @@ export function MoneyPanel({
           </div>
 
           <h3 id={`order-${order.id}-payment-summary`}>{t('permDomain_payments')}</h3>
+          <PaymentAdjustments key={`${order.restaurant_id}:${order.id}`} order={order} />
           <div className={styles.paymentHead}>
             <div className={styles.paymentMethod}>
               {settledPaymentMethod(order).toLowerCase() === 'cash' ? (
