@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { currencySymbol, DEFAULT_CURRENCY, formatMoney, type FormatMoneyOptions } from '@/lib/currency';
+import { paymentAdjustmentCopy } from '@/lib/payment-adjustment-copy';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -120,6 +121,7 @@ export function i18nOr(t: (key: string) => string, key: string, fallback: string
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    ...paymentAdjustmentCopy.en,
     editorJourneyReceipt: "Receipt",
     editorReceiptContent: "Receipt content",
     editorReceiptHint: "Uses the site fonts and menu colours. Content is shared across order pages; items and totals come from the order.",
@@ -8686,6 +8688,7 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
   he: {
+    ...paymentAdjustmentCopy.he,
     editorJourneyReceipt: "קבלה",
     editorReceiptContent: "תוכן הקבלה",
     editorReceiptHint: "משתמש בגופני האתר ובצבעי התפריט. התוכן משותף לדפי ההזמנה; הפריטים והסכומים מגיעים מההזמנה.",
@@ -17243,6 +17246,7 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── French ──────────────────────────────────────────────────────────────
   fr: {
+    ...paymentAdjustmentCopy.fr,
     editorJourneyReceipt: "Reçu",
     editorReceiptContent: "Contenu du reçu",
     editorReceiptHint: "Reprend les polices du site et les couleurs du menu. Le contenu est commun aux pages de commande ; les articles et montants proviennent de la commande.",
