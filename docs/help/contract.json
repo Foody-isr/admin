@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "01ffd69a5a9f57b21a16a9343d69660d94ddf95f",
+  "documentationRef": "d4552aaa0ee718f93c1ec9da2313fc5867e15dbf",
   "documentationRevision": "057236066454b82ff85b651f68b0931042e9da9a2b8ac879c165bbd7b4795fd7",
   "articles": {
     "getting-started/first-login": {
@@ -4680,19 +4680,19 @@
       ]
     },
     "src/components/menu/publication/CarteEditor.module.css": {
-      "sha256": "6e30d032a3fb99aa22bc50083a468978a0f5b1f7eaa01b7574db097fa27f10f1",
+      "sha256": "a734b1fed5e6754bb68690edf94e598207cbdc3e3e4e01a9b88b281a6782c26d",
       "features": [
         "menu-menus-and-groups"
       ]
     },
     "src/components/menu/publication/CarteEditor.tsx": {
-      "sha256": "deff8dda13c8f0cac2d843cba82f94bf2da1fe6aa6e9e0d947dcbfecf5d23a18",
+      "sha256": "bccc736df95389fbe008ec1acebb443ddad7f344e30269f0e81b0c0f771efcf1",
       "features": [
         "menu-menus-and-groups"
       ]
     },
     "src/components/menu/publication/CarteGroups.tsx": {
-      "sha256": "160bfa058ca0ad42cab10f5c1519b3d2ec5039dd3a87dd040bf697a5ff4a017b",
+      "sha256": "105dd6f4c6765f2decfadd76bf31c946675bc310b2b9d30413a813fd6fda1479",
       "features": [
         "menu-menus-and-groups"
       ]
@@ -17658,7 +17658,8 @@
         "modifiers",
         "price",
         "saleStockHistory",
-        "select"
+        "select",
+        "stockHistory"
       ],
       "actions": [
         "open",

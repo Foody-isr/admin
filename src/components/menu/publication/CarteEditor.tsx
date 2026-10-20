@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  Boxes,
+  Eye,
+  History,
+  Save,
   ChevronDown,
   Info,
   Monitor,
@@ -457,7 +461,7 @@ function CarteEditor({
     guard.requestAction(() => router.push(path));
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
+      <header className={styles.header} data-carte-editor-header>
         <div className={styles.heading}>
           <Link
             className={styles.back}
@@ -562,42 +566,84 @@ function CarteEditor({
         <div className={styles.headerActions}>
           <Button
             variant="secondary"
-            className={styles.stockButton}
+            disabled={!doc || busy}
+            onClick={() => void showPreview()}
+          >
+            <Eye aria-hidden />
+            {t("cartePreview")}
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={!canEdit || busy || !dirty}
+            onClick={save}
+          >
+            <Save aria-hidden />
+            {t("carteSaveDraft")}
+          </Button>
+          <Button
+            disabled={!canEdit || busy || invalidStock || !hasChanges}
+            onClick={() => setConfirmation("publish")}
+          >
+            {t("cartePublish")}
+          </Button>
+        </div>
+      </header>
+      <div className={styles.operations} data-carte-editor-operations>
+        <div className={styles.operationActions}>
+          {menu?.is_weekly_rotating && (
+            <Button
+              variant="secondary"
+              disabled={!doc || busy}
+              onClick={() => void openStock()}
+            >
+              <Boxes aria-hidden />
+              <span>{t("saleStockPrepare")}</span>
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            disabled={busy}
+            onClick={() => navigate(`/${rid}/menu/stock`)}
+          >
+            <History aria-hidden />
+            <span>{t("saleStockTitle")}</span>
+          </Button>
+          <Button
+            variant="ghost"
             disabled={!doc || busy || !canEdit}
+            title={t("editPosLayout")}
+            aria-label={t("editPosLayout")}
             onClick={() => navigate(`/${rid}/menu/menus/${mid}/pos-display`)}
           >
             <Monitor aria-hidden />
-            <span className={styles.desktopLabel}>{t("editPosLayout")}</span>
-            <span className={styles.mobileLabel}>
-              {t("cartePosLayoutShort")}
-            </span>
+            <span>{t("cartePosLayoutShort")}</span>
           </Button>
-          <ActionMenu
-            label={t("add")}
-            className={styles.addButton}
-            actions={[
-              {
-                label: t("carteAddItems"),
-                disabled: !canEdit || busy || !doc?.groups.length,
-                onClick: () => {
-                  if (doc?.groups[0]) {
-                    setPicker(doc.groups[0].key);
-                    setSearch("");
-                  }
-                },
-              },
-              {
-                label: t("carteAddGroup"),
-                disabled: !canEdit || busy || !doc,
-                onClick: addGroup,
-              },
-            ]}
-          >
-            <span>{t("add")}</span>
-            <ChevronDown aria-hidden />
-          </ActionMenu>
         </div>
-      </header>
+        <ActionMenu
+          label={t("add")}
+          className={styles.addButton}
+          actions={[
+            {
+              label: t("carteAddItems"),
+              disabled: !canEdit || busy || !doc?.groups.length,
+              onClick: () => {
+                if (doc?.groups[0]) {
+                  setPicker(doc.groups[0].key);
+                  setSearch("");
+                }
+              },
+            },
+            {
+              label: t("carteAddGroup"),
+              disabled: !canEdit || busy || !doc,
+              onClick: addGroup,
+            },
+          ]}
+        >
+          <span>{t("add")}</span>
+          <ChevronDown aria-hidden />
+        </ActionMenu>
+      </div>
       {error && (
         <div role="alert" className={styles.error}>
           <p>{error}</p>
@@ -670,7 +716,7 @@ function CarteEditor({
         </>
       )}
       {hasChanges && doc && (
-        <div className={styles.publishBar}>
+        <div className={styles.publishBar} data-carte-editor-footer>
           <div className={styles.publishBarText}>
             <strong>{statusText}</strong>
             <span>{t("carteDraftHint")}</span>

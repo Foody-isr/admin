@@ -206,6 +206,9 @@ async function install(page: Page, locale = "fr", full = false) {
     },
   };
 }
+function header(page: Page) {
+  return page.locator("[data-carte-editor-header]");
+}
 async function carteAction(page: Page, label: string) {
   await page
     .getByRole("button", { name: "Actions de la carte", exact: true })
@@ -232,7 +235,7 @@ test("private save, preview and explicit publication are separate", async ({
   const initial = f.publishedName;
   await rename(page, "Carte privée");
   expect(f.writes).toEqual([]);
-  await page
+  await header(page)
     .getByRole("button", { name: "Enregistrer le brouillon", exact: true })
     .click();
   await expect(page.getByRole("status")).toHaveText("Brouillon enregistré");
@@ -249,7 +252,9 @@ test("private save, preview and explicit publication are separate", async ({
     .getByRole("dialog")
     .getByRole("button", { name: "Fermer", exact: true })
     .click();
-  await page.getByRole("button", { name: "Publier", exact: true }).click();
+  await header(page)
+    .getByRole("button", { name: "Publier", exact: true })
+    .click();
   await page
     .getByRole("alertdialog")
     .getByRole("button", { name: "Publier", exact: true })
@@ -258,6 +263,7 @@ test("private save, preview and explicit publication are separate", async ({
   expect(f.publishedName).toBe("Carte privée");
   expect(f.writes).toEqual(["draft", "preview", "publish"]);
   await page.screenshot({
+    animations: "disabled",
     path: "test-results/carte-published-fr.png",
     fullPage: true,
   });
@@ -336,6 +342,7 @@ test("Hebrew mobile layout stays within viewport", async ({ page }) => {
     )
     .toBe(true);
   await page.screenshot({
+    animations: "disabled",
     path: "test-results/carte-mobile-he.png",
     fullPage: true,
   });
@@ -417,10 +424,13 @@ test("Square geometry, collapse and bulk membership edits preserve the publicati
   await page.evaluate(() => document.fonts.ready);
   const card = await first.boundingBox();
   expect(card?.x).toBe(296);
-  expect(card?.y).toBe(102);
+  expect(card?.y).toBe(183);
   const row = await first.locator("tbody tr").first().boundingBox();
   expect(row?.height).toBe(65);
-  await page.screenshot({ path: "test-results/carte-square-desktop-fr.png" });
+  await page.screenshot({
+    animations: "disabled",
+    path: "test-results/carte-square-desktop-fr.png",
+  });
   await first.getByRole("button", { name: "Plats", exact: true }).click();
   await expect(first.getByRole("table")).toHaveCount(0);
   expect(f.writes).toEqual([]);
@@ -448,7 +458,7 @@ test("Square geometry, collapse and bulk membership edits preserve the publicati
     page.locator('[data-carte-group="group-2"] [data-carte-item="1"]'),
   ).toBeVisible();
   expect(f.writes).toEqual([]);
-  await page
+  await header(page)
     .getByRole("button", { name: "Enregistrer le brouillon", exact: true })
     .click();
   await expect(page.getByRole("status")).toHaveText("Brouillon enregistré");
@@ -490,8 +500,8 @@ test("contextual availability requires Apply, keeps failures open and restores f
   ).toBeVisible();
   await expect(trigger).toBeFocused();
   await expect(
-    page.getByRole("button", { name: "Publier", exact: true }),
-  ).toHaveCount(0);
+    header(page).getByRole("button", { name: "Publier", exact: true }),
+  ).toBeDisabled();
   expect(f.writes).toEqual(["availability", "availability"]);
 });
 
@@ -538,7 +548,9 @@ test("publication remains reachable on a long carte and French mobile stays with
   await page.goto(`/1/menu/menus/${f.menu.id}`);
   await rename(page, "Une longue carte");
   await expect(
-    page.getByRole("button", { name: "Enregistrer le brouillon", exact: true }),
+    page
+      .locator("[data-carte-editor-footer]")
+      .getByRole("button", { name: "Enregistrer le brouillon", exact: true }),
   ).toBeInViewport();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect
@@ -547,7 +559,78 @@ test("publication remains reachable on a long carte and French mobile stays with
     )
     .toBe(true);
   await expect(
-    page.getByRole("button", { name: "Enregistrer le brouillon", exact: true }),
+    page
+      .locator("[data-carte-editor-footer]")
+      .getByRole("button", { name: "Enregistrer le brouillon", exact: true }),
   ).toBeInViewport();
-  await page.screenshot({ path: "test-results/carte-square-mobile-fr.png" });
+  await page.screenshot({
+    animations: "disabled",
+    path: "test-results/carte-square-mobile-fr.png",
+  });
+});
+
+test("stock, preview and publication shortcuts remain visible without opening menus", async ({
+  page,
+}) => {
+  const f = await install(page, "fr", true);
+  await page.goto(`/1/menu/menus/${f.menu.id}`);
+  const top = header(page);
+  await expect(
+    top.getByRole("button", { name: "Aperçu", exact: true }),
+  ).toBeVisible();
+  await expect(
+    top.getByRole("button", { name: "Enregistrer le brouillon", exact: true }),
+  ).toBeVisible();
+  await expect(
+    top.getByRole("button", { name: "Enregistrer le brouillon", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    top.getByRole("button", { name: "Publier", exact: true }),
+  ).toBeVisible();
+  await expect(
+    top.getByRole("button", { name: "Publier", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Stocks des articles", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Préparer les stocks de cette série",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("heading", {
+        name: "Préparer les stocks de cette série",
+        exact: true,
+      }),
+  ).toBeVisible();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Fermer", exact: true })
+    .click();
+  await top.getByRole("button", { name: "Aperçu", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Fermer", exact: true })
+    .click();
+  let historyItem: string | null = null;
+  await page.route("**/api/v1/menu/sales-stock/history*", (route) => {
+    historyItem = new URL(route.request().url()).searchParams.get("item_id");
+    return route.fulfill({ json: { events: [], next_cursor: 0 } });
+  });
+  await page
+    .getByRole("button", {
+      name: "Historique du stock — Salade méditerranéenne",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Historique du stock", exact: true }),
+  ).toBeVisible();
+  await expect.poll(() => historyItem).toBe("1");
+  expect(f.writes).toEqual(["preview"]);
 });
