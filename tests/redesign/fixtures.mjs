@@ -260,6 +260,8 @@ export function createFixture({ empty = false, denied = false, fail = false, per
     if(p==='/api/v1/orders') {let list=orders.filter(o=>(!q.get('status')||q.get('status').split(',').includes(o.status))&&(!q.get('q')||o.customer_name.toLowerCase().includes(q.get('q').toLowerCase()))&&(!q.get('type')||o.order_type===q.get('type'))&&(!q.get('payment_status')||q.get('payment_status').split(',').includes(o.payment_status)));return {json:{orders:list.slice(Number(q.get('offset')||0),Number(q.get('offset')||0)+Number(q.get('limit')||25)),total:list.length}};}
     if(/^\/api\/v1\/orders\/\d+$/.test(p)) return {json:{order:orders.find(o=>o.id===Number(p.split('/').pop()))??orders[0]}};
     if(/^\/api\/v1\/recipes\/items\/\d+\/steps$/.test(p)) return {json:{steps:recipeSteps[Number(p.split('/')[5])]??[]}};
+    if(p==='/api/v1/menu/sales-stock')return {json:{series_key:date,rows:items.filter(item=>!new URL(url,'http://fixture').searchParams.get('item_id')||String(item.id)===new URL(url,'http://fixture').searchParams.get('item_id')).map(item=>({item,managed:false,config:null,previous:null,sizes:item.option_sets?.[0]?.options??[],availability:{availability_state:'available',buildable_count:null}}))}};
+    if(p==='/api/v1/menu/sales-stock/history')return {json:{events:[],next_cursor:0}};
     if(p==='/api/v1/availability/rules') return {json:{rules:availabilityRules}};
     if(/^\/api\/v1\/availability\/items\/\d+\/preview$/.test(p)) return {json:{buildable:48,unlimited:false,bottleneck:'Tomates de saison',state:'available',count:48,basis:'recipe',ingredients:[]}};
     if(p==='/api/v1/menu/items') return {json:{items}};

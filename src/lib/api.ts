@@ -414,6 +414,7 @@ export interface Location {
 }
 
 export interface Menu {
+  publication_enabled?: boolean;
   id: number;
   restaurant_id: number;
   name: string;
@@ -11099,3 +11100,37 @@ export async function savePOSDiscount(rid: number, value: POSDiscountDefinition)
   if (saved.id !== id || saved.name !== value.name.trim() || saved.type !== value.type || saved.variable !== value.variable || saved.value !== value.value || saved.active !== value.active || saved.version < value.version) throw new Error('Unconfirmed staff discount');
   return saved;
 }
+
+// Carte drafts are private, revisioned and scoped to a canonical batch date.
+export interface SaleStockLimit {
+ menu_item_id: number; mode: '' | 'count' | 'measure' | 'per_variant'; unit: string;
+ override: AvailabilityOverride; quantity: number | null; options?: Record<number, number | null>;
+ expected_revision: number; reason?: string;
+}
+export interface SaleStockCounter { id: number; option_id: number; initial_quantity: number | null; committed: number }
+export interface SaleStockSeries { id: number; menu_item_id: number; series_key: string; mode: SaleStockLimit['mode']; unit: string; override: AvailabilityOverride; revision: number; counters: SaleStockCounter[] }
+export interface SaleStockRow { item: MenuItem; managed: boolean; config: SaleStockSeries | null; previous: SaleStockSeries | null; sizes: OptionSetOption[]; availability: {availability_state: string; buildable_count: number | null} }
+export interface SaleStockOverview {series_key: string; rows: SaleStockRow[]}
+export interface SaleStockEvent {id: number; menu_item_id: number; item_name: string; option_name: string; series_key: string; kind: string; before_quantity: number | null; after_quantity: number | null; delta: number; actor_id: number; actor_name: string; order_id?: number; reason: string; created_at: string; previous_mode?: string; mode?: string; previous_override?: string; override?: string}
+export interface CarteDraftGroup {
+ key: string; id: number; parent_key?: string; name: string; image_url: string;
+ pos_enabled: boolean; web_enabled: boolean; is_hidden: boolean; follows_menu_hours: boolean;
+ hours: GroupAvailabilityHour[]; translations?: TranslationMap;
+ banner_focal_x: number; banner_focal_y: number; banner_design?: BannerDesign | null; item_ids: number[];
+}
+export interface CarteDocument { name: string; description: string; pos_enabled: boolean; web_enabled: boolean; follows_restaurant_hours: boolean; hours: MenuAvailabilityHour[]; groups: CarteDraftGroup[]; stocks: SaleStockLimit[] }
+export interface CarteDraftState {menu_id: number; series_key: string; revision: number; base_revision: number; base_fingerprint: string; published_revision: number; has_draft: boolean; updated_at?: string; published_at?: string; updated_by_id: number; is_weekly_rotating: boolean; payload: CarteDocument}
+export interface CarteDraftInput {revision: number; base_revision: number; base_fingerprint: string; payload: CarteDocument}
+const cartePath = (id: number, date: string, suffix: string) => `/api/v1/menu/menus/${id}/${suffix}?serie_date=${encodeURIComponent(date)}`;
+export const getCarteDraft = (rid: number,id: number,date: string) => apiFetch<CarteDraftState>(cartePath(id,date,'draft'),rid);
+export const saveCarteDraft = (rid: number,id: number,date: string,input: CarteDraftInput) => apiFetch<CarteDraftState>(cartePath(id,date,'draft'),rid,{method:'PUT',body:JSON.stringify(input)});
+export const publishCarteDraft = (rid: number,id: number,date: string,revision: number) => apiFetch<CarteDraftState>(cartePath(id,date,'publish'),rid,{method:'POST',body:JSON.stringify({revision})});
+export const discardCarteDraft = (rid: number,id: number,date: string,revision: number) => apiFetch<CarteDraftState>(cartePath(id,date,'draft/discard'),rid,{method:'POST',body:JSON.stringify({revision})});
+export const previewCarteDraft = (rid: number,id: number,date: string,payload: CarteDocument) => apiFetch<{menu: Menu; private_preview: true}>(cartePath(id,date,'draft/preview'),rid,{method:'POST',body:JSON.stringify(payload)});
+export const getSalesStock = (rid: number,date = '',itemId?: number) => apiFetch<SaleStockOverview>(`/api/v1/menu/sales-stock?serie_date=${encodeURIComponent(date)}${itemId ? `&item_id=${itemId}` : ''}`,rid);
+export const getSalesStockHistory = (rid: number,filter: {itemId?: number; date?: string; before?: number; kind?: string}) => {
+ const query = new URLSearchParams();if(filter.itemId)query.set('item_id',String(filter.itemId));if(filter.date)query.set('serie_date',filter.date);if(filter.before)query.set('before_id',String(filter.before));if(filter.kind)query.set('kind',filter.kind);
+ return apiFetch<{events: SaleStockEvent[];next_cursor: number}>(`/api/v1/menu/sales-stock/history?${query}`,rid);
+};
+export const setSalesStock = (rid: number,date: string,input: SaleStockLimit) => apiFetch<SaleStockSeries>(`/api/v1/menu/items/${input.menu_item_id}/sales-stock?serie_date=${encodeURIComponent(date)}`,rid,{method:'PUT',body:JSON.stringify(input)});
+export const setSalesStockAvailability = (rid: number,date: string,itemId: number,override: AvailabilityOverride) => apiFetch<void>(`/api/v1/menu/items/${itemId}/sales-stock/availability?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify({override})});

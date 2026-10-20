@@ -21,6 +21,7 @@ export function useItemLeaveGuard(
   const latest = useRef({ isDirty, isBusy });
   latest.current = { isDirty, isBusy };
   const bypass = useRef(false);
+  const pendingLocal = useRef(false);
   const pending = useRef<(() => void) | null>(null);
   const [open, setOpen] = useState(false);
   const go = useCallback(
@@ -32,12 +33,13 @@ export function useItemLeaveGuard(
     },
     [router],
   );
-  const ask = useCallback((action: () => void) => {
+  const ask = useCallback((action: () => void, local = false) => {
     if (latest.current.isBusy()) return;
     if (!latest.current.isDirty()) {
       action();
       return;
     }
+    pendingLocal.current = local;
     pending.current = action;
     setOpen(true);
   }, []);
@@ -51,7 +53,8 @@ export function useItemLeaveGuard(
   }, []);
   const finish = useCallback(
     (fallback: string) => {
-      bypass.current = true;
+      bypass.current = !pendingLocal.current;
+      pendingLocal.current = false;
       const action = pending.current;
       pending.current = null;
       setOpen(false);
@@ -158,5 +161,5 @@ export function useItemLeaveGuard(
     };
   }, [ask, go, request]);
 
-  return { open, request, cancel, finish };
+  return { open, request, requestAction: (action: () => void) => ask(action, true), cancel, finish };
 }

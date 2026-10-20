@@ -124,6 +124,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       subItems: [
         { href: `${base}/menu/items`, labelKey: 'itemLibrary' },
         { href: `${base}/menu/menus`, labelKey: 'menus' },
+        { href: `${base}/menu/stock`, labelKey: 'saleStockTitle' },
         { href: `${base}/menu/categories`, labelKey: 'categories' },
         { href: `${base}/menu/modifier-sets`, labelKey: 'modifierSets' },
         { href: `${base}/menu/options`, labelKey: 'options' },
