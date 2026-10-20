@@ -1,9 +1,18 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams, usePathname } from "next/navigation";
-import { ArrowDown, ArrowUp, Plus, Settings2, Trash2 } from "lucide-react";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import {
+  ArrowLeft,
+  ChevronDown,
+  Info,
+  Monitor,
+  MoreHorizontal,
+  Plus,
+  Store,
+} from "lucide-react";
+import {
+  getRestaurant,
   listMenus,
   listAllItems,
   getBatchFulfillmentConfig,
@@ -19,14 +28,16 @@ import {
   type CarteDraftGroup,
   type MenuItem,
   type Menu,
+  type Restaurant,
   type BatchFulfillmentConfigResponse,
   type SaleStockOverview,
   type AvailabilityOverride,
 } from "@/lib/api";
-import { moveEntry, stockErrors } from "@/lib/carte-editor";
+import { useDialogReturnFocus } from "@/lib/use-dialog-return-focus";
+import { stockErrors } from "@/lib/carte-editor";
 import { useCurrency, useI18n } from "@/lib/i18n";
 import { usePermissions } from "@/lib/permissions-context";
-import { PageHead, Button, ConfirmDialog } from "@/components/ds";
+import { Button, ConfirmDialog } from "@/components/ds";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +50,9 @@ import ItemUnsavedDialog from "@/components/menu-item/ItemUnsavedDialog";
 import { useItemLeaveGuard } from "@/components/menu-item/useItemLeaveGuard";
 import { StockPreparation } from "./StockPreparation";
 import { StockHistory } from "./StockHistory";
+import { CarteGroups } from "./CarteGroups";
+import ActionMenu from "@/components/common/ActionMenu";
+import styles from "./CarteEditor.module.css";
 
 type Hour = {
   day_of_week: number;
@@ -150,12 +164,15 @@ function CarteEditor({
   initialSettings?: boolean;
 }) {
   const { t, locale } = useI18n();
+  const dialogFocus = useDialogReturnFocus();
+  const router = useRouter();
   const { money } = useCurrency();
   const translation = useRef(t);
   translation.current = t;
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission("menu.edit");
   const [menu, setMenu] = useState<Menu | null>(null);
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [batch, setBatch] = useState<BatchFulfillmentConfigResponse | null>(
     null,
@@ -180,11 +197,10 @@ function CarteEditor({
   const [confirmation, setConfirmation] = useState<
     "publish" | "discard" | null
   >(null);
-  const [selected, setSelected] = useState<{
-    group: string;
-    ids: number[];
-  } | null>(null);
-  const [drag, setDrag] = useState<{ group: string; id?: number } | null>(null);
+  const [removeGroup, setRemoveGroup] = useState<string | null>(null);
+  const [availabilityItem, setAvailabilityItem] = useState<number | null>(null);
+  const [availabilityChoice, setAvailabilityChoice] =
+    useState<AvailabilityOverride>("auto");
   const initialOpened = useRef(false);
   useEffect(() => {
     if (!doc || initialOpened.current || !initialGroup) return;
@@ -219,12 +235,14 @@ function CarteEditor({
       listMenus(rid),
       listAllItems(rid),
       getBatchFulfillmentConfig(rid),
+      getRestaurant(rid),
     ])
-      .then(([menus, library, config]) => {
+      .then(([menus, library, config, restaurant]) => {
         if (!active) return;
         const found = menus.find((m) => m.id === mid);
         if (!found) throw new Error();
         setMenu(found);
+        setRestaurant(restaurant);
         setItems(library);
         setBatch(config);
         const key = found.is_weekly_rotating
@@ -254,7 +272,6 @@ function CarteEditor({
     setError("");
     setState(null);
     setDoc(null);
-    setSelected(null);
     Promise.all([getCarteDraft(rid, mid, date), getSalesStock(rid, date)])
       .then(([draft, overview]) => {
         if (active) {
@@ -361,7 +378,7 @@ function CarteEditor({
   }
   async function operational(id: number, value: AvailabilityOverride) {
     if (date === null || !canEdit) return;
-    await run(async () => {
+    const applied = await run(async () => {
       await setSalesStockAvailability(
         rid,
         date || stock?.series_key || "",
@@ -408,7 +425,9 @@ function CarteEditor({
             : prev,
         );
       }
+      return true;
     });
+    return applied === true;
   }
   const goSeries = (next: number) =>
     guard.requestAction(() => {
@@ -424,113 +443,167 @@ function CarteEditor({
     edit({ groups: [...doc.groups, value] });
     setGroupKey(value.key);
   }
-  const library = new Map(items.map((item) => [item.id, item]));
+  const hasChanges = dirty || !!state?.has_draft;
+  const statusText = busy
+    ? t("saving")
+    : dirty
+      ? t("carteUnsaved")
+      : state?.has_draft
+        ? t("carteSaved")
+        : state?.published_revision
+          ? t("cartePublished")
+          : t("carteLiveStatus");
+  const navigate = (path: string) =>
+    guard.requestAction(() => router.push(path));
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
-      <Link className="text-sm underline" href={`/${rid}/menu/menus`}>
-        ← {t("menus")}
-      </Link>
-      <PageHead
-        title={doc?.name || menu?.name || t("menus")}
-        desc={t("carteDraftHint")}
-        actions={
-          <>
-            <Button
-              variant="secondary"
-              disabled={busy || !doc}
-              onClick={showPreview}
-            >
-              {t("cartePreview")}
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={!canEdit || busy || !dirty}
-              onClick={save}
-            >
-              {t("carteSaveDraft")}
-            </Button>
-            <Button
-              disabled={
-                !canEdit ||
-                busy ||
-                !doc ||
-                (!dirty && !state?.has_draft) ||
-                invalidStock
-              }
-              onClick={() => setConfirmation("publish")}
-            >
-              {t("cartePublish")}
-            </Button>
-          </>
-        }
-      />
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
-        <div className="flex flex-wrap items-center gap-3">
-          {menu?.is_weekly_rotating && batch && (
-            <BatchPicker
-              cycles={batch.upcoming_cycles}
-              selectedIndex={index}
-              onChange={goSeries}
-            />
-          )}
-          <span
-            className={`rounded-full px-3 py-1 text-sm ${dirty ? "bg-amber-50 text-amber-900" : "bg-[var(--surface-2)]"}`}
-            role="status"
-          >
-            {busy
-              ? t("saving")
-              : dirty
-                ? t("carteUnsaved")
-                : state?.has_draft
-                  ? t("carteSaved")
-                  : state?.published_revision
-                    ? t("cartePublished")
-                    : t("carteLiveLegacy")}
-          </span>
-          {state?.updated_at && (
-            <span className="text-xs text-[var(--fg-muted)]">
-              {t("carteSavedAt")}{" "}
-              {new Intl.DateTimeFormat(locale, {
-                dateStyle: "short",
-                timeStyle: "short",
-              }).format(new Date(state.updated_at))}
-            </span>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="ghost"
-            disabled={!doc || busy}
-            onClick={() => setPanel("settings")}
-          >
-            <Settings2 />
-            {t("carteSettings")}
-          </Button>
-          {menu?.is_weekly_rotating && (
-            <Button
-              variant="secondary"
-              disabled={!doc || busy}
-              onClick={openStock}
-            >
-              {t("saleStockPrepare")}
-            </Button>
-          )}
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.heading}>
           <Link
-            className="text-sm underline self-center"
-            href={`/${rid}/menu/stock`}
+            className={styles.back}
+            href={`/${rid}/menu/menus`}
+            aria-label={t("carteBack")}
           >
-            {t("saleStockTitle")}
+            <ArrowLeft aria-hidden />
           </Link>
+          <div className={styles.headingBody}>
+            <div className={styles.titleRow}>
+              <h1 className={styles.title}>
+                {doc?.name || menu?.name || t("menus")}
+              </h1>
+              <ActionMenu
+                label={t("carteMenuActions")}
+                iconOnly
+                className={styles.menuTrigger}
+                actions={[
+                  {
+                    label: t("carteSettings"),
+                    disabled: !doc || busy,
+                    onClick: () => setPanel("settings"),
+                  },
+                  {
+                    label: t("cartePreview"),
+                    disabled: !doc || busy,
+                    onClick: () => void showPreview(),
+                  },
+                  ...(menu?.is_weekly_rotating
+                    ? [
+                        {
+                          label: t("saleStockPrepare"),
+                          disabled: !doc || busy,
+                          onClick: () => void openStock(),
+                        },
+                      ]
+                    : []),
+                  {
+                    label: t("saleStockTitle"),
+                    disabled: busy,
+                    onClick: () => navigate(`/${rid}/menu/stock`),
+                  },
+                  {
+                    label: t("carteDiscardDraft"),
+                    variant: "danger",
+                    disabled: !canEdit || busy || !hasChanges,
+                    onClick: () => setConfirmation("discard"),
+                  },
+                ]}
+              >
+                <MoreHorizontal aria-hidden />
+              </ActionMenu>
+              <span
+                className={styles.status}
+                data-dirty={dirty}
+                role="status"
+                title={
+                  state?.updated_at
+                    ? `${t("carteSavedAt")} ${new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(new Date(state.updated_at))}`
+                    : undefined
+                }
+              >
+                {statusText}
+              </span>
+            </div>
+            <div className={styles.metadata}>
+              {restaurant && (
+                <>
+                  <span className={styles.metadataPart}>
+                    <Store aria-hidden />
+                    <span>{restaurant.name}</span>
+                  </span>
+                  <span className={styles.metadataDivider} aria-hidden />
+                </>
+              )}
+              <span className={styles.metadataPart}>
+                <Monitor aria-hidden />
+                <span>
+                  {doc?.pos_enabled && doc?.web_enabled
+                    ? t("cartePosAndWeb")
+                    : doc?.pos_enabled
+                      ? t("cartePosChannel")
+                      : doc?.web_enabled
+                        ? t("carteWebChannel")
+                        : t("carteHidden")}
+                </span>
+              </span>
+              {menu?.is_weekly_rotating && batch && (
+                <>
+                  <span className={styles.metadataDivider} aria-hidden />
+                  <BatchPicker
+                    compact
+                    cycles={batch.upcoming_cycles}
+                    selectedIndex={index}
+                    onChange={goSeries}
+                  />
+                </>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
-      {error && (
-        <div
-          role="alert"
-          className="border border-red-300 rounded-lg p-4 text-red-700 space-y-2"
-        >
-          <p>{error}</p>
-          <p className="text-sm">{t("carteConflictHint")}</p>
+        <div className={styles.headerActions}>
           <Button
+            variant="secondary"
+            className={styles.stockButton}
+            disabled={!doc || busy || !canEdit}
+            onClick={() => navigate(`/${rid}/menu/menus/${mid}/pos-display`)}
+          >
+            <Monitor aria-hidden />
+            <span className={styles.desktopLabel}>{t("editPosLayout")}</span>
+            <span className={styles.mobileLabel}>
+              {t("cartePosLayoutShort")}
+            </span>
+          </Button>
+          <ActionMenu
+            label={t("add")}
+            className={styles.addButton}
+            actions={[
+              {
+                label: t("carteAddItems"),
+                disabled: !canEdit || busy || !doc?.groups.length,
+                onClick: () => {
+                  if (doc?.groups[0]) {
+                    setPicker(doc.groups[0].key);
+                    setSearch("");
+                  }
+                },
+              },
+              {
+                label: t("carteAddGroup"),
+                disabled: !canEdit || busy || !doc,
+                onClick: addGroup,
+              },
+            ]}
+          >
+            <span>{t("add")}</span>
+            <ChevronDown aria-hidden />
+          </ActionMenu>
+        </div>
+      </header>
+      {error && (
+        <div role="alert" className={styles.error}>
+          <p>{error}</p>
+          <p className="mt-1 text-sm">{t("carteConflictHint")}</p>
+          <Button
+            className="mt-3"
             variant="secondary"
             disabled={busy}
             onClick={() =>
@@ -544,334 +617,91 @@ function CarteEditor({
           </Button>
         </div>
       )}
-      {loading && <p role="status">{t("loading")}</p>}
+      {loading && (
+        <p className="py-12" role="status">
+          {t("loading")}
+        </p>
+      )}
       {doc && !loading && (
         <>
-          <div className="flex flex-wrap justify-between items-center gap-3">
-            <h2 className="text-lg font-semibold">{t("carteGroups")}</h2>
-            <Button
-              variant="secondary"
-              disabled={!canEdit || busy}
+          <CarteGroups
+            key={date}
+            rid={rid}
+            mid={mid}
+            doc={doc}
+            items={items}
+            stock={stock}
+            restaurantName={restaurant?.name ?? ""}
+            canEdit={canEdit}
+            busy={busy}
+            onEdit={edit}
+            onGroupSettings={setGroupKey}
+            onChooseItems={(key) => {
+              setPicker(key);
+              setSearch("");
+            }}
+            onRemoveGroup={setRemoveGroup}
+            onHistory={setHistoryItem}
+            onAvailability={(id, value) => {
+              setAvailabilityChoice(value);
+              setAvailabilityItem(id);
+            }}
+            onEditItem={(id) =>
+              navigate(
+                `/${rid}/menu/items/${id}?from=${encodeURIComponent(`/${rid}/menu/menus/${mid}`)}`,
+              )
+            }
+          />
+          {canEdit && (
+            <button
+              type="button"
+              className={styles.addGroup}
+              disabled={busy}
               onClick={addGroup}
             >
-              <Plus />
-              {t("carteAddGroup")}
-            </Button>
-          </div>
-          {doc.groups.length === 0 && (
-            <div className="border rounded-lg p-12 text-center text-[var(--fg-muted)]">
-              {t("carteEmpty")}
-            </div>
+              <Plus aria-hidden />
+              <span>{t("carteAddGroupCard")}</span>
+            </button>
           )}
-          <div className="space-y-6">
-            {doc.groups.map((g, gi) => (
-              <section
-                key={g.key}
-                className="border rounded-lg overflow-hidden"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (!drag || busy || !canEdit) return;
-                  if (drag.id === undefined && drag.group !== g.key) {
-                    const source = doc.groups.findIndex(
-                      (v) => v.key === drag.group,
-                    );
-                    const next = [...doc.groups];
-                    const [moved] = next.splice(source, 1);
-                    next.splice(gi, 0, moved);
-                    edit({ groups: next });
-                  }
-                  setDrag(null);
-                }}
-              >
-                <header className="flex flex-wrap items-center justify-between gap-3 p-4 bg-[var(--surface-2)]">
-                  <button
-                    className="font-semibold text-start min-h-11"
-                    draggable={canEdit && !busy}
-                    onDragStart={() => setDrag({ group: g.key })}
-                    onClick={() => setGroupKey(g.key)}
-                  >
-                    {g.name || t("carteUntitled")}{" "}
-                    <span className="font-normal text-[var(--fg-muted)]">
-                      ({g.item_ids.length})
-                    </span>
-                    {g.is_hidden && (
-                      <span className="ms-2 text-xs">{t("carteHidden")}</span>
-                    )}
-                  </button>
-                  <div className="flex flex-wrap gap-1 items-center">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={!canEdit || busy || gi === 0}
-                      aria-label={t("carteMoveUp")}
-                      onClick={() =>
-                        edit({ groups: moveEntry(doc.groups, gi, -1) })
-                      }
-                    >
-                      <ArrowUp />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={
-                        !canEdit || busy || gi === doc.groups.length - 1
-                      }
-                      aria-label={t("carteMoveDown")}
-                      onClick={() =>
-                        edit({ groups: moveEntry(doc.groups, gi, 1) })
-                      }
-                    >
-                      <ArrowDown />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={!canEdit || busy}
-                      onClick={() => {
-                        setPicker(g.key);
-                        setSearch("");
-                      }}
-                    >
-                      {t("carteChooseItems")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={!canEdit || busy}
-                      aria-label={t("delete")}
-                      onClick={() => {
-                        edit({
-                          groups: doc.groups
-                            .filter((v) => v.key !== g.key)
-                            .map((v) =>
-                              v.parent_key === g.key
-                                ? { ...v, parent_key: "" }
-                                : v,
-                            ),
-                        });
-                        setSelected(null);
-                      }}
-                    >
-                      <Trash2 />
-                    </Button>
-                  </div>
-                </header>
-                {selected?.group === g.key && selected.ids.length > 0 && (
-                  <div className="p-3 border-b flex flex-wrap gap-3 items-center text-sm">
-                    <span>
-                      {selected.ids.length} {t("carteSelected")}
-                    </span>
-                    <select
-                      className="input w-auto"
-                      aria-label={t("carteMoveTo")}
-                      value=""
-                      disabled={busy || !canEdit}
-                      onChange={(e) => {
-                        const target = e.target.value;
-                        if (!target) return;
-                        edit({
-                          groups: doc.groups.map((v) =>
-                            v.key === g.key
-                              ? {
-                                  ...v,
-                                  item_ids: v.item_ids.filter(
-                                    (id) => !selected.ids.includes(id),
-                                  ),
-                                }
-                              : v.key === target
-                                ? {
-                                    ...v,
-                                    item_ids: [
-                                      ...v.item_ids,
-                                      ...selected.ids.filter(
-                                        (id) => !v.item_ids.includes(id),
-                                      ),
-                                    ],
-                                  }
-                                : v,
-                          ),
-                        });
-                        setSelected(null);
-                      }}
-                    >
-                      <option value="">{t("carteMoveTo")}</option>
-                      {doc.groups
-                        .filter((v) => v.key !== g.key)
-                        .map((v) => (
-                          <option value={v.key} key={v.key}>
-                            {v.name}
-                          </option>
-                        ))}
-                    </select>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy || !canEdit}
-                      onClick={() => {
-                        updateGroup(g.key, {
-                          item_ids: g.item_ids.filter(
-                            (id) => !selected.ids.includes(id),
-                          ),
-                        });
-                        setSelected(null);
-                      }}
-                    >
-                      {t("carteRemoveSelected")}
-                    </Button>
-                  </div>
-                )}
-                <div className="divide-y">
-                  {g.item_ids.map((id, i) => {
-                    const item = library.get(id);
-                    const status = stock?.rows.find((r) => r.item.id === id);
-                    const override =
-                      status?.config?.override ??
-                      (status?.managed
-                        ? "auto"
-                        : (item?.availability_override ?? "auto"));
-                    return (
-                      <div
-                        key={id}
-                        className="p-3 sm:px-4 flex flex-wrap sm:flex-nowrap items-center gap-3 min-h-16"
-                        draggable={canEdit && !busy}
-                        onDragStart={(e) => {
-                          e.stopPropagation();
-                          setDrag({ group: g.key, id });
-                        }}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
-                          if (drag?.group !== g.key || drag.id === undefined)
-                            return;
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const next = [...g.item_ids];
-                          const source = next.indexOf(drag.id);
-                          next.splice(source, 1);
-                          next.splice(i, 0, drag.id);
-                          updateGroup(g.key, { item_ids: next });
-                          setDrag(null);
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          className="size-4"
-                          disabled={!canEdit || busy}
-                          aria-label={`${t("select")} ${item?.name || id}`}
-                          checked={
-                            selected?.group === g.key &&
-                            selected.ids.includes(id)
-                          }
-                          onChange={(e) =>
-                            setSelected({
-                              group: g.key,
-                              ids: e.target.checked
-                                ? [
-                                    ...(selected?.group === g.key
-                                      ? selected.ids
-                                      : []),
-                                    id,
-                                  ]
-                                : (selected?.ids ?? []).filter(
-                                    (value) => value !== id,
-                                  ),
-                            })
-                          }
-                        />
-                        <div className="flex-1 min-w-[140px]">
-                          <Link
-                            className="font-medium hover:underline"
-                            href={`/${rid}/menu/items/${id}`}
-                          >
-                            {item?.name || `#${id}`}
-                          </Link>
-                          <div className="text-sm text-[var(--fg-muted)]">
-                            {item ? money(item.price) : "—"} ·{" "}
-                            {status?.availability.buildable_count ?? "∞"}{" "}
-                            {t("saleStockAvailable").toLocaleLowerCase()}
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setHistoryItem(id)}
-                        >
-                          {t("saleStockHistory")}
-                        </Button>
-                        {stock?.series_key && (
-                          <select
-                            className="input w-auto max-w-44 text-sm"
-                            aria-label={`${t("carteImmediateAvailability")} — ${item?.name || id}`}
-                            disabled={!canEdit || busy}
-                            value={override}
-                            onChange={(e) =>
-                              operational(
-                                id,
-                                e.target.value as AvailabilityOverride,
-                              )
-                            }
-                          >
-                            {(
-                              [
-                                "auto",
-                                "force_available",
-                                "force_sold_out",
-                              ] as const
-                            ).map((value) => (
-                              <option key={value} value={value}>
-                                {t(`saleStockOverride_${value}`)}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          aria-label={t("carteMoveUp")}
-                          disabled={!canEdit || busy || i === 0}
-                          onClick={() =>
-                            updateGroup(g.key, {
-                              item_ids: moveEntry(g.item_ids, i, -1),
-                            })
-                          }
-                        >
-                          <ArrowUp />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          aria-label={t("carteMoveDown")}
-                          disabled={
-                            !canEdit || busy || i === g.item_ids.length - 1
-                          }
-                          onClick={() =>
-                            updateGroup(g.key, {
-                              item_ids: moveEntry(g.item_ids, i, 1),
-                            })
-                          }
-                        >
-                          <ArrowDown />
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
+          {doc.groups.length === 0 && (
+            <p className={styles.libraryHint}>{t("carteEmpty")}</p>
+          )}
+          <p className={styles.libraryHint}>{t("carteSharedLibraryHint")}</p>
+        </>
+      )}
+      {hasChanges && doc && (
+        <div className={styles.publishBar}>
+          <div className={styles.publishBarText}>
+            <strong>{statusText}</strong>
+            <span>{t("carteDraftHint")}</span>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-            <p className="text-sm text-[var(--fg-muted)]">
-              {t("carteSharedLibraryHint")}
-            </p>
+          <div className={styles.publishActions}>
             <Button
-              variant="ghost"
-              disabled={!canEdit || busy || (!dirty && !state?.has_draft)}
-              onClick={() => setConfirmation("discard")}
+              variant="secondary"
+              disabled={!canEdit || busy || !dirty}
+              onClick={save}
             >
-              {t("carteDiscardDraft")}
+              {t("carteSaveDraft")}
+            </Button>
+            <Button
+              disabled={!canEdit || busy || invalidStock}
+              onClick={() => setConfirmation("publish")}
+            >
+              {t("cartePublish")}
             </Button>
           </div>
-        </>
+        </div>
+      )}
+      {!hasChanges && (
+        <a
+          className={styles.helpLink}
+          href={`https://foody-pos.co.il/${locale}/help/menu/menus-and-groups`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <Info aria-hidden />
+          {t("carteHelp")}
+        </a>
       )}
       <Dialog
         open={panel !== null}
@@ -879,7 +709,7 @@ function CarteEditor({
           if (!open && !busy) setPanel(null);
         }}
       >
-        <DialogContent className="sm:max-w-4xl">
+        <DialogContent {...dialogFocus} className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>
               {panel === "settings"
@@ -989,7 +819,7 @@ function CarteEditor({
           if (!open) setGroupKey(null);
         }}
       >
-        <DialogContent>
+        <DialogContent {...dialogFocus}>
           <DialogHeader>
             <DialogTitle>{t("carteGroupSettings")}</DialogTitle>
             <DialogDescription>{t("carteLocalChangesHint")}</DialogDescription>
@@ -1084,11 +914,26 @@ function CarteEditor({
           if (!open) setPicker(null);
         }}
       >
-        <DialogContent>
+        <DialogContent {...dialogFocus}>
           <DialogHeader>
             <DialogTitle>{t("carteChooseItems")}</DialogTitle>
             <DialogDescription>{t("carteChooseHint")}</DialogDescription>
           </DialogHeader>
+          <label className="block space-y-2">
+            <span>{t("carteTargetGroup")}</span>
+            <select
+              className="input"
+              aria-label={t("carteTargetGroup")}
+              value={picker ?? ""}
+              onChange={(event) => setPicker(event.target.value)}
+            >
+              {doc?.groups.map((value) => (
+                <option key={value.key} value={value.key}>
+                  {value.name || t("carteUntitled")}
+                </option>
+              ))}
+            </select>
+          </label>
           <input
             className="input"
             aria-label={t("search")}
@@ -1136,7 +981,7 @@ function CarteEditor({
           if (!open) setHistoryItem(null);
         }}
       >
-        <DialogContent className="sm:max-w-5xl">
+        <DialogContent {...dialogFocus} className="sm:max-w-5xl">
           <DialogHeader>
             <DialogTitle>{t("saleStockHistory")}</DialogTitle>
             <DialogDescription>{t("saleStockHistoryHint")}</DialogDescription>
@@ -1146,6 +991,90 @@ function CarteEditor({
           )}
         </DialogContent>
       </Dialog>
+      <Dialog
+        open={availabilityItem !== null}
+        onOpenChange={(open) => {
+          if (!open && !busy) setAvailabilityItem(null);
+        }}
+      >
+        <DialogContent {...dialogFocus}>
+          <DialogHeader>
+            <DialogTitle>{t("carteAvailabilityTitle")}</DialogTitle>
+            <DialogDescription>{t("carteAvailabilityHint")}</DialogDescription>
+          </DialogHeader>
+          <p className="font-semibold">
+            {items.find((item) => item.id === availabilityItem)?.name}
+          </p>
+          <div className={styles.availabilityChoices}>
+            {(["auto", "force_available", "force_sold_out"] as const).map(
+              (value) => (
+                <label key={value}>
+                  <input
+                    type="radio"
+                    name="carte-availability"
+                    value={value}
+                    checked={availabilityChoice === value}
+                    disabled={busy || !canEdit}
+                    onChange={() => setAvailabilityChoice(value)}
+                  />
+                  <span>{t(`saleStockOverride_${value}`)}</span>
+                </label>
+              ),
+            )}
+          </div>
+          {error && (
+            <p role="alert" className="text-red-700">
+              {error}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              disabled={busy}
+              onClick={() => setAvailabilityItem(null)}
+            >
+              {t("cancel")}
+            </Button>
+            <Button
+              disabled={busy || !canEdit}
+              onClick={() => {
+                if (availabilityItem !== null)
+                  void operational(availabilityItem, availabilityChoice).then(
+                    (applied) => {
+                      if (applied) setAvailabilityItem(null);
+                    },
+                  );
+              }}
+            >
+              {t("apply")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <ConfirmDialog
+        open={removeGroup !== null}
+        onOpenChange={(open) => {
+          if (!open) setRemoveGroup(null);
+        }}
+        title={t("carteDeleteGroupTitle")}
+        description={t("carteDeleteGroupHint")}
+        confirmLabel={t("delete")}
+        cancelLabel={t("cancel")}
+        danger
+        onConfirm={() => {
+          if (doc && removeGroup && canEdit && !busy)
+            edit({
+              groups: doc.groups
+                .filter((value) => value.key !== removeGroup)
+                .map((value) =>
+                  value.parent_key === removeGroup
+                    ? { ...value, parent_key: "" }
+                    : value,
+                ),
+            });
+          setRemoveGroup(null);
+        }}
+      />
       <ConfirmDialog
         open={confirmation !== null}
         onOpenChange={(open) => {

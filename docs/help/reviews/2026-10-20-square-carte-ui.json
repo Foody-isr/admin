@@ -1,0 +1,10 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "039446dcb377c536715e78afd7db5157075fbb1c7c8fab5ac2a39cf46c5e9c5b",
+      "disposition": "no-user-impact",
+      "reason": "Adds only new FR/HE/EN carte control strings used by the redesigned menu editor, whose behavior is documented in menu/menus-and-groups. Existing strings and the unrelated delivery-dispatch workflow classified on this shared dictionary are unchanged."
+    }
+  ]
+}
