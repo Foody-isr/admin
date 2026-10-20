@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createFixture } from "./fixtures.mjs";
 
-async function install(page: Page, locale = "fr") {
+async function install(page: Page, locale = "fr", full = false) {
   const fixture = createFixture({ carte: true, library: true });
   const menu = fixture.menus[0];
   menu.is_weekly_rotating = true;
@@ -35,6 +35,18 @@ async function install(page: Page, locale = "fr") {
     ],
     stocks: [],
   };
+  if (full) {
+    payload.groups[0].item_ids = fixture.items.map((item) => item.id);
+    payload.groups.push({
+      ...structuredClone(payload.groups[0]),
+      key: "group-2",
+      id: 2,
+      name: "Boissons",
+      item_ids: [],
+    });
+  }
+  const overrides = new Map<number, string>();
+  let rejectAvailability = false;
   const initial = () => ({
     menu_id: menu.id,
     series_key: key,
@@ -121,6 +133,16 @@ async function install(page: Page, locale = "fr") {
         },
       });
     }
+    if (/^\/api\/v1\/menu\/items\/\d+\/sales-stock\/availability$/.test(path)) {
+      writes.push("availability");
+      if (rejectAvailability)
+        return route.fulfill({
+          status: 409,
+          json: { error: "revision_conflict" },
+        });
+      overrides.set(Number(path.split("/")[5]), req.postDataJSON().override);
+      return route.fulfill({ json: {} });
+    }
     if (path === "/api/v1/menu/sales-stock") {
       return route.fulfill({
         json: {
@@ -128,7 +150,9 @@ async function install(page: Page, locale = "fr") {
           rows: fixture.items.map((item) => ({
             item,
             managed: true,
-            config: null,
+            config: overrides.has(item.id)
+              ? { override: overrides.get(item.id), revision: 1 }
+              : null,
             previous: {
               mode: "count",
               unit: "",
@@ -139,7 +163,7 @@ async function install(page: Page, locale = "fr") {
             sizes: [],
             availability: {
               availability_state: "available",
-              buildable_count: null,
+              buildable_count: full ? 20 : null,
             },
           })),
         },
@@ -157,26 +181,39 @@ async function install(page: Page, locale = "fr") {
     });
   });
   await page.route("**/*", (route) =>
-    ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname)
+    ["localhost", "127.0.0.1"].includes(
+      new URL(route.request().url()).hostname,
+    ) ||
+    (route.request().resourceType() === "font" &&
+      new URL(route.request().url()).hostname ===
+        "square-fonts-production-f.squarecdn.com")
       ? route.fallback()
       : route.abort(),
   );
   return {
     writes,
+    payload,
     menu,
     docs,
     get publishedName() {
       return publishedName;
+    },
+    set rejectAvailability(value: boolean) {
+      rejectAvailability = value;
     },
     set rejectSave(value: boolean) {
       rejectSave = value;
     },
   };
 }
-async function rename(page: Page, name: string) {
+async function carteAction(page: Page, label: string) {
   await page
-    .getByRole("button", { name: "Paramètres de la carte", exact: true })
+    .getByRole("button", { name: "Actions de la carte", exact: true })
     .click();
+  await page.getByRole("menuitem", { name: label, exact: true }).click();
+}
+async function rename(page: Page, name: string) {
+  await carteAction(page, "Paramètres de la carte");
   await page.getByRole("dialog").getByRole("textbox").first().fill(name);
   await page
     .getByRole("dialog")
@@ -201,7 +238,7 @@ test("private save, preview and explicit publication are separate", async ({
   await expect(page.getByRole("status")).toHaveText("Brouillon enregistré");
   expect(f.writes).toEqual(["draft"]);
   expect(f.publishedName).toBe(initial);
-  await page.getByRole("button", { name: "Aperçu", exact: true }).click();
+  await carteAction(page, "Aperçu");
   await expect(
     page
       .getByRole("dialog")
@@ -232,7 +269,9 @@ test("failed save keeps the editor and draft mounted during departure", async ({
   await page.goto(`/1/menu/menus/${f.menu.id}`);
   await rename(page, "À conserver");
   f.rejectSave = true;
-  await page.getByRole("link", { name: "← Cartes", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Retour aux cartes", exact: true })
+    .click();
   await expect(page.getByRole("alertdialog")).toBeVisible();
   await page
     .getByRole("alertdialog")
@@ -253,12 +292,7 @@ test("copying stock uses initial quantities and series switching remains guarded
 }) => {
   const f = await install(page);
   await page.goto(`/1/menu/menus/${f.menu.id}`);
-  await page
-    .getByRole("button", {
-      name: "Préparer les stocks de cette série",
-      exact: true,
-    })
-    .click();
+  await carteAction(page, "Préparer les stocks de cette série");
   await page
     .getByRole("button", {
       name: "Reprendre les quantités initiales précédentes",
@@ -296,11 +330,11 @@ test("Hebrew mobile layout stays within viewport", async ({ page }) => {
     page.getByRole("heading", { name: f.menu.name, exact: true }),
   ).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    )
+    .toBe(true);
   await page.screenshot({
     path: "test-results/carte-mobile-he.png",
     fullPage: true,
@@ -370,4 +404,150 @@ test("a series-managed product exposes its own stock summary and history", async
       })
       .last(),
   ).toBeVisible();
+});
+
+test("Square geometry, collapse and bulk membership edits preserve the publication boundary", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 812 });
+  const f = await install(page, "fr", true);
+  await page.goto(`/1/menu/menus/${f.menu.id}`);
+  const first = page.locator('[data-carte-group="group-1"]');
+  await expect(first.getByRole("table")).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  const card = await first.boundingBox();
+  expect(card?.x).toBe(296);
+  expect(card?.y).toBe(102);
+  const row = await first.locator("tbody tr").first().boundingBox();
+  expect(row?.height).toBe(65);
+  await page.screenshot({ path: "test-results/carte-square-desktop-fr.png" });
+  await first.getByRole("button", { name: "Plats", exact: true }).click();
+  await expect(first.getByRole("table")).toHaveCount(0);
+  expect(f.writes).toEqual([]);
+  await first.getByRole("button", { name: "Plats", exact: true }).click();
+  await first
+    .getByRole("checkbox", {
+      name: "Sélectionner Salade méditerranéenne",
+      exact: true,
+    })
+    .check();
+  await expect(
+    first.getByRole("checkbox", {
+      name: "Sélectionner tous les articles de Plats",
+    }),
+  ).toHaveAttribute("aria-checked", "mixed");
+  await first
+    .getByRole("combobox", { name: "Déplacer vers un groupe" })
+    .selectOption("group-2");
+  await expect(first.locator('[data-carte-item="1"]')).toHaveCount(0);
+  await page
+    .locator('[data-carte-group="group-2"]')
+    .getByRole("button", { name: "Boissons", exact: true })
+    .click();
+  await expect(
+    page.locator('[data-carte-group="group-2"] [data-carte-item="1"]'),
+  ).toBeVisible();
+  expect(f.writes).toEqual([]);
+  await page
+    .getByRole("button", { name: "Enregistrer le brouillon", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toHaveText("Brouillon enregistré");
+  expect(Array.from(f.docs.values())[0].payload.groups[1].item_ids).toEqual([
+    1,
+  ]);
+  expect(f.writes).toEqual(["draft"]);
+});
+
+test("contextual availability requires Apply, keeps failures open and restores focus", async ({
+  page,
+}) => {
+  const f = await install(page, "fr", true);
+  await page.goto(`/1/menu/menus/${f.menu.id}`);
+  const trigger = page.getByRole("button", {
+    name: "Actions pour Salade méditerranéenne",
+    exact: true,
+  });
+  await trigger.click();
+  await page
+    .getByRole("menuitem", { name: "Modifier la disponibilité", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .getByRole("radio", { name: "Toujours disponible (immédiat)", exact: true })
+    .check();
+  expect(f.writes).toEqual([]);
+  f.rejectAvailability = true;
+  await dialog.getByRole("button", { name: "Appliquer", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  await expect(dialog).toBeVisible();
+  f.rejectAvailability = false;
+  await dialog.getByRole("button", { name: "Appliquer", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page
+      .locator('[data-carte-item="1"]')
+      .getByText("Toujours disponible", { exact: true }),
+  ).toBeVisible();
+  await expect(trigger).toBeFocused();
+  await expect(
+    page.getByRole("button", { name: "Publier", exact: true }),
+  ).toHaveCount(0);
+  expect(f.writes).toEqual(["availability", "availability"]);
+});
+
+test("Add selects a target group and item navigation guards the resulting draft", async ({
+  page,
+}) => {
+  const f = await install(page, "fr", true);
+  await page.goto(`/1/menu/menus/${f.menu.id}`);
+  const add = page.getByRole("button", { name: "Ajouter", exact: true });
+  await add.focus();
+  await page.keyboard.press("Enter");
+  await page
+    .getByRole("menuitem", { name: "Ajouter des articles", exact: true })
+    .click();
+  const picker = page.getByRole("dialog");
+  await picker
+    .getByRole("combobox", { name: "Groupe de cartes", exact: true })
+    .selectOption("group-2");
+  await picker.getByRole("checkbox").first().check();
+  await picker.getByRole("button", { name: "Fermer", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Salade méditerranéenne", exact: true })
+    .click();
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Continuer la modification", exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/menu/menus/${f.menu.id}$`));
+  expect(f.writes).toEqual([]);
+});
+
+test("publication remains reachable on a long carte and French mobile stays within viewport", async ({
+  page,
+}) => {
+  const f = await install(page, "fr", true);
+  for (let i = 3; i <= 16; i++)
+    f.payload.groups.push({
+      ...structuredClone(f.payload.groups[0]),
+      key: `group-${i}`,
+      id: i,
+      name: `Groupe ${i}`,
+    });
+  await page.goto(`/1/menu/menus/${f.menu.id}`);
+  await rename(page, "Une longue carte");
+  await expect(
+    page.getByRole("button", { name: "Enregistrer le brouillon", exact: true }),
+  ).toBeInViewport();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    )
+    .toBe(true);
+  await expect(
+    page.getByRole("button", { name: "Enregistrer le brouillon", exact: true }),
+  ).toBeInViewport();
+  await page.screenshot({ path: "test-results/carte-square-mobile-fr.png" });
 });

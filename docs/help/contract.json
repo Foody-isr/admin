@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "cb21f3aa5a28c5094cf3382804457afb1c94fdf8",
-  "documentationRevision": "6ca1ee2508850836356fb537020f59731d2b023bb2f53899e4a92f713317d159",
+  "documentationRef": "01ffd69a5a9f57b21a16a9343d69660d94ddf95f",
+  "documentationRevision": "057236066454b82ff85b651f68b0931042e9da9a2b8ac879c165bbd7b4795fd7",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -240,15 +240,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/kitchen/availability.mdx",
-          "sha256": "cdd078bff2184ce1c34a3c9de489b85495614c9a417776455bbb8b90a31d8f48"
+          "sha256": "86eca3c43d36a80dad0068714fe2f43c6fbd43328bc26d5bf139a29954c89442"
         },
         "fr": {
           "path": "src/content/help/fr/kitchen/availability.mdx",
-          "sha256": "62ec1e989cd2f79cc49127d80464b829cbebaf007dd3804599ef1771fd9788c6"
+          "sha256": "f5b54573b1dfc204dc7393f1d71e20d6887756887c2fb15606486b6d354dfa0d"
         },
         "he": {
           "path": "src/content/help/he/kitchen/availability.mdx",
-          "sha256": "803e5214345202c7b0b468c2e1076f68e93ac55202fea2036503385a8f52ff7a"
+          "sha256": "e586f60142f562b8ae944b8f3a2434f278b3bc9524355ad90533344f50ddee6e"
         }
       }
     },
@@ -392,15 +392,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/menus-and-groups.mdx",
-          "sha256": "e33b8976a9931c61c7d0d1b968722f0280a6322a8208a369aa8c7d44698ea08b"
+          "sha256": "26160cc637638749db0346c5e04b305f3b7acbb21f1ffb6e55d77a441ed53627"
         },
         "fr": {
           "path": "src/content/help/fr/menu/menus-and-groups.mdx",
-          "sha256": "ebafa14b1d2bbb1349c70b409fdf103c4a14a59d6e7cb277fc794c48b162c6c5"
+          "sha256": "75a76ef72b566f6193b5d6fb30608a616a1638387347c771a2da8c6867de8039"
         },
         "he": {
           "path": "src/content/help/he/menu/menus-and-groups.mdx",
-          "sha256": "d4fe230b3366d7590830355f04a0d88b01f2c16d123b73ad96e31977fd7d5f13"
+          "sha256": "ac12fe3a47b406e8c6846f02c1098960c888354de487a436d7405bc98b8f899a"
         }
       }
     },
@@ -4602,7 +4602,7 @@
       ]
     },
     "src/components/menu/BatchPicker.tsx": {
-      "sha256": "6566a6b2ee08b393250f277574fdc063d451abedc69530e5e475aed480725b4a",
+      "sha256": "fd68d229779956171887702d32ac5f4f4124553bde2f5eb96d788b51a162e909",
       "features": [
         "menu-menus-and-groups"
       ]
@@ -4679,8 +4679,20 @@
         "menu-menus-and-groups"
       ]
     },
+    "src/components/menu/publication/CarteEditor.module.css": {
+      "sha256": "6e30d032a3fb99aa22bc50083a468978a0f5b1f7eaa01b7574db097fa27f10f1",
+      "features": [
+        "menu-menus-and-groups"
+      ]
+    },
     "src/components/menu/publication/CarteEditor.tsx": {
-      "sha256": "113dc6134aadc9c1f2b9b79827bd4ebf4d6d639cce7aa2404e7ec1a465468886",
+      "sha256": "deff8dda13c8f0cac2d843cba82f94bf2da1fe6aa6e9e0d947dcbfecf5d23a18",
+      "features": [
+        "menu-menus-and-groups"
+      ]
+    },
+    "src/components/menu/publication/CarteGroups.tsx": {
+      "sha256": "160bfa058ca0ad42cab10f5c1519b3d2ec5039dd3a87dd040bf697a5ff4a017b",
       "features": [
         "menu-menus-and-groups"
       ]
@@ -6166,7 +6178,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "24a248800d5b4f426afed1640d1b55aa2161cff4cedcc57c0cb453955b7317f6",
+      "sha256": "039446dcb377c536715e78afd7db5157075fbb1c7c8fab5ac2a39cf46c5e9c5b",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -17524,12 +17536,21 @@
         "menu-menus-and-groups"
       ],
       "labels": [
+        "add",
+        "apply",
         "cancel",
         "carteAddGroup",
+        "carteAddGroupCard",
+        "carteAddItems",
+        "carteAvailabilityHint",
+        "carteAvailabilityTitle",
+        "carteBack",
         "carteChooseHint",
         "carteChooseItems",
         "carteConflict",
         "carteConflictHint",
+        "carteDeleteGroupHint",
+        "carteDeleteGroupTitle",
         "carteDiscardDraft",
         "carteDiscardHint",
         "carteDiscardTitle",
@@ -17537,15 +17558,15 @@
         "carteEmpty",
         "carteGroupImage",
         "carteGroupSettings",
-        "carteGroups",
+        "carteHelp",
         "carteHidden",
-        "carteImmediateAvailability",
-        "carteLiveLegacy",
+        "carteLiveStatus",
         "carteLocalChangesHint",
-        "carteMoveDown",
-        "carteMoveTo",
-        "carteMoveUp",
+        "carteMenuActions",
         "carteParentGroup",
+        "cartePosAndWeb",
+        "cartePosChannel",
+        "cartePosLayoutShort",
         "cartePreview",
         "cartePreviewHint",
         "cartePreviewStocksHint",
@@ -17555,26 +17576,26 @@
         "cartePublishTitle",
         "cartePublished",
         "carteReload",
-        "carteRemoveSelected",
         "carteSaveAndLeave",
         "carteSaveDraft",
         "carteSaved",
         "carteSavedAt",
-        "carteSelected",
         "carteSettings",
         "carteSharedLibraryHint",
+        "carteTargetGroup",
         "carteUnsaved",
         "carteUnsavedHint",
         "carteUnsavedTitle",
         "carteUntitled",
+        "carteWebChannel",
         "close",
         "delete",
         "description",
+        "editPosLayout",
         "loading",
         "menus",
         "name",
         "none",
-        "saleStockAvailable",
         "saleStockClose",
         "saleStockHistory",
         "saleStockHistoryHint",
@@ -17582,8 +17603,7 @@
         "saleStockPrepare",
         "saleStockTitle",
         "saving",
-        "search",
-        "select"
+        "search"
       ],
       "actions": [
         "accept",
@@ -17595,6 +17615,54 @@
         "save",
         "saved",
         "updateGroup"
+      ]
+    },
+    {
+      "id": "foodyadmin:src/components/menu/publication/CarteGroups.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/menu/publication/CarteGroups.tsx",
+      "line": 1,
+      "features": [
+        "menu-menus-and-groups"
+      ],
+      "labels": [
+        "actions",
+        "available",
+        "cancel",
+        "carteAddItems",
+        "carteAllChannels",
+        "carteAlwaysAvailable",
+        "carteAvailabilityTitle",
+        "carteChooseItems",
+        "carteEditGroup",
+        "carteGroupActions",
+        "carteGroups",
+        "carteHidden",
+        "carteItemActions",
+        "carteLocations",
+        "carteMoveDown",
+        "carteMoveTo",
+        "carteMoveUp",
+        "cartePendingChange",
+        "cartePosChannel",
+        "carteRemoveSelected",
+        "carteSelectGroup",
+        "carteSelected",
+        "carteSoldOut",
+        "carteStockRemaining",
+        "carteUntitled",
+        "carteWebChannel",
+        "channels",
+        "delete",
+        "item",
+        "modifiers",
+        "price",
+        "saleStockHistory",
+        "select"
+      ],
+      "actions": [
+        "open",
+        "update"
       ]
     },
     {

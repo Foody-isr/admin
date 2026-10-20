@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useMemo } from 'react';
-import type { BatchCycleSummary } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useMemo } from "react";
+import type { BatchCycleSummary } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 /**
  * Batch-anchored picker used by the admin carte detail page when a menu has
@@ -14,10 +14,12 @@ export function BatchPicker({
   cycles,
   selectedIndex,
   onChange,
+  compact = false,
 }: {
   cycles: BatchCycleSummary[];
   selectedIndex: number;
   onChange: (next: number) => void;
+  compact?: boolean;
 }) {
   const { t, locale, direction } = useI18n();
 
@@ -27,12 +29,12 @@ export function BatchPicker({
     return (cycle: BatchCycleSummary): string => {
       const primary = cycle.fulfillment_days?.[0];
       if (primary?.date) {
-        const d = new Date(primary.date + 'T00:00:00');
+        const d = new Date(primary.date + "T00:00:00");
         return formatBatchLabel(d, locale);
       }
       const cutoff = cycle.cutoff_at ? new Date(cycle.cutoff_at) : null;
       if (cutoff) return formatBatchLabel(cutoff, locale);
-      return '—';
+      return "—";
     };
   }, [locale]);
 
@@ -41,28 +43,44 @@ export function BatchPicker({
   const canNext = safeIndex < cycles.length - 1;
 
   return (
-    <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+    <div
+      className={
+        compact
+          ? "inline-flex min-w-0 items-center gap-0.5"
+          : "flex w-full min-w-0 items-center gap-2 sm:w-auto"
+      }
+    >
       <button
         type="button"
         onClick={() => canPrev && onChange(safeIndex - 1)}
         disabled={!canPrev}
-        className="size-11 shrink-0 rounded-r-md border border-[var(--divider)] hover:bg-[var(--surface-subtle)] flex items-center justify-center text-fg-secondary disabled:opacity-30 disabled:cursor-not-allowed"
-        aria-label={t('weekPrev') || 'Previous batch'}
+        className={
+          compact
+            ? "size-6 shrink-0 rounded-full hover:bg-[var(--surface-2)] flex items-center justify-center text-lg disabled:opacity-30 disabled:cursor-not-allowed"
+            : "size-11 shrink-0 rounded-r-md border border-[var(--divider)] hover:bg-[var(--surface-subtle)] flex items-center justify-center text-fg-secondary disabled:opacity-30 disabled:cursor-not-allowed"
+        }
+        aria-label={t("weekPrev") || "Previous batch"}
       >
-        {direction === 'rtl' ? '›' : '‹'}
+        {direction === "rtl" ? "›" : "‹"}
       </button>
       <select
-        aria-label={t('selectBatch')}
+        aria-label={t("selectBatch")}
         value={String(safeIndex)}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="input min-w-0 flex-1 text-sm sm:w-64"
+        className={
+          compact
+            ? "min-w-0 max-w-52 cursor-pointer bg-transparent py-0 pe-1 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            : "input min-w-0 flex-1 text-sm sm:w-64"
+        }
       >
         {cycles.map((cycle, i) => {
           const label = labelFor(cycle);
-          const suffix = i === 0 ? ` (${t('currentBatch') || 'current'})` : '';
+          const suffix = i === 0 ? ` (${t("currentBatch") || "current"})` : "";
           return (
             <option key={i} value={i}>
-              {`${t('batchLabel')?.replace('{day}', label) || `Batch — ${label}`}${suffix}`}
+              {compact
+                ? `${label}${suffix}`
+                : `${t("batchLabel")?.replace("{day}", label) || `Batch — ${label}`}${suffix}`}
             </option>
           );
         })}
@@ -71,10 +89,14 @@ export function BatchPicker({
         type="button"
         onClick={() => canNext && onChange(safeIndex + 1)}
         disabled={!canNext}
-        className="size-11 shrink-0 rounded-r-md border border-[var(--divider)] hover:bg-[var(--surface-subtle)] flex items-center justify-center text-fg-secondary disabled:opacity-30 disabled:cursor-not-allowed"
-        aria-label={t('weekNext') || 'Next batch'}
+        className={
+          compact
+            ? "size-6 shrink-0 rounded-full hover:bg-[var(--surface-2)] flex items-center justify-center text-lg disabled:opacity-30 disabled:cursor-not-allowed"
+            : "size-11 shrink-0 rounded-r-md border border-[var(--divider)] hover:bg-[var(--surface-subtle)] flex items-center justify-center text-fg-secondary disabled:opacity-30 disabled:cursor-not-allowed"
+        }
+        aria-label={t("weekNext") || "Next batch"}
       >
-        {direction === 'rtl' ? '‹' : '›'}
+        {direction === "rtl" ? "‹" : "›"}
       </button>
     </div>
   );
@@ -82,8 +104,8 @@ export function BatchPicker({
 
 function formatBatchLabel(d: Date, locale: string): string {
   // Compact label like "Fri 12 Jun" without dragging in a locale dep.
-  const weekday = d.toLocaleDateString(locale, { weekday: 'short' });
+  const weekday = d.toLocaleDateString(locale, { weekday: "short" });
   const day = d.getDate();
-  const month = d.toLocaleDateString(locale, { month: 'short' });
+  const month = d.toLocaleDateString(locale, { month: "short" });
   return `${weekday} ${day} ${month}`;
 }
