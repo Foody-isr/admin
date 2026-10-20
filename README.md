@@ -1,5 +1,14 @@
 # Foody Admin
 
+Carte editing uses private drafts with explicit Save draft, Preview and Publish.
+The selected series scopes a rotating carte and its prepared sale allowances.
+Unsaved navigation offers save/discard/continue; operational availability switches
+marked immediate are journaled independently. Item stocks provides a restaurant
+history and corrections, also accessible from a product. Product prices and recipes
+remain shared library edits. Requires API migration 267 and its draft/stock routes;
+deploy the API before this Admin revision.
+
+
 Delivery planning limits scheduled deliveries to the selected route date and
 displays total duration with separate driving, waiting and handover times in the
 dispatcher and courier views. Unknown historic breakdowns are omitted until
