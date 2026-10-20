@@ -1,0 +1,22 @@
+{
+  "files": [
+    {
+      "path": "src/components/menu/publication/CarteEditor.tsx",
+      "sha256": "bccc736df95389fbe008ec1acebb443ddad7f344e30269f0e81b0c0f771efcf1",
+      "disposition": "no-user-impact",
+      "reason": "Public-procedure review: this render-only correction exposes redundant shortcuts to the existing preview, draft-save, publish, stock preparation and item-history handlers. All original menu entries, translated labels, permissions, leave guards and documented bottom publication bar remain available. No API, persistence or stock behavior changes. The current FR/HE/EN guide steps remain accurate and are exercised by the retained browser regressions."
+    },
+    {
+      "path": "src/components/menu/publication/CarteGroups.tsx",
+      "sha256": "105dd6f4c6765f2decfadd76bf31c946675bc310b2b9d30413a813fd6fda1479",
+      "disposition": "no-user-impact",
+      "reason": "Public-procedure review: this render-only correction exposes redundant shortcuts to the existing preview, draft-save, publish, stock preparation and item-history handlers. All original menu entries, translated labels, permissions, leave guards and documented bottom publication bar remain available. No API, persistence or stock behavior changes. The current FR/HE/EN guide steps remain accurate and are exercised by the retained browser regressions."
+    },
+    {
+      "path": "src/components/menu/publication/CarteEditor.module.css",
+      "sha256": "a734b1fed5e6754bb68690edf94e598207cbdc3e3e4e01a9b88b281a6782c26d",
+      "disposition": "no-user-impact",
+      "reason": "Public-procedure review: this render-only correction exposes redundant shortcuts to the existing preview, draft-save, publish, stock preparation and item-history handlers. All original menu entries, translated labels, permissions, leave guards and documented bottom publication bar remain available. No API, persistence or stock behavior changes. The current FR/HE/EN guide steps remain accurate and are exercised by the retained browser regressions."
+    }
+  ]
+}

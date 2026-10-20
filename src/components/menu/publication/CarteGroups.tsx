@@ -7,6 +7,7 @@ import {
   ArrowUp,
   ChevronDown,
   ChevronUp,
+  History,
   MoreHorizontal,
   Plus,
 } from "lucide-react";
@@ -467,84 +468,97 @@ export function CarteGroups({
                               {item ? money(item.price) : "—"}
                             </td>
                             <td>
-                              <ActionMenu
-                                label={t("carteItemActions").replace(
-                                  "{name}",
-                                  item?.name || `#${id}`,
-                                )}
-                                iconOnly
-                                className={styles.rowMenu}
-                                actions={[
-                                  {
-                                    label: t(canEdit ? "editItem" : "view"),
-                                    onClick: () => onEditItem(id),
-                                    disabled: busy,
-                                  },
-                                  ...(stock?.series_key && canEdit
-                                    ? [
-                                        {
-                                          label: t("carteAvailabilityTitle"),
-                                          onClick: () =>
-                                            onAvailability(id, override),
-                                          disabled: busy,
-                                        },
-                                      ]
-                                    : []),
-                                  {
-                                    label: t("saleStockHistory"),
-                                    onClick: () => onHistory(id),
-                                    disabled: busy,
-                                  },
-                                  ...(canEdit
-                                    ? [
-                                        {
-                                          label: t("carteMoveUp"),
-                                          icon: <ArrowUp />,
-                                          disabled: busy || itemIndex === 0,
-                                          onClick: () =>
-                                            update(group, {
-                                              item_ids: moveEntry(
-                                                group.item_ids,
-                                                itemIndex,
-                                                -1,
-                                              ),
-                                            }),
-                                        },
-                                        {
-                                          label: t("carteMoveDown"),
-                                          icon: <ArrowDown />,
-                                          disabled:
-                                            busy ||
-                                            itemIndex ===
-                                              group.item_ids.length - 1,
-                                          onClick: () =>
-                                            update(group, {
-                                              item_ids: moveEntry(
-                                                group.item_ids,
-                                                itemIndex,
-                                                1,
-                                              ),
-                                            }),
-                                        },
-                                        {
-                                          label: t("carteRemoveSelected"),
-                                          variant: "danger" as const,
-                                          disabled: busy,
-                                          onClick: () => {
-                                            update(group, {
-                                              item_ids: group.item_ids.filter(
-                                                (value) => value !== id,
-                                              ),
-                                            });
-                                            setSelected(null);
+                              <div className={styles.rowActions}>
+                                <button
+                                  type="button"
+                                  className={styles.historyButton}
+                                  disabled={busy}
+                                  aria-label={`${t("saleStockHistory")} — ${item?.name || `#${id}`}`}
+                                  title={t("saleStockHistory")}
+                                  onClick={() => onHistory(id)}
+                                >
+                                  <History aria-hidden />
+                                  <span>{t("stockHistory")}</span>
+                                </button>
+                                <ActionMenu
+                                  label={t("carteItemActions").replace(
+                                    "{name}",
+                                    item?.name || `#${id}`,
+                                  )}
+                                  iconOnly
+                                  className={styles.rowMenu}
+                                  actions={[
+                                    {
+                                      label: t(canEdit ? "editItem" : "view"),
+                                      onClick: () => onEditItem(id),
+                                      disabled: busy,
+                                    },
+                                    ...(stock?.series_key && canEdit
+                                      ? [
+                                          {
+                                            label: t("carteAvailabilityTitle"),
+                                            onClick: () =>
+                                              onAvailability(id, override),
+                                            disabled: busy,
                                           },
-                                        },
-                                      ]
-                                    : []),
-                                ]}
-                              >
-                                <MoreHorizontal aria-hidden />
-                              </ActionMenu>
+                                        ]
+                                      : []),
+                                    {
+                                      label: t("saleStockHistory"),
+                                      onClick: () => onHistory(id),
+                                      disabled: busy,
+                                    },
+                                    ...(canEdit
+                                      ? [
+                                          {
+                                            label: t("carteMoveUp"),
+                                            icon: <ArrowUp />,
+                                            disabled: busy || itemIndex === 0,
+                                            onClick: () =>
+                                              update(group, {
+                                                item_ids: moveEntry(
+                                                  group.item_ids,
+                                                  itemIndex,
+                                                  -1,
+                                                ),
+                                              }),
+                                          },
+                                          {
+                                            label: t("carteMoveDown"),
+                                            icon: <ArrowDown />,
+                                            disabled:
+                                              busy ||
+                                              itemIndex ===
+                                                group.item_ids.length - 1,
+                                            onClick: () =>
+                                              update(group, {
+                                                item_ids: moveEntry(
+                                                  group.item_ids,
+                                                  itemIndex,
+                                                  1,
+                                                ),
+                                              }),
+                                          },
+                                          {
+                                            label: t("carteRemoveSelected"),
+                                            variant: "danger" as const,
+                                            disabled: busy,
+                                            onClick: () => {
+                                              update(group, {
+                                                item_ids: group.item_ids.filter(
+                                                  (value) => value !== id,
+                                                ),
+                                              });
+                                              setSelected(null);
+                                            },
+                                          },
+                                        ]
+                                      : []),
+                                  ]}
+                                >
+                                  <MoreHorizontal aria-hidden />
+                                </ActionMenu>
+                              </div>
                             </td>
                           </tr>
                         );
