@@ -1,0 +1,10 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "966dd175c9f28b25a6cbf97771e8d6289934df9050d0ddbbc3b7fde3ee4fc4a4",
+      "disposition": "no-user-impact",
+      "reason": "Adds only FR/HE/EN labels for the carte availability editor; its user-facing behavior is documented in the updated menus-and-groups guide. Existing translation keys and values are untouched, including every delivery-dispatch workflow; no shared-runtime or delivery behavior changes."
+    }
+  ]
+}

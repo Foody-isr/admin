@@ -56,7 +56,6 @@ import { BatchPicker } from "@/components/menu/BatchPicker";
 import ItemUnsavedDialog from "@/components/menu-item/ItemUnsavedDialog";
 import { useItemLeaveGuard } from "@/components/menu-item/useItemLeaveGuard";
 import { StockPreparation } from "./StockPreparation";
-import { RestockDialog } from "./RestockDialog";
 import { StockHistory } from "./StockHistory";
 import { CarteGroups } from "./CarteGroups";
 import ActionMenu from "@/components/common/ActionMenu";
@@ -206,10 +205,6 @@ function CarteEditor({
     "publish" | "discard" | null
   >(null);
   const [removeGroup, setRemoveGroup] = useState<string | null>(null);
-  const [restockItem, setRestockItem] = useState<SaleStockRow | null>(null);
-  const [availabilityItem, setAvailabilityItem] = useState<number | null>(null);
-  const [availabilityChoice, setAvailabilityChoice] =
-    useState<AvailabilityOverride>("auto");
   const initialOpened = useRef(false);
   useEffect(() => {
     if (!doc || initialOpened.current || !initialGroup) return;
@@ -438,16 +433,6 @@ function CarteEditor({
       return true;
     });
     return applied === true;
-  }
-  function quickAvailability(id: number) {
-    const row = stock?.rows.find(value => value.item.id === id);
-    if (!row) return;
-    const override = row.config?.override ?? row.item.availability_override ?? "auto";
-    const sold = override === "force_sold_out" || override !== "force_available" && ["sold_out", "hidden"].includes(row.availability.availability_state);
-    if (sold && (row.config?.mode || row.item.stock_mode) && row.availability.buildable_count === 0) {
-      setError(""); setRestockItem(row); return;
-    }
-    void operational(id, sold ? (row.config?.mode || row.item.stock_mode ? "auto" : "force_available") : "force_sold_out");
   }
   const goSeries = (next: number) =>
     guard.requestAction(() => {
@@ -704,11 +689,10 @@ function CarteEditor({
             }}
             onRemoveGroup={setRemoveGroup}
             onHistory={setHistoryItem}
-            onQuickAvailability={quickAvailability}
-            onAvailability={(id, value) => {
-              setAvailabilityChoice(value);
-              setAvailabilityItem(id);
-            }}
+            availabilityError={error}
+            onAvailabilityOpen={() => setError("")}
+            onReloadStock={() => run(async () => { if (date !== null) setStock(await getSalesStock(rid, date)); })}
+            onAvailabilityApply={operational}
             onEditItem={(id) =>
               navigate(
                 `/${rid}/menu/items/${id}?from=${encodeURIComponent(`/${rid}/menu/menus/${mid}`)}`,
@@ -1052,67 +1036,6 @@ function CarteEditor({
           {historyItem !== null && (
             <StockHistory rid={rid} itemId={historyItem} />
           )}
-        </DialogContent>
-      </Dialog>
-      {restockItem && <RestockDialog row={restockItem} busy={busy} error={error} onClose={() => setRestockItem(null)} onApply={input => operational(input.menu_item_id, "auto", input)} />}
-      <Dialog
-        open={availabilityItem !== null}
-        onOpenChange={(open) => {
-          if (!open && !busy) setAvailabilityItem(null);
-        }}
-      >
-        <DialogContent {...dialogFocus}>
-          <DialogHeader>
-            <DialogTitle>{t("carteAvailabilityTitle")}</DialogTitle>
-            <DialogDescription>{t("carteAvailabilityHint")}</DialogDescription>
-          </DialogHeader>
-          <p className="font-semibold">
-            {items.find((item) => item.id === availabilityItem)?.name}
-          </p>
-          <div className={styles.availabilityChoices}>
-            {(["auto", "force_available", "force_sold_out"] as const).map(
-              (value) => (
-                <label key={value}>
-                  <input
-                    type="radio"
-                    name="carte-availability"
-                    value={value}
-                    checked={availabilityChoice === value}
-                    disabled={busy || !canEdit}
-                    onChange={() => setAvailabilityChoice(value)}
-                  />
-                  <span>{t(`saleStockOverride_${value}`)}</span>
-                </label>
-              ),
-            )}
-          </div>
-          {error && (
-            <p role="alert" className="text-red-700">
-              {error}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="secondary"
-              disabled={busy}
-              onClick={() => setAvailabilityItem(null)}
-            >
-              {t("cancel")}
-            </Button>
-            <Button
-              disabled={busy || !canEdit}
-              onClick={() => {
-                if (availabilityItem !== null)
-                  void operational(availabilityItem, availabilityChoice).then(
-                    (applied) => {
-                      if (applied) setAvailabilityItem(null);
-                    },
-                  );
-              }}
-            >
-              {t("apply")}
-            </Button>
-          </div>
         </DialogContent>
       </Dialog>
       <ConfirmDialog
