@@ -120,8 +120,8 @@ export function i18nOr(t: (key: string) => string, key: string, fallback: string
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
-    editorOfferSignIn: "Offer sign-in before ordering",
-    editorOfferSignInHint: "Off: customers go directly to ordering. On: offer sign-in alongside Order without an account. This setting takes effect when you publish the site.",
+    editorOfferSignIn: "Show the sign-in invitation on arrival",
+    editorOfferSignInHint: "Off: customers order directly, with a discreet Sign in link still available. On: show the sign-in invitation alongside Order without an account. Apply this preference by publishing the site.",
     carteRestockTitle: "Make available again",
     carteChoiceUnlimited: "Available without a limit",
     carteChoiceStock: "Predefined stock",
@@ -8894,8 +8894,8 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
   he: {
-    editorOfferSignIn: "להציע התחברות לפני ההזמנה",
-    editorOfferSignInHint: "כבוי: מעבר ישיר להזמנה. פעיל: הצעת התחברות לצד הזמנה ללא חשבון. השינוי נכנס לתוקף בפרסום האתר.",
+    editorOfferSignIn: "הצגת הצעת התחברות בכניסה",
+    editorOfferSignInHint: "כבוי: מעבר ישיר להזמנה, עם קישור התחברות דיסקרטי שזמין תמיד. פעיל: הצגת הצעת התחברות לצד הזמנה ללא חשבון. הבחירה מוחלת בפרסום האתר.",
     carteRestockTitle: "החזרה לזמינות",
     carteChoiceUnlimited: "זמין ללא הגבלה",
     carteChoiceStock: "מלאי מוגדר מראש",
@@ -17659,8 +17659,8 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── French ──────────────────────────────────────────────────────────────
   fr: {
-    editorOfferSignIn: "Proposer la connexion avant de commander",
-    editorOfferSignInHint: "Désactivé : accès direct à la commande. Activé : invitation à se connecter avec un accès visible à Commander sans compte. Le réglage s’applique à la publication du site.",
+    editorOfferSignIn: "Afficher l’invitation à se connecter à l’arrivée",
+    editorOfferSignInHint: "Désactivé : commande directe avec un lien discret Se connecter toujours disponible. Activé : invitation à se connecter avec l’accès Commander sans compte. Le réglage s’applique à la publication du site.",
     carteRestockTitle: "Remettre en disponibilité",
     carteChoiceUnlimited: "Disponible sans limite",
     carteChoiceStock: "Stock prédéfini",
