@@ -10,6 +10,7 @@ const SECTION_PERMISSIONS: Record<string, string[]> = {
   menu: ['menu.view', 'menu.edit'],
   kitchen: ['kitchen.view', 'kitchen.manage'],
   orders: ['orders.view', 'orders.manage'],
+  transactions: ['payments.view', 'payments.manage'],
   'website-v3': ['settings.edit'],
   customers: ['customers.view', 'customers.manage'],
   analytics: ['analytics.view'],

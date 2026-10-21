@@ -4767,6 +4767,55 @@ export async function confirmMenuImport(
 
 // ─── Orders ───────────────────────────────────────────────────────────────────
 
+/** A confirmed tender, independent from the orders or checks it may cover. */
+export interface TransactionRecord {
+  id: string;
+  kind: 'sale' | 'refund' | 'void';
+  status: string;
+  related_transaction_id?: string;
+  method: string;
+  source: 'pos' | 'online';
+  payment_rail: string;
+  amount_minor: number;
+  currency: string;
+  occurred_at: string;
+  reference?: string;
+  actor_user_id?: number;
+  allocations: { order_id?: number; check_id?: string; amount_minor?: number }[];
+  items: string[];
+}
+
+export interface ListTransactionsParams {
+  from: string;
+  to: string;
+  q?: string;
+  method?: 'cash' | 'card' | 'credit_card' | 'bank_transfer';
+  source?: 'pos' | 'online';
+  limit?: number;
+  offset?: number;
+}
+
+export interface ListTransactionsResult {
+  transactions: TransactionRecord[];
+  total: number;
+  totals_by_currency: Record<string, number>;
+  recorded_returns_by_currency: Record<string, number>;
+  limit: number;
+  offset: number;
+}
+
+/** Read the restaurant-scoped payment history also used by FoodyPOS. */
+export async function listTransactions(restaurantId: number, params: ListTransactionsParams): Promise<ListTransactionsResult> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId), from: params.from, to: params.to });
+  if (params.q) qs.set('q', params.q);
+  if (params.method) qs.set('method', params.method);
+  if (params.source) qs.set('source', params.source);
+  if (params.limit != null) qs.set('limit', String(params.limit));
+  if (params.offset != null) qs.set('offset', String(params.offset));
+  const data = await apiFetch<ListTransactionsResult>(`/api/v1/transactions?${qs.toString()}`, restaurantId);
+  return { ...data, transactions: data.transactions ?? [] };
+}
+
 export interface ListOrdersParams {
   status?: string;
   active?: boolean;

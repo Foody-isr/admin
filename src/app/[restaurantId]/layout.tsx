@@ -30,6 +30,7 @@ const PAGE_SLUGS = [
   'menu',
   'kitchen',
   'orders',
+  'transactions',
   'deliveries',
   'courierMode',
   'staff',
