@@ -1,4 +1,7 @@
-Availability beneath each carte item is a direct operational action. An exhausted
+The carte has a dedicated Availability column using the same green/red clickable
+AvailabilityPill as the Articles list. Remaining quantities appear beneath the badge;
+on mobile the badge and count stay on the item row. Availability is a direct
+operational action. An exhausted
 predefined allowance opens a remaining-quantity dialog; the API preserves all
 committed orders under its stock lock. The explicit availability menu remains.
 Website V3 → Order journey can draft and publish the optional entry sign-in

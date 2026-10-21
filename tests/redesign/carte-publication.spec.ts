@@ -763,9 +763,13 @@ test("carte availability toggles directly without the action menu", async ({ pag
  const f = await install(page, 'fr', true);
  await page.goto(`/1/menu/menus/${f.menu.id}`);
  const row = page.locator('[data-carte-item]').first();
+ await expect(page.getByRole('columnheader', { name: 'Disponibilité', exact: true })).toBeVisible();
+ await expect(row.locator('.list-availability-pill')).toHaveText('Disponible');
  await row.getByRole('button', { name: /Marquer épuisé/i }).click();
  await expect.poll(() => f.writes).toEqual(['availability']);
+ await expect(row.locator('.list-availability-pill')).toHaveText('Rupture de stock');
  await expect(page.getByRole('dialog')).toHaveCount(0);
+ await page.screenshot({ path: 'test-results/carte-availability-column-fr.png', fullPage: true, animations: 'disabled' });
 });
 
 for (const measure of [false, true]) test(`exhausted predefined ${measure ? "measured" : "counted"} stock asks for remaining quantity directly and preserves draft controls`, async ({ page }) => {
@@ -776,6 +780,7 @@ for (const measure of [false, true]) test(`exhausted predefined ${measure ? "mea
  await page.route('**/api/v1/menu/items/*/sales-stock/restock?*', route => { const input = route.request().postDataJSON(); inputs.push(input); quantity = input.quantity; revision++; return route.fulfill({ json: { revision } }); });
  await page.goto(`/1/menu/menus/${f.menu.id}`);
  const row = page.locator('[data-carte-item]').first();
+ await expect(row.locator('.list-availability-pill')).toHaveText('Rupture de stock');
  await row.getByRole('button', { name: /Remettre en vente/i }).click();
  const dialog = page.getByRole('dialog');
  await expect(dialog.getByRole('heading', { name: 'Remettre en disponibilité' })).toBeVisible();
@@ -783,6 +788,7 @@ for (const measure of [false, true]) test(`exhausted predefined ${measure ? "mea
  await dialog.getByRole('spinbutton').fill(measure ? '500' : '5');
  await dialog.getByRole('button', { name: 'Remettre en disponibilité', exact: true }).click();
  await expect(dialog).toHaveCount(0);
+ await expect(row.locator('.list-availability-pill')).toHaveText('Disponible');
  await expect(row).toContainText(measure ? '2 disponible' : '5 disponible');
  expect(inputs).toHaveLength(1); expect(inputs[0]).toMatchObject({ quantity: measure ? 500 : 5, expected_revision: 2, mode: measure ? 'measure' : 'count', unit: measure ? 'g' : '', override: 'auto' });
  expect(f.writes).toEqual([]);

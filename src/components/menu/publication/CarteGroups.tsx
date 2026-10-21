@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type {
   AvailabilityOverride,
+  AvailabilityState,
   CarteDocument,
   CarteDraftGroup,
   MenuItem,
@@ -22,6 +23,7 @@ import { moveEntry } from "@/lib/carte-editor";
 import { useCurrency, useI18n } from "@/lib/i18n";
 import ActionMenu from "@/components/common/ActionMenu";
 import { Checkbox } from "@/components/ui/checkbox";
+import { AvailabilityPill } from "@/components/menu/AvailabilityPill";
 import styles from "./CarteEditor.module.css";
 
 interface Props {
@@ -258,6 +260,7 @@ export function CarteGroups({
                       <col className={styles.locationColumn} />
                       <col className={styles.channelColumn} />
                       <col className={styles.modifierColumn} />
+                      <col className={styles.availabilityColumn} />
                       <col className={styles.priceColumn} />
                       <col className={styles.actionsColumn} />
                     </colgroup>
@@ -289,7 +292,7 @@ export function CarteGroups({
                             }
                           />
                         </th>
-                        <th>{t("item")}</th>
+                        <th className={styles.articleCell}>{t("item")}</th>
                         <th className={styles.locationColumn}>
                           {t("carteLocations")}
                         </th>
@@ -299,8 +302,9 @@ export function CarteGroups({
                         <th className={styles.modifierColumn}>
                           {t("modifiers")}
                         </th>
-                        <th>{t("price")}</th>
-                        <th>
+                        <th className={styles.availabilityColumn}>{t("availability")}</th>
+                        <th className={styles.price}>{t("price")}</th>
+                        <th className={styles.actionsCell}>
                           <span className="sr-only">{t("actions")}</span>
                         </th>
                       </tr>
@@ -317,20 +321,15 @@ export function CarteGroups({
                             ? "auto"
                             : (item?.availability_override ?? "auto"));
                         const count = status?.availability.buildable_count;
-                        const availability =
-                          override === "force_sold_out" ||
-                          status?.availability.availability_state ===
-                            "sold_out" ||
-                          status?.availability.availability_state === "hidden"
-                            ? t("carteSoldOut")
-                            : override === "force_available"
-                              ? t("carteAlwaysAvailable")
-                              : count != null
-                                ? t("carteStockRemaining").replace(
-                                    "{count}",
-                                    new Intl.NumberFormat(locale).format(count),
-                                  )
-                                : t("available");
+                        const stockSummary =
+                          override === "force_available"
+                            ? t("carteAlwaysAvailable")
+                            : count != null
+                              ? t("carteStockRemaining").replace(
+                                  "{count}",
+                                  new Intl.NumberFormat(locale).format(count),
+                                )
+                              : null;
                         const pending = doc.stocks?.some(
                           (limit) => limit.menu_item_id === id,
                         );
@@ -391,7 +390,7 @@ export function CarteGroups({
                                 }
                               />
                             </td>
-                            <td>
+                            <td className={styles.articleCell}>
                               <div className={styles.article}>
                                 <span className={styles.thumbnail}>
                                   {item?.image_url ? (
@@ -411,25 +410,6 @@ export function CarteGroups({
                                   <Link href={itemHref(id)} title={item?.name}>
                                     {item?.name || `#${id}`}
                                   </Link>
-                                  <button type="button"
-                                    disabled={!canEdit || busy || !status || item?.is_active === false}
-                                    onClick={event => { event.stopPropagation(); onQuickAvailability(id); }}
-                                    aria-label={`${item?.name}: ${availability} — ${t(override === "force_sold_out" || status?.availability.availability_state === "sold_out" ? "quickMarkAvailable" : "quickMarkSoldOut")}`}
-                                    className={styles.availability}
-                                    data-sold-out={
-                                      override === "force_sold_out" ||
-                                      status?.availability
-                                        .availability_state === "sold_out"
-                                    }
-                                  >
-                                    {availability}
-                                    {pending && (
-                                      <span className={styles.pending}>
-                                        {" "}
-                                        · {t("cartePendingChange")}
-                                      </span>
-                                    )}
-                                  </button>
                                 </div>
                               </div>
                             </td>
@@ -469,10 +449,32 @@ export function CarteGroups({
                                   : t("select")}
                               </Link>
                             </td>
+                            <td className={styles.availabilityColumn}>
+                              <div className={styles.availabilityContent}>
+                                {status ? (
+                                  <AvailabilityPill
+                                    state={status.availability.availability_state as AvailabilityState}
+                                    override={override}
+                                    isActive={item?.is_active !== false}
+                                    canEdit={canEdit}
+                                    pending={busy}
+                                    onToggle={() => onQuickAvailability(id)}
+                                  />
+                                ) : (
+                                  <span aria-label={t("availability")}>—</span>
+                                )}
+                                {stockSummary && (
+                                  <span className={styles.stockSummary}>{stockSummary}</span>
+                                )}
+                                {pending && (
+                                  <span className={styles.pending}>{t("cartePendingChange")}</span>
+                                )}
+                              </div>
+                            </td>
                             <td className={styles.price}>
                               {item ? money(item.price) : "—"}
                             </td>
-                            <td>
+                            <td className={styles.actionsCell}>
                               <div className={styles.rowActions}>
                                 <button
                                   type="button"
