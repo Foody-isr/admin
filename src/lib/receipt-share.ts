@@ -37,9 +37,9 @@ export function buildShareMessage(opts: {
     .trim();
 }
 
-/** wa.me deep link, or '' when the phone has no usable digits. */
+/** wa.me deep link using an international number without its + or 00 prefix. */
 export function buildWhatsAppUrl(phone: string | undefined, text: string): string {
-  const digits = (phone || '').replace(/\D/g, '');
+  const digits = (phone || '').replace(/\D/g, '').replace(/^00/, '');
   if (!digits) return '';
   return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
 }

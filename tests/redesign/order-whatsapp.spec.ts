@@ -2,9 +2,10 @@ import { test, expect, type Page } from '@playwright/test';
 import { createFixture } from './fixtures.mjs';
 import type { BlockedOrderWhatsAppAutomation, OrderWhatsAppHistoryEntry } from '../../src/lib/api';
 
-async function install(page: Page, lostResponse = false, meta = false, completed = false, options: { pending?: boolean; readOnly?: boolean; locale?: string } = {}) {
+async function install(page: Page, lostResponse = false, meta = false, completed = false, options: { pending?: boolean; readOnly?: boolean; locale?: string; customerPhone?: string } = {}) {
   const fixture = createFixture({ empty: false, ...(options.readOnly ? { permissions: ['orders.view'] } : {}) });
   Object.assign(fixture.orders[0], { ...(completed ? { status: 'delivered', received_at: new Date().toISOString(), completed_at: new Date().toISOString() } : {}), order_type: 'delivery', customer_phone: '+972500000000', courier_name: 'Livreur démo', courier_phone: '+972500000001', scheduled_for: new Date(Date.now() + 86400000).toISOString(), scheduled_pickup_window_start: '10:45', scheduled_pickup_window_end: '12:15' });
+  if (options.customerPhone) fixture.orders[0].customer_phone = options.customerPhone;
   const writes: Array<{ path: string; body: unknown; restaurant?: string }> = [];
   if (options.pending) fixture.orders[0].status = 'pending_review';
   const control = { status: 'ready', kind: 'order_recap', history: [] as OrderWhatsAppHistoryEntry[], blocked: [] as BlockedOrderWhatsAppAutomation[], blockedTotal: 0, historyError: false, nextCursor: '', older: [] as OrderWhatsAppHistoryEntry[], reads: [] as string[] };
@@ -50,6 +51,33 @@ async function confirmation(page: Page, restaurant = 1) {
   await page.getByRole('menuitem', { name: 'Envoyer la confirmation', exact: true }).click();
   return page.getByRole('region', { name: 'Message WhatsApp automatique', exact: true });
 }
+
+test('manual receipt and recap links remove the international 00 prefix', async ({ page }) => {
+  const state = await install(page, false, false, false, { customerPhone: '0033 6 12 34 56 78' });
+  await page.goto('/1/orders/1048');
+  await page.getByRole('button', { name: 'Actions', exact: true }).click();
+  const receiptLink = page.getByRole('menuitem', { name: 'Envoyer par WhatsApp', exact: true });
+  const receiptUrl = new URL((await receiptLink.getAttribute('href'))!);
+  expect(receiptUrl.origin).toBe('https://wa.me');
+  expect(receiptUrl.pathname).toBe('/33612345678');
+  expect(receiptUrl.searchParams.get('text')).toContain('voici le reçu de votre commande');
+  await page.keyboard.press('Escape');
+
+  await confirmation(page);
+  const message = 'Reçu de démonstration\nשלום & merci';
+  await page.getByRole('dialog').locator('textarea').first().fill(message);
+  await page.evaluate(() => {
+    window.open = (url) => {
+      document.documentElement.dataset.whatsappUrl = String(url);
+      return null;
+    };
+  });
+  await page.getByRole('button', { name: 'Ouvrir WhatsApp', exact: true }).click();
+  const recapUrl = new URL((await page.locator('html').getAttribute('data-whatsapp-url'))!);
+  expect(recapUrl.pathname).toBe('/33612345678');
+  expect(recapUrl.searchParams.get('text')).toBe(message);
+  expect(state.writes).toEqual([]);
+});
 
 test('review exact Twilio content and send only the scoped preview identity', async ({ page }, info) => {
   const state = await install(page);

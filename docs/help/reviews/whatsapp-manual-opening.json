@@ -1,0 +1,21 @@
+{
+  "files": [
+    {
+      "path": "src/lib/receipt-share.ts",
+      "sha256": "851a173fcbc77f500008cfc3b942f31fbee1cfcfc4909683becbf8d13fe1cb0b",
+      "disposition": "user-impact",
+      "feature": "whatsapp",
+      "reason": "Manual receipt, confirmation, courier reminder and invoice sharing use this helper. International numbers entered with 00 now produce the same WhatsApp recipient as their + equivalent, preserving internal zeros and the message text. The saved customer number is not changed and opening a link does not send a message."
+    }
+  ],
+  "documentation": {
+    "article": "communications/whatsapp",
+    "operation": "manual-opening",
+    "languages": ["fr", "he", "en"],
+    "status": "local-preparation",
+    "releaseRequirements": [
+      "Commit authorization has not been requested or granted. Replace WORKSPACE with the reviewed immutable Landing documentation commit before PR readiness.",
+      "When publishing the documentation release, synchronize the API support corpus and its documentation contract with Landing so search and the support assistant use the same corpus. Publish with the product release."
+    ]
+  }
+}

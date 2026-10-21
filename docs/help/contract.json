@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "ba81907383d42e5a9efa7356970f30f20d322a24",
-  "documentationRevision": "30e69a422c4daf7cd7bb3829709ab80dbdce7ce8d51ee8a99edd0b13b9136e5b",
+  "documentationRef": "WORKSPACE",
+  "documentationRevision": "4d9f702bc43529d42f7f20de7031a475f6ea31970c5637d6289b8d10b8afc5a0",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -1475,15 +1475,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/communications/whatsapp.mdx",
-          "sha256": "7ad2fbf15baf764da8e05ac1467e46092077eb655b72af3d3449b2e9f38fb5b0"
+          "sha256": "6af29102c7980097bb2b446c87fc032ee1ce7b8d1b06dc895283261a1c1cbb36"
         },
         "fr": {
           "path": "src/content/help/fr/communications/whatsapp.mdx",
-          "sha256": "071c8ff0bda8bbc773be438afdaaed152029a6857a51277850f6207d30743b0c"
+          "sha256": "33906b825a5805627775b3b4ea166a875d8bc967d77797d61df712eaa573daab"
         },
         "he": {
           "path": "src/content/help/he/communications/whatsapp.mdx",
-          "sha256": "e82a9ac18e8c987a0d0680c21546b969b756e3c1c1f3eea1edaad90a7f947a68"
+          "sha256": "7053f2096a9fbaec1546d63cfee70db7f34fe5a0ec336b4d16a30ea4da65da57"
         }
       }
     },
@@ -6543,8 +6543,9 @@
       ]
     },
     "src/lib/receipt-share.ts": {
-      "sha256": "170bc84e7cae047d47ac6af275f9cb8e5601220d8c51cfe8a8fac6079b94f771",
+      "sha256": "851a173fcbc77f500008cfc3b942f31fbee1cfcfc4909683becbf8d13fe1cb0b",
       "features": [
+        "whatsapp",
         "shared-runtime"
       ]
     },
