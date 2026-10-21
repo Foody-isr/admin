@@ -27,7 +27,7 @@ import { ColumnPicker } from '@/components/data-table/ColumnPicker';
 import { ITEM_TABLE_COLUMNS } from '@/lib/menu/item-table-columns';
 import { useItemTableColumns } from '@/lib/menu/useItemTableColumns';
 type FilterView = 'index' | 'category' | 'status';
-import { AvailabilityPill, availabilityToggleTarget } from '@/components/menu/AvailabilityPill';
+import { ItemAvailabilityPopover } from '@/components/menu/ItemAvailabilityPopover';
 import CategoryDrawer from '@/components/menu/CategoryDrawer';
 import AssignSetDrawer from '@/components/menu/AssignSetDrawer';
 import CsvImportModal from '@/components/import/CsvImportModal';
@@ -178,10 +178,6 @@ export default function ItemLibraryPage() {
   // Selection for checkboxes
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
-  // Items with an in-flight quick "86" toggle — disables the button to block
-  // double-taps while the single-field availability mutation is in flight.
-  const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
-
   // Pagination
   const [page, setPage] = useState(hydratedFilters.page);
 
@@ -279,43 +275,6 @@ export default function ItemLibraryPage() {
   const handleToggleAvailability = async (item: FlatItem) => {
     await updateMenuItem(rid, item.id, { is_active: !item.is_active });
     reload();
-  };
-
-  // The DISPONIBILITÉ pill doubles as the availability toggle (see
-  // AvailabilityPill + availabilityToggleTarget — shared with the carte rows).
-  const handleAvailabilityToggle = async (item: FlatItem) => {
-    const next = availabilityToggleTarget(item.availability_state, item.availability_override);
-    setTogglingIds((prev) => new Set(prev).add(item.id));
-    // Optimistic patch so the pill flips instantly — reload() reconciles with
-    // the server's computed state (a rule may still report low/sold_out after
-    // a restore to 'auto').
-    setCategories((cats) =>
-      cats.map((c) => ({
-        ...c,
-        items: (c.items ?? []).map((it) =>
-          it.id === item.id
-            ? {
-                ...it,
-                availability_override: next,
-                availability_state: next === 'force_sold_out' ? 'sold_out' : 'available',
-              }
-            : it,
-        ),
-      })),
-    );
-    try {
-      await updateMenuItem(rid, item.id, { availability_override: next });
-      await reload();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update availability');
-      await reload(); // revert optimistic patch to server truth
-    } finally {
-      setTogglingIds((prev) => {
-        const n = new Set(prev);
-        n.delete(item.id);
-        return n;
-      });
-    }
   };
 
   const toggleSelectAll = () => {
@@ -753,15 +712,10 @@ export default function ItemLibraryPage() {
                           {item.category_name}
                         </span>
                       </DataTableCell>}
-                      {visible.availability && <DataTableCell className="px-3 py-2" mobileLabel={t('availability')} data-mobile-role="detail" data-mobile-column="availability">
-                        <AvailabilityPill
-                          state={item.availability_state}
-                          override={item.availability_override}
-                          isActive={item.is_active}
-                          bottleneck={item.availability_bottleneck}
-                          canEdit={canEdit}
-                          pending={togglingIds.has(item.id)}
-                          onToggle={() => handleAvailabilityToggle(item)}
+                      {visible.availability && <DataTableCell onClick={(event) => event.stopPropagation()} className="px-3 py-2" mobileLabel={t('availability')} data-mobile-role="detail" data-mobile-column="availability">
+                        <ItemAvailabilityPopover
+                          key={`${rid}:${item.id}`}
+                          rid={rid} item={item} canEdit={canEdit} onChanged={reload}
                         />
                       </DataTableCell>}
                       {visible.price && <DataTableCell className="px-3 py-2" align="right" mobileLabel={t('price')} data-mobile-role="detail" data-mobile-column="price">

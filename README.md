@@ -1,3 +1,9 @@
+Articles and Cartes share the same anchored availability editor: opening never
+writes, and Apply confirms unlimited, unavailable, predefined remaining stock or
+automatic rules. Articles loads fresh tenant stock and shows the current series
+when applicable; outside series, all size counters save atomically with revision
+checks. Deploy the matching API restock extension before this Admin version.
+
 The carte Availability badge opens a compact anchored editor. Choose unlimited,
 unavailable, predefined remaining stock or the existing automatic rules, then Apply.
 Opening, changing choices and cancelling never write stock. Quantities can be
