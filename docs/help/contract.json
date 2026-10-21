@@ -4723,13 +4723,13 @@
       ]
     },
     "src/components/menu/publication/CarteEditor.tsx": {
-      "sha256": "44b3d9f98d5712f4dbbbad538db11c1b7b772169103a509d8df88aadd5e43722",
+      "sha256": "812fa0b43b3c6ae3b3cd1eccd90ad1d858803bdd9a993d8b694b901e662714f7",
       "features": [
         "menu-menus-and-groups"
       ]
     },
     "src/components/menu/publication/CarteGroups.tsx": {
-      "sha256": "02ab446c6a382b8a7b6a79b22886880639e7683aa307e2c80944f090587b05a5",
+      "sha256": "e85e682432473865dcec02a1d35a78933d7c2462986de24f6983d49cebceb274",
       "features": [
         "menu-menus-and-groups"
       ]
