@@ -779,6 +779,7 @@ export interface MenuItem {
    *  each option (see `OptionSetOption.stock_remaining`); "measure" = a g/ml
    *  budget. Empty when predefined stock isn't used. */
   stock_mode?: string;
+  stock_revision?: number;
   /** Display unit for weight/volume-based predefined stock ("g"/"kg"/"ml"/"l"),
    *  empty for portion counts. In "measure" mode the value is stored in the base
    *  unit (g or ml) and this only drives how it's shown/entered. In "per_variant"
@@ -11137,7 +11138,7 @@ export const setSalesStock = (rid: number,date: string,input: SaleStockLimit) =>
 export const setSalesStockAvailability = (rid: number,date: string,itemId: number,override: AvailabilityOverride) => apiFetch<void>(`/api/v1/menu/items/${itemId}/sales-stock/availability?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify({override})});
 
 /** Sets remaining quantities; committed orders are preserved by the API transaction. */
-export const restockSalesStock = (rid: number,date: string,input: SaleStockLimit) => apiFetch<SaleStockSeries>(`/api/v1/menu/items/${input.menu_item_id}/sales-stock/restock?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify(input)});
+export const restockSalesStock = (rid: number,date: string,input: SaleStockLimit) => apiFetch<{revision: number}>(`/api/v1/menu/items/${input.menu_item_id}/sales-stock/restock?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify(input)});
 
 /** Monthly tenant allowances supplement independent provider-wide protection. */
 export interface ExternalApiCounter { id: string; provider: string; unit: string; default_limit: number; used: number; requests: number; limit: number; remaining: number; status: 'available' | 'warning' | 'exhausted' }

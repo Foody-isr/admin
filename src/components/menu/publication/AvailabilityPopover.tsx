@@ -25,6 +25,9 @@ interface Props {
   canEdit: boolean;
   busy: boolean;
   error: string;
+  ready?: boolean;
+  loading?: boolean;
+  contextLabel?: string;
   onOpenChange: (open: boolean) => void;
   onReload: () => Promise<unknown>;
   onApply: (
@@ -73,7 +76,23 @@ export function AvailabilityPopover(props: Props) {
           if (props.busy) event.preventDefault();
         }}
       >
-        <AvailabilityForm {...props} titleId={title} />
+        {props.ready === false ? (
+          <div className="space-y-3 p-4">
+            <h2 id={title} className="font-semibold">
+              {t("availability")}
+            </h2>
+            <p role={props.error ? "alert" : "status"} className="text-sm">
+              {props.loading ? t("loading") : props.error}
+            </p>
+            {!props.loading && (
+              <Button variant="secondary" onClick={() => void props.onReload()}>
+                {t("carteReloadStock")}
+              </Button>
+            )}
+          </div>
+        ) : (
+          <AvailabilityForm {...props} titleId={title} />
+        )}
       </PopoverContent>
     </Popover>
   );
@@ -88,6 +107,7 @@ function AvailabilityForm({
   onReload,
   onApply,
   titleId,
+  contextLabel,
 }: Props & { titleId: string }) {
   const { t } = useI18n();
   const name = useId();
@@ -100,7 +120,7 @@ function AvailabilityForm({
     row.config?.override ??
     (row.managed ? "auto" : (row.item.availability_override ?? "auto"));
   const [choice, setChoice] = useState<AvailabilityOverride | "stock">(
-    override !== "auto" ? override : storedMode && series ? "stock" : "auto",
+    override !== "auto" ? override : storedMode ? "stock" : "auto",
   );
   const [mode, setMode] = useState<SaleStockLimit["mode"]>(initialMode);
   const storedUnit = row.config?.unit || row.item.stock_unit || "g";
@@ -117,7 +137,9 @@ function AvailabilityForm({
             : Math.max(0, counter.initial_quantity - counter.committed)
           : id === 0
             ? row.item.stock_quantity
-            : row.sizes.find((s) => s.id === id)?.stock_remaining;
+            : row.item.option_sets
+                ?.flatMap((set) => set.options ?? [])
+                .find((s) => s.id === id)?.stock_remaining;
         return [id, remaining == null ? "" : String(remaining)];
       }),
     ),
@@ -154,7 +176,9 @@ function AvailabilityForm({
             mode,
             unit: mode === "measure" ? unit : "",
             override: "auto",
-            expected_revision: row.config?.revision ?? 0,
+            expected_revision:
+              row.config?.revision ??
+              (series ? 0 : (row.item.stock_revision ?? 0)),
             reason: t("carteRestockReason"),
             quantity: variant ? null : Number(quantities[0]),
             options: variant
@@ -188,6 +212,11 @@ function AvailabilityForm({
           <p className="mt-1 break-words text-sm text-[var(--fg-muted)]">
             {row.item.name}
           </p>
+          {contextLabel && (
+            <p className="mt-1 text-xs text-[var(--fg-muted)]">
+              {contextLabel}
+            </p>
+          )}
         </div>
         <button
           type="button"
@@ -217,7 +246,7 @@ function AvailabilityForm({
             onChange={() => setChoice("force_sold_out")}
             label={t("unavailable")}
           />
-          {series && (
+          {
             <ChoiceRow
               type="radio"
               name={name}
@@ -226,8 +255,8 @@ function AvailabilityForm({
               onChange={() => setChoice("stock")}
               label={t("carteChoiceStock")}
             />
-          )}
-          {choice === "stock" && series && (
+          }
+          {choice === "stock" && (
             <div className="space-y-3 border-b border-[var(--line)] py-3">
               {row.sizes.length > 0 && !modeLocked && (
                 <Field label={t("saleStockMode")}>
@@ -322,7 +351,9 @@ function AvailabilityForm({
       </div>
       <div className="shrink-0 border-t border-[var(--line)] p-4">
         <p className="mb-3 text-xs text-[var(--fg-muted)]">
-          {t("carteApplyAvailabilityHint")}
+          {t(
+            series ? "carteApplyAvailabilityHint" : "itemApplyAvailabilityHint",
+          )}
         </p>
         <div className="flex justify-end gap-2">
           <Button
