@@ -10923,6 +10923,8 @@ export function getAddressAutocompleteConfig(restaurantId: number) {
 
 /** Exact approved, server-derived order message reviewed before a Twilio dispatch. */
 export interface OrderWhatsAppPreview {
+  send_blocked_reason?: 'not_due' | 'already_attempted';
+  previous_status?: OrderWhatsAppPreview['status'];
  attachment?: { source: 'fixed' | 'receipt'; asset_id?: string; filename: string; mime_type: string; format: 'IMAGE' | 'DOCUMENT' };
   id: string;
   kind: 'order_recap' | 'delivery_reminder' | 'satisfaction';
@@ -10935,9 +10937,9 @@ export interface OrderWhatsAppPreview {
 }
 
 /** Prepares a message using the active restaurant's saved order and configured template. */
-export async function previewOrderWhatsApp(restaurantId: number, orderId: number, kind: OrderWhatsAppPreview['kind']): Promise<OrderWhatsAppPreview> {
+export async function previewOrderWhatsApp(restaurantId: number, orderId: number, kind: OrderWhatsAppPreview['kind'], signal?: AbortSignal): Promise<OrderWhatsAppPreview> {
   return apiFetch<OrderWhatsAppPreview>(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/preview`, restaurantId, {
-    method: 'POST', body: JSON.stringify({ kind }),
+    method: 'POST', body: JSON.stringify({ kind }), signal,
   });
 }
 

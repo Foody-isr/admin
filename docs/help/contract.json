@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "76a4dd1fe40920a33b268baef62163f08442c214",
-  "documentationRevision": "634ccc34be93d17a9aa82a7a15d0a6130ce16245c1ead5ad1c153d280e06740f",
+  "documentationRef": "fc719b53a0d2ca926b9456ef9ad86c8e9214eb68",
+  "documentationRevision": "ce9aca0af3a84f5908dbf4696476556311fc1da2f0e8cdb61dd18f5bb3baf185",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -430,15 +430,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/managing-orders.mdx",
-          "sha256": "901eadd137e48d64a454971a3e35d57aa0aef8d61c7ee1a6164c803eddaaf37a"
+          "sha256": "557956112452ed922ae49333a10ce5737b66f91a7bf03b84515dd44fc01aa707"
         },
         "fr": {
           "path": "src/content/help/fr/orders/managing-orders.mdx",
-          "sha256": "1083b8b8048bdaf11fee47bdf254309a4a6102ae29afee3d05926c5dae4241f0"
+          "sha256": "71e053546af2f1e85c7e401c698248d1a5553db7e6726d6b9374d89b5b82efa8"
         },
         "he": {
           "path": "src/content/help/he/orders/managing-orders.mdx",
-          "sha256": "7a00b05610fdb59a4df0de7b220e4ae2b5867720c4ffb03d2b866377f4a0a33c"
+          "sha256": "46d9299dc90e554fed633dea7a097e5bb77a02299bd0d186046e920438f617a5"
         }
       }
     },
@@ -620,15 +620,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/order-details.mdx",
-          "sha256": "94970edfcdf2e99de376056241ed5dea0a97024087c28842d9e8248860132e8b"
+          "sha256": "8ede72a8e035fb4a6e5c5fc9d42449a26ffcec65963aa7d65a86c05708569801"
         },
         "fr": {
           "path": "src/content/help/fr/orders/order-details.mdx",
-          "sha256": "8f2ec90506a1e768d0f77b241092308ee7d737526cb2711b02816c662312e9dd"
+          "sha256": "f495b6fff008e1c1311e96f9bff1613bd6109fd76f36ee38f5dfd2efea893b65"
         },
         "he": {
           "path": "src/content/help/he/orders/order-details.mdx",
-          "sha256": "4c34610bff825c9e5c1ddfbf49df918de678b596d22bc8153b5e09059ace30f8"
+          "sha256": "78ebbdf186f3b5b8c213d284965f5bc6a1f141716a586fe0c1bb755f2b65f205"
         }
       }
     },
@@ -715,15 +715,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "3a135a0c15df8249cb4d22ff1c7f020f2faa5adb5927ed95e9f81f5d03891db6"
+          "sha256": "3dde3d096d4f00b750d38b21a49bca27df6fad7606c30aeae2c555256e942190"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "47ad9cce1e743187d00d501e70c966c33a3a139a9b4e9b5b7d0158a7ff1c0cc2"
+          "sha256": "9e086faada2a913ce632deafb7a895b785c5fbc71bf2787eaa3f251e24c8dfb8"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "120f02e29737d01feeadc8c9f8c6e67de3dd6f79b9500cb90e924cf3c686d74a"
+          "sha256": "0c144a103db8b4f995dfea4c6f61513fa79e42859571e0318d2f8bd3baa572de"
         }
       }
     },
@@ -1475,15 +1475,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/communications/whatsapp.mdx",
-          "sha256": "7ad2fbf15baf764da8e05ac1467e46092077eb655b72af3d3449b2e9f38fb5b0"
+          "sha256": "58c17f70bd64e7eb14f8d80573f046880b12671616c6c22aefe6fe4eb4b74079"
         },
         "fr": {
           "path": "src/content/help/fr/communications/whatsapp.mdx",
-          "sha256": "071c8ff0bda8bbc773be438afdaaed152029a6857a51277850f6207d30743b0c"
+          "sha256": "acd3955f0d14ea642c8a8c607eb6e70d74b95e37aa8fe84c6543c0ef411ed38b"
         },
         "he": {
           "path": "src/content/help/he/communications/whatsapp.mdx",
-          "sha256": "e82a9ac18e8c987a0d0680c21546b969b756e3c1c1f3eea1edaad90a7f947a68"
+          "sha256": "bca7bf20061abc3b6e5fc7c2cf139c850ca59a073045d9e8fe4dd41d8adaf90e"
         }
       }
     },
@@ -1494,15 +1494,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/communications/templates-and-automation.mdx",
-          "sha256": "b4b95526878a0bd8d1c869c05b29701049ea006ac5c3cd769b78e0ddc1189aee"
+          "sha256": "35966ed40c6952165d233dcd72b9a49bfadd89ada8fc7d7ec31df63c0c452e7e"
         },
         "fr": {
           "path": "src/content/help/fr/communications/templates-and-automation.mdx",
-          "sha256": "2fdf19e321f1b67a4e0c3aba9a9ef0c9a5469612fa84a425f6596ae3d9d64800"
+          "sha256": "7a132583ab273bcb68d3b345aff5cef4f0bdc01eeb71d11372fd3549c6d629ad"
         },
         "he": {
           "path": "src/content/help/he/communications/templates-and-automation.mdx",
-          "sha256": "c7e12d8fd6c1ea41a356076ea1665bcb49b85a6eb18a99108f3d29b45a2e843c"
+          "sha256": "5da471281a2319022a4832233e8ceac7cce55daeafcad222d7b68d03a03d857b"
         }
       }
     },
@@ -3806,8 +3806,14 @@
         "delivery-dispatch"
       ]
     },
+    "src/components/delivery/DeliveryWhatsAppDrawer.tsx": {
+      "sha256": "ca16dc88090e75a965269e63e5974e8ea3a2df91473079f5c73dd428563791c7",
+      "features": [
+        "delivery-dispatch"
+      ]
+    },
     "src/components/delivery/DispatcherView.tsx": {
-      "sha256": "1874aca607c4365fbd9dfded6017faf09b2c5ce57d4acefedc601f8a0719b66e",
+      "sha256": "7cee9f3e1bb5b3926e459e4083c8254a1f779b72dbaf8e37443beb8cc76d758f",
       "features": [
         "delivery-dispatch"
       ]
@@ -4859,7 +4865,7 @@
       ]
     },
     "src/components/orders/OrderTwilioMessage.tsx": {
-      "sha256": "cfec69017ed14100acc4f612bf9f655cbf43c9ece3c94db068d8b7699c088b75",
+      "sha256": "413cb12452f66650b166970769145576d28f4bf1698bf57896e60439b159967c",
       "features": [
         "orders-managing-orders",
         "order-detail"
@@ -6040,7 +6046,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "b97a6be7ec8f24eb6182094f3a71e94c5381fe838d598d7bb5ca11e30d3e3d42",
+      "sha256": "44db00b7a69d231d2d33b12fd3de7c5ea0011d5ece7c44664158de2590ed772d",
       "features": [
         "payments-how-payments-work",
         "pos-payments",
@@ -6217,7 +6223,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "282192e419fd2c2a020f4c7d27a90627935ed258fd0313ff1d4296786c2d875b",
+      "sha256": "629497e0af90a5cc550efb007bf0ebf2cc7debb1fcb9062b5b138a88938dd9d7",
       "features": [
         "delivery-dispatch",
         "shared-runtime"

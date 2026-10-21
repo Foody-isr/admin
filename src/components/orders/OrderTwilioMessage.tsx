@@ -52,7 +52,7 @@ export function OrderTwilioMessage({ restaurantId, orderId, kind }: {
     finally { lock.current = false; if (generation.active) setBusy(false); }
   };
   const send = async () => {
-    if (!preview || preview.status !== 'ready' || lock.current) return;
+    if (!preview || preview.status !== 'ready' || preview.send_blocked_reason || lock.current) return;
     lock.current = true; setBusy(true); setError('');
     const generation = lifetime.current;
     try {
@@ -84,6 +84,7 @@ export function OrderTwilioMessage({ restaurantId, orderId, kind }: {
     {kind !== 'satisfaction' && <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('waOrderTwilioHint')}</p>}
     {kind === 'delivery_reminder' && <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('waOrderReminderTomorrowHint')}</p>}
     {error && <p role="alert" className="text-sm leading-6 text-[var(--danger-500)]">{error}</p>}
+    {preview?.send_blocked_reason && <p role="status" className="text-sm leading-6">{t(preview.send_blocked_reason === 'not_due' ? 'deliveryWhatsAppNotDue' : 'deliveryWhatsAppAlreadyAttempted')}</p>}
     {preview && <>
       <p className="text-sm text-[var(--fg-muted)]">{t(preview.provider === 'meta' ? 'waOrderProviderMeta' : 'waOrderProviderTwilio')}</p>
       <p className="text-sm break-words"><span>{t('waOrderFrom')}: <bdi dir="ltr">{preview.from}</bdi></span><br /><span>{t('waOrderTo')}: <bdi dir="ltr">{preview.recipient}</bdi></span><br /><span>{t('whatsappRecapLanguage')}: {preview.language.toUpperCase()}</span></p>
@@ -97,7 +98,7 @@ export function OrderTwilioMessage({ restaurantId, orderId, kind }: {
     </>}
     <div className="flex flex-wrap gap-2">
       <Button type="button" variant="secondary" disabled={busy} onClick={() => void prepare()}>{t(busy ? 'loading' : preview ? 'waOrderRefresh' : 'waOrderPrepare')}</Button>
-      {preview?.status === 'ready' && <Button type="button" disabled={busy} onClick={() => void send()}>{t('waOrderConfirmSend')}</Button>}
+      {preview?.status === 'ready' && !preview.send_blocked_reason && <Button type="button" disabled={busy} onClick={() => void send()}>{t('waOrderConfirmSend')}</Button>}
       {preview?.provider === 'meta' && preview.status !== 'ready' && <Button type="button" variant="secondary" disabled={busy} onClick={() => void refreshTracking()}>{t('waMetaRefreshTracking')}</Button>}
     </div>
   </section>;

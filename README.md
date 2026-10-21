@@ -15,6 +15,18 @@ invitation. Settings → Usage and quotas is read-only restaurant-scoped Google 
 Geoapify consumption, including independent units, 80% warnings and UTC renewal.
 Deploy API migration 268 and the remaining-stock route before this Admin version.
 
+
+Orders → Deliveries → WhatsApp reminders reviews the approved current route message
+for every pending customer across all routes on the selected date. Previewing can
+happen early; manual sending opens on J−1 in the restaurant timezone. One explicit
+confirmation sends eligible customers separately; per-customer actions use the same
+review and dispatch ledger. Already submitted/uncertain reminders are not replayed,
+and route changes stop queued sends until review is refreshed. Automatic sending
+remains configured in Order workflow with its own stage template/timing; choose
+Day before for J−1. Requires the matching API reminder preview/claim update first.
+Browser regressions use synthetic API fixtures:
+`npx playwright test -c playwright.redesign.config.ts delivery-whatsapp.spec.ts`.
+
 # Foody Admin
 
 Carte editing uses private drafts with explicit Save draft, Preview and Publish.
@@ -84,8 +96,9 @@ manual WhatsApp message. Delivery reminders require an assigned courier and save
 delivery date/window. Only the saved order supplies recipient and variables.
 An accepted or uncertain attempt is never submitted twice.
 
-The four-variable reminder announces tomorrow's delivery and can only be prepared
-and sent the day before, using the restaurant's timezone. Its variables are customer
+The four-variable reminder announces tomorrow's delivery. Its read-only preview
+can be prepared early; manual sending is limited to the day before, using the
+restaurant's timezone. Its variables are customer
 full name, time window, courier full name and phone, and restaurant name. Existing
 five-variable reminder templates retain their original mapping and date handling.
 
