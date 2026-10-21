@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "018469664fc47b31273024541b8387a92ff97600",
-  "documentationRevision": "7ac2a5ffcff4f1ccbd420f9d574e2277d50facb9f2a3a41bdc3c4e415e1dad38",
+  "documentationRef": "d20f63d70e0688524cd61507329f162327260512",
+  "documentationRevision": "9cc224a392013dd960487aa3927bdab7433be149ffab12b5677559cdbe9ec596",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -392,15 +392,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/menus-and-groups.mdx",
-          "sha256": "f279c50cf6327bcd1744b4496674b502118f8d7e907c4b099085eb04487bb69f"
+          "sha256": "3d7279e320668660ced549b1fe31bd81af96e84f5a327289af0cb1ee7909c97c"
         },
         "fr": {
           "path": "src/content/help/fr/menu/menus-and-groups.mdx",
-          "sha256": "4d9b289d5837f2cbc90dc3654584634805675a0eb2711663e23010b94a4a5a66"
+          "sha256": "a7142a4be0117a671cacbbc850465f3bd5e89bcf5a08051a7f067ba39e1b9341"
         },
         "he": {
           "path": "src/content/help/he/menu/menus-and-groups.mdx",
-          "sha256": "c09be79d96ec1b33830a7ab6132b7f966e9049dbec28ed113db95fbcb4951979"
+          "sha256": "618f5db4d53029b47076c6933ddc7fe51379e308bd55887ca24661d70e6cfe17"
         }
       }
     },
@@ -4705,7 +4705,7 @@
       ]
     },
     "src/components/menu/publication/CarteEditor.module.css": {
-      "sha256": "0fc0df6555bdf6b87941afd99506209d5489b3db5055505c4b431d746ff76eef",
+      "sha256": "393d8456c8c3aeeaf5d003780ba1f753bc3d821bc460bcadb68bc86f81fabe02",
       "features": [
         "menu-menus-and-groups"
       ]
@@ -4717,7 +4717,7 @@
       ]
     },
     "src/components/menu/publication/CarteGroups.tsx": {
-      "sha256": "4ce0cb3fa8c2e52e52d3e13374416759ce08d929429c76e5ab94a3188f04a300",
+      "sha256": "116cba36f817450d2d74fb5608b18be62c877a6afa81aa93e89933c0ee5f62c3",
       "features": [
         "menu-menus-and-groups"
       ]
@@ -17694,7 +17694,7 @@
       ],
       "labels": [
         "actions",
-        "available",
+        "availability",
         "cancel",
         "carteAddItems",
         "carteAllChannels",
@@ -17715,7 +17715,6 @@
         "carteRemoveSelected",
         "carteSelectGroup",
         "carteSelected",
-        "carteSoldOut",
         "carteStockRemaining",
         "carteUntitled",
         "carteWebChannel",
