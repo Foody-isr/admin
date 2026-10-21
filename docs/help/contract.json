@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "fc719b53a0d2ca926b9456ef9ad86c8e9214eb68",
-  "documentationRevision": "ce9aca0af3a84f5908dbf4696476556311fc1da2f0e8cdb61dd18f5bb3baf185",
+  "documentationRef": "14c3bbc6cbb73d6f4f24aef906fa242d0bd7f476",
+  "documentationRevision": "565ecd545bc55e9995d69e39bb201049de5924afebbf1c8c0cece3102dcb16ec",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -50,15 +50,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/staff/invite-staff.mdx",
-          "sha256": "61a47336208acf372cad6cb708ddd24d8dcd3b7ae680efe09786250c489291b3"
+          "sha256": "2f9e6919426233220393442421e79a53dc3e607327c6b7b65f26100b9040d46f"
         },
         "fr": {
           "path": "src/content/help/fr/staff/invite-staff.mdx",
-          "sha256": "0d1a94f34396c52f3bb57313b7a005bf8e08cd94bedfec42793d56a63d1f32bd"
+          "sha256": "1ddaa96fe87c22b8178215855cfc2ac63af7e70b9da730cccb7c54a9acfb88d6"
         },
         "he": {
           "path": "src/content/help/he/staff/invite-staff.mdx",
-          "sha256": "659b731914d1ee17850634e654124066d60f16106fb09ab629984cef22098c9c"
+          "sha256": "90035a627e3cd60fdee89bc350020ab0965c380a4c14e5e9f0d7031c8fa0f0af"
         }
       }
     },
@@ -430,15 +430,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/managing-orders.mdx",
-          "sha256": "557956112452ed922ae49333a10ce5737b66f91a7bf03b84515dd44fc01aa707"
+          "sha256": "7b109c99e88173b39d6d551dd61062df0d789e88c9a052e3ec4c99af1d3d517f"
         },
         "fr": {
           "path": "src/content/help/fr/orders/managing-orders.mdx",
-          "sha256": "71e053546af2f1e85c7e401c698248d1a5553db7e6726d6b9374d89b5b82efa8"
+          "sha256": "2e4c4155a3a897aa4383f4b3fb8c393edea11e70a20fec5874d62e3d217aa40c"
         },
         "he": {
           "path": "src/content/help/he/orders/managing-orders.mdx",
-          "sha256": "46d9299dc90e554fed633dea7a097e5bb77a02299bd0d186046e920438f617a5"
+          "sha256": "26122a1af7edc1b5271a070f09021dd2c512161d3fd2ef3f2f27b88b64023c78"
         }
       }
     },
@@ -525,15 +525,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/order-types.mdx",
-          "sha256": "c66c44332c0e5463feded6645b41236e559913216759dabfb35d4fbb2cd91e68"
+          "sha256": "fd9fa35db84c6ca9c972f1e0b90ae140ed4e181fcb560dd1a3c11cd66106073b"
         },
         "fr": {
           "path": "src/content/help/fr/orders/order-types.mdx",
-          "sha256": "53a999e087b8aa8d5f33c403101978c27562f344e554f11752972219e17f17cd"
+          "sha256": "33c03e04208366db23b7be3e62d506f162168b5d438d90faf2c849a6a8d6496f"
         },
         "he": {
           "path": "src/content/help/he/orders/order-types.mdx",
-          "sha256": "0b3a27890becd83b1ad33485f89bdc02fb7a8c96bb78ffb6de5e694a26632825"
+          "sha256": "ed843b1f14c333f66e44d9eca27cc98c7b2d893819bf4bbe537e85dfe10c193a"
         }
       }
     },
@@ -544,15 +544,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/taking-an-order-pos.mdx",
-          "sha256": "99e5ed35ccd5192431ed562929364ceb35529a42d9c7a7a0e83c5b2e3f4b61bc"
+          "sha256": "bed970778f8636b82abf47153d7c0e49efe481a2033a5d4073bd79e5dbcb1fb1"
         },
         "fr": {
           "path": "src/content/help/fr/orders/taking-an-order-pos.mdx",
-          "sha256": "886576a241bcbbf76260d0a7dd7568dbb839b067705226455a797e5f0525b28e"
+          "sha256": "dfb9c9962e7de8c650376ac594a6d3c144191defc9c8432d142120611580a056"
         },
         "he": {
           "path": "src/content/help/he/orders/taking-an-order-pos.mdx",
-          "sha256": "0f54d9d41dee5525030455954816ffda197f6381f9d8ee6b61791bf8eacbf882"
+          "sha256": "271e9d2e836342e2b298e2079109ff481e53dc4c47314fc70216c3110f5f6d4f"
         }
       }
     },
@@ -715,15 +715,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "3dde3d096d4f00b750d38b21a49bca27df6fad7606c30aeae2c555256e942190"
+          "sha256": "042fee66d55194d0af85fe98a0ffc35876a1ee6a222610fdc49bd073a04f513b"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "9e086faada2a913ce632deafb7a895b785c5fbc71bf2787eaa3f251e24c8dfb8"
+          "sha256": "ab9b4508601a58300eb915a70519efda8ba272a73cbe9523ff278c5d4a4204c3"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "0c144a103db8b4f995dfea4c6f61513fa79e42859571e0318d2f8bd3baa572de"
+          "sha256": "380996c11ef487e064e963ae56c786069823e0cab47c3680c0a1c3d1c5b3b3ec"
         }
       }
     },
@@ -1038,15 +1038,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/restaurant-profile.mdx",
-          "sha256": "f12087518a5fd09f1a3d3b3dc1f5e0b530f26bbf83b9f8e10aa157fffbe0f05e"
+          "sha256": "0f023ddce27dd52554800dcc2accc078fa70cb6cc8204b15a5b8e41f086ffaa7"
         },
         "fr": {
           "path": "src/content/help/fr/settings/restaurant-profile.mdx",
-          "sha256": "29f282acf3cd4601221e626bcc6d4310ad8eba9282d651a016affd20d625bbcf"
+          "sha256": "0f5138386fa9d01e22ffb3df8e82368475a12bf55f9a47f07c0ab431aa92b35c"
         },
         "he": {
           "path": "src/content/help/he/settings/restaurant-profile.mdx",
-          "sha256": "e22f5ea4a427532448b5819d3ab1d47cece23ef1923571ef5af31e616e4f0df3"
+          "sha256": "c449f7177e2155e0760e01a7be475de3fd8c2f56590690df78d49bdee8d47eb3"
         }
       }
     },
@@ -1057,15 +1057,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/fulfillment-and-ordering.mdx",
-          "sha256": "be69e4b24f594ed6e4e3f06f7e81e4b68bc0c4faa20b385003a287f4919868ff"
+          "sha256": "110a769c452854d8f2c27ceb8b0a09b2ea37e134e0e51fc66312b09ccdecf21b"
         },
         "fr": {
           "path": "src/content/help/fr/settings/fulfillment-and-ordering.mdx",
-          "sha256": "6d6c144b34c6463ddf183dab187269aa8904cfa9ce616b09b9bd1f1e3f93aa69"
+          "sha256": "d7d1bfcbcd2b285bf278004f645b1e382d8180fdd0e85ce9985f1262ab133469"
         },
         "he": {
           "path": "src/content/help/he/settings/fulfillment-and-ordering.mdx",
-          "sha256": "c0dcee442aa855f39de3c3721705986ae0f948fb59cb515c7397e3256126a59e"
+          "sha256": "bddb878b6b0586eb9957754e9b67f64a37eee142d1279fe30ae60ed591862125"
         }
       }
     },
@@ -3300,7 +3300,7 @@
       ]
     },
     "src/app/[restaurantId]/staff/page.tsx": {
-      "sha256": "be11b53fa4ace204cac1d33629b33f3dce154275034d070952b478f5aeebb1b8",
+      "sha256": "56de2dd4c1c3f4faf6b986fa58ae2fde11879f719a1417b9cc16983835ff9952",
       "features": [
         "staff-invitations"
       ]
@@ -3813,7 +3813,7 @@
       ]
     },
     "src/components/delivery/DispatcherView.tsx": {
-      "sha256": "7cee9f3e1bb5b3926e459e4083c8254a1f779b72dbaf8e37443beb8cc76d758f",
+      "sha256": "1a3ff2aa5f106ef352fb45b83ecbb1fa68f53edde3b43d172ea90b4252b1c53c",
       "features": [
         "delivery-dispatch"
       ]
@@ -5291,6 +5291,12 @@
         "shared-runtime"
       ]
     },
+    "src/components/staff/StaffProfileEditor.tsx": {
+      "sha256": "56e4dd97a6adb71106e93ec71199a00e24aad4b530b0942f82704851fc172249",
+      "features": [
+        "staff-invitations"
+      ]
+    },
     "src/components/staff/TableAssignmentModal.tsx": {
       "sha256": "19c561ae7edd3ac25fd2801c4c26edaaddf31727c2353858a4c91f970cd9263c",
       "features": [
@@ -6046,7 +6052,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "44db00b7a69d231d2d33b12fd3de7c5ea0011d5ece7c44664158de2590ed772d",
+      "sha256": "a55b4b88be7c1edbb8835620719a2e49ca128791d835d15e6ec6c5547d3109f4",
       "features": [
         "payments-how-payments-work",
         "pos-payments",
@@ -6223,7 +6229,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "629497e0af90a5cc550efb007bf0ebf2cc7debb1fcb9062b5b138a88938dd9d7",
+      "sha256": "1fb4fed1407e567a68e88a0aa53a1825353cbfe16609638ac2a52de740f8cade",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -13669,6 +13675,10 @@
         "shiftReports",
         "staffActionError",
         "staffLoadError",
+        "staffProfileAddress",
+        "staffProfileDestination",
+        "staffProfileEdit",
+        "staffProfileSaved",
         "status",
         "teamAddEmployee",
         "teamEmployees",
@@ -15244,6 +15254,7 @@
         "deliveryPlanZoneCount",
         "deliveryRouteApproximate",
         "deliveryRouteDateMismatch",
+        "deliveryWhatsAppTitle",
         "mapsRoute",
         "mapsTitle",
         "noAddress",
@@ -23692,6 +23703,7 @@
         "updateSection",
         "updateServiceGuidanceRules",
         "updateSpokeConfig",
+        "updateStaffProfile",
         "updateStaffRole",
         "updateStaffTableAssignments",
         "updateStockCategory",
@@ -24375,6 +24387,37 @@
       "labels": [],
       "actions": [
         "removeProcessingGuard"
+      ]
+    },
+    {
+      "id": "foodyadmin:src/components/staff/StaffProfileEditor.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/staff/StaffProfileEditor.tsx",
+      "line": 1,
+      "features": [
+        "staff-invitations"
+      ],
+      "labels": [
+        "cancel",
+        "discardChanges",
+        "discardUnsavedChanges",
+        "fullName",
+        "phone",
+        "routeSettingsEndAddress",
+        "routeSettingsEndPlaceholder",
+        "staffProfileAddress",
+        "staffProfileDescription",
+        "staffProfileDestination",
+        "staffProfileDestinationHint",
+        "staffProfileEdit",
+        "staffProfileHomeRequired",
+        "staffProfileLoginEmail",
+        "staffProfileLoginHint",
+        "staffProfileSameAddress"
+      ],
+      "actions": [
+        "close",
+        "save"
       ]
     }
   ]

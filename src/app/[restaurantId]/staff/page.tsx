@@ -6,7 +6,7 @@ import ActionsDropdown from '@/components/common/ActionsDropdown';
 import { ListFilterButton, ListFiltersDrawer } from '@/components/data-table/ListFilters';
 
 import {
-  listStaff, inviteStaff, updateStaffRole, removeStaff,
+  listStaff, inviteStaff, updateStaffRole, removeStaff, isCourier,
   resendStaffInvite, listRoles, StaffMember, RestaurantRole,
 } from '@/lib/api';
 import { usePermissions } from '@/lib/permissions-context';
@@ -18,6 +18,7 @@ import {
 import { Button, ConfirmDialog, Drawer } from '@/components/ds';
 import { TeamEditor, TeamPageHeader, TeamSearch } from '@/components/team/TeamWorkspace';
 import { downloadCsv } from '@/lib/csv/export';
+import { StaffProfileEditor } from '@/components/staff/StaffProfileEditor';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import {
   DataTable,
@@ -34,6 +35,7 @@ export default function StaffPage() {
   const rid = Number(restaurantId);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [editingProfile, setEditingProfile] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
   const [sortAscending, setSortAscending] = useState(true);
   const [search, setSearch] = useState('');
@@ -90,6 +92,7 @@ export default function StaffPage() {
     setInviteOpen(false);
     setRemoveTarget(null);
     setSelectedMemberId(null);
+    setEditingProfile(false);
     void reload();
     return () => guard.invalidate();
   }, [reload]);
@@ -279,10 +282,13 @@ export default function StaffPage() {
         ]} />
       </div>
 
-      {selectedMember && <Drawer open onOpenChange={open => { if (!open) setSelectedMemberId(null); }} title={selectedMember.full_name} closeDisabled={actionLoading !== null} className="team-surface" width={560}>
+      {selectedMember && !editingProfile && <Drawer open onOpenChange={open => { if (!open) setSelectedMemberId(null); }} title={selectedMember.full_name} closeDisabled={actionLoading !== null} className="team-surface" width={560}>
+        {canManage && <Button variant="secondary" className="mb-6" disabled={actionLoading !== null} onClick={() => setEditingProfile(true)}>{t('staffProfileEdit')}</Button>}
         <dl className="team-detail-fields">
           <div><dt>{t('email')}</dt><dd><bdi>{selectedMember.email}</bdi></dd></div>
           <div><dt>{t('phone')}</dt><dd><bdi>{selectedMember.phone || '—'}</bdi></dd></div>
+          <div><dt>{t('staffProfileAddress')}</dt><dd><bdi>{selectedMember.address || '—'}</bdi></dd></div>
+          {isCourier(selectedMember) && <div><dt>{t('staffProfileDestination')}</dt><dd><bdi>{selectedMember.courier_default_end_address || (selectedMember.courier_final_same_as_address ? selectedMember.address : selectedMember.courier_final_address) || '—'}</bdi></dd></div>}
           <div><dt>{t('teamJob')}</dt><dd>{canManage && selectedMember.role !== 'owner' ? <select className="input" aria-label={`${t('role')} · ${selectedMember.full_name}`} disabled={actionLoading !== null} value={selectedMember.role_id ?? ''} onChange={event => void handleRoleChange(selectedMember, Number(event.target.value))}>
             {roles.map(role => <option key={role.id} value={role.id}>{roleDisplayName(t, role.name, role.is_system_default)}</option>)}
           </select> : roleDisplayLabel(t, selectedMember.role_name || selectedMember.role)}</dd></div>
@@ -296,6 +302,15 @@ export default function StaffPage() {
           <Button variant="danger" disabled={actionLoading !== null} onClick={() => setRemoveTarget(selectedMember)}>{t('remove')}</Button>
         </div>}
       </Drawer>}
+
+      {selectedMember && editingProfile && <StaffProfileEditor key={`${rid}:${selectedMember.id}`} restaurantId={rid} member={selectedMember} onClose={() => setEditingProfile(false)} onSaved={profile => {
+        setStaff(current => current.map(member => member.id === selectedMember.id ? {
+          ...member, full_name: profile.full_name, phone: profile.phone, address: profile.address,
+          courier_final_address: profile.courier_final_address, courier_final_same_as_address: profile.courier_final_same_as_address,
+          courier_default_end_address: profile.courier_final_same_as_address ? profile.address : profile.courier_final_address,
+        } : member));
+        setEditingProfile(false); setSuccessTone('success'); setSuccessMsg(t('staffProfileSaved')); void reload();
+      }} />}
 
       {inviteOpen && <TeamEditor title={t('teamProfile')} description={t('teamInviteDescription')} busy={formLoading} onClose={() => setInviteOpen(false)} actions={<Button type="submit" form="invite-team-member" disabled={formLoading}>{t(formLoading ? 'inviting' : 'invite')}</Button>}>
         <form id="invite-team-member" onSubmit={handleInvite} className="team-form">

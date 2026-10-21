@@ -988,6 +988,10 @@ export interface StaffMember {
   full_name: string;
   email: string;
   phone: string;
+  address?: string;
+  courier_final_address?: string;
+  courier_final_same_as_address?: boolean;
+  courier_default_end_address?: string;
   role: Role;
   role_id?: number;
   role_name?: string;
@@ -6026,6 +6030,24 @@ export async function updateStaffRole(
     `/api/v1/restaurants/${restaurantId}/staff/${userId}/role`, restaurantId,
     { method: 'PUT', body: JSON.stringify(update) }
   );
+}
+
+/** Restaurant-owned contact details; login credentials and roles are edited separately. */
+export interface StaffContactProfile {
+  full_name: string;
+  phone: string;
+  address: string;
+  courier_final_address?: string;
+  courier_final_same_as_address?: boolean;
+}
+
+/** Saves staff contacts and courier defaults for future routes in the active restaurant. */
+export async function updateStaffProfile(restaurantId: number, userId: number, input: StaffContactProfile): Promise<StaffContactProfile> {
+  const data = await apiFetch<{ profile: StaffContactProfile }>(
+    `/api/v1/restaurants/${restaurantId}/staff/${userId}/profile`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) },
+  );
+  return data.profile;
 }
 
 export async function removeStaff(restaurantId: number, userId: number): Promise<void> {

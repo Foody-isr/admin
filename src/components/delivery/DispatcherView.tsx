@@ -369,6 +369,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [resolvingEndpoints, setResolvingEndpoints] = useState<Set<string>>(new Set());
   const [courierEndpoints, setCourierEndpoints] = useState<Record<number, { start_address: string; end_address: string }>>({});
   const [departure, setDeparture] = useState(defaultDepartureValue);
+  const planningDate = departure.slice(0, 10);
+  useEffect(() => { setCourierEndpoints({}); }, [rid, planningDate]);
   const [serviceMinutes, setServiceMinutes] = useState('3');
   const [planning, setPlanning] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState<number | null>(null);
@@ -684,6 +686,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
         selectedCourierIds.filter(id => courierEndpoints[id]).map(courier_id => ({ courier_id, ...courierEndpoints[courier_id] })),
       );
       setPicked(new Set());
+      setCourierEndpoints({});
       setPlannerOpen(false);
       await load();
     } catch (cause) {
@@ -813,7 +816,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const endpointCouriers = planningCouriers.filter(courier => distributionMode === 'smart' ? plannerCouriers.has(courier.id) : distributionMode === 'zone' ? selectedZones.some(zone => zoneCouriers.get(zone) === courier.id) : selectedOrders.some(order => manualCouriers.get(order.id) === courier.id));
   const savedCourierEndpoints = (id: number) => {
     const existing = dayRoutes.find(route => route.courier_id === id && route.status === 'draft' && route.date.slice(0, 10) === departure.slice(0, 10));
-    return { start_address: existing?.start_address ?? '', end_address: existing?.end_address ?? '' };
+    const courier = couriers.find(member => member.id === id);
+    return { start_address: existing?.start_address ?? '', end_address: existing ? existing.end_address ?? '' : courier?.courier_default_end_address ?? (courier?.courier_final_same_as_address ? courier.address : courier?.courier_final_address) ?? '' };
   };
   const setEndpoint = (id: number, field: 'start_address' | 'end_address', value: string) => setCourierEndpoints(current => ({ ...current, [id]: { ...(current[id] ?? savedCourierEndpoints(id)), [field]: value } }));
 
