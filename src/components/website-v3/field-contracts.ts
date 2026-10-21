@@ -227,6 +227,7 @@ function contract(
 }
 
 const FIELD_TEST_VALUES: Record<string, TestValue> = {
+  "checkout.offer_sign_in": false,
   "section.settings.text_bg_color": "#ffffff",
   "section.settings.image_bg_color": "#fff8ed",
   "section.settings.video_height": "m",
@@ -457,6 +458,7 @@ function editorFor(
   isAction: boolean,
   pageTypes: FieldContract["pageTypes"] = ALL_PAGES,
 ): FieldEditorContract {
+  if (id === "checkout.offer_sign_in") return { kind: "field", scope: "page", pageTitle: "Brunch Order", sectionLabel: "Parcours de commande", publicSlug: "brunch-order", surface: "checkout", commit: "change" };
   if (id === "section.settings.width") return { kind: "field", scope: "section", sectionPanel: "appearance", pageTitle: "About", sectionLabel: "Text", publicSlug: "about", commit: "change" };
   const action = isAction ? "action" : "field";
   if (id.startsWith("section.settings.video_") || id === "section.settings.padding") return { kind: action, scope: "section", sectionPanel: "content", pageTitle: "About", sectionLabel: "Video", publicSlug: "about", commit: "change", prerequisite: id.endsWith("video_muted") ? { id: "section.settings.video_autoplay", value: false } : undefined };
@@ -642,6 +644,7 @@ function expectedFor(id: string, value: TestValue): string {
 }
 
 export const FIELD_CONTRACTS: readonly FieldContract[] = [
+  contract({ id: "checkout.offer_sign_in", scope: "site", statePath: ["config", "checkout_config", "offer_sign_in"], pageTypes: ["order"] }),
   page("page.appearance_overrides.website_order.modal_cover_url", ["appearance_overrides", "website_order", "modal_cover_url"], ".website-fulfillment-cover", "attribute", ["order"]),
   site("site.tagline", ["tagline"], "[data-website-v3-page]", "text"),
   site("site.navbar_style", ["navbar_style"], "nav", "style"),
