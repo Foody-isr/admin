@@ -678,6 +678,7 @@ function CarteEditor({
             doc={doc}
             items={items}
             stock={stock}
+            series={!!batch?.enabled}
             restaurantName={restaurant?.name ?? ""}
             canEdit={canEdit}
             busy={busy}

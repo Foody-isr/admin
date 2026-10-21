@@ -32,6 +32,7 @@ interface Props {
   doc: CarteDocument;
   items: MenuItem[];
   stock: SaleStockOverview | null;
+  series: boolean;
   restaurantName: string;
   canEdit: boolean;
   busy: boolean;
@@ -54,6 +55,7 @@ export function CarteGroups({
   doc,
   items,
   stock,
+  series,
   restaurantName,
   canEdit,
   busy,
@@ -458,7 +460,7 @@ export function CarteGroups({
                               <div className={styles.availabilityContent}>
                                 {status ? (
                                   <AvailabilityPopover
-                                    row={status} series={!!stock?.series_key} canEdit={canEdit} busy={busy}
+                                    row={status} series={series} canEdit={canEdit} busy={busy}
                                     error={availabilityError} open={availabilityKey === `${group.key}:${id}`}
                                     onOpenChange={open => { if (open) onAvailabilityOpen(); setAvailabilityKey(open ? `${group.key}:${id}` : null); }}
                                     onReload={onReloadStock}

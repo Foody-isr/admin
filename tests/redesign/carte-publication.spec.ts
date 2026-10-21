@@ -867,3 +867,16 @@ test('predefined stock preserves an unlimited size while adjusting another size'
  await expect(dialog.getByRole('spinbutton',{name:'Grande',exact:true})).toHaveValue('');await dialog.getByRole('spinbutton',{name:'Petite',exact:true}).fill('6');
  await dialog.getByRole('button',{name:'Appliquer',exact:true}).click();await expect(dialog).toHaveCount(0);expect(inputs[0]).toMatchObject({mode:'per_variant',quantity:null,options:{'20':6,'21':null},expected_revision:2,override:'auto'});
 });
+
+
+test("non-series carte restock uses the library revision rather than a series revision", async ({page}) => {
+ const f=await install(page);let received:any;
+ await page.route("**/api/v1/public/restaurants/1/batch-fulfillment-config",route=>route.fulfill({json:{enabled:false,upcoming_cycles:[]}}));
+ await page.route("**/api/v1/menu/menus?*",route=>route.fulfill({json:{menus:[{...f.menu,is_weekly_rotating:false}]}}));
+ await page.route("**/api/v1/menu/sales-stock?*",route=>route.fulfill({json:{series_key:f.key,rows:f.items.map(item=>({item:{...item,stock_revision:9,stock_mode:'count',stock_quantity:0},managed:false,previous:null,config:null,sizes:[],availability:{availability_state:'sold_out',buildable_count:0}}))}}));
+ await page.route("**/api/v1/menu/items/*/sales-stock/restock?*",route=>{received=route.request().postDataJSON();return route.fulfill({json:{revision:10}});});
+ await page.goto(`/1/menu/menus/${f.menu.id}`);
+ await page.locator('[data-carte-item] .list-availability-pill').first().click();const panel=page.getByRole('dialog');
+ await panel.getByRole('spinbutton').fill('7');await panel.getByRole('button',{name:'Appliquer',exact:true}).click();
+ await expect(panel).toBeHidden();expect(received).toMatchObject({quantity:7,expected_revision:9});
+});
