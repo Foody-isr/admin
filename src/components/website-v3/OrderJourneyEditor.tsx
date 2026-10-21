@@ -6,7 +6,7 @@ import type { CheckoutConfig } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { ColorStylePicker } from "./ColorStylePicker";
 import { normalizeOrderJourneyColors, type OrderJourneyColors, type OrderJourneyScreen } from "@/lib/website-v3/order-journey";
-import { InspectorField, controlClass } from "./controls";
+import { InspectorField, ToggleField, controlClass } from "./controls";
 
 export type { OrderJourneyScreen } from "@/lib/website-v3/order-journey";
 
@@ -42,6 +42,8 @@ export function OrderJourneyEditor({
         </select>
       </InspectorField>
       <p>{t("editorJourneyPreviewHint")}</p>
+      <ToggleField fieldId="checkout.offer_sign_in" label={t("editorOfferSignIn")} description={t("editorOfferSignInHint")}
+        checked={value?.offer_sign_in !== false} onChange={checked => onChange({ ...value, offer_sign_in: checked })} />
       <div className="sqe-journey-links">
         <ColorStylePicker value={normalizeOrderJourneyColors(colors)[screen] ?? "default"}
           defaultLabel={t("editorJourneyInheritMenu")} inheritedStyle={colorStyle}

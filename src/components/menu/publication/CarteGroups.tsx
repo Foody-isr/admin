@@ -39,6 +39,7 @@ interface Props {
   onRemoveGroup: (key: string) => void;
   onHistory: (id: number) => void;
   onAvailability: (id: number, value: AvailabilityOverride) => void;
+  onQuickAvailability: (id: number) => void;
   onEditItem: (id: number) => void;
 }
 
@@ -58,6 +59,7 @@ export function CarteGroups({
   onRemoveGroup,
   onHistory,
   onAvailability,
+  onQuickAvailability,
   onEditItem,
 }: Props) {
   const { t, locale } = useI18n();
@@ -409,7 +411,10 @@ export function CarteGroups({
                                   <Link href={itemHref(id)} title={item?.name}>
                                     {item?.name || `#${id}`}
                                   </Link>
-                                  <span
+                                  <button type="button"
+                                    disabled={!canEdit || busy || !status || item?.is_active === false}
+                                    onClick={event => { event.stopPropagation(); onQuickAvailability(id); }}
+                                    aria-label={`${item?.name}: ${availability} — ${t(override === "force_sold_out" || status?.availability.availability_state === "sold_out" ? "quickMarkAvailable" : "quickMarkSoldOut")}`}
                                     className={styles.availability}
                                     data-sold-out={
                                       override === "force_sold_out" ||
@@ -424,7 +429,7 @@ export function CarteGroups({
                                         · {t("cartePendingChange")}
                                       </span>
                                     )}
-                                  </span>
+                                  </button>
                                 </div>
                               </div>
                             </td>

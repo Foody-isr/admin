@@ -370,3 +370,23 @@ test("receipt links keep a non-default order page theme within the receipt resta
     );
   }
 });
+
+test("sign-in invitation survives editor draft and publication", async ({ page, request, context }) => {
+ test.setTimeout(180_000);
+ await page.addInitScript(() => { localStorage.setItem('foody_restaurant_token','isolated-ui-fixture'); localStorage.setItem('foody_restaurant_user',JSON.stringify({ id: 1, role: 'owner', full_name: 'Demo' })); localStorage.setItem('foody_restaurant_ids','[1]'); localStorage.setItem('foody-admin-locale','fr'); });
+ await context.route('**/*', route => ['localhost','127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
+ const draft = async () => (await (await request.get('http://127.0.0.1:18081/api/v1/restaurants/1/website-draft')).json()).state;
+ const seed = await draft(); seed.sections = []; for (const item of seed.pages) item.is_homepage = item.type === 'order'; seed.config.checkout_config = { ...(seed.config.checkout_config ?? {}), offer_sign_in: true };
+ await request.put('http://127.0.0.1:18081/api/v1/restaurants/1/website-draft',{ data: seed });
+ await request.post('http://127.0.0.1:18081/api/v1/restaurants/1/website-publish');
+ await page.goto('/1/website-v3');
+ await page.getByRole('button',{ name: 'Parcours de commande', exact: true }).click({ timeout: 60000 });
+ const toggle = page.getByRole('switch',{ name: /Proposer la connexion avant de commander/ });
+ await expect(toggle).toBeChecked(); await toggle.click();
+ await expect.poll(async () => (await draft()).config.checkout_config.offer_sign_in).toBe(false);
+ await page.reload(); await page.getByRole('button',{ name: 'Parcours de commande', exact: true }).click({ timeout: 60000 });
+ await expect(page.getByRole('switch',{ name: /Proposer la connexion avant de commander/ })).not.toBeChecked();
+ await request.post('http://127.0.0.1:18081/api/v1/restaurants/1/website-publish');
+ const published = await (await request.get('http://127.0.0.1:18081/api/v1/public/restaurants/1')).json();
+ expect(published.restaurant.website_config.checkout_config.offer_sign_in).toBe(false);
+});

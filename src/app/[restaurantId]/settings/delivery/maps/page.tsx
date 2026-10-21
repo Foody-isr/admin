@@ -43,7 +43,7 @@ function DeliveryMapsWorkspace({ rid }: { rid: number }) {
   };
   const reset = status?.google.resets_at && !Number.isNaN(Date.parse(status.google.resets_at)) ? new Date(status.google.resets_at).toLocaleString(locale, { dateStyle: 'long', timeStyle: 'short' }) : null;
   return <div className="mx-auto max-w-[980px] pb-8">
-    <PageHead title={t('mapsTitle')} desc={t('mapsDescription')} actions={<><Button variant="secondary" asChild><Link href={`/${rid}/settings/delivery`}><MapPin aria-hidden />{t('deliveryZones')}</Link></Button><Button variant="secondary" icon aria-label={t('refresh')} disabled={busy || !canView} onClick={() => void load()}><RefreshCw className="size-4" /></Button></>} />
+    <PageHead title={t('mapsTitle')} desc={t('mapsDescription')} actions={<><Button variant="secondary" asChild><Link href={`/${rid}/settings/usage`}>{t("apiQuotaTitle")}</Link></Button><Button variant="secondary" asChild><Link href={`/${rid}/settings/delivery`}><MapPin aria-hidden />{t('deliveryZones')}</Link></Button><Button variant="secondary" icon aria-label={t('refresh')} disabled={busy || !canView} onClick={() => void load()}><RefreshCw className="size-4" /></Button></>} />
     {!canView ? <p role="status">{t('mapsNoPermission')}</p> : <>
       {error && <p role="alert" className="mb-5 text-[var(--danger-500)]">{t(error)}</p>}
       {notice && <p role="status" className="mb-5">{t(notice)}</p>}
