@@ -106,3 +106,12 @@ test('staff profile shows that a courier POS code is not required', async ({ pag
   await page.getByRole('button', { name: /Responsable démo/ }).click();
   await expect(page.getByRole('dialog')).toContainText('Non requis pour ce rôle');
 });
+
+test('new POS permissions during activation explain how to reopen the missing PIN step', async ({ page }) => {
+  await install(page, false);
+  await passwordAndProfile(page);
+  await page.route('**/api/v1/auth/setup-account', route => route.fulfill({ status: 400, json: { error: 'setup_pos_pin_invalid' } }));
+  await page.locator('form button[type="submit"]').click();
+  await expect(page.locator('main').getByRole('alert')).toContainText('Vos autorisations ont changé. Rechargez cette invitation');
+  await expect(page.locator('#setup-fullName')).toHaveValue('Équipe démo');
+});

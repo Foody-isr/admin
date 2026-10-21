@@ -3414,7 +3414,7 @@
       ]
     },
     "src/app/setup-account/page.tsx": {
-      "sha256": "b278aef2f869b6b788884178fc8191c217eb05fd1dfc81de022664c65f6416f1",
+      "sha256": "9b9cb9f2c22803f3563983e114c757061fefd011ca87bc030fc7b752c211bcda",
       "features": [
         "account-access"
       ]

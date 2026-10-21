@@ -224,7 +224,7 @@ function SetupAccountContent() {
       setSuccess(true);
     } catch (err: unknown) {
       const key = setupErrorKey(err);
-      setError(key ? t(key) : err instanceof Error ? err.message : t('accountSetupFailed'));
+      setError(key ? t(key === 'setupPOSCodeInvalid' && !requiresPOSCode ? 'setupPermissionsChanged' : key) : err instanceof Error ? err.message : t('accountSetupFailed'));
     } finally {
       setLoading(false);
     }
