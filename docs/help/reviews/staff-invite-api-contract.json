@@ -1,0 +1,10 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "5f5f9cd5dbcecaeddeb62d5834050899dfeeb1edc2c4559b9b24afdeb21a178c",
+      "disposition": "no-user-impact",
+      "reason": "This shared helper only adds optional type declarations for the server-computed POS PIN requirement. It changes no requests, session persistence, tenant headers, payments or runtime controls. Activation and staff-status behavior are documented through their dedicated source pages and account/staff guides."
+    }
+  ]
+}

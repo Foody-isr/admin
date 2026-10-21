@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "14c3bbc6cbb73d6f4f24aef906fa242d0bd7f476",
-  "documentationRevision": "565ecd545bc55e9995d69e39bb201049de5924afebbf1c8c0cece3102dcb16ec",
+  "documentationRef": "cb75e5062c078c217dce56b0f1ba4a7b343dc45e",
+  "documentationRevision": "7d7989ea140270de94678e193068bc03cee335bb7c858e35713d578f27b125fd",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -12,15 +12,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/first-login.mdx",
-          "sha256": "b571d2f3ec51a723b280833a6c3698021edbbe707f35dc703e3e6d439d220055"
+          "sha256": "7b88acb12cc23ac52132a07dc787ba859032755c02b51ca8dc130ed00238fb50"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/first-login.mdx",
-          "sha256": "20ed8bd5419d466903d92805f58ea557912c9135a1b444f68bf2a8b9a346e461"
+          "sha256": "debdfac9855dcd7d16ab2d68d4c4ee7bee5ad116ff424da86c02e48e873b23c2"
         },
         "he": {
           "path": "src/content/help/he/getting-started/first-login.mdx",
-          "sha256": "dc5a4776548fef240cbe6d7b6cd4deff8862bb3799b12c4014d65576cd33d656"
+          "sha256": "6cdf4627a7b950da2c71ec2579c6dc99c0dec75d0952aa1b661af9c6594c317f"
         }
       }
     },
@@ -50,15 +50,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/staff/invite-staff.mdx",
-          "sha256": "2f9e6919426233220393442421e79a53dc3e607327c6b7b65f26100b9040d46f"
+          "sha256": "995c48420fa77d07c6d85904724ef9b3b0e179ed249e250c2f8aec202e462f51"
         },
         "fr": {
           "path": "src/content/help/fr/staff/invite-staff.mdx",
-          "sha256": "1ddaa96fe87c22b8178215855cfc2ac63af7e70b9da730cccb7c54a9acfb88d6"
+          "sha256": "188bd667492dbda2553b0410705cb91a5dbaafbe9c73663e2ed76d7db7c34c8e"
         },
         "he": {
           "path": "src/content/help/he/staff/invite-staff.mdx",
-          "sha256": "90035a627e3cd60fdee89bc350020ab0965c380a4c14e5e9f0d7031c8fa0f0af"
+          "sha256": "4af3f3679c7cefd1fab7e4b9b76062972096b65b62c59d7b5397ed8335adf540"
         }
       }
     },
@@ -69,15 +69,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/staff/roles-and-permissions.mdx",
-          "sha256": "ece2d1fb19fd23ce4adb44f5c415bae26c77615e9b3b8d1776a3db288fd8fc5b"
+          "sha256": "57f81952707e543246c774d562bc0b64f8264668cd59e8196b855ac98d25ccbc"
         },
         "fr": {
           "path": "src/content/help/fr/staff/roles-and-permissions.mdx",
-          "sha256": "9277ac912cce51425b18498803d5c92adebf76889f64bb934f445522ddb480d2"
+          "sha256": "0086d5538b2bc3c5957f38de63e9ecd5be4bfad7d448deb2c9b18f5620fcb1fc"
         },
         "he": {
           "path": "src/content/help/he/staff/roles-and-permissions.mdx",
-          "sha256": "1f591ff65d8ccb16ab3c6f2cc3a0e35767c49e34cca963fda0b4167a57f41100"
+          "sha256": "95feaa0c64186f0e4ade4f912ffac46bf61b5a343191b9c0a5680f88280871a6"
         }
       }
     },
@@ -715,15 +715,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "042fee66d55194d0af85fe98a0ffc35876a1ee6a222610fdc49bd073a04f513b"
+          "sha256": "a69f21d84f7da948a3f5eac71a7a52ebd81b5bd7045ad56ce64d49bc8ab65823"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "ab9b4508601a58300eb915a70519efda8ba272a73cbe9523ff278c5d4a4204c3"
+          "sha256": "79b744041aef8996aa4cdbdd82edd654d4459f3da3c68aae79e900665c2da43a"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "380996c11ef487e064e963ae56c786069823e0cab47c3680c0a1c3d1c5b3b3ec"
+          "sha256": "908df05c9723b128b6a1c410d0e63892f0599cbec4c7566530add0d976fb61dc"
         }
       }
     },
@@ -1038,15 +1038,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/restaurant-profile.mdx",
-          "sha256": "0f023ddce27dd52554800dcc2accc078fa70cb6cc8204b15a5b8e41f086ffaa7"
+          "sha256": "cb17be10f10cc3ec8ca57f02f62c12ff84a76fe0755c999beb2b814541a1311a"
         },
         "fr": {
           "path": "src/content/help/fr/settings/restaurant-profile.mdx",
-          "sha256": "0f5138386fa9d01e22ffb3df8e82368475a12bf55f9a47f07c0ab431aa92b35c"
+          "sha256": "6a541fee19488181b093f13f61f56c6803c6cae21cf60b376ef48cb3d456ab99"
         },
         "he": {
           "path": "src/content/help/he/settings/restaurant-profile.mdx",
-          "sha256": "c449f7177e2155e0760e01a7be475de3fd8c2f56590690df78d49bdee8d47eb3"
+          "sha256": "d12e5355f2f5be32c0d3d31c9667ede6ca172e3ea5345713f45ad87cda053178"
         }
       }
     },
@@ -1057,15 +1057,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/fulfillment-and-ordering.mdx",
-          "sha256": "110a769c452854d8f2c27ceb8b0a09b2ea37e134e0e51fc66312b09ccdecf21b"
+          "sha256": "2ad58e4aaf63d4cddfe321aeef41e62eaebad8ebc4e0cb85a931513abe3c4c92"
         },
         "fr": {
           "path": "src/content/help/fr/settings/fulfillment-and-ordering.mdx",
-          "sha256": "d7d1bfcbcd2b285bf278004f645b1e382d8180fdd0e85ce9985f1262ab133469"
+          "sha256": "5cdf6d442f0a692f0f35c1d2348981859e7c94814b68ef40b4bb96b3c78d485b"
         },
         "he": {
           "path": "src/content/help/he/settings/fulfillment-and-ordering.mdx",
-          "sha256": "bddb878b6b0586eb9957754e9b67f64a37eee142d1279fe30ae60ed591862125"
+          "sha256": "9bc12f65eefb375b93084b3cd14c40d4f57abce68fff1b58793d58c89c960ad3"
         }
       }
     },
@@ -1741,15 +1741,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "b0ff1712a732747d1476f0870b8ab5ffa9bcbf138babad6e8bdb7f9185daa305"
+          "sha256": "bf7a5d0bf76adc04ede9e096585e62b691fa49553fe675bd757667dd240d8d9a"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "bd26a7c6e770b9bc4902d30630b41157c2cb710708fdb568cc2db23c8a904ec2"
+          "sha256": "42e66c61d11b44362acee622dd595b7a7c195e5879a0ab3d4ab4b7cb411e56a1"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "ba6a2927bd171d2d297a864722e4280c01d4c58f900ffbac0c8a63c573bd7107"
+          "sha256": "aa446ac9b035d62041fb9b486b97b4e5dc922ef32077e92a8c211d459dec0a98"
         }
       }
     },
@@ -3300,7 +3300,7 @@
       ]
     },
     "src/app/[restaurantId]/staff/page.tsx": {
-      "sha256": "56de2dd4c1c3f4faf6b986fa58ae2fde11879f719a1417b9cc16983835ff9952",
+      "sha256": "438623965ca5bac878e2086793eb192bd0e5713660b11aabf8cf7b763b84cf64",
       "features": [
         "staff-invitations"
       ]
@@ -3414,7 +3414,7 @@
       ]
     },
     "src/app/setup-account/page.tsx": {
-      "sha256": "3461dffdec39255191bde4f6d6019303d02f2c74e36350aee13b8a7082be8ce6",
+      "sha256": "b278aef2f869b6b788884178fc8191c217eb05fd1dfc81de022664c65f6416f1",
       "features": [
         "account-access"
       ]
@@ -6052,7 +6052,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "a55b4b88be7c1edbb8835620719a2e49ca128791d835d15e6ec6c5547d3109f4",
+      "sha256": "5f5f9cd5dbcecaeddeb62d5834050899dfeeb1edc2c4559b9b24afdeb21a178c",
       "features": [
         "payments-how-payments-work",
         "pos-payments",
@@ -6229,7 +6229,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "1fb4fed1407e567a68e88a0aa53a1825353cbfe16609638ac2a52de740f8cade",
+      "sha256": "6154a43cfd21a066f5cb362803fac5e683ee58f95057b9f147e96f6e7a21bac6",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -14061,7 +14061,6 @@
         "settingUp",
         "setupComplete",
         "setupRestaurantInfo",
-        "staffSetupReady",
         "stepPOS",
         "stepPOSCode",
         "stepPassword",

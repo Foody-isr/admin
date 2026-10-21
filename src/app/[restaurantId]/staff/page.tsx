@@ -212,7 +212,7 @@ export default function StaffPage() {
     ...filteredStaff.map(member => [member.full_name, member.email, member.phone,
       roleDisplayLabel(t, member.role_name || member.role),
       t(`staffStatus_${member.invite_status ?? 'not_invited'}`),
-      t(member.pos_pin_configured ? 'configured' : 'notConfigured')].map(value => /^[=+\-@\t\r]/.test(value) ? `'${value}` : value)),
+      t(member.pos_pin_required === false ? 'posCodeNotRequired' : member.pos_pin_configured ? 'configured' : 'notConfigured')].map(value => /^[=+\-@\t\r]/.test(value) ? `'${value}` : value)),
   ]);
 
   return (
@@ -293,7 +293,7 @@ export default function StaffPage() {
             {roles.map(role => <option key={role.id} value={role.id}>{roleDisplayName(t, role.name, role.is_system_default)}</option>)}
           </select> : roleDisplayLabel(t, selectedMember.role_name || selectedMember.role)}</dd></div>
           <div><dt>{t('accountStatus')}</dt><dd><span className="team-status" data-active={selectedMember.invite_status === 'active'}>{t(`staffStatus_${selectedMember.invite_status ?? 'not_invited'}`)}</span></dd></div>
-          <div><dt>{t('posCode')}</dt><dd>{t(selectedMember.pos_pin_configured ? 'configured' : 'notConfigured')}</dd></div>
+          <div><dt>{t('posCode')}</dt><dd>{t(selectedMember.pos_pin_required === false ? 'posCodeNotRequired' : selectedMember.pos_pin_configured ? 'configured' : 'notConfigured')}</dd></div>
         </dl>
         {successMsg && <p role="status" className={`mt-6 rounded-lg p-4 ${successTone === 'success' ? 'bg-[var(--success-50)] text-[var(--success-500)]' : 'bg-[var(--warning-50)] text-[var(--warning-500)]'}`}>{successMsg}</p>}
         {actionError && <p role="alert" className="mt-6 text-[var(--danger-500)]">{actionError}</p>}

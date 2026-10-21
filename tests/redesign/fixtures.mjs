@@ -181,7 +181,7 @@ export function createFixture({ empty = false, denied = false, fail = false, per
       unhandled.push(`${method} ${p}`);
       return {status:405,json:{error:'This operation is unavailable in the isolated UI fixture'}};
     }
-    if(['/api/v1/auth/validate-invite','/api/v1/auth/validate-reset-token'].includes(p)) return {json:{valid:q.get('token')!=='expired-demo',kind:q.get('token')==='staff-demo'?'staff_setup':'owner_onboarding',user:{email:'demo@foody.test',full_name:'Équipe démo',phone:''},restaurant:{id:1,name:'Atelier Foody',slug:'atelier-foody',address:'Adresse de démonstration',phone:'',pos_platform:'ipad'}}};
+    if(['/api/v1/auth/validate-invite','/api/v1/auth/validate-reset-token'].includes(p)) return {json:{valid:q.get('token')!=='expired-demo',kind:q.get('token')==='staff-demo'?'staff_setup':'owner_onboarding',pos_pin_required:q.get('token')==='staff-demo',user:{email:'demo@foody.test',full_name:'Équipe démo',phone:''},restaurant:{id:1,name:'Atelier Foody',slug:'atelier-foody',address:'Adresse de démonstration',phone:'',pos_platform:'ipad'}}};
     if(p==='/api/v1/menu/menus/1/pos-display')return {json:posLayout};
     if(p==='/api/v1/locations')return {json:{locations}};
     if(p==='/api/v1/menu/carte-health')return {json:{serie_date:date,problems:[]}};

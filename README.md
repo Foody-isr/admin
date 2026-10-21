@@ -1295,3 +1295,10 @@ Requires the matching API and migration 264 before this UI. Guest and POS picker
 retain their standard choices. Copy and public help cover French, Hebrew and
 English. Synthetic browser checks:
 `npx playwright test -c playwright.redesign.config.ts internal-combo-substitutions.spec.ts internal-order-library.spec.ts`.
+
+Staff invitation activation now requests a POS PIN only for the current restaurant’s
+orders.manage or payments.manage permissions, including custom roles. Courier and
+kitchen-only activation uses password and profile only. Existing unused email links
+remain valid; failures preserve credentials and the invite for retry. Used, expired
+or ambiguous legacy links have explicit recovery via the existing staff resend
+action. No migration/environment change; deploy API before Admin.

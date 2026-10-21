@@ -17,10 +17,30 @@ import {
   logout,
   ValidateInviteResponse,
   POSDownloads,
+  ApiError,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 
 type PosPlatform = 'ipad' | 'macos' | 'both';
+
+function setupErrorKey(error: unknown): string | undefined {
+  const codes: Record<string, string> = {
+    setup_invite_invalid: 'invalidOrExpiredInvitation',
+    setup_invite_used: 'setupInviteUsed',
+    setup_invite_expired: 'setupInviteExpired',
+    setup_invite_inactive: 'setupInviteInactive',
+    setup_invite_context_missing: 'setupInviteResend',
+    setup_pos_pin_invalid: 'setupPOSCodeInvalid',
+    setup_pos_pin_in_use: 'setupPOSCodeInUse',
+    setup_permissions_changed: 'setupPermissionsChanged',
+    setup_password_too_long: 'setupPasswordTooLong',
+    'account setup failed': 'accountSetupFailed',
+    'POS code must contain 4 to 6 digits': 'setupPOSCodeInvalid',
+    'this POS code is already used in the restaurant': 'setupPOSCodeInUse',
+  };
+  if (!(error instanceof Error)) return undefined;
+  return codes[error.message] ?? (error instanceof ApiError && error.details ? codes[error.details] : undefined);
+}
 
 export default function SetupAccountPage() {
   const { t } = useI18n();
@@ -83,8 +103,9 @@ function SetupAccountContent() {
   // restaurant elsewhere, so the presence of `restaurant` is not reliable.
   // Fall back to the legacy heuristic for older servers that omit `kind`.
   const isStaff = !!inviteData && (inviteData.kind ? inviteData.kind === 'staff_setup' : !inviteData.restaurant);
+  const requiresPOSCode = isStaff && inviteData?.pos_pin_required !== false;
   const STEPS = isStaff
-    ? [t('stepPassword'), t('stepYourInfo'), t('stepPOSCode')]
+    ? [t('stepPassword'), t('stepYourInfo'), ...(requiresPOSCode ? [t('stepPOSCode')] : [])]
     : [t('stepPassword'), t('stepYourInfo'), t('stepRestaurant'), t('stepPOS')];
 
   // Validate token on mount
@@ -132,7 +153,7 @@ function SetupAccountContent() {
         }
       })
       .catch((err) => {
-        if (active) setTokenError(err instanceof Error ? err.message : 'invalidOrExpiredInvitation');
+        if (active) setTokenError(setupErrorKey(err) ?? (err instanceof Error ? err.message : 'invalidOrExpiredInvitation'));
       })
       .finally(() => { if (active) setValidating(false); });
     return () => { active = false; };
@@ -153,7 +174,7 @@ function SetupAccountContent() {
   }, [restaurantName]);
 
   function canProceed(): boolean {
-    if (isStaff && currentStep === 2) {
+    if (requiresPOSCode && currentStep === 2) {
       return /^\d{4,6}$/.test(posPin) && posPin === confirmPosPin;
     }
     switch (currentStep) {
@@ -181,7 +202,7 @@ function SetupAccountContent() {
         restaurant_address: isStaff ? undefined : restaurantAddress || undefined,
         restaurant_phone: isStaff ? undefined : restaurantPhone || undefined,
         pos_platform: isStaff ? undefined : posPlatform,
-        pos_pin: isStaff ? posPin : undefined,
+        pos_pin: requiresPOSCode ? posPin : undefined,
       });
 
       // Determine where to redirect when user clicks "Go to Dashboard"
@@ -202,7 +223,8 @@ function SetupAccountContent() {
 
       setSuccess(true);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t('accountSetupFailed'));
+      const key = setupErrorKey(err);
+      setError(key ? t(key) : err instanceof Error ? err.message : t('accountSetupFailed'));
     } finally {
       setLoading(false);
     }
@@ -275,7 +297,7 @@ function SetupAccountContent() {
               <h1 className="text-lg font-semibold text-fg-primary mb-1">{t('youreAllSet')}</h1>
               <p className="text-sm text-fg-secondary">
 				{isStaff
-				  ? t('staffSetupReady')
+				  ? t(requiresPOSCode ? 'staffSetupReady' : 'staffSetupAccountReady')
 				  : <>{t('yourAccountAnd')} <strong>{restaurantName}</strong> {t('areReady')}</>}
               </p>
             </div>
@@ -307,6 +329,7 @@ function SetupAccountContent() {
               )}
             </div>
 
+			{isStaff && !requiresPOSCode && <Link href="/login" className="btn-primary w-full justify-center">{t('goToLogin')}</Link>}
 			{!isStaff && (
 			  <button
 				type="button"
@@ -415,7 +438,7 @@ function SetupAccountContent() {
           )}
 
 		  {/* Staff step 3: private POS code */}
-		  {isStaff && currentStep === 2 && (
+		  {requiresPOSCode && currentStep === 2 && (
 			<div>
 			  <h1 className="text-lg font-semibold text-fg-primary mb-1">{t('createPOSCode')}</h1>
 			  <p className="text-sm text-fg-secondary mb-6">{t('posCodeSetupHint')}</p>
