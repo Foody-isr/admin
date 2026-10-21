@@ -1,0 +1,16 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "b97a6be7ec8f24eb6182094f3a71e94c5381fe838d598d7bb5ca11e30d3e3d42",
+      "disposition": "no-user-impact",
+      "reason": "Reviewed only the stock revision typing, narrower remaining-stock response type, and the FR/HE/EN item-specific Apply hint. These support the documented menu availability panel; payment and delivery behavior, permissions, transport and existing labels are unchanged."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "500e6c22f055d6893964e7d614cbc5540830dcaf466396b2bb69eec82852cfe4",
+      "disposition": "no-user-impact",
+      "reason": "Reviewed only the stock revision typing, narrower remaining-stock response type, and the FR/HE/EN item-specific Apply hint. These support the documented menu availability panel; payment and delivery behavior, permissions, transport and existing labels are unchanged."
+    }
+  ]
+}
