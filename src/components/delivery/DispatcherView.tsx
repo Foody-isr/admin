@@ -1,5 +1,6 @@
 'use client';
 
+import { DeliveryWhatsAppDrawer } from '@/components/delivery/DeliveryWhatsAppDrawer';
 import { DeliveryDuration } from '@/components/delivery/DeliveryDuration';
 import { CustomerWindowField, parseCustomerWindowMinutes } from '@/components/delivery/CustomerWindowField';
 import { RouteAddressField } from '@/components/delivery/RouteAddressField';
@@ -28,15 +29,12 @@ import {
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
-import { whatsappUrl } from '@/lib/delivery-links';
 import {
   buildDeliveryEtaLabel,
-  buildDeliveryEtaMessage,
   deliveryEtaWindow,
   deliveryMatchesRouteDate,
   isOpenDeliveryRoute,
   isPendingDeliveryStop,
-  type DeliveryEtaWindow,
 } from '@/lib/delivery-planning';
 import { useWs } from '@/lib/ws-context';
 import {
@@ -131,10 +129,6 @@ function routeStatusTone(status: DeliveryRoute['status']): 'neutral' | 'success'
   }
 }
 
-function deliveryMessage(t: Translator, stop: RouteStop, window: DeliveryEtaWindow | null): string {
-  const key = window ? 'deliveryEtaWhatsappTemplate' : 'deliveryEtaWhatsappTemplateNoTime';
-  return buildDeliveryEtaMessage(t(key), stop, window);
-}
 
 interface RouteRibbonProps {
   route: DeliveryRoute;
@@ -147,6 +141,7 @@ interface RouteRibbonProps {
   history: boolean;
   onSelectCourier: () => void;
   onSelectStop: (stopId: number) => void;
+  onMessage: (orderId: number) => void;
   onOptimize: () => void;
   onSaveSettings: (input: RouteSettingsInput) => Promise<void>;
   onCancel: () => void;
@@ -164,6 +159,7 @@ function RouteRibbon({
   history,
   onSelectCourier,
   onSelectStop,
+  onMessage,
   onOptimize,
   onSaveSettings,
   onCancel,
@@ -276,7 +272,6 @@ function RouteRibbon({
               }, t);
               const deliveryNotes = stop.delivery_notes?.trim();
               const isSelected = selectedStopId === stop.id;
-              const message = deliveryMessage(t, stop, window);
               return (
                 <div
                   key={stop.id}
@@ -336,16 +331,7 @@ function RouteRibbon({
                     </span>
                   </button>
                   {stop.customer_phone && !history && (
-                    <a
-                      href={whatsappUrl(stop.customer_phone, message)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="me-1 mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-r-md text-[var(--fg-muted)] transition-colors hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:shadow-ring"
-                      aria-label={t('deliveryPlanWhatsApp')}
-                      title={t('deliveryPlanWhatsApp')}
-                    >
-                      <MessageCircleIcon className="h-4 w-4" />
-                    </a>
+                    <button type="button" onClick={() => onMessage(stop.order_id)} className="flex h-9 w-9 items-center justify-center rounded-r-md text-[var(--fg-muted)] hover:bg-[var(--surface-2)]" aria-label={t('deliveryPlanWhatsApp')} title={t('deliveryPlanWhatsApp')}><MessageCircleIcon className="h-4 w-4" /></button>
                   )}
                 </div>
               );
@@ -365,6 +351,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const initialPlanResolved = useRef(false);
   const loadRequestId = useRef(0);
   const [dayRoutes, setRoutes] = useState<DeliveryRoute[]>([]);
+  const [messageTarget, setMessageTarget] = useState<{ orderId?: number } | null>(null);
   const [view, setView] = useState<'open' | 'history'>('open');
   const [showMap, setShowMap] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -813,7 +800,6 @@ export default function DispatcherView({ rid }: { rid: number }) {
 
   const selectedWindow = selectedEntry && view === 'open' && isPendingDeliveryStop(selectedEntry.stop)
     ? deliveryEtaWindow(selectedEntry.route, selectedEntry.stop, locale) : null;
-  const selectedMessage = selectedEntry ? deliveryMessage(t, selectedEntry.stop, selectedWindow) : '';
   const selectedAddress = selectedEntry ? formatDeliveryAddress({
     address: selectedEntry.stop.address,
     city: selectedEntry.stop.city,
@@ -867,6 +853,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
 
       <PageHead className="mb-0" title={t('deliveries')} desc={t('deliveryPlanWorkspaceIntro')} actions={
         <>
+          {view === 'open' && dayRoutes.some(route => isOpenDeliveryRoute(route) && route.stops.some(isPendingDeliveryStop)) && <Button variant="secondary" onClick={() => setMessageTarget({})}><MessageCircleIcon />{t('deliveryWhatsAppTitle')}</Button>}
           <Button variant="secondary" asChild><Link href={`/${rid}/settings/delivery/maps`}><Settings2Icon aria-hidden />{t('mapsTitle')}</Link></Button>
           <Button variant="secondary" icon aria-label={t('refresh')} disabled={loading} onClick={() => void load()}><RefreshCwIcon className={loading ? 'animate-spin' : undefined} /></Button>
           {view === 'open' && unplannedOrders.length > 0 && <Button disabled={picked.size === 0} onClick={() => setPlannerOpen(true)}>{t('deliveryPlanStepTwo')}</Button>}
@@ -1001,6 +988,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
                   setSelectedCourier(route.courier_id);
                   setMoveTarget(null);
                 }}
+                onMessage={orderId => setMessageTarget({ orderId })}
                 onOptimize={() => void recalculateRoute(route.id)}
                 onSaveSettings={(input) => saveRouteSettings(route.id, input)}
                 onCancel={() => setUndoAction({ kind: 'route', routeId: route.id, stopCount: route.stops.filter(isPendingDeliveryStop).length })}
@@ -1080,12 +1068,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
                   {t('correctAddress')}
                 </Button>}
                 {view === 'open' && selectedEntry.stop.customer_phone && (
-                  <Button asChild variant="primary">
-                    <a href={whatsappUrl(selectedEntry.stop.customer_phone, selectedMessage)} target="_blank" rel="noopener noreferrer">
-                      <MessageCircleIcon />
-                      {t('deliveryPlanWhatsApp')}
-                    </a>
-                  </Button>
+                  <Button variant="primary" onClick={() => setMessageTarget({ orderId: selectedEntry.stop.order_id })}><MessageCircleIcon />{t('deliveryPlanWhatsApp')}</Button>
                 )}
                 {view === 'open' && movableRoutes.length > 0 && selectedEntry.route.status === 'draft' && selectedEntry.stop.status === 'pending' && (
                   <>
@@ -1272,6 +1255,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {messageTarget && <DeliveryWhatsAppDrawer key={`${rid}:${departure.slice(0, 10)}:${messageTarget.orderId ?? 'all'}`} open onOpenChange={open => { if (!open) setMessageTarget(null); }} restaurantId={rid} date={departure.slice(0, 10)} routes={dayRoutes} orderId={messageTarget.orderId} />}
     </div>
   );
 }
