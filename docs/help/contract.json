@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "d5d341c7d649384b5dc6499dd60a16de58a9eecb",
-  "documentationRevision": "7a2e115fb44e9f9dbe3b359e31c7afa36783a1548028ecf5ccf237cbf3450d00",
+  "documentationRef": "76a4dd1fe40920a33b268baef62163f08442c214",
+  "documentationRevision": "634ccc34be93d17a9aa82a7a15d0a6130ce16245c1ead5ad1c153d280e06740f",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -715,15 +715,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "452840d06c15d85691245a2918ffe929d2433a65ffc5210d288dc333253cc41a"
+          "sha256": "3a135a0c15df8249cb4d22ff1c7f020f2faa5adb5927ed95e9f81f5d03891db6"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "37fda0edd3dcf7f046bb0c50065f08c8e6ec46b5c05bc55e1504bf818cfa4fd6"
+          "sha256": "47ad9cce1e743187d00d501e70c966c33a3a139a9b4e9b5b7d0158a7ff1c0cc2"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "3e0ec2f9ed5a8bf994f0c3eaa3025bc9eff1c2306470d85c90b71b4ea2ba79cc"
+          "sha256": "120f02e29737d01feeadc8c9f8c6e67de3dd6f79b9500cb90e924cf3c686d74a"
         }
       }
     },
@@ -3833,7 +3833,7 @@
       ]
     },
     "src/components/delivery/RouteAddressField.tsx": {
-      "sha256": "0061816a7d97633a6f0d3f8f4671a418add6ada22ec5aef6a7371bbcaec44f43",
+      "sha256": "2b72a277f20e69bd4a1431cd7da396451db9027c1cea1df4883311f8f8ea618b",
       "features": [
         "delivery-dispatch"
       ]
@@ -6217,7 +6217,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "15a05d58030405885c09897e13241236546ea614316cdcefedc53427d2b7cddb",
+      "sha256": "282192e419fd2c2a020f4c7d27a90627935ed258fd0313ff1d4296786c2d875b",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -6679,6 +6679,12 @@
       "sha256": "03209bff4bfd0f7b136b5b13617c275fcbccb60536c03a63039fb5096d7815d5",
       "features": [
         "shared-runtime"
+      ]
+    },
+    "src/lib/route-address.ts": {
+      "sha256": "3b4f5c0575337c336603fbbad5d2ee143247f07a63c5be11b43e132b2218db36",
+      "features": [
+        "delivery-dispatch"
       ]
     },
     "src/lib/route-permissions.ts": {

@@ -302,3 +302,38 @@ test('changing a route to another delivery day shows a localized rejection', asy
   await expect(page.getByRole('alert').filter({ hasText: 'Choisissez des livraisons prévues à la même date que la tournée.' }).first()).toBeVisible();
   expect(state.routes[0].date).toBe(day);
 });
+
+test('a city selection is retained once and can be saved as the final destination', async ({ page }) => {
+  const state = await install(page);
+  state.routes = [route(1, [stop(2)])];
+  let searches = 0;
+  await page.route('**/api/v1/public/address-autocomplete**', async intercepted => {
+    if (intercepted.request().url().includes('/resolve')) {
+      return intercepted.fulfill({ json: { suggestion: { id: 'city-demo', kind: 'place', address: "Ra'anana, Israel", city: "Ra'anana" } } });
+    }
+    searches++;
+    return intercepted.fulfill({ json: { suggestions: [{ id: 'city-demo', kind: 'prediction', address: "Ra'anana", city: 'Israel', lookup_token: 'synthetic-selection' }] } });
+  });
+  let saved: Record<string, unknown> | undefined;
+  await page.route('**/api/v1/delivery/routes/1/settings**', async intercepted => {
+    saved = intercepted.request().postDataJSON();
+    state.routes[0] = { ...state.routes[0], ...saved } as DeliveryRoute;
+    return intercepted.fulfill({ json: { route: state.routes[0] } });
+  });
+  await page.goto('/1/orders/deliveries');
+  await page.getByRole('button', { name: 'Modifier', exact: true }).click();
+  const field = page.getByRole('combobox', { name: 'Destination finale', exact: true });
+  await field.fill('Raanana');
+  await page.clock.runFor(350);
+  await page.getByRole('option', { name: "Ra'anana, Israel", exact: true }).getByRole('button').click();
+  await expect(field).toHaveValue("Ra'anana, Israel");
+  await expect(page.getByRole('listbox')).toHaveCount(0);
+  const searched = searches;
+  await field.focus();
+  await page.clock.runFor(1000);
+  expect(searches).toBe(searched);
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect.poll(() => saved?.end_address).toBe("Ra'anana, Israel");
+  await page.getByRole('button', { name: 'Modifier', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Destination finale', exact: true })).toHaveValue("Ra'anana, Israel");
+});

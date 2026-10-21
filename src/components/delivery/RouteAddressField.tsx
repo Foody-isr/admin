@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { formatRouteAddress } from '@/lib/route-address';
 import { Input } from '@/components/ds';
 import { autocompleteRouteAddress, resolveRouteAddress, type AddressSuggestion } from '@/lib/delivery';
 
@@ -54,9 +55,9 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
     try {
       const resolved = suggestion.lookup_token ? await resolveRouteAddress(restaurantId, suggestion.lookup_token) : suggestion;
       if (resolution.current !== version) return;
-      const address = [resolved.address, resolved.city].filter(Boolean).join(', ');
+      const address = formatRouteAddress(resolved);
       session.current = '';
-      if (resolved.kind === 'street' || resolved.kind === 'place') {
+      if (resolved.kind === 'street') {
         onChange(address); return;
       }
       selection.current = address;
@@ -86,7 +87,7 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
         {suggestions.map((suggestion, index) => <li key={suggestion.id} id={`${id}-${index}`} role="option" aria-selected={index === active}>
           <button type="button" tabIndex={-1} onMouseDown={event => event.preventDefault()} onClick={() => void select(suggestion)}
             className={`w-full px-3 py-3 text-start text-fs-sm hover:bg-[var(--surface-2)] ${index === active ? 'bg-[var(--surface-2)]' : ''}`}>
-            {[suggestion.address, suggestion.city].filter(Boolean).join(', ')}
+            {formatRouteAddress(suggestion)}
           </button>
         </li>)}
       </ul><p className="px-3 py-1 text-fs-xs text-[var(--fg-subtle)]">Google</p>
