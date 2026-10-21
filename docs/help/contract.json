@@ -4663,7 +4663,7 @@
       ]
     },
     "src/components/menu/ItemAvailabilityPopover.tsx": {
-      "sha256": "0431df7db4c962078950708cb56db0d30d332530728564215553938a54651a48",
+      "sha256": "e9703710216732765a963b2d66e998f8f2ce074679a94ca31aadf48fc5122aaf",
       "features": [
         "menu-menus-and-groups"
       ]
