@@ -998,6 +998,7 @@ export interface StaffMember {
   is_default_courier?: boolean;
   invite_status?: 'pending' | 'expired' | 'active' | 'not_invited';
   pos_pin_configured?: boolean;
+  pos_pin_required?: boolean;
   table_assignment_eligible: boolean;
   unrestricted_table_access: boolean;
   last_login_at?: string;
@@ -2648,6 +2649,8 @@ export interface ValidateInviteResponse {
   // Discriminates the setup flow: 'owner_onboarding' (full wizard) vs 'staff_setup'
   // (password + profile only). Older servers may omit this.
   kind?: 'owner_onboarding' | 'staff_setup';
+  // Computed from current restaurant permissions, including existing invites.
+  pos_pin_required?: boolean;
   user: { email: string; full_name: string; phone: string };
   restaurant?: {
     id: number;
