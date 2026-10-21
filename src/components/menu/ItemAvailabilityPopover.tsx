@@ -100,9 +100,9 @@ export function ItemAvailabilityPopover({
       setBusy(false);
     }
   }
-  const row = snapshot?.overview.rows.find(
+  const row = (open ? snapshot?.overview.rows.find(
     (row) => row.item.id === item.id,
-  ) ?? {
+  ) : null) ?? {
     item,
     managed: false,
     config: null,

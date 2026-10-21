@@ -205,6 +205,10 @@ test("Articles availability choices only persist on Apply and refresh the row", 
   await panel.getByRole("button", { name: "Appliquer", exact: true }).click();
   await expect(panel).toBeHidden();
   expect(f.writes[2].body).toEqual({ override: "auto" });
+  Object.assign(f.item, { availability_override: "force_sold_out", availability_state: "sold_out" });
+  await page.getByRole("button", { name: "Actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Actualiser", exact: true }).click();
+  await expect(f.badge).toContainText("Rupture de stock");
 });
 
 for (const series of [false, true])
