@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "d20f63d70e0688524cd61507329f162327260512",
-  "documentationRevision": "9cc224a392013dd960487aa3927bdab7433be149ffab12b5677559cdbe9ec596",
+  "documentationRef": "fcec7d9d435a84c75f46d224f920c30c3daa35ac",
+  "documentationRevision": "d5e494c4dc2f5441671f2e9de58eeda89f6d8b57e4f48e77dfcdfc5e29916928",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -392,15 +392,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/menus-and-groups.mdx",
-          "sha256": "3d7279e320668660ced549b1fe31bd81af96e84f5a327289af0cb1ee7909c97c"
+          "sha256": "362409e412e55c6623ddfacb8615be8ea239e7ce8164416a50c606000abbf9bf"
         },
         "fr": {
           "path": "src/content/help/fr/menu/menus-and-groups.mdx",
-          "sha256": "a7142a4be0117a671cacbbc850465f3bd5e89bcf5a08051a7f067ba39e1b9341"
+          "sha256": "ecdef27e81b630dcf085c160e3f923c607a3eb6e2ea61522462d591e544f3ef4"
         },
         "he": {
           "path": "src/content/help/he/menu/menus-and-groups.mdx",
-          "sha256": "618f5db4d53029b47076c6933ddc7fe51379e308bd55887ca24661d70e6cfe17"
+          "sha256": "72c589f0191ab6d2243239d95f1e71d815138fe029d00efaac6c7744425f0f28"
         }
       }
     },
@@ -4621,7 +4621,7 @@
       ]
     },
     "src/components/menu/AvailabilityPill.tsx": {
-      "sha256": "5b62868a0381455bfa486a8663102a2178a39b80af245ec4df9ada008a0cbadc",
+      "sha256": "746d4f0d7caecfec0ee94be64dda7c90ea3ec5d0b26b4e40382ea76ec2580c74",
       "features": [
         "menu-menus-and-groups"
       ]
@@ -4704,32 +4704,32 @@
         "menu-menus-and-groups"
       ]
     },
+    "src/components/menu/publication/AvailabilityPopover.tsx": {
+      "sha256": "cad4633040385f0afbd6f5e3a44d7216d69e9653bab2fc7eeba8aaa2df2220b1",
+      "features": [
+        "menu-menus-and-groups"
+      ]
+    },
     "src/components/menu/publication/CarteEditor.module.css": {
-      "sha256": "393d8456c8c3aeeaf5d003780ba1f753bc3d821bc460bcadb68bc86f81fabe02",
+      "sha256": "4a2c9ec88dd5f3fbd7704881786a5d495b5ca5bfc52f62f9fafc521b3c39f367",
       "features": [
         "menu-menus-and-groups"
       ]
     },
     "src/components/menu/publication/CarteEditor.tsx": {
-      "sha256": "2502d2e0489b554c9b22840b9514fc2f7c8a08596c74641d96b6dceb337907f4",
+      "sha256": "44b3d9f98d5712f4dbbbad538db11c1b7b772169103a509d8df88aadd5e43722",
       "features": [
         "menu-menus-and-groups"
       ]
     },
     "src/components/menu/publication/CarteGroups.tsx": {
-      "sha256": "116cba36f817450d2d74fb5608b18be62c877a6afa81aa93e89933c0ee5f62c3",
+      "sha256": "02ab446c6a382b8a7b6a79b22886880639e7683aa307e2c80944f090587b05a5",
       "features": [
         "menu-menus-and-groups"
       ]
     },
     "src/components/menu/publication/ProductSalesStock.tsx": {
       "sha256": "ae34467d2d9f1024db4e2ad62de37f3e1ae4b744ca2e17ed9f150cdc06dc1bdc",
-      "features": [
-        "menu-menus-and-groups"
-      ]
-    },
-    "src/components/menu/publication/RestockDialog.tsx": {
-      "sha256": "f9fc9977ab2e7581af4fd0f8e3f3b0270ae87cdaaf524a2eb76545d6d7576c0e",
       "features": [
         "menu-menus-and-groups"
       ]
@@ -6209,7 +6209,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "000a4da820c2e75a68f7330fb028e0cdf5c520e276511d254bf515843e4667eb",
+      "sha256": "966dd175c9f28b25a6cbf97771e8d6289934df9050d0ddbbc3b7fde3ee4fc4a4",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -17595,6 +17595,41 @@
       "actions": []
     },
     {
+      "id": "foodyadmin:src/components/menu/publication/AvailabilityPopover.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/menu/publication/AvailabilityPopover.tsx",
+      "line": 1,
+      "features": [
+        "menu-menus-and-groups"
+      ],
+      "labels": [
+        "apply",
+        "availability",
+        "cancel",
+        "carteApplyAvailabilityHint",
+        "carteAvailabilityTitle",
+        "carteChoiceAutomatic",
+        "carteChoiceStock",
+        "carteChoiceUnlimited",
+        "cartePositiveStockHint",
+        "carteReloadStock",
+        "carteRemainingStockHint",
+        "carteRestockQuantity",
+        "carteRestockReason",
+        "carteVariantUnlimitedHint",
+        "close",
+        "saleStockCount",
+        "saleStockMeasure",
+        "saleStockMode",
+        "saleStockPerVariant",
+        "saleStockUnit",
+        "unavailable"
+      ],
+      "actions": [
+        "onReload"
+      ]
+    },
+    {
       "id": "foodyadmin:src/components/menu/publication/CarteEditor.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/menu/publication/CarteEditor.tsx",
@@ -17604,13 +17639,10 @@
       ],
       "labels": [
         "add",
-        "apply",
         "cancel",
         "carteAddGroup",
         "carteAddGroupCard",
         "carteAddItems",
-        "carteAvailabilityHint",
-        "carteAvailabilityTitle",
         "carteBack",
         "carteChooseHint",
         "carteChooseItems",
@@ -17752,27 +17784,6 @@
         "saleStockSeries"
       ],
       "actions": []
-    },
-    {
-      "id": "foodyadmin:src/components/menu/publication/RestockDialog.tsx:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/components/menu/publication/RestockDialog.tsx",
-      "line": 1,
-      "features": [
-        "menu-menus-and-groups"
-      ],
-      "labels": [
-        "cancel",
-        "carteRestockAction",
-        "carteRestockHint",
-        "carteRestockImmediate",
-        "carteRestockQuantity",
-        "carteRestockReason",
-        "carteRestockTitle"
-      ],
-      "actions": [
-        "onApply"
-      ]
     },
     {
       "id": "foodyadmin:src/components/menu/publication/SalesStockPage.tsx:ui-controls:1",

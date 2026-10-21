@@ -343,6 +343,15 @@ test("Hebrew mobile layout stays within viewport", async ({ page }) => {
       page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
     )
     .toBe(true);
+  await page.locator('[data-carte-item] .list-availability-pill').first().click();
+  const availabilityPanel = page.getByRole('dialog');
+  await expect(availabilityPanel).toBeVisible();
+  await expect.poll(async () => {
+    const box = await availabilityPanel.boundingBox();
+    return !!box && box.x >= 0 && box.y >= 0 && box.x + box.width <= 391 && box.y + box.height <= 845;
+  }).toBe(true);
+  await page.screenshot({ path: 'test-results/carte-availability-mobile-he.png', fullPage: true, animations: 'disabled' });
+  await page.keyboard.press('Escape');
   await page.screenshot({
     animations: "disabled",
     path: "test-results/carte-mobile-he.png",
@@ -485,7 +494,7 @@ test("contextual availability requires Apply, keeps failures open and restores f
     .click();
   const dialog = page.getByRole("dialog");
   await dialog
-    .getByRole("radio", { name: "Toujours disponible (immédiat)", exact: true })
+    .getByRole("radio", { name: "Disponible sans limite", exact: true })
     .check();
   expect(f.writes).toEqual([]);
   f.rejectAvailability = true;
@@ -500,7 +509,7 @@ test("contextual availability requires Apply, keeps failures open and restores f
       .locator('[data-carte-item="1"]')
       .getByText("Toujours disponible", { exact: true }),
   ).toBeVisible();
-  await expect(trigger).toBeFocused();
+  await expect(page.locator('[data-carte-item="1"] .list-availability-pill')).toBeFocused();
   await expect(
     header(page).getByRole("button", { name: "Publier", exact: true }),
   ).toBeDisabled();
@@ -759,13 +768,28 @@ test("history remains available if its item filter fails and history errors can 
   await expect(page.getByRole("cell", { name: "Responsable", exact: true })).toBeVisible();
 });
 
-test("carte availability toggles directly without the action menu", async ({ page }) => {
+test("carte availability opens a compact editor and only applies an explicit choice", async ({ page }) => {
  const f = await install(page, 'fr', true);
  await page.goto(`/1/menu/menus/${f.menu.id}`);
  const row = page.locator('[data-carte-item]').first();
  await expect(page.getByRole('columnheader', { name: 'Disponibilité', exact: true })).toBeVisible();
  await expect(row.locator('.list-availability-pill')).toHaveText('Disponible');
- await row.getByRole('button', { name: /Marquer épuisé/i }).click();
+ await row.locator('.list-availability-pill').click();
+ await expect(page.getByRole('dialog')).toBeVisible();
+ expect(f.writes).toEqual([]);
+ await page.keyboard.press('Escape');
+ await expect(page.getByRole('dialog')).toHaveCount(0);
+ await expect(row.locator('.list-availability-pill')).toBeFocused();
+ expect(f.writes).toEqual([]);
+ await row.locator('.list-availability-pill').click();
+ await page.getByRole('dialog').getByRole('radio', { name: 'Indisponible', exact: true }).check();
+ expect(f.writes).toEqual([]);
+ await page.getByRole('dialog').getByRole('button', { name: 'Annuler', exact: true }).click();
+ await expect(row.locator('.list-availability-pill')).toHaveText('Disponible');
+ expect(f.writes).toEqual([]);
+ await row.locator('.list-availability-pill').click();
+ await page.getByRole('dialog').getByRole('radio', { name: 'Indisponible', exact: true }).check();
+ await page.getByRole('dialog').getByRole('button', { name: 'Appliquer', exact: true }).click();
  await expect.poll(() => f.writes).toEqual(['availability']);
  await expect(row.locator('.list-availability-pill')).toHaveText('Rupture de stock');
  await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -781,12 +805,13 @@ for (const measure of [false, true]) test(`exhausted predefined ${measure ? "mea
  await page.goto(`/1/menu/menus/${f.menu.id}`);
  const row = page.locator('[data-carte-item]').first();
  await expect(row.locator('.list-availability-pill')).toHaveText('Rupture de stock');
- await row.getByRole('button', { name: /Remettre en vente/i }).click();
+ await row.locator('.list-availability-pill').click();
  const dialog = page.getByRole('dialog');
- await expect(dialog.getByRole('heading', { name: 'Remettre en disponibilité' })).toBeVisible();
+ await expect(dialog.getByRole('heading', { name: 'Disponibilité' })).toBeVisible();
+ expect(inputs).toHaveLength(0);
  if (measure) await expect(dialog.getByText('Quantité disponible (g)', { exact: true })).toBeVisible();
  await dialog.getByRole('spinbutton').fill(measure ? '500' : '5');
- await dialog.getByRole('button', { name: 'Remettre en disponibilité', exact: true }).click();
+ await dialog.getByRole('button', { name: 'Appliquer', exact: true }).click();
  await expect(dialog).toHaveCount(0);
  await expect(row.locator('.list-availability-pill')).toHaveText('Disponible');
  await expect(row).toContainText(measure ? '2 disponible' : '5 disponible');
@@ -809,4 +834,36 @@ for (const locale of ['fr', 'he']) test(`restaurant quotas are read-only and res
  await expect(page.getByText(locale === 'fr' ? 'Plafond atteint ; ce service est suspendu' : 'המכסה נוצלה; השירות מושהה', { exact: true })).toBeVisible();
  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
  await page.screenshot({ path: `test-results/api-quotas-${locale}.png`, fullPage: true });
+});
+
+
+test('predefined stock can be created from the badge and a conflict preserves entered quantities', async ({page}) => {
+ const f = await install(page,'fr',true);
+ let quantity: number | null = null, revision = 0, reject = true;
+ const inputs: any[] = [];
+ await page.route('**/api/v1/menu/sales-stock?*', route => route.fulfill({json:{series_key:f.key,rows:f.items.map(item=>({item:{...item,stock_mode:'',stock_quantity:null},managed:true,previous:null,sizes:[],config:revision ? {mode:'count',unit:'',override:'auto',revision,counters:[{option_id:0,initial_quantity:(quantity??0)+10,committed:10}]} : null,availability:{availability_state:'available',buildable_count:quantity}}))}}));
+ await page.route('**/api/v1/menu/items/*/sales-stock/restock?*', route => {
+  const input=route.request().postDataJSON();inputs.push(input);
+  if(reject){quantity=9;revision=3;return route.fulfill({status:409,json:{error:'revision_conflict'}});}
+  quantity=input.quantity;revision++;return route.fulfill({json:{revision}});
+ });
+ await page.goto(`/1/menu/menus/${f.menu.id}`);
+ const row=page.locator('[data-carte-item]').first();await row.locator('.list-availability-pill').click();
+ const dialog=page.getByRole('dialog');await dialog.getByRole('radio',{name:'Stock prédéfini',exact:true}).check();
+ const input=dialog.getByRole('spinbutton');await input.fill('0');await expect(dialog.getByRole('button',{name:'Appliquer',exact:true})).toBeDisabled();
+ await input.fill('6');expect(inputs).toHaveLength(0);
+ await page.screenshot({path:'test-results/carte-availability-stock-fr.png',fullPage:true,animations:'disabled'});
+ await dialog.getByRole('button',{name:'Appliquer',exact:true}).click();await expect(dialog.getByRole('alert')).toBeVisible();await expect(input).toHaveValue('6');
+ reject=false;await dialog.getByRole('button',{name:'Recharger les stocks',exact:true}).click();await expect(dialog.getByRole('alert')).toHaveCount(0);await expect(input).toHaveValue('6');
+ await dialog.getByRole('button',{name:'Appliquer',exact:true}).click();await expect(dialog).toHaveCount(0);await expect(row).toContainText('6 disponibles');
+ expect(inputs).toHaveLength(2);expect(inputs[0]).toMatchObject({mode:'count',quantity:6,expected_revision:0,override:'auto'});expect(inputs[1]).toMatchObject({mode:'count',quantity:6,expected_revision:3});expect(f.writes).toEqual([]);
+});
+
+test('predefined stock preserves an unlimited size while adjusting another size', async ({page}) => {
+ const f=await install(page,'fr',true);const inputs:any[]=[];
+ await page.route('**/api/v1/menu/sales-stock?*',route=>route.fulfill({json:{series_key:f.key,rows:f.items.map(item=>({item,managed:true,previous:null,sizes:[{id:20,name:'Petite'},{id:21,name:'Grande'}],config:{mode:'per_variant',unit:'',override:'auto',revision:2,counters:[{option_id:20,initial_quantity:5,committed:2},{option_id:21,initial_quantity:null,committed:0}]},availability:{availability_state:'available',buildable_count:null}}))}}));
+ await page.route('**/api/v1/menu/items/*/sales-stock/restock?*',route=>{inputs.push(route.request().postDataJSON());return route.fulfill({json:{revision:3}});});
+ await page.goto(`/1/menu/menus/${f.menu.id}`);await page.locator('[data-carte-item] .list-availability-pill').first().click();const dialog=page.getByRole('dialog');
+ await expect(dialog.getByRole('spinbutton',{name:'Grande',exact:true})).toHaveValue('');await dialog.getByRole('spinbutton',{name:'Petite',exact:true}).fill('6');
+ await dialog.getByRole('button',{name:'Appliquer',exact:true}).click();await expect(dialog).toHaveCount(0);expect(inputs[0]).toMatchObject({mode:'per_variant',quantity:null,options:{'20':6,'21':null},expected_revision:2,override:'auto'});
 });

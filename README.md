@@ -1,9 +1,9 @@
-The carte has a dedicated Availability column using the same green/red clickable
-AvailabilityPill as the Articles list. Remaining quantities appear beneath the badge;
-on mobile the badge and count stay on the item row. Availability is a direct
-operational action. An exhausted
-predefined allowance opens a remaining-quantity dialog; the API preserves all
-committed orders under its stock lock. The explicit availability menu remains.
+The carte Availability badge opens a compact anchored editor. Choose unlimited,
+unavailable, predefined remaining stock or the existing automatic rules, then Apply.
+Opening, changing choices and cancelling never write stock. Quantities can be
+counted, measured in base g/ml or entered per size; committed orders are preserved.
+Errors retain input and allow an explicit stock reload. The row ellipsis opens the
+same editor. Stock preparation and carte publication remain separate workflows.
 Website V3 → Order journey can draft and publish the optional entry sign-in
 invitation. Settings → Usage and quotas is read-only restaurant-scoped Google and
 Geoapify consumption, including independent units, 80% warnings and UTC renewal.

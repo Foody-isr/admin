@@ -13,17 +13,17 @@ import {
 } from "lucide-react";
 import type {
   AvailabilityOverride,
-  AvailabilityState,
   CarteDocument,
   CarteDraftGroup,
   MenuItem,
   SaleStockOverview,
+  SaleStockLimit,
 } from "@/lib/api";
 import { moveEntry } from "@/lib/carte-editor";
 import { useCurrency, useI18n } from "@/lib/i18n";
 import ActionMenu from "@/components/common/ActionMenu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AvailabilityPill } from "@/components/menu/AvailabilityPill";
+import { AvailabilityPopover } from "./AvailabilityPopover";
 import styles from "./CarteEditor.module.css";
 
 interface Props {
@@ -40,8 +40,10 @@ interface Props {
   onChooseItems: (key: string) => void;
   onRemoveGroup: (key: string) => void;
   onHistory: (id: number) => void;
-  onAvailability: (id: number, value: AvailabilityOverride) => void;
-  onQuickAvailability: (id: number) => void;
+  availabilityError: string;
+  onAvailabilityOpen: () => void;
+  onReloadStock: () => Promise<unknown>;
+  onAvailabilityApply: (id: number, value: AvailabilityOverride, remaining?: SaleStockLimit) => Promise<boolean | undefined>;
   onEditItem: (id: number) => void;
 }
 
@@ -60,12 +62,15 @@ export function CarteGroups({
   onChooseItems,
   onRemoveGroup,
   onHistory,
-  onAvailability,
-  onQuickAvailability,
+  availabilityError,
+  onAvailabilityOpen,
+  onReloadStock,
+  onAvailabilityApply,
   onEditItem,
 }: Props) {
   const { t, locale } = useI18n();
   const { money } = useCurrency();
+  const [availabilityKey, setAvailabilityKey] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [selected, setSelected] = useState<{
     group: string;
@@ -452,13 +457,12 @@ export function CarteGroups({
                             <td className={styles.availabilityColumn}>
                               <div className={styles.availabilityContent}>
                                 {status ? (
-                                  <AvailabilityPill
-                                    state={status.availability.availability_state as AvailabilityState}
-                                    override={override}
-                                    isActive={item?.is_active !== false}
-                                    canEdit={canEdit}
-                                    pending={busy}
-                                    onToggle={() => onQuickAvailability(id)}
+                                  <AvailabilityPopover
+                                    row={status} series={!!stock?.series_key} canEdit={canEdit} busy={busy}
+                                    error={availabilityError} open={availabilityKey === `${group.key}:${id}`}
+                                    onOpenChange={open => { if (open) onAvailabilityOpen(); setAvailabilityKey(open ? `${group.key}:${id}` : null); }}
+                                    onReload={onReloadStock}
+                                    onApply={(value, remaining) => onAvailabilityApply(id, value, remaining)}
                                   />
                                 ) : (
                                   <span aria-label={t("availability")}>—</span>
@@ -504,8 +508,10 @@ export function CarteGroups({
                                       ? [
                                           {
                                             label: t("carteAvailabilityTitle"),
-                                            onClick: () =>
-                                              onAvailability(id, override),
+                                            onClick: () => {
+                                              onAvailabilityOpen();
+                                              setAvailabilityKey(`${group.key}:${id}`);
+                                            },
                                             disabled: busy,
                                           },
                                         ]
