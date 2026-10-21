@@ -1112,3 +1112,15 @@ Edits use the existing autosaved draft and become public only after publication.
 Deploy the receipt API contract and Foody Web advertising `receipt_editor: 1`
 before this editor. Run the isolated regression with
 `npx playwright test -c playwright.website-editor.config.ts receipt-editor.spec.ts`.
+
+## Documentation support
+
+The Help icon at the bottom of the navigation opens a contextual support drawer
+with suggested questions, follow-ups, verified article sources and a public help
+center link. It sends no JWT, cookies, referrer, restaurant ID or account records.
+The conversation remains in tab memory and resets on a language change.
+Configure `NEXT_PUBLIC_HELP_BASE_URL` for the matching landing environment. For a
+local preview, set it to `http://localhost:3001` and allow the Admin origin in the
+landing `HELP_ALLOWED_ORIGINS`. Deploy the configured landing support endpoint
+before the Admin. This documentation assistant is separate from business-data AI.
+Follow the shared `foodylanding/docs/help/MAINTENANCE.md` for every product change.

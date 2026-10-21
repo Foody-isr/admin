@@ -62,3 +62,9 @@ Do not overwrite unrelated local changes in this service.
 - Website V3 route: `src/app/[restaurantId]/website-v3/`
 - Menu administration: `src/app/[restaurantId]/menu/`
 - Sidebar: `src/components/Sidebar.tsx`
+
+## Product Help
+
+- User-visible changes require the shared help-impact review in `../foodylanding/docs/help/MAINTENANCE.md`. Keep the feature-help registry and public article slugs synchronized.
+- The support panel uses the public documentation endpoint without JWTs, cookies, referrers, restaurant IDs or customer records. Only send the normalized public topic, locale and conversation.
+- Keep support copy in the existing i18n system. The documentation assistant is available independently of paid business-data AI features.

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import SupportLauncher from './help/SupportLauncher';
 import { isSettingsDestinationActive, visibleSettingsNavigation } from '@/lib/settings-navigation';
 import RestaurantAccountMenu from './RestaurantAccountMenu';
 import SearchTriggerButton from './search/SearchTriggerButton';
@@ -434,6 +435,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         {/* Display controls */}
         <div className="border-t border-[var(--line)]">
           <div className={collapsed ? 'grid grid-cols-1' : 'flex'}>
+            <SupportLauncher />
             <button
               onClick={toggleTheme}
               className="flex-1 h-11 flex items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out"
