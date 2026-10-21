@@ -1,3 +1,13 @@
+Staff → employee → Edit contact details explicitly saves restaurant-owned name,
+phone and home address without changing login credentials or another restaurant.
+Couriers also have a default final destination and a Same as home address choice.
+New plans (including empty courier placeholders) snapshot that default unless an
+explicit endpoint overrides it; existing routes with deliveries keep their settings.
+Upcoming courier reminders use updated contact details; completed orders retain
+history. Deploy the API staff-profile schema (migration 272 audit) before this UI.
+Synthetic regression: `npx playwright test -c playwright.redesign.config.ts
+staff-profile.spec.ts delivery-planner.spec.ts team-square.spec.ts`.
+
 Articles and Cartes share the same anchored availability editor: opening never
 writes, and Apply confirms unlimited, unavailable, predefined remaining stock or
 automatic rules. Articles loads fresh tenant stock and shows the current series

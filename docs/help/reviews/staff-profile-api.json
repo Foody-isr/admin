@@ -1,0 +1,10 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "a55b4b88be7c1edbb8835620719a2e49ca128791d835d15e6ec6c5547d3109f4",
+      "disposition": "no-user-impact",
+      "reason": "This shared API helper adds optional staff profile response fields and a dedicated scoped contact-save call. Existing callers, payment requests, tenant headers and credential handling are unchanged. It renders no controls; the visible edits and courier defaults are documented through the staff profile and delivery guides."
+    }
+  ]
+}

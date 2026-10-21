@@ -26,6 +26,7 @@ async function install(page: Page, locale = 'fr') {
   const fixture = createFixture();
   const state = {
     routes: [route(1, [stop(1, 'delivered'), stop(2), stop(3)]), route(2, [stop(4, 'delivered')])],
+    couriers: [{ id: 1, full_name: 'Livreur démo', role: 'courier', courier_default_end_address: '' }, { id: 2, full_name: 'Livreuse démo', role: 'courier', courier_default_end_address: '' }],
     candidates: [] as object[], writes: [] as { path: string; rid?: string }[],
     reads: [] as { date: string | null; rid?: string }[], tiles: [] as string[], mapProvider: 'geoapify', failUndo: false, failRouting: false,
   };
@@ -55,7 +56,7 @@ async function install(page: Page, locale = 'fr') {
       state.routes = state.routes.filter(row => row.id !== Number(path.split('/').pop()));
       return intercepted.fulfill({ json: { route: route(1, [], 'cancelled') } });
     }
-    if (/\/restaurants\/\d+\/staff$/.test(path)) return intercepted.fulfill({ json: { staff: [{ id: 1, full_name: 'Livreur démo', role: 'courier' }, { id: 2, full_name: 'Livreuse démo', role: 'courier' }] } });
+    if (/\/restaurants\/\d+\/staff$/.test(path)) return intercepted.fulfill({ json: { staff: state.couriers } });
     if (path === '/api/v1/orders') return intercepted.fulfill({ json: { orders: state.candidates, total: state.candidates.length } });
     const result = fixture.response(request.url(), request.method(), request.postDataJSON() ?? {}, Number(rid) || 1);
     return intercepted.fulfill({ status: result.status ?? 200, json: result.json ?? {} });
@@ -336,4 +337,34 @@ test('a city selection is retained once and can be saved as the final destinatio
   await expect.poll(() => saved?.end_address).toBe("Ra'anana, Israel");
   await page.getByRole('button', { name: 'Modifier', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Destination finale', exact: true })).toHaveValue("Ra'anana, Israel");
+});
+
+for (const override of ['start', 'clear']) test(`courier profile defaults are visible and ${override} changes preserve the intended endpoint`, async ({ page }) => {
+  const state = await install(page);
+  state.routes = [];
+  state.couriers[0].courier_default_end_address = 'Destination démo du profil';
+  state.candidates = [{ id: 2001, restaurant_id: 1, order_type: 'delivery', status: 'in_kitchen', customer_name: 'Client démo', delivery_address: '1 Rue démo', delivery_city: 'Ville démo' }];
+  await page.route('**/api/v1/delivery/routes/plan**', intercepted => intercepted.fulfill({ json: { routes: [] } }));
+  await page.goto('/1/orders/deliveries');
+  await page.getByRole('checkbox', { name: 'Tout sélectionner', exact: true }).check();
+  await page.getByRole('button', { name: 'Répartir entre les livreurs', exact: true }).first().click();
+  const settings = page.getByRole('group', { name: 'Livreur démo', exact: true });
+  await expect(settings.getByRole('combobox', { name: 'Destination finale' })).toHaveValue('Destination démo du profil');
+  if (override === 'start') await settings.getByRole('combobox', { name: 'Adresse de départ' }).fill('Départ démo');
+  else await settings.getByRole('combobox', { name: 'Destination finale' }).fill('');
+  const request = page.waitForRequest(request => request.url().includes('/delivery/routes/plan') && request.method() === 'POST');
+  await page.getByRole('button', { name: 'Planifier 1 livraisons', exact: true }).click();
+  const submitted = await request;
+  expect(submitted.postDataJSON().endpoints).toEqual([{ courier_id: 1, start_address: override === 'start' ? 'Départ démo' : '', end_address: override === 'clear' ? '' : 'Destination démo du profil' }]);
+});
+
+test('a saved route final destination takes precedence over the updated staff default', async ({ page }) => {
+  const state = await install(page);
+  state.routes = [{ ...route(1, [stop(2)]), end_address: 'Destination déjà enregistrée' }];
+  state.couriers[0].courier_default_end_address = 'Nouvelle destination du profil';
+  state.candidates = [{ id: 2001, restaurant_id: 1, order_type: 'delivery', status: 'in_kitchen', customer_name: 'Client démo', delivery_address: '1 Rue démo', delivery_city: 'Ville démo' }];
+  await page.goto('/1/orders/deliveries');
+  await page.getByRole('checkbox', { name: 'Tout sélectionner', exact: true }).check();
+  await page.getByRole('button', { name: 'Répartir entre les livreurs', exact: true }).first().click();
+  await expect(page.getByRole('group', { name: 'Livreur démo', exact: true }).getByRole('combobox', { name: 'Destination finale' })).toHaveValue('Destination déjà enregistrée');
 });
