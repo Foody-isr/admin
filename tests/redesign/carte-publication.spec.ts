@@ -379,7 +379,7 @@ test("stock history links to the existing order-detail route", async ({
   );
   await page.goto("/1/menu/stock");
   await expect(
-    page.getByRole("heading", { name: "Stocks des articles", exact: true }),
+    page.getByRole("heading", { name: "Historique des stocks", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Commande #42", exact: true }),
@@ -394,7 +394,7 @@ test("a series-managed product exposes its own stock summary and history", async
   await expect(
     page
       .locator("#item-availability")
-      .getByRole("link", { name: "Gérer le stock", exact: true }),
+      .getByRole("link", { name: "Historique complet du stock", exact: true }),
   ).toHaveAttribute("href", "/1/menu/stock?item_id=1");
   await page
     .locator("#item-availability")
@@ -591,7 +591,7 @@ test("stock, preview and publication shortcuts remain visible without opening me
     top.getByRole("button", { name: "Publier", exact: true }),
   ).toBeDisabled();
   await expect(
-    page.getByRole("button", { name: "Stocks des articles", exact: true }),
+    page.getByRole("button", { name: "Historique des stocks", exact: true }),
   ).toBeVisible();
   await page
     .getByRole("button", {
@@ -633,4 +633,126 @@ test("stock, preview and publication shortcuts remain visible without opening me
   ).toBeVisible();
   await expect.poll(() => historyItem).toBe("1");
   expect(f.writes).toEqual(["preview"]);
+});
+
+const historyEvent = (id: number, itemId = 1) => ({
+  id, menu_item_id: itemId,
+  item_name: itemId === 1 ? "Salade méditerranéenne" : "Focaccia maison",
+  option_name: "", series_key: "2026-10-16", kind: "quantity_changed",
+  before_quantity: 20, after_quantity: 18, delta: -2,
+  actor_id: 1, actor_name: "Responsable", order_id: 42,
+  reason: "", created_at: "2026-10-21T08:00:00Z",
+});
+
+test("stock page is history-only and preserves combined filters across pagination", async ({ page }) => {
+  const f = await install(page);
+  const requests: URL[] = [];
+  const writes: string[] = [];
+  const stockReads: string[] = [];
+  page.on("request", (request) => {
+    if (!request.url().includes("/api/v1/")) return;
+    if (!["GET", "HEAD"].includes(request.method())) writes.push(request.url());
+    if (new URL(request.url()).pathname === "/api/v1/menu/sales-stock") stockReads.push(request.url());
+  });
+  await page.route("**/api/v1/menu/sales-stock/history*", (route) => {
+    const url = new URL(route.request().url());
+    requests.push(url);
+    const itemId = Number(url.searchParams.get("item_id")) || 1;
+    return route.fulfill({ json: {
+      events: [historyEvent(url.searchParams.has("before_id") ? 8 : 10, itemId)],
+      next_cursor: url.searchParams.has("before_id") ? 0 : 10,
+    }});
+  });
+  await page.goto("/1/menu/stock?item_id=1");
+  const journal = page.locator("[data-sales-stock-history]");
+  await expect(journal.getByRole("heading", { name: "Historique des stocks", exact: true })).toBeVisible();
+  await expect(journal.getByRole("table")).toBeInViewport();
+  await expect(journal.getByRole("combobox", { name: "Article", exact: true })).toHaveValue("1");
+  await expect(journal.getByRole("spinbutton")).toHaveCount(0);
+  await expect(journal.getByRole("link", { name: "Gérer le stock", exact: true })).toHaveCount(0);
+  await expect(journal.getByRole("button", { name: "Appliquer les corrections de stock", exact: true })).toHaveCount(0);
+  await journal.getByRole("combobox", { name: "Mouvement", exact: true }).selectOption("quantity_changed");
+  await expect.poll(() => requests.at(-1)?.searchParams.get("kind")).toBe("quantity_changed");
+  await journal.getByLabel("Série", { exact: true }).fill("2026-10-16");
+  await expect.poll(() => requests.at(-1)?.searchParams.get("serie_date")).toBe("2026-10-16");
+  await journal.getByRole("combobox", { name: "Article", exact: true }).selectOption(String(f.payload.groups[0].item_ids[0] + 1));
+  await expect.poll(() => requests.at(-1)?.searchParams.get("item_id")).toBe("2");
+  await expect(journal.getByRole("combobox", { name: "Mouvement", exact: true })).toHaveValue("quantity_changed");
+  await expect(journal.getByRole("cell", { name: "Focaccia maison", exact: true })).toBeVisible();
+  await journal.getByRole("button", { name: "Afficher la suite", exact: true }).click();
+  await expect(journal.getByRole("row")).toHaveCount(3);
+  expect(Object.fromEntries(requests.at(-1)!.searchParams)).toEqual({
+    item_id: "2", serie_date: "2026-10-16", before_id: "10", kind: "quantity_changed",
+  });
+  await journal.getByRole("button", { name: "Toutes les séries", exact: true }).click();
+  await expect.poll(() => requests.at(-1)?.searchParams.has("serie_date")).toBe(false);
+  await expect(journal.getByRole("row")).toHaveCount(2);
+  expect(stockReads).toEqual([]);
+  expect(writes).toEqual([]);
+  await page.screenshot({ path: "test-results/stock-history-desktop-fr.png", fullPage: true, animations: "disabled" });
+});
+
+test("changing history filters discards an older in-flight pagination response", async ({ page }) => {
+  await install(page);
+  let release: (() => void) | undefined;
+  let completed = false;
+  await page.route("**/api/v1/menu/sales-stock/history*", async (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    if (params.has("before_id")) {
+      await new Promise<void>((resolve) => { release = resolve; });
+      await route.fulfill({ json: { events: [{ ...historyEvent(8), item_name: "Ancien résultat" }], next_cursor: 0 } });
+      completed = true;
+      return;
+    }
+    return route.fulfill({ json: { events: [historyEvent(10, Number(params.get("item_id")) || 1)], next_cursor: 10 } });
+  });
+  await page.goto("/1/menu/stock");
+  await page.getByRole("button", { name: "Afficher la suite", exact: true }).click();
+  await expect.poll(() => !!release).toBe(true);
+  await page.getByRole("combobox", { name: "Article", exact: true }).selectOption("2");
+  await expect(page.getByRole("cell", { name: "Focaccia maison", exact: true })).toBeVisible();
+  release!();
+  await expect.poll(() => completed).toBe(true);
+  await expect(page.getByRole("cell", { name: "Ancien résultat", exact: true })).toHaveCount(0);
+});
+
+for (const locale of ["fr", "he"]) {
+  test(`history-only page remains usable on ${locale} mobile`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await install(page, locale);
+    await page.route("**/api/v1/menu/sales-stock/history*", (route) => route.fulfill({ json: { events: [historyEvent(10)], next_cursor: 0 } }));
+    await page.goto("/1/menu/stock");
+    const journal = page.locator("[data-sales-stock-history]");
+    await expect(journal.getByRole("table")).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("dir", locale === "he" ? "rtl" : "ltr");
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: `test-results/stock-history-mobile-${locale}.png`, fullPage: true, animations: "disabled" });
+  });
+}
+
+test("history remains available if its item filter fails and history errors can be retried", async ({ page }) => {
+  await install(page);
+  let itemsFailed = true;
+  let historyFailed = false;
+  await page.route("**/api/v1/menu/items?*", (route) => itemsFailed
+    ? route.fulfill({ status: 503, json: { error: "unavailable" } })
+    : route.fallback());
+  await page.route("**/api/v1/menu/sales-stock/history*", (route) => historyFailed
+    ? route.fulfill({ status: 503, json: { error: "unavailable" } })
+    : route.fulfill({ json: { events: [historyEvent(10)], next_cursor: 0 } }));
+  await page.goto("/1/menu/stock");
+  await expect(page.locator("[data-sales-stock-history]").getByRole("alert")).toContainText("Impossible de charger le filtre des articles");
+  await expect(page.getByRole("cell", { name: "Responsable", exact: true })).toBeVisible();
+  itemsFailed = false;
+  await page.locator("[data-sales-stock-history]").getByRole("alert").getByRole("button", { name: "Réessayer", exact: true }).click();
+  await expect(page.locator("[data-sales-stock-history]").getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("option", { name: "Salade méditerranéenne", exact: true })).toHaveCount(1);
+  historyFailed = true;
+  await page.getByRole("combobox", { name: "Mouvement", exact: true }).selectOption("reservation");
+  await expect(page.locator("[data-sales-stock-history]").getByRole("alert")).toContainText("Impossible de charger ou de modifier le stock");
+  await expect(page.getByText("Aucun mouvement enregistré pour ces filtres.", { exact: true })).toHaveCount(0);
+  historyFailed = false;
+  await page.locator("[data-sales-stock-history]").getByRole("alert").getByRole("button", { name: "Réessayer", exact: true }).click();
+  await expect(page.locator("[data-sales-stock-history]").getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("cell", { name: "Responsable", exact: true })).toBeVisible();
 });

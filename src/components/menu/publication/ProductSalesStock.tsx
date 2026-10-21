@@ -80,7 +80,7 @@ export function ProductSalesStock({
           className="underline text-sm"
           href={`/${rid}/menu/stock?item_id=${row.item.id}`}
         >
-          {t("saleStockManage")}
+          {t("saleStockFullHistory")}
         </Link>
         <Button variant="ghost" onClick={() => setHistory(true)}>
           {t("saleStockHistory")}

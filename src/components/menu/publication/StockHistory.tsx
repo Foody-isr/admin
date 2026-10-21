@@ -1,19 +1,22 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { orderDetailPath } from "@/lib/orders/routes";
 import { getSalesStockHistory, type SaleStockEvent } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
-import { Button } from "@/components/ds";
+import { Button, Field, Select } from "@/components/ds";
 
+/** Paginated sale-stock journal shared by product dialogs and the history page. */
 export function StockHistory({
   rid,
   itemId,
   date,
+  filters,
 }: {
   rid: number;
   itemId?: number;
   date?: string;
+  filters?: ReactNode;
 }) {
   const { t, locale } = useI18n();
   const [events, setEvents] = useState<SaleStockEvent[]>([]);
@@ -21,31 +24,34 @@ export function StockHistory({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const [kind, setKind] = useState("");
+  const [retry, setRetry] = useState(0);
+  const generation = useRef(0);
   useEffect(() => {
-    let active = true;
+    const current = ++generation.current;
     setBusy(true);
     setError(false);
     setEvents([]);
     setNext(0);
     getSalesStockHistory(rid, { itemId, date, kind })
       .then((data) => {
-        if (active) {
+        if (current === generation.current) {
           setEvents(data.events);
           setNext(data.next_cursor);
         }
       })
       .catch(() => {
-        if (active) setError(true);
+        if (current === generation.current) setError(true);
       })
       .finally(() => {
-        if (active) setBusy(false);
+        if (current === generation.current) setBusy(false);
       });
     return () => {
-      active = false;
+      generation.current++;
     };
-  }, [rid, itemId, date, kind]);
+  }, [rid, itemId, date, kind, retry]);
   async function more() {
     if (busy) return;
+    const current = generation.current;
     setBusy(true);
     setError(false);
     try {
@@ -55,20 +61,23 @@ export function StockHistory({
         kind,
         before: next,
       });
-      setEvents((prev) => [...prev, ...data.events]);
-      setNext(data.next_cursor);
+      if (current === generation.current) {
+        setEvents((prev) => [...prev, ...data.events]);
+        setNext(data.next_cursor);
+      }
     } catch {
-      setError(true);
+      if (current === generation.current) setError(true);
     } finally {
-      setBusy(false);
+      if (current === generation.current) setBusy(false);
     }
   }
   return (
     <section className="space-y-4" aria-label={t("saleStockHistory")}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">{t("saleStockHistory")}</h2>
-        <select
-          className="input w-auto"
+      <div className={filters ? "grid gap-4 sm:grid-cols-3" : "flex flex-wrap items-center justify-between gap-3"}>
+        {filters ?? <h2 className="text-lg font-semibold">{t("saleStockHistory")}</h2>}
+        <Field label={filters ? t("saleStockMovement") : undefined}>
+        <Select
+          className={filters ? "w-full" : "w-auto"}
           aria-label={t("saleStockMovement")}
           value={kind}
           onChange={(e) => setKind(e.target.value)}
@@ -86,15 +95,19 @@ export function StockHistory({
               {t(`stockEvent_${value}`)}
             </option>
           ))}
-        </select>
+        </Select>
+        </Field>
       </div>
       <p className="text-sm text-[var(--fg-muted)]">
         {t("saleStockHistoryHint")}
       </p>
       {error && (
-        <p role="alert" className="text-red-600">
-          {t("saleStockError")}
-        </p>
+        <div role="alert" className="flex flex-wrap items-center gap-3 text-sm">
+          <span>{t("saleStockError")}</span>
+          <Button variant="ghost" onClick={() => setRetry((value) => value + 1)}>
+            {t("retry")}
+          </Button>
+        </div>
       )}
       <div className="overflow-x-auto border rounded-lg">
         <table className="w-full text-sm text-start">
@@ -174,7 +187,7 @@ export function StockHistory({
             ))}
           </tbody>
         </table>
-        {!events.length && !busy && (
+        {!events.length && !busy && !error && (
           <p className="p-6 text-sm text-[var(--fg-muted)]">
             {t("saleStockNoHistory")}
           </p>

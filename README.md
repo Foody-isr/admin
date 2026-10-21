@@ -3,8 +3,9 @@
 Carte editing uses private drafts with explicit Save draft, Preview and Publish.
 The selected series scopes a rotating carte and its prepared sale allowances.
 Unsaved navigation offers save/discard/continue; operational availability switches
-marked immediate are journaled independently. Item stocks provides a restaurant
-history and corrections, also accessible from a product. Product prices and recipes
+marked immediate are journaled independently. Stock history is a read-only restaurant
+journal with item, series-date and movement filters, also accessible from a product.
+Prepare or adjust series allowances in the carte draft, then publish them. Product prices and recipes
 remain shared library edits. Requires API migration 267 and its draft/stock routes;
 deploy the API before this Admin revision.
 
