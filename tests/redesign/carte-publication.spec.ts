@@ -192,6 +192,8 @@ async function install(page: Page, locale = "fr", full = false) {
   );
   return {
     writes,
+    items: fixture.items,
+    key,
     payload,
     menu,
     docs,
@@ -755,4 +757,50 @@ test("history remains available if its item filter fails and history errors can 
   await page.locator("[data-sales-stock-history]").getByRole("alert").getByRole("button", { name: "Réessayer", exact: true }).click();
   await expect(page.locator("[data-sales-stock-history]").getByRole("alert")).toHaveCount(0);
   await expect(page.getByRole("cell", { name: "Responsable", exact: true })).toBeVisible();
+});
+
+test("carte availability toggles directly without the action menu", async ({ page }) => {
+ const f = await install(page, 'fr', true);
+ await page.goto(`/1/menu/menus/${f.menu.id}`);
+ const row = page.locator('[data-carte-item]').first();
+ await row.getByRole('button', { name: /Marquer épuisé/i }).click();
+ await expect.poll(() => f.writes).toEqual(['availability']);
+ await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+for (const measure of [false, true]) test(`exhausted predefined ${measure ? "measured" : "counted"} stock asks for remaining quantity directly and preserves draft controls`, async ({ page }) => {
+ const f = await install(page, 'fr', true);
+ let quantity = 0, revision = 2;
+ const inputs: any[] = [];
+ await page.route('**/api/v1/menu/sales-stock?*', route => route.fulfill({ json: { series_key: f.key, rows: f.items.map(item => ({ item, managed: true, previous: null, sizes: measure ? [{ id: 20, name: '250 g' }] : [], config: { menu_item_id: item.id, mode: measure ? 'measure' : 'count', unit: measure ? 'kg' : '', override: 'auto', revision, counters: [{ option_id: 0, initial_quantity: 10 + quantity, committed: 10 }] }, availability: { availability_state: quantity ? 'available' : 'sold_out', buildable_count: measure ? Math.floor(quantity / 250) : quantity } })) } }));
+ await page.route('**/api/v1/menu/items/*/sales-stock/restock?*', route => { const input = route.request().postDataJSON(); inputs.push(input); quantity = input.quantity; revision++; return route.fulfill({ json: { revision } }); });
+ await page.goto(`/1/menu/menus/${f.menu.id}`);
+ const row = page.locator('[data-carte-item]').first();
+ await row.getByRole('button', { name: /Remettre en vente/i }).click();
+ const dialog = page.getByRole('dialog');
+ await expect(dialog.getByRole('heading', { name: 'Remettre en disponibilité' })).toBeVisible();
+ if (measure) await expect(dialog.getByText('Quantité disponible (g)', { exact: true })).toBeVisible();
+ await dialog.getByRole('spinbutton').fill(measure ? '500' : '5');
+ await dialog.getByRole('button', { name: 'Remettre en disponibilité', exact: true }).click();
+ await expect(dialog).toHaveCount(0);
+ await expect(row).toContainText(measure ? '2 disponible' : '5 disponible');
+ expect(inputs).toHaveLength(1); expect(inputs[0]).toMatchObject({ quantity: measure ? 500 : 5, expected_revision: 2, mode: measure ? 'measure' : 'count', unit: measure ? 'g' : '', override: 'auto' });
+ expect(f.writes).toEqual([]);
+ await expect(header(page).getByRole('button', { name: 'Aperçu', exact: true })).toBeVisible();
+ await page.screenshot({ path: 'test-results/carte-direct-restock-fr.png', fullPage: true });
+});
+
+for (const locale of ['fr', 'he']) test(`restaurant quotas are read-only and responsive (${locale})`, async ({ page }) => {
+ await install(page, locale);
+ if (locale === 'he') await page.setViewportSize({ width: 390, height: 844 });
+ const ids = ['google_autocomplete','google_details','google_geocoding','google_routes','google_optimization_single','google_optimization_fleet','google_tiles','geoapify_credits'];
+ const limits = [2000,500,500,500,500,100,10000,3000];
+ await page.route('**/api/v1/restaurants/1/api-usage', route => route.fulfill({ json: { restaurant_id: 1, revision: 0, month: '2026-10', resets_at: '2026-11-01T00:00:00Z', tracked_since: '2026-10-21T10:00:00Z', counters: ids.map((id,i) => ({ id, provider: i === 7 ? 'geoapify' : 'google', unit: i === 7 ? 'estimated_credits' : i === 6 ? 'tiles' : i === 4 || i === 5 ? 'shipments' : 'requests', default_limit: limits[i], used: i === 5 ? 100 : i === 4 ? 400 : i === 7 ? 0.25 : 1, requests: 1, limit: limits[i], remaining: limits[i], status: i === 5 ? 'exhausted' : i === 4 ? 'warning' : 'available' })) } }));
+ await page.goto('/1/settings/usage');
+ await expect(page.getByRole('heading', { level: 1 })).toHaveText(locale === 'fr' ? 'Consommation et quotas' : 'צריכה ומכסות');
+ await expect(page.getByRole('progressbar')).toHaveCount(8);
+ await expect(page.getByRole('spinbutton')).toHaveCount(0);
+ await expect(page.getByText(locale === 'fr' ? 'Plafond atteint ; ce service est suspendu' : 'המכסה נוצלה; השירות מושהה', { exact: true })).toBeVisible();
+ expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+ await page.screenshot({ path: `test-results/api-quotas-${locale}.png`, fullPage: true });
 });

@@ -43,6 +43,7 @@ export function requiredPermissionsForPath(pathname: string): string[] {
   if (!section) return [];
   if (section === 'kitchen' && segments[2] === 'data') return ['kitchen.data_manage'];
   if (section === 'settings' && segments[2] === 'orders' && segments[3] === 'test-access') return ['settings.view', 'settings.edit'];
+  if (section === 'settings' && segments[2] === 'usage') return ['settings.view', 'settings.edit'];
   if (section === 'settings' && segments[2] === 'stories') return ['settings.view', 'settings.edit'];
   if (section === 'settings' && ['services','menu-behavior','fulfillment','modes','adjustments','kitchen-displays'].includes(segments[2])) return ['settings.view','settings.edit'];
   if (section === 'settings' && segments[2] === 'delivery') return ['orders.manage', 'settings.view', 'settings.edit'];

@@ -1443,6 +1443,7 @@ export type ReceiptConfig = {
 };
 
 export interface CheckoutConfig {
+  offer_sign_in?: boolean;
   delivery?: CheckoutFormConfig | null;
   pickup?: CheckoutFormConfig | null;
   confirmation?: ConfirmationConfig | null;
@@ -11134,3 +11135,11 @@ export const getSalesStockHistory = (rid: number,filter: {itemId?: number; date?
 };
 export const setSalesStock = (rid: number,date: string,input: SaleStockLimit) => apiFetch<SaleStockSeries>(`/api/v1/menu/items/${input.menu_item_id}/sales-stock?serie_date=${encodeURIComponent(date)}`,rid,{method:'PUT',body:JSON.stringify(input)});
 export const setSalesStockAvailability = (rid: number,date: string,itemId: number,override: AvailabilityOverride) => apiFetch<void>(`/api/v1/menu/items/${itemId}/sales-stock/availability?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify({override})});
+
+/** Sets remaining quantities; committed orders are preserved by the API transaction. */
+export const restockSalesStock = (rid: number,date: string,input: SaleStockLimit) => apiFetch<SaleStockSeries>(`/api/v1/menu/items/${input.menu_item_id}/sales-stock/restock?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify(input)});
+
+/** Monthly tenant allowances supplement independent provider-wide protection. */
+export interface ExternalApiCounter { id: string; provider: string; unit: string; default_limit: number; used: number; requests: number; limit: number; remaining: number; status: 'available' | 'warning' | 'exhausted' }
+export interface ExternalApiUsage { restaurant_id: number; revision: number; month: string; resets_at: string; tracked_since: string; counters: ExternalApiCounter[] }
+export const getExternalApiUsage = (rid: number) => apiFetch<ExternalApiUsage>(`/api/v1/restaurants/${rid}/api-usage`, rid);

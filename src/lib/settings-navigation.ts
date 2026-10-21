@@ -22,6 +22,7 @@ export function settingsNavigation(restaurantId: number): SettingsNavigationGrou
       { href: `${base}/settings/language`, labelKey: 'language' },
       { href: `${base}/settings/notifications`, labelKey: 'notifications' },
       { href: `${base}/settings/security`, labelKey: 'security' },
+      { href: `${base}/settings/usage`, labelKey: 'apiQuotaTitle', perm: ['settings.view', 'settings.edit'] },
     ] },
     { labelKey: 'settingsGroupRestaurant', items: [
       { href: `${base}/settings`, labelKey: 'general', exact: true },

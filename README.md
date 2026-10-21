@@ -1,3 +1,11 @@
+Availability beneath each carte item is a direct operational action. An exhausted
+predefined allowance opens a remaining-quantity dialog; the API preserves all
+committed orders under its stock lock. The explicit availability menu remains.
+Website V3 → Order journey can draft and publish the optional entry sign-in
+invitation. Settings → Usage and quotas is read-only restaurant-scoped Google and
+Geoapify consumption, including independent units, 80% warnings and UTC renewal.
+Deploy API migration 268 and the remaining-stock route before this Admin version.
+
 # Foody Admin
 
 Carte editing uses private drafts with explicit Save draft, Preview and Publish.
