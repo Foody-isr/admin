@@ -279,6 +279,16 @@ export async function changeRouteCourier(
   return data.route;
 }
 
+/** Undo an accidental departure before any stop has begun; keep the assignment. */
+export async function resetRouteDeparture(restaurantId: number, routeId: number): Promise<DeliveryRoute> {
+  const data = await apiFetch<{ route: DeliveryRoute }>(
+    `/api/v1/delivery/routes/${routeId}/reset-departure?${q(restaurantId)}`,
+    restaurantId,
+    { method: 'POST' },
+  );
+  return data.route;
+}
+
 /** Dissolve a draft route and return all its deliveries to the planning pool. */
 export async function cancelDeliveryRoute(restaurantId: number, routeId: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(

@@ -46,6 +46,7 @@ import {
   listOpenDeliveryRoutes,
   optimizeRoute,
   planDeliveryRoutes,
+  resetRouteDeparture,
   transferRouteStop,
   unassignRouteStop,
   updateRouteSettings,
@@ -148,6 +149,7 @@ interface RouteRibbonProps {
   onOptimize: () => void;
   onSaveSettings: (input: RouteSettingsInput) => Promise<void>;
   onCancel: () => void;
+  onResetDeparture: () => void;
   t: Translator;
 }
 
@@ -166,6 +168,7 @@ function RouteRibbon({
   onOptimize,
   onSaveSettings,
   onCancel,
+  onResetDeparture,
   t,
 }: RouteRibbonProps) {
   const delivered = route.stops.filter((stop) => stop.status === 'delivered').length;
@@ -173,6 +176,7 @@ function RouteRibbon({
   const unresolved = pending.filter((stop) => stop.needs_geocode).length;
   const ordered = [...(history ? route.stops : pending)].sort((a, b) => a.sequence - b.sequence);
   const progress = route.stops.length > 0 ? (delivered / route.stops.length) * 100 : 0;
+  const canResetDeparture = route.status === 'active' && route.stops.length > 0 && route.stops.every((stop) => stop.status === 'pending');
   const courierInk = `color-mix(in srgb, ${color} 40%, var(--fg))`;
 
   return (
@@ -236,9 +240,9 @@ function RouteRibbon({
           />
         </div>
 
-        {!history && (route.status === 'draft' || (route.status === 'active' && route.needs_recalculation)) && (
+        {!history && (route.status === 'draft' || canResetDeparture || (route.status === 'active' && route.needs_recalculation)) && (
           <div className="mb-2 flex flex-wrap items-center justify-end gap-1.5 border-b border-[var(--line)] pb-2">
-            <Button
+            {(route.status === 'draft' || route.needs_recalculation) && <Button
               type="button"
               variant="secondary"
               disabled={busy || route.stops.length === 0}
@@ -247,7 +251,16 @@ function RouteRibbon({
             >
               <RefreshCwIcon className={busy ? 'animate-spin' : undefined} />
               {t('deliveryPlanRecalculate')}
-            </Button>
+            </Button>}
+            {canResetDeparture && <Button
+              type="button"
+              variant="secondary"
+              disabled={busy}
+              onClick={onResetDeparture}
+            >
+              <Undo2Icon />
+              {t('deliveryPlanResetDeparture')}
+            </Button>}
             {route.status === 'draft' && <Button
               type="button"
               variant="ghost"
@@ -387,6 +400,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [addressEditorLoading, setAddressEditorLoading] = useState(false);
   const [undoAction, setUndoAction] = useState<
     | { kind: 'route'; routeId: number; stopCount: number }
+    | { kind: 'departure'; routeId: number; stopCount: number }
     | { kind: 'stop'; routeId: number; stopId: number; customerName: string }
     | null
   >(null);
@@ -779,6 +793,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
     try {
       if (undoAction.kind === 'route') {
         await cancelDeliveryRoute(rid, routeId);
+      } else if (undoAction.kind === 'departure') {
+        await resetRouteDeparture(rid, routeId);
       } else {
         await unassignRouteStop(rid, routeId, undoAction.stopId);
       }
@@ -790,7 +806,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
     } catch (cause) {
       setUndoAction(null);
       await load();
-      setError(t('deliveryPlanUndoFailed'));
+      setError(t(undoAction.kind === 'departure' ? 'deliveryPlanResetDepartureFailed' : 'deliveryPlanUndoFailed'));
     } finally {
       setRouteBusy(null);
     }
@@ -1002,6 +1018,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
                 onOptimize={() => void recalculateRoute(route.id)}
                 onSaveSettings={(input) => saveRouteSettings(route.id, input)}
                 onCancel={() => setUndoAction({ kind: 'route', routeId: route.id, stopCount: route.stops.filter(isPendingDeliveryStop).length })}
+                onResetDeparture={() => setUndoAction({ kind: 'departure', routeId: route.id, stopCount: route.stops.length })}
                 t={t}
               />
             ))}
@@ -1246,10 +1263,12 @@ export default function DispatcherView({ rid }: { rid: number }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {undoAction?.kind === 'route' ? t('deliveryPlanUnassignConfirmTitle') : t('deliveryPlanReturnConfirmTitle')}
+              {undoAction?.kind === 'departure' ? t('deliveryPlanResetDeparture') : undoAction?.kind === 'route' ? t('deliveryPlanUnassignConfirmTitle') : t('deliveryPlanReturnConfirmTitle')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {undoAction?.kind === 'route'
+              {undoAction?.kind === 'departure'
+                ? t('deliveryPlanResetDepartureConfirmBody').replace('{count}', String(undoAction.stopCount))
+                : undoAction?.kind === 'route'
                 ? t('deliveryPlanUnassignConfirmBody').replace('{count}', String(undoAction.stopCount))
                 : t('deliveryPlanReturnConfirmBody').replace('{customer}', undoAction?.customerName ?? '')}
             </AlertDialogDescription>

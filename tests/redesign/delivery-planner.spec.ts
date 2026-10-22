@@ -49,6 +49,13 @@ async function install(page: Page, locale = 'fr') {
       const rows = url.searchParams.get('scope') === 'open' ? state.routes : state.routes.filter(row => row.date === url.searchParams.get('date'));
       return intercepted.fulfill({ json: { routes: rows.map(row => ({ ...row, restaurant_id: Number(rid) })) } });
     }
+    if (/\/delivery\/routes\/\d+\/reset-departure$/.test(path) && request.method() === 'POST') {
+      state.writes.push({ path, rid });
+      if (state.failUndo) return intercepted.fulfill({ status: 409, json: { error: 'departure reset blocked' } });
+      const id = Number(path.split('/').at(-2));
+      state.routes = state.routes.map(row => row.id === id ? { ...row, status: 'draft', started_at: null } : row);
+      return intercepted.fulfill({ json: { route: state.routes.find(row => row.id === id) } });
+    }
     if (path.endsWith('/optimize') && state.failRouting) return intercepted.fulfill({ status: 503, json: { error: 'location service quota exceeded' } });
     if (/\/delivery\/routes\/\d+$/.test(path) && request.method() === 'DELETE') {
       state.writes.push({ path, rid });
@@ -227,6 +234,59 @@ test('a changed active route offers recalculation without draft unassignment', a
   await page.goto('/1/orders/deliveries');
   await expect(page.getByRole('button', { name: 'Recalculer', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Désassigner', exact: true })).toHaveCount(0);
+});
+
+test('an accidental departure can return to a draft before unassignment', async ({ page }) => {
+  const state = await install(page);
+  state.routes = [route(1, [stop(2), stop(3)], 'active')];
+  await page.goto('/1/orders/deliveries');
+  await page.getByRole('button', { name: 'Annuler le départ', exact: true }).click();
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toContainText('2 arrêts non commencés');
+  await expect(dialog).toContainText('En préparation');
+  await expect(dialog).toContainText('messages déjà envoyés');
+  await dialog.getByRole('button', { name: 'Annuler', exact: true }).click();
+  expect(state.writes).toHaveLength(0);
+  await page.getByRole('button', { name: 'Annuler le départ', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Confirmer', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Désassigner', exact: true })).toBeVisible();
+  expect(state.writes).toEqual([{ path: '/api/v1/delivery/routes/1/reset-departure', rid: '1' }]);
+  await page.getByRole('button', { name: 'Désassigner', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Confirmer', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Désassigner', exact: true })).toHaveCount(0);
+});
+
+for (const progress of ['arrived', 'delivered', 'skipped'] as const) test(`departure reset is hidden after an ${progress} stop`, async ({ page }) => {
+  const state = await install(page);
+  state.routes = [route(1, [stop(2, progress), stop(3)], 'active')];
+  await page.goto('/1/orders/deliveries');
+  await expect(page.getByRole('heading', { name: 'Livraisons', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Annuler le départ', exact: true })).toHaveCount(0);
+});
+
+test('departure reset conflict explains recorded progress without unassigning', async ({ page }) => {
+  const state = await install(page);
+  state.routes = [route(1, [stop(2)], 'active')];
+  state.failUndo = true;
+  await page.goto('/1/orders/deliveries');
+  await page.getByRole('button', { name: 'Annuler le départ', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Confirmer', exact: true }).click();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await expect(page.locator('main [role=alert]')).toContainText('tous les arrêts doivent encore être en attente');
+  await expect(page.getByRole('button', { name: 'Désassigner', exact: true })).toHaveCount(0);
+  expect(state.routes[0].status).toBe('active');
+});
+
+test('Hebrew departure reset remains restaurant scoped', async ({ page }) => {
+  const state = await install(page, 'he');
+  state.routes = [route(1, [stop(2)], 'active')];
+  await page.goto('/2/orders/deliveries');
+  await page.getByRole('button', { name: 'ביטול היציאה', exact: true }).click();
+  await expect(page.getByRole('alertdialog')).toContainText('השליח נשאר משויך');
+  await page.getByRole('alertdialog').getByRole('button', { name: 'אישור', exact: true }).click();
+  await expect.poll(() => state.writes.length).toBe(1);
+  expect(state.writes[0].rid).toBe('2');
 });
 
 test('Hebrew dark mode keeps requests scoped to the active restaurant', async ({ page }, info) => {
