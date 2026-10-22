@@ -1076,12 +1076,21 @@ Checks: `npx tsx --test src/lib/__tests__/restaurant-calendar.test.ts` and
 
 ## Courier actions, stop duration and destination preflight
 
-Couriers see every unfinished assigned route (including future plans) directly,
-without Assigned/Available tabs or self-pick requests. Each stop exposes tap-to-call
-before departure and a visible delivered action. Delivery completion requires an
-active route, but no separate Arrived action. A current run must finish before the
-UI starts another; GPS reporting uses only the first active run. Future-route maps
-load only when expanded, avoiding tile requests for every assignment.
+The courier workspace opens on a map with numbered destinations and an adjustable
+mobile timeline; desktop shows the timeline beside the map. A route selector
+includes current and future assignments. Only the viewed route mounts its map,
+while GPS reporting continues for the first active route across selections.
+Search filters addresses, contacts, order numbers and notes without changing the
+saved sequence; selecting a pin clears the filter and reveals its stop. The
+panel handle supports dragging, arrow keys and Home/End.
+
+Tap-to-call is available before departure. The fixed dock offers Adjust/Start for
+a draft, then navigation and delivery confirmation for the next unfinished stop,
+identified above the actions. Another stop can be completed from its selected
+row. Completion requires an active route but no separate Arrived action. A current
+run must finish before another can start. Account, restaurant, language and theme
+controls are in the floating menu. FR/HE/EN, RTL, safe areas and dark mode share the
+existing Foody tokens. Incomplete routes hide stale timing and distance totals.
 
 Planning and pre-departure route settings accept `stop_service_minutes` (integer
 0–60, default 3). It is stored per route and included in optimizer handovers,
