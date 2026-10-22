@@ -1,5 +1,6 @@
 'use client';
 
+import { ModifierSelectionEditor } from './ModifierSelectionEditor';
 import { useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import { useI18n, useCurrency } from '@/lib/i18n';
@@ -7,6 +8,7 @@ import { usePermissions } from '@/lib/permissions-context';
 import type {
   MenuItem,
   ModifierSet,
+  ModifierSelectionConfig,
   ModifierSetItemOverrideRow,
   ModifierSetItemOverridesInput,
   OptionSet,
@@ -116,6 +118,8 @@ export default function MenuItemTabOptions({
               <ModifierSetCard
                 key={set.id}
                 set={set}
+                item={item}
+                attachedSets={attachedModifierSets}
                 overrideRow={modSetOverrideFor(set.id)}
                 setDefaults={modSetDefaults(set.id)}
                 canEditOverrides={!!onSaveModifierSetOverrides}
@@ -350,6 +354,8 @@ export default function MenuItemTabOptions({
 // item (set defaults with overrides applied). The expandable editor lets the
 // operator pin min/max/required for THIS item or reset to inherit.
 interface ModifierSetCardProps {
+  item: MenuItem;
+  attachedSets: ModifierSet[];
   set: ModifierSet;
   overrideRow: ModifierSetItemOverrideRow | undefined;
   setDefaults: ModifierSet | undefined;
@@ -359,6 +365,7 @@ interface ModifierSetCardProps {
 }
 
 function ModifierSetCard({
+  item, attachedSets,
   set,
   overrideRow,
   setDefaults,
@@ -370,6 +377,7 @@ function ModifierSetCard({
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
   const [open, setOpen] = useState(false);
+  const [selectionConfig, setSelectionConfig] = useState<ModifierSelectionConfig | null>(overrideRow?.selection_config ?? set.selection_config ?? null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const busy = useRef(false);
@@ -385,10 +393,12 @@ function ModifierSetCard({
     overrideRow?.is_required_override ?? null,
   );
 
+  const repeated = !!selectionConfig?.choices.some(choice => choice.count > 1) || selectionConfig?.presentation === "characters";
+
   const isOverridden =
     (overrideRow?.min_selections_override ?? null) !== null ||
     (overrideRow?.max_selections_override ?? null) !== null ||
-    (overrideRow?.is_required_override ?? null) !== null;
+    (overrideRow?.is_required_override ?? null) !== null || !!overrideRow?.selection_config;
 
   // Effective values shown in the subtitle — server already substituted these.
   const effectiveMeta =
@@ -403,10 +413,12 @@ function ModifierSetCard({
     if (!onSaveOverrides || busy.current) return;
     busy.current = true; setSaving(true); setError('');
     try {
+      const repeated = selectionConfig?.choices.some(choice => choice.count > 1) || selectionConfig?.presentation === "characters";
       await onSaveOverrides({
-        min_selections: minOverride,
-        max_selections: maxOverride,
-        is_required: requiredOverride,
+        min_selections: repeated ? 1 : minOverride,
+        max_selections: repeated ? 1 : maxOverride,
+        is_required: repeated ? true : requiredOverride,
+        selection_config: selectionConfig,
       });
       setOpen(false);
     } catch (cause) {
@@ -420,6 +432,7 @@ function ModifierSetCard({
     setMinOverride(null);
     setMaxOverride(null);
     setRequiredOverride(null);
+    setSelectionConfig(null);
   };
 
   return (
@@ -445,7 +458,7 @@ function ModifierSetCard({
             className="px-[var(--s-3)] min-h-11 rounded-r-md text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors inline-flex items-center gap-1"
           >
             {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            {t('override') || 'Override'}
+            {t('modifierConditions')}
           </button>
         )}
         {canEdit && (
@@ -461,6 +474,7 @@ function ModifierSetCard({
 
       {open && (
         <fieldset disabled={saving} className="border-t border-[var(--line)] p-4 bg-[var(--surface-2)] grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="sm:col-span-3"><ModifierSelectionEditor item={item} set={set} attachedSets={attachedSets} value={selectionConfig} onChange={setSelectionConfig} /></div>
           <label className="flex flex-col gap-1">
             <span className="text-fs-xs font-medium text-[var(--fg-muted)]">
               {t('minSelections') || 'Min'}
@@ -468,7 +482,8 @@ function ModifierSetCard({
             <input
               type="number"
               min={0}
-              value={minOverride ?? ''}
+              disabled={repeated}
+              value={repeated ? 1 : minOverride ?? ''}
               onChange={(e) =>
                 setMinOverride(e.target.value === '' ? null : Number(e.target.value))
               }
@@ -483,7 +498,8 @@ function ModifierSetCard({
             <input
               type="number"
               min={0}
-              value={maxOverride ?? ''}
+              disabled={repeated}
+              value={repeated ? 1 : maxOverride ?? ''}
               onChange={(e) =>
                 setMaxOverride(e.target.value === '' ? null : Number(e.target.value))
               }
@@ -496,7 +512,8 @@ function ModifierSetCard({
               {t('required') || 'Required'}
             </span>
             <select
-              value={requiredOverride === null ? '' : requiredOverride ? 'yes' : 'no'}
+              disabled={repeated}
+              value={repeated ? 'yes' : requiredOverride === null ? '' : requiredOverride ? 'yes' : 'no'}
               onChange={(e) => {
                 const v = e.target.value;
                 setRequiredOverride(v === '' ? null : v === 'yes');

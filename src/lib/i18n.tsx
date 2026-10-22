@@ -120,6 +120,18 @@ export function i18nOr(t: (key: string) => string, key: string, fallback: string
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    modifierConditions: "Conditions and display",
+    modifierSource: "Show this group according to",
+    modifierAlways: "Always show",
+    modifierPresentation: "Choice display",
+    modifierAuto: "Automatic",
+    modifierVisibleList: "Visible list",
+    modifierCharacters: "Letters and digits",
+    modifierPositions: "Positions to fill",
+    modifierRuleHelp: "0 hides the group. 1 shows it once. 2 to 12 creates that many independent required choices. Unlisted choices hide the group.",
+    modifierRepeatHelp: "Repeated positions each require exactly one choice. Their order is kept on the kitchen ticket.",
+    modifierPreview: "Example positions",
+
     editorOfferSignIn: "Show the sign-in invitation on arrival",
     editorOfferSignInHint: "Off: customers order directly, with a discreet Sign in link still available. On: show the sign-in invitation alongside Order without an account. Apply this preference by publishing the site.",
     carteRestockTitle: "Make available again",
@@ -8975,6 +8987,18 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
   he: {
+    modifierConditions: "תנאים ותצוגה",
+    modifierSource: "הצגת הקבוצה לפי",
+    modifierAlways: "הצגה תמיד",
+    modifierPresentation: "תצוגת הבחירות",
+    modifierAuto: "אוטומטית",
+    modifierVisibleList: "רשימה גלויה",
+    modifierCharacters: "אותיות וספרות",
+    modifierPositions: "מיקומים למילוי",
+    modifierRuleHelp: "0 מסתיר את הקבוצה. 1 מציג אותה פעם אחת. 2 עד 12 יוצרים בחירות חובה נפרדות. בחירות שלא הוגדרו מסתירות את הקבוצה.",
+    modifierRepeatHelp: "בכל מיקום נדרשת בחירה אחת בדיוק. הסדר נשמר בכרטיס המטבח.",
+    modifierPreview: "דוגמה למיקומים",
+
     editorOfferSignIn: "הצגת הצעת התחברות בכניסה",
     editorOfferSignInHint: "כבוי: מעבר ישיר להזמנה, עם קישור התחברות דיסקרטי שזמין תמיד. פעיל: הצגת הצעת התחברות לצד הזמנה ללא חשבון. הבחירה מוחלת בפרסום האתר.",
     carteRestockTitle: "החזרה לזמינות",
@@ -17821,6 +17845,18 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── French ──────────────────────────────────────────────────────────────
   fr: {
+    modifierConditions: "Conditions et affichage",
+    modifierSource: "Afficher ce groupe selon",
+    modifierAlways: "Toujours afficher",
+    modifierPresentation: "Affichage des choix",
+    modifierAuto: "Automatique",
+    modifierVisibleList: "Liste visible",
+    modifierCharacters: "Lettres et chiffres",
+    modifierPositions: "Positions à remplir",
+    modifierRuleHelp: "0 masque le groupe. 1 l’affiche une fois. 2 à 12 crée autant de choix obligatoires indépendants. Les choix non définis masquent le groupe.",
+    modifierRepeatHelp: "Chaque position exige exactement un choix. Leur ordre est conservé sur le ticket cuisine.",
+    modifierPreview: "Exemple de positions",
+
     editorOfferSignIn: "Afficher l’invitation à se connecter à l’arrivée",
     editorOfferSignInHint: "Désactivé : commande directe avec un lien discret Se connecter toujours disponible. Activé : invitation à se connecter avec l’accès Commander sans compte. Le réglage s’applique à la publication du site.",
     carteRestockTitle: "Remettre en disponibilité",
