@@ -4,20 +4,24 @@ import type { FullServiceSettings } from '../../src/lib/api';
 const modeId='4d3db2c3-b29a-4d8d-94f5-0a231d85bc22';
 const otherId='4d3db2c3-b29a-4d8d-94f5-0a231d85bc23';
 const deviceId='5d3db2c3-b29a-4d8d-94f5-0a231d85bc22';
-async function install(page:Page,locale='fr',theme='light',permissions?:string[]) {
+async function install(page:Page,locale='fr',theme='light',permissions?:string[],options:{supported?:boolean; customerInformationSupported?:boolean; savedCustomerInformationSupported?:boolean; restaurantIds?:number[]; initialPolicy?:Partial<FullServiceSettings>; beforeResponse?:(method:string)=>Promise<void>; savedPolicy?:(policy:FullServiceSettings)=>FullServiceSettings}={}) {
  const fixtureOptions={library:true,permissions};
  const fixture=createFixture(fixtureOptions);
  let policy:FullServiceSettings={seating_mode:'optionalSeats',send_and_stay:false,coursing_enabled:true,courses:['Entrées','Plats principaux','Desserts'],show_held_on_kds:false,sort_cart:'course',comp_reasons:['Geste commercial'],void_reasons:['Erreur'],auto_progression:true,order_entry:{tile_size:'tall',return_to_menu:'home'},modes:[{id:modeId,name:'Service complet',device_ids:[],seating_mode:'requiredSeats',send_and_stay:true,coursing_enabled:true,auto_progression:true,tile_size:'wide',sort_cart:'seat'},{id:otherId,name:'Comptoir',device_ids:[deviceId],seating_mode:'disabled',send_and_stay:false,coursing_enabled:false,auto_progression:false,tile_size:'tall',sort_cart:'entry'}]};
+ policy={...policy,...options.initialPolicy};
  const writes:FullServiceSettings[]=[];
- await page.addInitScript(({locale,theme})=>{
-  localStorage.setItem('foody_restaurant_token','isolated-ui-fixture');localStorage.setItem('foody_restaurant_user',JSON.stringify({id:1,full_name:'Demo',role:'owner',email:'demo@foody.test'}));localStorage.setItem('foody_restaurant_ids','[1]');localStorage.setItem('foody-admin-locale',locale);localStorage.setItem('foody_admin_theme',theme);
- },{locale,theme});
+ await page.addInitScript(({locale,theme,restaurantIds})=>{
+  localStorage.setItem('foody_restaurant_token','isolated-ui-fixture');localStorage.setItem('foody_restaurant_user',JSON.stringify({id:1,full_name:'Demo',role:'owner',email:'demo@foody.test'}));localStorage.setItem('foody_restaurant_ids',JSON.stringify(restaurantIds));localStorage.setItem('foody-admin-locale',locale);localStorage.setItem('foody_admin_theme',theme);
+ },{locale,theme,restaurantIds:options.restaurantIds??[1]});
  await page.route('**/*',route=>['localhost','127.0.0.1','square-fonts-production-f.squarecdn.com'].includes(new URL(route.request().url()).hostname)?route.fallback():route.abort());
- await page.route('**/api/v1/**',route=>{
+ await page.route('**/api/v1/**',async route=>{
   const r=route.request(),path=new URL(r.url()).pathname,body=r.postDataJSON()??{};
   if(path==='/api/v1/restaurants/1/settings'){
    if(r.method()==='PUT'){expect(r.headers()['x-restaurant-id']).toBe('1');expect(Object.keys(body)).toEqual(['full_service']);policy=body.full_service;writes.push(structuredClone(policy));}
-   return route.fulfill({json:{settings:{full_service:policy}}});
+   const returned=r.method()==='PUT'&&options.savedPolicy?options.savedPolicy(structuredClone(policy)):structuredClone(policy);
+   await options.beforeResponse?.(r.method());
+   const customerSupported=r.method()==='PUT'?options.savedCustomerInformationSupported??options.customerInformationSupported:options.customerInformationSupported;
+   return route.fulfill({json:{settings:{full_service:returned,pos_custom_dining_supported:options.supported??true,...(customerSupported!==false?{pos_fulfillment_customer_information_supported:true}:{})}}});
   }
   if(path==='/api/v1/restaurants/1/devices')return route.fulfill({json:{devices:[{id:deviceId,restaurant_id:1,kind:'tablet',display_name:'iPad Salle',system_name:'iPad',capabilities:[]}]}});
   if(path==='/api/v1/menu/item-categories')return route.fulfill({json:{categories:[{id:10,name:'Boissons'}]}});
@@ -45,7 +49,7 @@ test('mode assignment moves an actual device once and does not change restaurant
 });
 test('fulfillment dialog discards on close and saves only on explicit Save',async({page},info)=>{
  const writes=await install(page);await page.goto('/1/settings/fulfillment');await page.getByRole('button',{name:'Gérer par point de vente'}).click();
- const dialog=page.getByRole('dialog');await page.addStyleTag({content:'nextjs-portal{display:none}'});await page.screenshot({path:info.outputPath('fulfillment-fr-light.png')});await dialog.getByRole('switch',{name:'Demander au personnel de choisir un mode de traitement',exact:true}).check();
+ const dialog=page.getByRole('dialog');await expect(dialog.locator('.pos-fulfillment-location>strong')).toHaveText('Atelier Foody');await page.addStyleTag({content:'nextjs-portal{display:none}'});await page.screenshot({path:info.outputPath('fulfillment-fr-light.png')});await dialog.getByRole('switch',{name:'Demander au personnel de choisir un mode de traitement',exact:true}).check();
  await dialog.getByRole('radio',{name:'Après avoir appuyé sur « Payer » ou « Envoyer »',exact:true}).check();
  await dialog.getByRole('button',{name:'Fermer',exact:true}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Abandonner les modifications',exact:true}).click();
  expect(writes).toEqual([]);await page.getByRole('button',{name:'Gérer par point de vente'}).click();
@@ -101,4 +105,150 @@ for(const [locale,theme,width,height] of [['fr','light',1440,756],['fr','dark',3
  await page.locator('.pos-editor-head').getByRole('button').last().click();
  expect(writes[0].modes?.[0].check_behavior).toMatchObject({open_checks_enabled:false,open_checks_home:true,predefined_tickets:true});
  expect(writes[0].send_and_stay).toBe(false);
+});
+
+for(const [locale,theme,width] of [['fr','light',1440],['fr','dark',390],['he','dark',390],['he','light',1440]] as const) test(`custom dining catalogue ${locale} ${theme} ${width}`,async({page},info)=>{
+ const writes=await install(page,locale,theme);await page.setViewportSize({width,height:844});await page.goto('/1/settings/fulfillment');
+ await page.getByRole('button',{name:locale==='he'?'ניהול לפי סניף':'Gérer par point de vente',exact:true}).click();
+ const editor=page.locator('.pos-fulfillment-editor');
+ if(width===1440){const bounds=await editor.boundingBox();expect(bounds?.width).toBe(720);expect(bounds?.x).toBe(360);}
+ await editor.getByRole('button',{name:locale==='he'?'הוספת אפשרות מסירה':'Ajouter un mode de traitement'}).click();
+ const drawer=page.getByRole('dialog').last();
+ await drawer.getByRole('textbox').fill('Boutique');
+ await drawer.getByRole('radio').first().check();
+ await drawer.getByRole('button',{name:locale==='he'?'סיום':'Terminé',exact:true}).click();
+ expect(writes).toEqual([]);
+ for(let i=0;i<4;i++) await editor.getByRole('button',{name:locale==='he'?'הזזה למעלה Boutique':'Monter Boutique',exact:true}).click();
+ await expect(editor.getByRole('button',{name:/^Boutique/}).first()).toBeVisible();
+ expect(await editor.locator('main').evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+ await page.screenshot({path:info.outputPath(`dining-${locale}-${theme}-${width}.png`)});
+ await editor.locator('.pos-editor-head').getByRole('button').last().click();
+ expect(writes).toHaveLength(1);
+ const saved=writes[0].fulfillment!;expect(saved.methods?.[0]).toMatchObject({name:'Boutique',order_type:'dine_in'});
+ expect(saved.default).toBe(saved.methods?.[0].id);expect(saved.enabled[0]).toBe(saved.default);
+ await page.reload();await expect(page.getByText('Boutique',{exact:true})).toBeVisible();
+});
+
+test('fulfillment prompt timing survives disabling and re-enabling in the draft',async({page})=>{
+ const writes=await install(page);await page.goto('/1/settings/fulfillment');await page.getByRole('button',{name:'Gérer par point de vente'}).click();
+ const editor=page.locator('.pos-fulfillment-editor'),toggle=editor.getByRole('switch',{name:'Demander au personnel de choisir un mode de traitement',exact:true});
+ await toggle.check();await editor.getByRole('radio',{name:'Après avoir appuyé sur « Payer » ou « Envoyer »',exact:true}).check();
+ await toggle.uncheck();await toggle.check();await expect(editor.getByRole('radio',{name:'Après avoir appuyé sur « Payer » ou « Envoyer »',exact:true})).toBeChecked();
+ await editor.getByRole('button',{name:'Enregistrer',exact:true}).click();expect(writes[0].fulfillment?.prompt).toBe('checkout');
+});
+
+test('method editing is cancelled independently and the last active method cannot be hidden',async({page},info)=>{
+ const writes=await install(page);await page.goto('/1/settings/fulfillment');await page.getByRole('button',{name:'Gérer par point de vente'}).click();
+ const editor=page.locator('.pos-fulfillment-editor').first();await editor.getByRole('button',{name:/^Livraison$/,exact:true}).click();
+ const method=page.locator('.pos-fulfillment-method-editor');await method.getByRole('textbox').fill('Courier');await method.getByRole('radio').first().check();await page.screenshot({path:info.outputPath('fulfillment-method-fr-light.png')});await method.getByRole('button',{name:'Fermer',exact:true}).click();
+ await expect(editor.getByRole('button',{name:'Livraison',exact:true})).toBeVisible();await expect(editor.getByRole('button',{name:'Courier',exact:true})).toHaveCount(0);
+ await editor.getByRole('switch',{name:'Sur place',exact:true}).uncheck();await editor.getByRole('switch',{name:'Livraison',exact:true}).uncheck();
+ const active=editor.getByRole('switch',{checked:true});await expect(active).toHaveCount(1);await expect(active).toBeDisabled();expect(writes).toEqual([]);
+});
+
+test('a missing server capability disables fulfillment edits without writing',async({page})=>{
+ const writes=await install(page,'fr','light',undefined,{supported:false});await page.goto('/1/settings/fulfillment');await page.getByRole('button',{name:'Gérer par point de vente'}).click();
+ const editor=page.locator('.pos-fulfillment-editor');await expect(editor.getByRole('alert')).toContainText('ne prend pas encore en charge');await expect(editor.getByRole('switch').first()).toBeDisabled();await expect(editor.getByRole('button',{name:'Ajouter un mode de traitement'})).toBeDisabled();expect(writes).toEqual([]);
+});
+
+test('a truncated saved catalog leaves the draft visible and never reports success',async({page})=>{
+ const writes=await install(page,'fr','light',undefined,{savedPolicy:policy=>({...policy,fulfillment:{...policy.fulfillment!,methods:undefined}})});
+ await page.goto('/1/settings/fulfillment');await page.getByRole('button',{name:'Gérer par point de vente'}).click();const editor=page.locator('.pos-fulfillment-editor');
+ await editor.getByRole('switch',{name:'Demander au personnel de choisir un mode de traitement',exact:true}).check();await editor.getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(editor.getByRole('alert')).toContainText('n’a pas confirmé');await expect(editor.getByRole('switch').first()).toBeChecked();await expect(editor.getByRole('button',{name:'Enregistrer',exact:true})).toBeEnabled();expect(writes).toHaveLength(1);
+});
+
+test('fulfillment Escape cancels only the current editor and restores its keyboard trigger',async({page})=>{
+ const writes=await install(page);await page.goto('/1/settings/fulfillment');
+ const manage=page.getByRole('button',{name:'Gérer par point de vente',exact:true});await manage.focus();await page.keyboard.press('Enter');
+ const editor=page.locator('.pos-fulfillment-editor').first();
+ const delivery=editor.getByRole('button',{name:'Livraison',exact:true});await delivery.focus();await page.keyboard.press('Enter');
+ const method=page.locator('.pos-fulfillment-method-editor');await method.getByRole('textbox').fill('Not applied');
+ await page.keyboard.press('Escape');await expect(method).not.toBeVisible();await expect(editor).toBeVisible();await expect(delivery).toBeFocused();
+ await expect(editor.getByRole('button',{name:'Not applied',exact:true})).toHaveCount(0);expect(writes).toEqual([]);
+ await page.keyboard.press('Escape');await expect(editor).not.toBeVisible();await expect(manage).toBeFocused();
+ await page.keyboard.press('Enter');await editor.getByRole('switch',{name:'Demander au personnel de choisir un mode de traitement',exact:true}).focus();await page.keyboard.press('Space');
+ await page.keyboard.press('Escape');const confirmation=page.getByRole('alertdialog');await expect(confirmation).toBeVisible();
+ await confirmation.getByRole('button',{name:'Annuler',exact:true}).click();await expect(confirmation).not.toBeVisible();await expect(editor.getByRole('switch').first()).toBeChecked();
+ await page.keyboard.press('Escape');await confirmation.getByRole('button',{name:'Abandonner les modifications',exact:true}).click();await expect(editor).not.toBeVisible();await expect(manage).toBeFocused();expect(writes).toEqual([]);
+});
+
+test('hidden custom methods and additive fields survive an unrelated prompt edit and reload',async({page})=>{
+ const methods=[{id:modeId,name:'Counter pickup',order_type:'pickup' as const,future_rule:{allow:false}},{id:otherId,name:'Seasonal delivery',order_type:'delivery' as const,future_rule:{allow:true}},{id:'dine_in',name:'Dining room',order_type:'dine_in' as const}];
+ const writes=await install(page,'fr','light',undefined,{initialPolicy:{fulfillment:{prompt:'never',default:modeId,enabled:[modeId,'dine_in'],methods}}});
+ await page.goto('/1/settings/fulfillment');await expect(page.getByText('Seasonal delivery',{exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Gérer par point de vente'}).click();
+ const editor=page.locator('.pos-fulfillment-editor');await expect(editor.getByRole('switch',{name:'Seasonal delivery',exact:true})).not.toBeChecked();
+ await editor.getByRole('switch',{name:'Demander au personnel de choisir un mode de traitement',exact:true}).check();await editor.getByRole('button',{name:'Enregistrer',exact:true}).click();
+ expect(writes[0].fulfillment).toEqual({prompt:'start',default:modeId,enabled:[modeId,'dine_in'],methods});
+ await page.reload();await page.getByRole('button',{name:'Gérer par point de vente'}).click();await expect(editor.getByRole('switch',{name:'Seasonal delivery',exact:true})).not.toBeChecked();
+ await editor.getByRole('switch',{name:'Seasonal delivery',exact:true}).check();await editor.getByRole('button',{name:'Enregistrer',exact:true}).click();expect(writes[1].fulfillment?.enabled).toEqual([modeId,otherId,'dine_in']);expect(writes[1].fulfillment?.methods).toEqual(methods);
+});
+
+test('fulfillment keeps the editor locked during Save and restores focus after confirmation',async({page})=>{
+ let release!:()=>void;const response=new Promise<void>(resolve=>{release=resolve;});
+ const writes=await install(page,'fr','light',undefined,{beforeResponse:method=>method==='PUT'?response:Promise.resolve()});
+ await page.goto('/1/settings/fulfillment');const manage=page.getByRole('button',{name:'Gérer par point de vente'});await manage.click();
+ const editor=page.locator('.pos-fulfillment-editor');await editor.getByRole('switch').first().check();await editor.getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect.poll(()=>writes.length).toBe(1);await expect(editor.getByRole('switch').first()).toBeDisabled();await expect(editor.getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();
+ await page.keyboard.press('Escape');await expect(editor).toBeVisible();await expect(page.getByRole('alertdialog')).not.toBeVisible();
+ release();await expect(editor).not.toBeVisible();await expect(manage).toBeFocused();expect(writes).toHaveLength(1);
+});
+
+for(const pending of ['load','draft','save'] as const)test(`restaurant navigation isolates fulfillment ${pending} and late responses`,async({page})=>{
+ let release!:()=>void,requestStarted=false;const response=new Promise<void>(resolve=>{release=resolve;});
+ const writes=await install(page,'fr','light',undefined,{restaurantIds:[1,2],beforeResponse:async method=>{if(pending==='load'&&method==='GET'||pending==='save'&&method==='PUT'){requestStarted=true;await response;}}});
+ const second:FullServiceSettings={seating_mode:'disabled',send_and_stay:false,coursing_enabled:false,courses:['Service'],show_held_on_kds:false,sort_cart:'entry',comp_reasons:['Gift'],void_reasons:['Mistake'],fulfillment:{prompt:'checkout',default:otherId,enabled:[otherId],methods:[{id:otherId,name:'Jardin only',order_type:'delivery'}]}};
+ const secondWrites:FullServiceSettings[]=[];
+ await page.route('**/api/v1/restaurants/2/settings',route=>{const r=route.request();expect(r.headers()['x-restaurant-id']).toBe('2');if(r.method()==='PUT')secondWrites.push(r.postDataJSON().full_service);return route.fulfill({json:{settings:{full_service:second,pos_custom_dining_supported:true}}});});
+ await page.goto('/2/settings/fulfillment');await expect(page.getByText('Jardin only',{exact:true})).toBeVisible();
+ const originalHistoryLength=await page.evaluate(()=>history.length);
+ await page.getByRole('button',{name:'Jardin Foody',exact:true}).click();await page.getByRole('link',{name:'Changer de restaurant',exact:true}).click();
+ await page.getByRole('button',{name:/^Atelier Foody/}).click();await expect(page).toHaveURL(/\/1\/dashboard$/,{timeout:15_000});
+ await page.getByRole('button',{name:'Paramètres',exact:true}).click();await page.getByRole('button',{name:'Modes de traitement',exact:true}).click();await page.locator('a[href="/1/settings/fulfillment"]').click();
+ const manage=page.getByRole('button',{name:'Gérer par point de vente'});
+ if(pending==='load')await expect.poll(()=>requestStarted).toBe(true);
+ else{await manage.click();const editor=page.locator('.pos-fulfillment-editor');await expect(editor.locator('.pos-fulfillment-location>strong')).toHaveText('Atelier Foody');await editor.getByRole('switch').first().check();if(pending==='save'){await editor.getByRole('button',{name:'Enregistrer',exact:true}).click();await expect.poll(()=>requestStarted).toBe(true);}}
+ const previousEntries=await page.evaluate(start=>history.length-start,originalHistoryLength);
+ await page.evaluate(count=>history.go(-count),previousEntries);await expect(page).toHaveURL(/\/2\/settings\/fulfillment$/);await expect(page.getByText('Jardin only',{exact:true})).toBeVisible();
+ const lateResponse=pending==='draft'?null:page.waitForResponse(response=>new URL(response.url()).pathname==='/api/v1/restaurants/1/settings'&&response.request().method()===(pending==='load'?'GET':'PUT'));
+ release();if(lateResponse)await (await lateResponse).finished();
+ await manage.click();const editor=page.locator('.pos-fulfillment-editor');await expect(editor.locator('.pos-fulfillment-location>strong')).toHaveText('Jardin Foody');await expect(editor.getByRole('radio',{name:'Après avoir appuyé sur « Payer » ou « Envoyer »',exact:true})).toBeChecked();await expect(editor.getByRole('button',{name:'Enregistrer',exact:true})).toBeDisabled();await expect(editor.getByRole('switch',{name:'Jardin only',exact:true})).toBeChecked();
+ await editor.getByRole('button',{name:/^Jardin only/}).click();const method=page.locator('.pos-fulfillment-method-editor');await expect(method.getByRole('switch')).toHaveCount(0);await expect(method.getByRole('status')).toContainText('ne prend pas encore en charge');
+ expect(secondWrites).toEqual([]);expect(writes).toHaveLength(pending==='save'?1:0);
+});
+
+test('customer screen stays staged and Cancel does not materialize a legacy false',async({page})=>{
+ const writes=await install(page);await page.goto('/1/settings/fulfillment');await page.getByRole('button',{name:'Gérer par point de vente'}).click();
+ const editor=page.locator('.pos-fulfillment-editor').first(),method=page.locator('.pos-fulfillment-method-editor');
+ await editor.getByRole('button',{name:'Livraison',exact:true}).click();await method.getByRole('switch',{name:'Afficher l’écran d’informations client',exact:true}).check();await page.keyboard.press('Escape');
+ await editor.getByRole('button',{name:'Livraison',exact:true}).click();await expect(method.getByRole('switch')).not.toBeChecked();await method.getByRole('textbox').fill('Courier');await method.getByRole('button',{name:'Terminé',exact:true}).click();expect(writes).toEqual([]);
+ await editor.getByRole('button',{name:'Enregistrer',exact:true}).click();expect(writes[0].fulfillment?.methods?.find(method=>method.id==='delivery')).toEqual({id:'delivery',name:'Courier',order_type:'delivery'});
+});
+
+for(const [locale,theme,width] of [['fr','light',1440],['he','dark',390]] as const)test(`customer screen true and false roundtrip ${locale} ${theme} ${width}`,async({page},info)=>{
+ const writes=await install(page,locale,theme);await page.setViewportSize({width,height:844});await page.goto('/1/settings/fulfillment');
+ const manage=page.getByRole('button',{name:locale==='fr'?'Gérer par point de vente':'ניהול לפי סניף',exact:true});await manage.click();
+ const editor=page.locator('.pos-fulfillment-editor').first(),method=page.locator('.pos-fulfillment-method-editor');
+ const delivery=locale==='fr'?'Livraison':'משלוח';await editor.getByRole('button',{name:delivery,exact:true}).click();await method.getByRole('switch').check();
+ await page.screenshot({path:info.outputPath(`customer-information-${locale}-${theme}-${width}.png`)});expect(await method.locator('main').evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+ await method.locator('.pos-editor-head').getByRole('button').last().click();expect(writes).toEqual([]);await editor.locator('.pos-editor-head').getByRole('button').last().click();expect(writes[0].fulfillment?.methods?.find(method=>method.id==='delivery')?.show_customer_information).toBe(true);
+ await page.reload();await manage.click();await editor.getByRole('button',{name:delivery,exact:true}).click();await expect(method.getByRole('switch')).toBeChecked();await method.getByRole('switch').uncheck();await method.locator('.pos-editor-head').getByRole('button').last().click();await editor.locator('.pos-editor-head').getByRole('button').last().click();expect(writes[1].fulfillment?.methods?.find(method=>method.id==='delivery')?.show_customer_information).toBe(false);
+ await page.reload();await manage.click();await editor.getByRole('button',{name:delivery,exact:true}).click();await expect(method.getByRole('switch')).not.toBeChecked();
+});
+
+test('missing customer capability hides only the new control and preserves legacy catalogue editing',async({page})=>{
+ const writes=await install(page,'fr','light',undefined,{customerInformationSupported:false});await page.goto('/1/settings/fulfillment');await page.getByRole('button',{name:'Gérer par point de vente'}).click();
+ const editor=page.locator('.pos-fulfillment-editor').first(),method=page.locator('.pos-fulfillment-method-editor');await editor.getByRole('button',{name:'Livraison',exact:true}).click();await expect(method.getByRole('switch')).toHaveCount(0);await expect(method.getByRole('status')).toContainText('ne prend pas encore en charge');
+ await method.getByRole('textbox').fill('Courier');await method.getByRole('button',{name:'Terminé',exact:true}).click();await editor.getByRole('button',{name:'Enregistrer',exact:true}).click();await expect(editor).not.toBeVisible();expect(writes[0].fulfillment?.methods?.find(method=>method.id==='delivery')).toEqual({id:'delivery',name:'Courier',order_type:'delivery'});
+});
+
+test('missing capability never strips an existing customer preference to save other changes',async({page})=>{
+ const writes=await install(page,'fr','light',undefined,{customerInformationSupported:false,initialPolicy:{fulfillment:{prompt:'never',default:'pickup',enabled:['pickup'],methods:[{id:'pickup',name:'Counter',order_type:'pickup',show_customer_information:true}]}}});
+ await page.goto('/1/settings/fulfillment');await page.getByRole('button',{name:'Gérer par point de vente'}).click();const editor=page.locator('.pos-fulfillment-editor');await editor.getByRole('switch').first().check();await editor.getByRole('button',{name:'Enregistrer',exact:true}).click();await expect(editor.getByRole('alert')).toContainText('l’écran d’informations client');expect(writes).toEqual([]);
+});
+
+for(const lost of ['false','capability'] as const)test(`customer preference save with lost ${lost} keeps draft unconfirmed`,async({page})=>{
+ const writes=await install(page,'fr','light',undefined,{...(lost==='false'?{savedPolicy:(policy:FullServiceSettings)=>({...policy,fulfillment:{...policy.fulfillment!,methods:policy.fulfillment!.methods!.map(({show_customer_information,...method})=>method)}})}:{savedCustomerInformationSupported:false})});
+ await page.goto('/1/settings/fulfillment');await page.getByRole('button',{name:'Gérer par point de vente'}).click();const editor=page.locator('.pos-fulfillment-editor').first(),method=page.locator('.pos-fulfillment-method-editor');await editor.getByRole('button',{name:'Livraison',exact:true}).click();await method.getByRole('switch').check();await method.getByRole('switch').uncheck();await method.getByRole('button',{name:'Terminé',exact:true}).click();await editor.getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(editor.getByRole('alert')).toContainText('n’a pas confirmé');await expect(editor).toBeVisible();expect(writes).toHaveLength(1);expect(writes[0].fulfillment?.methods?.find(method=>method.id==='delivery')?.show_customer_information).toBe(false);
 });

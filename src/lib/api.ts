@@ -202,9 +202,15 @@ export interface POSMode {
  tile_size: 'tall' | 'wide'; sort_cart: FullServiceSettings['sort_cart'];
 }
 /** Staff fulfillment prompts are independent from guest checkout. */
+export interface POSFulfillmentMethod {
+ id: string; name: string; order_type: 'dine_in' | 'pickup' | 'delivery';
+ /** Offer customer details after whole-order fulfillment selection; absent preserves legacy behavior. */
+ show_customer_information?: boolean;
+}
 export interface POSFulfillment {
- prompt: 'never' | 'start' | 'checkout'; default: 'dine_in' | 'pickup' | 'delivery';
- enabled: ('dine_in' | 'pickup' | 'delivery')[];
+ methods?: POSFulfillmentMethod[];
+ prompt: 'never' | 'start' | 'checkout'; default: string;
+ enabled: string[];
 }
 /** Restaurant POS policy, independent of online/QR checkout payment requirements. */
 export interface FullServiceSettings {
@@ -227,6 +233,8 @@ export interface FullServiceSettings {
 }
 
 export interface RestaurantSettings {
+ pos_custom_dining_supported?: boolean;
+ pos_fulfillment_customer_information_supported?: boolean;
  full_service?: FullServiceSettings;
   /** Require the configured calendar for guest pickup and delivery. */
   preorders_only?: boolean;
@@ -1357,10 +1365,27 @@ export interface CheckoutFormConfig {
   fields: CheckoutFieldConfig[];
 }
 
+/** Owner-controlled digital receipt content; omitted flags inherit the defaults. */
+export type ReceiptConfig = {
+  title?: Record<string, string>;
+  message?: Record<string, string>;
+  layout?: "comfortable" | "compact";
+  show_logo?: boolean;
+  show_address?: boolean;
+  show_phone?: boolean;
+  show_status?: boolean;
+  show_customer_info?: boolean;
+  show_print?: boolean;
+  show_share?: boolean;
+  show_order_history?: boolean;
+  show_new_order?: boolean;
+};
+
 export interface CheckoutConfig {
   delivery?: CheckoutFormConfig | null;
   pickup?: CheckoutFormConfig | null;
   confirmation?: ConfirmationConfig | null;
+  receipt?: ReceiptConfig | null;
   // When true, the guest order page's fulfilment chip is read-only (no
   // "Modifier" affordance) and the customer picks pickup/delivery only at
   // checkout. Mirrors foodyserver CheckoutConfig.LockOrderType.

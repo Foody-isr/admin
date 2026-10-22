@@ -22,3 +22,15 @@ test("only shared style references are accepted, and invalid values inherit", ()
     assert.equal(orderJourneyColorStyle(value, "checkout", "style-4"), "style-4");
   }
 });
+
+
+test("receipt presentation and its independent shared colour style survive normalization", () => {
+  const input = { config: { checkout_config: { receipt: { title: { fr: "Votre reçu" }, layout: "compact", show_share: false } } }, pages: [
+    { tmp_id: "order", type: "order", slug: "order", title: "Order", settings: { menu_ids: [1] },
+      appearance_overrides: { order_journey: { receipt: "style-6", checkout: "style-2" } } },
+  ], sections: [] };
+  const saved = normalizeDraftState(JSON.parse(JSON.stringify(normalizeDraftState(input))));
+  assert.deepEqual(saved.config.checkout_config, input.config.checkout_config);
+  assert.deepEqual(saved.pages[0].appearance_overrides.order_journey, { receipt: "style-6", checkout: "style-2" });
+  assert.equal(orderJourneyColorStyle(saved.pages[0].appearance_overrides.order_journey, "receipt", "style-1"), "style-6");
+});

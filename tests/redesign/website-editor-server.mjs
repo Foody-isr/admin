@@ -295,6 +295,21 @@ http
       /^\/api\/v1\/public\/restaurants\/(1|atelier-foody)$/.test(path)
     )
       result = { json: { restaurant: restaurant() } };
+    else if (path === "/api/v1/public/receipts/receipt-demo")
+      result = { json: {
+        restaurant: { id: 1, name: restaurant().name, address: "12 Rue Exemple", phone: "+972 50 000 0000", logo_url: "" },
+        order: { id: 1234, receipt_token: "receipt-demo", customer_name: "Client exemple", customer_phone: "050****000",
+          order_type: "delivery", order_source: "website_order", order_status: "out_for_delivery", payment_status: "unpaid",
+          total_amount: 108, created_at: "2026-10-16T12:20:00Z", custom_fields: { building_code: "EXEMPLE" } },
+        items: [
+          { id: 1, name: "Plat du jour", quantity: 2, unit_price: 25, total: 50, selected_variant_name: "Grand", modifiers: [{ name: "Sauce", action: "add", price_delta: 2 }] },
+          { id: 2, name: "Accompagnement", quantity: 1, unit_price: 5, total: 5, combo_group: "sample-combo", combo_name: "Formule découverte", combo_price: 30 },
+          { id: 3, name: "Boisson", quantity: 1, unit_price: 0, total: 0, combo_group: "sample-combo", combo_name: "Formule découverte", combo_price: 30 },
+          { id: 4, name: "Dessert offert", quantity: 1, unit_price: 0, total: 0, adjustment_kind: "comp", modifiers: [{ name: "Crème", action: "add", price_delta: 5 }] },
+          { id: 5, name: "Article annulé", quantity: 1, unit_price: 90, total: 90, adjustment_kind: "void" },
+          { id: 6, name: "Salade aux légumes de saison et accompagnement de la maison", quantity: 1, unit_price: 23, total: 23, notes: "Sans oignons" },
+        ],
+      } };
     else if (path.endsWith("/website-pages"))
       result = { json: { pages: publicPages() } };
     else if (path.includes("/website-pages/")) {

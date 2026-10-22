@@ -47,6 +47,7 @@ export function PreviewCanvas({
   device,
   surface,
   journeyScreen = "checkout",
+  journeyLocale = "fr",
   journeyOrderType = "delivery",
   revision,
   contentRevision,
@@ -76,8 +77,9 @@ export function PreviewCanvas({
   /** Owned by the builder so the inspector can scope its fields to the surface
    *  on screen. Already clamped: only order pages ever receive "checkout". */
   surface: InspectorSurface;
-  journeyScreen?: "cart" | "checkout" | "confirmation";
+  journeyScreen?: "cart" | "checkout" | "confirmation" | "receipt";
   journeyOrderType?: "delivery" | "pickup";
+  journeyLocale?: "en" | "fr" | "he";
   showBranchSelector?: boolean;
   onSurfaceChange: (surface: InspectorSurface) => void;
   revision: number;
@@ -150,9 +152,9 @@ export function PreviewCanvas({
   )}`;
   const source =
     surface === "checkout"
-      ? `${targetOrigin}/order/${journeyScreen === "confirmation" ? "confirmation/preview" : journeyScreen}?restaurantId=${encodeURIComponent(
+      ? `${targetOrigin}/order/${journeyScreen === "confirmation" || journeyScreen === "receipt" ? `${journeyScreen}/preview` : journeyScreen}?restaurantId=${encodeURIComponent(
           restaurantSlug || String(restaurantId),
-        )}&orderType=${journeyOrderType}&preview=1&pageSlug=${encodeURIComponent(activePage.slug)}`
+        )}&orderType=${journeyOrderType}&lang=${journeyLocale}&preview=1&pageSlug=${encodeURIComponent(activePage.slug)}`
       : surface === "branches"
         ? `${targetOrigin}${restaurantPath}/order?preview=1`
         : `${targetOrigin}${restaurantPath}?preview=1`;
@@ -381,7 +383,7 @@ export function PreviewCanvas({
       tabIndex={thumbnail ? -1 : undefined}
       title={
         surface === "checkout"
-          ? journeyScreen === "cart" ? "Aperçu du panier" : journeyScreen === "confirmation" ? "Aperçu de la confirmation" : "Aperçu du checkout"
+          ? journeyScreen === "cart" ? "Aperçu du panier" : journeyScreen === "confirmation" ? "Aperçu de la confirmation" : journeyScreen === "receipt" ? "Aperçu du reçu" : "Aperçu du checkout"
           : surface === "branches"
             ? "Aperçu du choix de succursale"
             : `Aperçu de ${activePage.title}`

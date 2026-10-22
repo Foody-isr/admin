@@ -44,7 +44,8 @@
 .pos-settings .pos-toggle:checked:before{background:var(--surface);inset-inline-start:19px;}
 .pos-settings .pos-toggle:disabled{opacity:.4;cursor:default;}
 .pos-settings .pos-toggle:focus-visible{outline:2px solid var(--fg);outline-offset:4px;}
-.pos-mode-editor,.pos-fulfillment-editor{position:fixed;inset:0;z-index:50;max-width:none;display:flex;flex-direction:column;background:var(--surface);outline:none;}
+.pos-mode-editor{position:fixed;inset:0;z-index:50;max-width:none;display:flex;flex-direction:column;background:var(--surface);outline:none;}
+.pos-fulfillment-editor{position:fixed;inset:50% auto auto 50%;transform:translate(-50%,-50%);z-index:50;width:min(720px,calc(100vw - 48px));max-height:calc(100dvh - 64px);display:flex;flex-direction:column;background:var(--surface);border-radius:20px;outline:none;overflow:hidden;}
 .pos-editor-head{height:92px;flex-shrink:0;border-bottom:1px solid var(--line);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;gap:24px;}
 .pos-editor-head>div{text-align:center;flex:1;min-width:0;}
 .pos-editor-head h2{font-size:19px;line-height:26px;font-weight:600;}
@@ -76,8 +77,22 @@
 .pos-tile-option>span:last-child{color:var(--fg-muted);margin-top:4px;}
 .pos-entry-progression{margin-top:16px;}
 .pos-entry-progression .pos-setting-row{padding:14px 0;}
-.pos-fulfillment-editor .pos-editor-head h2{flex:1;text-align:center;}
-.pos-fulfillment-editor>main{width:100%;max-width:960px;margin:0 auto;padding:40px 32px 64px;overflow:auto;}
+.pos-fulfillment-editor .pos-editor-head{height:auto;min-height:88px;border-bottom:0;padding:24px 32px 12px;gap:16px;}
+.pos-fulfillment-editor .pos-editor-head h2{flex:1;text-align:start;font-size:18px;line-height:24px;}
+.pos-fulfillment-editor .pos-editor-head button{flex-shrink:0;}
+.pos-fulfillment-editor>main{width:100%;min-height:0;margin:0 auto;padding:12px 32px 32px;overflow:auto;}
+.pos-fulfillment-editor .pos-setting-section h2:empty{display:none;}
+.pos-fulfillment-editor .pos-setting-section{margin-top:32px;}
+.pos-fulfillment-editor .pos-setting-section+.pos-setting-section{border-top:8px solid var(--surface-2);padding-top:24px;}
+.pos-fulfillment-editor .pos-setting-row{gap:16px;}
+.pos-fulfillment-editor .pos-setting-hint{font-size:15px;line-height:24px;}
+.pos-fulfillment-location,.pos-fulfillment-name{display:block;border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin-top:24px;}
+.pos-fulfillment-location>span,.pos-fulfillment-name>span{display:block;font-size:13px;line-height:20px;font-weight:600;}
+.pos-fulfillment-location>strong{display:block;font-size:16px;line-height:26px;font-weight:400;}
+.pos-fulfillment-name{margin-top:0;}
+.pos-fulfillment-name input{border:0;border-radius:0;padding:4px 0 0;background:transparent;box-shadow:none;font-size:16px;height:auto;}
+.pos-fulfillment-method-editor .pos-setting-hint{margin-top:24px;}
+@media(max-width:767px){.pos-fulfillment-editor{inset:0;transform:none;width:100%;height:100dvh;max-height:none;border-radius:0;}.pos-fulfillment-editor .pos-editor-head{padding:16px 20px;gap:12px;}.pos-fulfillment-editor>main{flex:1;}.pos-fulfillment-editor .pos-default-badge{margin-inline-start:4px;padding:2px 4px;font-size:11px;}.pos-fulfillment-editor .pos-course-controls{flex-shrink:0;}.pos-fulfillment-editor .pos-grip{display:none;}.pos-fulfillment-editor .pos-course-controls>[data-variant]{width:28px;min-width:28px;}}
 @media(max-width:767px){.pos-editor-head{height:auto;min-height:80px;padding:12px 16px;gap:12px;}.pos-editor-head p{display:none;}.pos-editor-head h2{font-size:16px;line-height:22px;}.pos-editor-head button{height:40px;padding:0 16px;}.pos-editor-head>button:first-child{width:40px;min-width:40px;}.pos-editor-layout{grid-template-columns:1fr;}.pos-editor-layout>aside{display:none;}.pos-editor-layout>main{padding:16px 20px 40px;}.pos-tile-options{gap:12px;}.pos-tile-option{height:auto;min-height:218px;padding:12px;font-size:13px;}.pos-tile-option[data-selected=true]{padding:11px;}.pos-tile-preview{height:106px;padding:8px;}.pos-tile-preview.wide{height:62px;margin-top:44px;}.pos-fulfillment-editor>main{padding:24px 20px;}}
 
 .pos-editor-head>button:first-child{background:var(--surface-2);border:0;box-shadow:none;}

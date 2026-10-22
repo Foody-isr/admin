@@ -9,7 +9,7 @@ import type { DraftStatePayload } from "../types";
 const compatible = {
   protocol: "foody.website-v3",
   editor_catalog: 2,
-  animated_text: true, component_animations: 1, video_playback: 1, video_height: 1,
+  animated_text: true, component_animations: 1, video_playback: 1, video_height: 1, order_list_styles: 1, receipt_editor: 1,
   version: 1,
   page_types: ["landing", "content", "order", "catering"],
   surfaces: ["page", "checkout", "branches"],
@@ -150,4 +150,16 @@ test("rejects renderers that cannot apply video playback settings", async () => 
 
 test("rejects renderers that cannot apply video height settings", async () => {
   await assert.rejects(requireWebsiteV3RuntimeCapabilities("https://app.foody-pos.co.il", async () => Response.json({...compatible, video_height: undefined})), /site public n’est pas compatible/);
+});
+
+test("rejects renderers that cannot show compact menu styles", async () => {
+  for (const order_list_styles of [undefined, 0, 2])
+    await assert.rejects(requireWebsiteV3RuntimeCapabilities("https://example.test", async () =>
+      Response.json({ ...compatible, order_list_styles })), /site public n’est pas compatible/);
+});
+
+
+test("rejects renderers that cannot preview and publish receipts", async () => {
+  await assert.rejects(requireWebsiteV3RuntimeCapabilities("https://example.test", async () =>
+    Response.json({ ...compatible, receipt_editor: undefined })), /site public n’est pas compatible/);
 });

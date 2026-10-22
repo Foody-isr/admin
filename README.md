@@ -274,6 +274,18 @@ own color and portions follow it. Editing a style does not select it as the site
 default; **Use by default** is a separate action. Shape, spacing and images remain
 in the item-list panels, whose color shortcuts open the assigned global style.
 
+**Item list → Layout → Compact list** applies a menu with lateral 3:2 photos,
+descriptions, row separators and underlined sticky categories. Existing color
+assignments, desktop column counts and ordering preferences are preserved.
+Cards expose item spacing, row padding and price placement; Images exposes
+physical left/right placement and bounded sizes. Descriptions has typography and
+line-count controls. All settings use page-local `website_order` data for autosave,
+preview and publication. The public renderer must advertise `order_list_styles: 1`
+before this editor is deployed. The isolated regression runs with
+`FOODY_MENU_APPEARANCE=1 npx playwright test -c playwright.website-editor.config.ts order-list-styles.spec.ts`.
+Its menu-only fixture stubs the video capability flags required by this Admin
+branch but absent from the current Web checkout; it does not validate video support.
+
 **Header → Layout → Restaurant** adds a cover, a logo in a white frame,
 the restaurant name and a hamburger using the existing navigation links.
 **Information and ordering → Layout** offers two exclusive presentations:
@@ -782,3 +794,48 @@ Website V3 image controls include non-destructive pan, 50–300% zoom, and fill/
 Order mode settings accept an independent `website_order.modal_cover_url` and `modal_cover_framing`, shared by fulfillment and scheduling windows. An empty URL inherits the restaurant cover; the cover toggle hides it. Optional frame objects live beside their media in the existing draft JSON, including `background.framing`/`logo.framing` in headers and `image_framing` in section content. Item overrides use `item_image_frames` keyed by item ID.
 
 The isolated image suite runs with `FOODY_WEB_DIR=/path/to/foodyweb npx playwright test -c playwright.image-framing.config.ts`; its API writes are in memory only.
+
+## POS fulfillment editors (local refinement, 2026-10-22)
+
+Settings → Fulfillment uses the shared restaurant catalogue: labels, stable IDs,
+order-type mappings, active methods, order/default and prompt timing. Desktop
+editors are centered; mobile editors use the full screen. The current restaurant
+is explicit. Done stages a method; Save persists the configuration, and closing
+can discard the draft. Disabling/re-enabling the prompt preserves its timing
+within the draft. A missing `pos_custom_dining_supported` capability prevents
+editing; a server response that loses submitted fulfillment fields reports an
+unconfirmed save rather than success. Service/device modes retain their own
+checkout policies but do not define a separate fulfillment catalogue.
+
+Each method can also offer the optional **Customer information screen** after
+whole-order fulfillment selection. It is not an item-level customer or delivery
+setting. Done stages the toggle; Save persists it. Missing historical values
+remain absent until explicitly changed, and explicit off remains off. This does
+not weaken mandatory delivery details, hide orders, or enable SMS notifications.
+Deploy the matching API and FoodyPOS before this Admin control. The API must
+advertise `pos_fulfillment_customer_information_supported` on GET and PUT settings;
+an older API hides this control and cannot silently drop an existing preference.
+Every submitted method field, including explicit false, must be confirmed by the
+save response. A lost capability or field leaves the draft open and unconfirmed.
+
+Escape cancels only the current editor and restores focus to its trigger. Save
+locks dismissal until the response; late responses cannot replace another
+restaurant's policy. No tracking toggle or independent per-item delivery is
+claimed. Tests use synthetic API fixtures and do not change production settings.
+
+## Digital receipt editor
+
+Open **Website V3 → Parcours de commande → Écran → Reçu** to edit the receipt
+title and thank-you message in French, English or Hebrew, spacing, visible
+restaurant/customer information and print/share/navigation actions. The preview
+uses a synthetic order and follows the selected text language. Fonts and button
+shape inherit Site design; the colour picker inherits the menu by default or
+selects another shared style for the receipt. Content is shared across order
+pages, with screen colour assignments stored per page. Guest receipt links retain
+the originating published order page; generic links use the restaurant's default
+order page.
+
+Edits use the existing autosaved draft and become public only after publication.
+Deploy the receipt API contract and Foody Web advertising `receipt_editor: 1`
+before this editor. Run the isolated regression with
+`npx playwright test -c playwright.website-editor.config.ts receipt-editor.spec.ts`.
