@@ -1334,3 +1334,14 @@ paths and arrival estimates stay hidden, and an incomplete reassignment is rejec
 before changing orders. Check Settings → Usage and quotas, then refresh and
 recalculate when the service is available. No allowance or production data change
 is part of this UI fix. The same planner browser suite covers this recovery state.
+
+## Undo an accidental route departure
+
+Orders → Deliveries offers **Undo departure** on an active route whose stops are
+all pending. Confirmation explains that out-for-delivery orders return to
+preparation, the route returns to draft and the courier remains assigned. Managers
+can then unassign and allocate to the correct courier. Existing sent messages
+remain recorded. The API rechecks all progress and ownership transactionally;
+conflicts reload the route and show localized recovery. The action is absent once
+any arrival, delivery or skipped stop is visible, and is never offered in courier
+mode. Deploy the matching API first; no environment change is required.
