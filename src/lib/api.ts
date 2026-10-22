@@ -543,7 +543,16 @@ export interface MenuItemModifier {
   translations?: TranslationMap;
 }
 
+/** Item-specific visibility and repetition of a shared modifier group. */
+export interface ModifierSelectionConfig {
+  source: '' | 'option' | 'modifier';
+  source_id: number;
+  choices: { id: number; count: number }[];
+  presentation: 'auto' | 'list' | 'characters';
+}
+
 export interface ModifierSet {
+  selection_config?: ModifierSelectionConfig | null;
   id: number;
   restaurant_id: number;
   name: string;
@@ -811,6 +820,7 @@ export interface MenuItem {
 }
 
 export interface ModifierSetItemOverrideRow {
+  selection_config?: ModifierSelectionConfig | null;
   modifier_set_id: number;
   menu_item_id: number;
   min_selections_override?: number | null;
@@ -819,6 +829,7 @@ export interface ModifierSetItemOverrideRow {
 }
 
 export interface ModifierSetItemOverridesInput {
+  selection_config?: ModifierSelectionConfig | null;
   min_selections?: number | null;
   max_selections?: number | null;
   is_required?: boolean | null;

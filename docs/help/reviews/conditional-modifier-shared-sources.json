@@ -1,0 +1,19 @@
+{
+  "feature": "menu-modifiers",
+  "documentation": "menu/modifiers#conditional-positions",
+  "scope": "Additive shared dictionaries and compile-time types; UI behavior reviewed in the documented components.",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "a745908a8af93ab2751df9ac886b509705d8820db397813d6af9442357214cb0",
+      "disposition": "no-user-impact",
+      "reason": "Only additive TypeScript interfaces describe the new per-item modifier selection configuration. Existing runtime requests, JWT handling, payment APIs and payment totals are byte-for-byte unchanged; modifier UI behavior is documented and reviewed separately in menu/modifiers."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "d1bc8fff5d5039d7fcbe64890edd34c8e5aafa7d015af4dbd0e6acfbf60d8724",
+      "disposition": "no-user-impact",
+      "reason": "Only previously unused modifier-selection translation keys were added in FR/HE/EN. No existing delivery, Google setup or other control labels were changed. Their existing procedures remain accurate; the new modifier controls and their labels are documented in menu/modifiers."
+    }
+  ]
+}
