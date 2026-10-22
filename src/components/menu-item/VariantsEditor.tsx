@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { VariantSelectionEditor } from './VariantSelectionEditor';
 import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -25,6 +26,8 @@ export interface VariantRowState {
 }
 
 export interface VariantGroupState {
+  selectionRole?: "price" | "identity";
+  selectionConfig?: import("@/lib/api").ModifierSelectionConfig | null;
   key: string;
   optionSetId?: number;
   title: string;
@@ -50,6 +53,7 @@ export function variantGroupsFromOptionSets(
   attachedOptionSets: OptionSet[],
   overrides: ItemOptionOverride[],
   itemId: number,
+  effectiveSets?: OptionSet[],
 ): VariantGroupState[] {
   const overrideMap = new Map<number, ItemOptionOverride>();
   for (const ov of overrides) overrideMap.set(ov.option_id, ov);
@@ -71,6 +75,8 @@ export function variantGroupsFromOptionSets(
       : setOptions;
     groups.push({
       key: crypto.randomUUID(),
+      selectionRole: effectiveSets?.find(set => set.id === os.id)?.selection_role ?? os.selection_role,
+      selectionConfig: effectiveSets?.find(set => set.id === os.id)?.selection_config ?? os.selection_config,
       optionSetId: os.id,
       title: os.name,
       rows: visibleOptions.map((opt) => {
@@ -108,15 +114,17 @@ export function toVariantSyncPayload(
     if (validRows.length === 0) continue;
     payload.push({
       option_set_id: g.optionSetId ?? null,
+      selection_role: g.selectionRole ?? "price",
+      selection_config: g.selectionConfig ?? null,
       name: g.title.trim(),
       sort_order: gi,
       variants: validRows.map((r, vi) => ({
         option_id: r.optionId ?? null,
         name: r.name.trim(),
-        price: r.price,
+        price: g.selectionRole === "identity" ? 0 : r.price,
         portion: r.portion.trim(),
         is_active: r.isActive,
-        is_combo_only: r.isComboOnly,
+        is_combo_only: g.selectionRole === "identity" ? false : r.isComboOnly,
         sort_order: vi,
       })),
     });
@@ -237,14 +245,15 @@ export default function VariantsEditor({
         <label className="item-field min-w-0 flex-[1_1_180px] space-y-2 text-sm"><span className="block font-semibold">{t('variantGroupTitle')}</span><input disabled={!canEdit} value={group.title} onChange={event => updateGroup(group.key, { title: event.target.value, optionSetId: undefined })} className="input" /></label>
         {canEdit && <Button type="button" variant="secondary" onClick={() => { setQuery(''); setPickerGroup(group.key); }}>{t('savedOptionSets')}</Button>}
       </div>
-      {itemBasePrice > 0 && <p className="border-b border-[var(--line)] bg-[var(--summary-bg)] p-3 text-xs text-[var(--summary-fg)]">{t('variantZeroPriceHint').replace('{price}', money(itemBasePrice))}</p>}
+      <VariantSelectionEditor group={group} groups={groups} disabled={!canEdit} onChange={patch => updateGroup(group.key, patch)} />
+      {group.selectionRole !== "identity" && itemBasePrice > 0 && <p className="border-b border-[var(--line)] bg-[var(--summary-bg)] p-3 text-xs text-[var(--summary-fg)]">{t('variantZeroPriceHint').replace('{price}', money(itemBasePrice))}</p>}
       <div className="divide-y divide-[var(--line)]">{group.rows.map((row, index) => <fieldset key={row.key} disabled={!canEdit} className="item-variant-row grid min-w-0 grid-cols-2 gap-3 p-4">
         <legend className="sr-only">{t('variantName')} {index + 1}</legend>
         <label className="item-field col-span-2 min-w-0 space-y-1 text-xs text-fg-secondary item-variant-name"><span>{t('variantName')}</span><input value={row.name} onChange={event => updateRow(group.key,row.key,{name:event.target.value})} className="input text-sm" /></label>
-        <label className="item-field min-w-0 space-y-1 text-xs text-fg-secondary"><span>{t('price')}</span><NumberInput min={0} value={row.price} onChange={price => updateRow(group.key,row.key,{price})} placeholder="0.00" dir="ltr" className="input text-sm" /></label>
-        <label className="item-field min-w-0 space-y-1 text-xs text-fg-secondary"><span>{t('portion')}</span><input value={row.portion} onChange={event => updateRow(group.key,row.key,{portion:event.target.value})} placeholder={t('portionSizePlaceholder')} className="input text-sm" /></label>
+        {group.selectionRole !== "identity" && <label className="item-field min-w-0 space-y-1 text-xs text-fg-secondary"><span>{t('price')}</span><NumberInput min={0} value={row.price} onChange={price => updateRow(group.key,row.key,{price})} placeholder="0.00" dir="ltr" className="input text-sm" /></label>}
+        {group.selectionRole !== "identity" && <label className="item-field min-w-0 space-y-1 text-xs text-fg-secondary"><span>{t('portion')}</span><input value={row.portion} onChange={event => updateRow(group.key,row.key,{portion:event.target.value})} placeholder={t('portionSizePlaceholder')} className="input text-sm" /></label>}
         <label className="item-field item-variant-status min-w-0 space-y-1 text-xs text-fg-secondary"><span>{t('status')}</span><select value={row.isActive?'active':'inactive'} onChange={event => updateRow(group.key,row.key,{isActive:event.target.value==='active'})} className="input text-sm"><option value="active">{t('available')}</option><option value="inactive">{t('unavailable')}</option></select></label>
-        <label className="flex min-h-11 items-center gap-2 text-sm lg:col-span-2 selection-row"><input type="checkbox" checked={row.isComboOnly} onChange={event => updateRow(group.key,row.key,{isComboOnly:event.target.checked})} className="size-4 accent-[var(--brand-500)]" />{t('comboOnlyBadge')}</label>
+        {group.selectionRole !== "identity" && <label className="flex min-h-11 items-center gap-2 text-sm lg:col-span-2 selection-row"><input type="checkbox" checked={row.isComboOnly} onChange={event => updateRow(group.key,row.key,{isComboOnly:event.target.checked})} className="size-4 accent-[var(--brand-500)]" />{t('comboOnlyBadge')}</label>}
         {canEdit && <div className="col-span-2 flex flex-wrap justify-end gap-2"><Button type="button" variant="ghost" icon aria-label={t('moveUp')} disabled={!index} onClick={() => moveRow(group.key,index,'up')}><ChevronUp /></Button><Button type="button" variant="ghost" icon aria-label={t('moveDown')} disabled={index===group.rows.length-1} onClick={() => moveRow(group.key,index,'down')}><ChevronDown /></Button><Button type="button" variant="ghost" icon aria-label={t('delete')} onClick={() => removeRow(group.key,row.key)}><Trash2 /></Button></div>}
       </fieldset>)}</div>
       {canEdit && <div className="flex flex-wrap justify-between gap-3 border-t border-[var(--line)] p-3"><Button type="button" variant="secondary" onClick={() => addRow(group.key)}><Plus />{t('addVariant')}</Button><Button type="button" variant="ghost" onClick={() => removeGroup(group.key)}>{t('remove')}</Button></div>}

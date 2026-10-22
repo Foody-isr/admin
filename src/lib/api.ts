@@ -844,7 +844,13 @@ export interface OrderItemModifier {
   price_delta: number;
 }
 
+export interface OptionSelection {
+  option_set_id: number; option_id: number; selection_index: number;
+  group_name?: string; name?: string; note?: string;
+}
+
 export interface OrderItem {
+  option_selections?: OptionSelection[];
   /** Preparation override; empty/absent inherits the order method. */
   dining_option?: string;
   dining_option_label?: string;
@@ -4352,6 +4358,8 @@ export interface OptionSetOption {
 }
 
 export interface OptionSet {
+  selection_role?: "price" | "identity";
+  selection_config?: ModifierSelectionConfig | null;
   id: number;
   restaurant_id: number;
   name: string;
@@ -4532,6 +4540,8 @@ export interface VariantSyncInput {
 }
 
 export interface VariantGroupSyncInput {
+  selection_role?: "price" | "identity";
+  selection_config?: ModifierSelectionConfig | null;
   option_set_id?: number | null;
   name: string;
   sort_order: number;
@@ -5159,6 +5169,7 @@ export interface CreateOrderModifierInput {
 /** One line on a manually-built order. Price is recomputed server-side from the
  *  menu item, selected variant, and modifiers — the client value is ignored. */
 export interface CreateOrderItemInput {
+  option_selections?: OptionSelection[];
   dining_option?: string;
   seat_number?: number | null;
   seat_numbers?: number[];

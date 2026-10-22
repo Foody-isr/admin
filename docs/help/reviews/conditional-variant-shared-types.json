@@ -1,0 +1,16 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "127a2f2b5b03cfb815a229bc24d21ac8fc14005ffd9d5082a0a48d942f7f2cf3",
+      "disposition": "no-user-impact",
+      "reason": "Only TypeScript interfaces gain the documented optional variant fields. Existing payment endpoints, calls, payload construction and permissions are unchanged; the new variant workflow is documented in the variants and order guides."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "acdcd525a19aeb17ce7a6e70846aee23177e68d7516c4d914e0c9b546007361b",
+      "disposition": "no-user-impact",
+      "reason": "Only new dictionary labels for the documented variant editor are added. Existing locale resolution, delivery dispatch labels, Google settings labels and their actions are unchanged; variant setup is documented in all three languages."
+    }
+  ]
+}
