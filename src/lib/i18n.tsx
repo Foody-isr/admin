@@ -120,6 +120,13 @@ export function i18nOr(t: (key: string) => string, key: string, fallback: string
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    variantChoose: "Choose an option",
+    variantRole: "Role of this group",
+    variantPriceRole: "Determines the price",
+    variantIdentityRole: "Describes the variant",
+    variantIdentityHint: "One required choice per position. These choices keep the format price and do not add a surcharge.",
+    variantSavedSourceHint: "Save the format and its choices first to use them as a condition.",
+    variantCharactersFill: "Add digits and letters",
     modifierConditions: "Conditions and display",
     modifierSource: "Show this group according to",
     modifierAlways: "Always show",
@@ -8987,6 +8994,13 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
   he: {
+    variantChoose: "בחרו אפשרות",
+    variantRole: "תפקיד הקבוצה",
+    variantPriceRole: "קובעת את המחיר",
+    variantIdentityRole: "מגדירה את הגרסה",
+    variantIdentityHint: "בחירת חובה אחת לכל מיקום. הבחירות שומרות על מחיר הגודל ואינן מוסיפות תשלום.",
+    variantSavedSourceHint: "שמרו תחילה את הגודל והאפשרויות שלו כדי להשתמש בהם כתנאי.",
+    variantCharactersFill: "הוספת ספרות ואותיות",
     modifierConditions: "תנאים ותצוגה",
     modifierSource: "הצגת הקבוצה לפי",
     modifierAlways: "הצגה תמיד",
@@ -17845,6 +17859,13 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── French ──────────────────────────────────────────────────────────────
   fr: {
+    variantChoose: "Choisir une option",
+    variantRole: "Rôle du groupe",
+    variantPriceRole: "Détermine le prix",
+    variantIdentityRole: "Précise la variante",
+    variantIdentityHint: "Un choix obligatoire par position. Ces choix conservent le prix du format, sans supplément.",
+    variantSavedSourceHint: "Enregistrez d’abord le format et ses choix pour les utiliser comme condition.",
+    variantCharactersFill: "Ajouter les chiffres et lettres",
     modifierConditions: "Conditions et affichage",
     modifierSource: "Afficher ce groupe selon",
     modifierAlways: "Toujours afficher",

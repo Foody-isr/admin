@@ -57,10 +57,11 @@ const Gap = () => <span aria-hidden />;
  * coriandre" and "Extra citron +₪4" looked identical.
  */
 export function ModifierRows({ item }: { item: OrderItem }) {
-  if (!item.modifiers?.length) return null;
+  if (!item.modifiers?.length && !item.option_selections?.length) return null;
   return (
     <>
-      {item.modifiers.map((m) => {
+      {item.option_selections?.map(option => <Fragment key={`option-${option.option_set_id}-${option.selection_index}`}><Gap /><span className="text-fs-xs ps-[var(--s-2)]">{option.group_name}: {option.name}</span><Gap /></Fragment>)}
+      {(item.modifiers ?? []).map((m) => {
         const isAdd = m.action === 'add';
         const delta = item.adjustment ? 0 : (m.price_delta ?? 0);
         return (

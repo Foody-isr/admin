@@ -259,7 +259,7 @@ export default function MenuItemTabOptions({
           ))}
 
           {/* Option sets (new variant system) */}
-          {attachedOptionSets.map((set) => (
+          {attachedOptionSets.filter(set => set.selection_role !== "identity").map((set) => (
             <div
               key={`os-${set.id}`}
               className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] shadow-1 p-[var(--s-4)]"

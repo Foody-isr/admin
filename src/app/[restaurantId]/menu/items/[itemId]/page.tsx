@@ -285,13 +285,14 @@ function EditItemEditor() {
       setPrepItems(prep ?? []);
       ingredientsCurrent.current = ings ?? [];
       setIngredients(ings ?? []);
+      const effectiveSets = cats.flatMap(category => category.items ?? []).find(item => item.id === iid)?.option_sets;
       const attached = (optSets ?? []).filter((os) =>
         (os.menu_items ?? []).some((mi) => mi.id === iid)
-      );
+      ).map(set => ({ ...set, selection_role: effectiveSets?.find(effective => effective.id === set.id)?.selection_role, selection_config: effectiveSets?.find(effective => effective.id === set.id)?.selection_config }));
       setAllOptionSets(optSets ?? []);
       setAttachedOptionSets(attached);
       if (!initialized.current) {
-        setVariantGroups(variantGroupsFromOptionSets(attached, optOverrides ?? [], iid));
+        setVariantGroups(variantGroupsFromOptionSets(attached, optOverrides ?? [], iid, cats.flatMap(category => category.items ?? []).find(item => item.id === iid)?.option_sets));
         setVariantsDirty(false);
       }
       for (const cat of cats) {
@@ -470,9 +471,9 @@ function EditItemEditor() {
   // price is owned by the size rows. We mirror the first size's price into the
   // saved base price so the data model stays valid and the rail / cost use the
   // right number. Combos keep their own explicit base price.
-  const meaningfulVariants = itemType !== 'combo' && hasMeaningfulVariants(variantGroups);
+  const meaningfulVariants = itemType !== 'combo' && hasMeaningfulVariants(variantGroups.filter(group => group.selectionRole !== 'identity'));
   const firstVariantPrice = useMemo(() => {
-    for (const g of variantGroups) {
+    for (const g of variantGroups.filter(group => group.selectionRole !== "identity")) {
       for (const r of g.rows) {
         if (r.name.trim() && !r.isComboOnly) return r.price;
       }
@@ -917,7 +918,7 @@ function EditItemEditor() {
                     ingredients={ingredients}
                     stockItems={stockItems}
                     prepItems={prepItems}
-                    variants={variantGroups.flatMap((g) =>
+                    variants={variantGroups.filter(group => group.selectionRole !== "identity").flatMap((g) =>
                       g.rows
                         .filter(
                           (r) =>

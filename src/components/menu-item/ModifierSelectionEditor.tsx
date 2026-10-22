@@ -17,7 +17,7 @@ export function ModifierSelectionEditor({ item, set, attachedSets, value, onChan
   const config: ModifierSelectionConfig = value ?? { source: '', source_id: 0, choices: [], presentation: 'auto' };
   const sources = [
     // Orders store one price-bearing option: the first format/size set.
-    ...(item.option_sets ?? []).slice(0, 1).map(source => ({ key: `option:${source.id}`, name: source.name, choices: (source.options ?? []).filter(o => o.is_active).map(o => ({ id: o.id, name: o.name })) })),
+    ...(item.option_sets ?? []).filter(set => set.selection_role !== "identity").slice(0, 1).map(source => ({ key: `option:${source.id}`, name: source.name, choices: (source.options ?? []).filter(o => o.is_active).map(o => ({ id: o.id, name: o.name })) })),
     ...attachedSets.filter(source => source.id !== set.id && !source.use_conversational && (!source.allow_multiple || source.max_selections === 1) && !source.selection_config?.source)
       .map(source => ({ key: `modifier:${source.id}`, name: source.display_name || source.name, choices: source.modifiers.filter(m => m.is_active).map(m => ({ id: m.id, name: m.name })) })),
   ];

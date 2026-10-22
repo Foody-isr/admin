@@ -1361,3 +1361,17 @@ Deploy API migration `274_conditional_modifier_positions.sql` and the matching
 API before these clients. Configure only after web/POS consumers are updated.
 See the three-language modifier help procedure and local synthetic regression
 tests. No production data or deployments are changed by local preparation.
+
+## Conditional option/variant dimensions
+
+Price and variants now gives each item group a role: **Determines the price** or
+**Describes the variant**. Save a priced format first, then configure descriptive
+positions from it (for example one or two Number Cake characters). **Add digits
+and letters** appends missing 0–9/A–Z options. Descriptive groups have no price or
+portion input; their per-item prices are sent as zero while the priced format
+retains its absolute price. Roles and conditions are item-specific and travel in
+the existing atomic variants sync. Existing catalogs are not converted.
+Order creation and edits preserve these selections separately from modifiers;
+tickets show their position labels. Deploy API migration 275 first. Regression:
+`npx playwright test -c playwright.modifiers.config.ts` (variant and modifier
+configuration). Public procedure: `/fr/help/menu/variants-and-sizes#conditional-positions`.

@@ -75,7 +75,7 @@ function catColor(index: number): string {
 // tables here quick-added option-set items without ever asking for a size,
 // creating size-less lines the production sheet could not weigh.
 function hasOptions(it: MenuItem): boolean {
-  const variants = itemSizeOptions(it).length > 0;
+  const variants = itemSizeOptions(it).length > 0 || it.option_sets?.some(set => set.selection_role === "identity");
   const mods =
     (it.modifiers ?? []).some((m) => m.is_active) ||
     (it.modifier_sets ?? []).some((s) => (s.modifiers ?? []).some((m) => m.is_active));
@@ -538,6 +538,7 @@ export default function NewOrderPage() {
             menu_item_id: l.item.id,
             quantity: l.quantity,
             selected_variant_id: l.selectedVariantId,
+            option_selections: l.optionSelections,
             notes: l.notes || undefined,
             modifiers: l.modifiers.map((m) => ({ modifier_id: m.id, applied: true })),
           })),
@@ -892,6 +893,7 @@ export default function NewOrderPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="break-words text-fs-sm font-semibold">{l.item.name}</p>
+                        {l.optionSelections?.map(option => <p key={`${option.option_set_id}@${option.selection_index}`} className="text-fs-xs text-[var(--fg-muted)]">{option.group_name}: {option.name}</p>)}
                         {l.selectedVariantName && (
                           <p className="text-fs-xs text-[var(--fg-muted)]">{l.selectedVariantName}</p>
                         )}
