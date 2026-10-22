@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "cb75e5062c078c217dce56b0f1ba4a7b343dc45e",
-  "documentationRevision": "7d7989ea140270de94678e193068bc03cee335bb7c858e35713d578f27b125fd",
+  "documentationRef": "91fbd88f373c38f4ee2b12c7590903bacf22349d",
+  "documentationRevision": "b55021e04d0100511bc819f472e894bcf5b35b1ea6e6506cdb7bf56bfde7d6f4",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -715,15 +715,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "a69f21d84f7da948a3f5eac71a7a52ebd81b5bd7045ad56ce64d49bc8ab65823"
+          "sha256": "6b420047a9895eb26a418c8d2d6348694d837f95c94dd7f6381c66d869a5fcea"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "79b744041aef8996aa4cdbdd82edd654d4459f3da3c68aae79e900665c2da43a"
+          "sha256": "1906e529c4fc04f5a36d2169f03c8b9c66d6225c83139758a6aade45f7da0502"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "908df05c9723b128b6a1c410d0e63892f0599cbec4c7566530add0d976fb61dc"
+          "sha256": "5cad4f36682075739a2f845506f9bdc33cc5217ae3f339cd9a2822b213a8a400"
         }
       }
     },
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/courier-workspace.mdx",
-          "sha256": "634643f51e1dbf21ee25a4fca17a2d60edbf4c8a5eaf3f9a4386ad88cd61a289"
+          "sha256": "9cfdd4fad4062f0bd1336fdb2475bce29178fdac9733da3386258405f2d2b3cb"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/courier-workspace.mdx",
-          "sha256": "2ace2000958e5f03bec98fd82ea1a26d2bd2bab9d578605a36137b4e6417e6be"
+          "sha256": "2b4d298059caf9659fcafb1aa8764f75a42cbb9bcc1664fa9ddd241ccc83ade6"
         },
         "he": {
           "path": "src/content/help/he/delivery/courier-workspace.mdx",
-          "sha256": "6ebde1ad35498037d3499430440d20cfb0f31089fd9e647bfecf8d2069a2be9b"
+          "sha256": "2ba05d8758768923473cf2dd1d3a3e25fd1a01199550943386530531c11fedaf"
         }
       }
     },
@@ -3769,7 +3769,7 @@
       ]
     },
     "src/components/delivery/CourierItineraryView.tsx": {
-      "sha256": "5fb6f65d1b9bb2ab19149b8481985e0972e165a90296bab7437c7620f0ad4db7",
+      "sha256": "6ea7ccd64f4317b7396e9b304b7508e4e031fa351770560a563fc4a3405fd542",
       "features": [
         "delivery-dispatch",
         "courier"
@@ -3813,7 +3813,7 @@
       ]
     },
     "src/components/delivery/DispatcherView.tsx": {
-      "sha256": "1a3ff2aa5f106ef352fb45b83ecbb1fa68f53edde3b43d172ea90b4252b1c53c",
+      "sha256": "44068a10edcbeaaaa67dc7fc4d4ae7259c7c53776548216ed78405fe441b4bfe",
       "features": [
         "delivery-dispatch"
       ]
@@ -3838,6 +3838,12 @@
         "courier"
       ]
     },
+    "src/components/delivery/OrderWindowField.tsx": {
+      "sha256": "3aedbdd4c8548f8728efbf7c4e76abd88dc8dac3389eb25790d4da7344c77c36",
+      "features": [
+        "delivery-dispatch"
+      ]
+    },
     "src/components/delivery/RouteAddressField.tsx": {
       "sha256": "2b72a277f20e69bd4a1431cd7da396451db9027c1cea1df4883311f8f8ea618b",
       "features": [
@@ -3845,7 +3851,7 @@
       ]
     },
     "src/components/delivery/RouteSettingsEditor.tsx": {
-      "sha256": "7d2a0a52d9e4a961d9eaabf6d2ca3d9f9da98b43584ee1b19f26966d77d267e3",
+      "sha256": "09d1953290f272aa191ec2686dfb69f86b9df57f8b16559abb547632ea06db75",
       "features": [
         "delivery-dispatch"
       ]
@@ -6153,7 +6159,7 @@
       ]
     },
     "src/lib/delivery-planning.ts": {
-      "sha256": "ab0d827580c6b567c52476cb20649f3b20472ec2182d134d72ce50c7592337c5",
+      "sha256": "89c094607c84a7ab18361f95765c47a79b9a19e68e45b6db72305f358ea81808",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -6174,7 +6180,7 @@
       ]
     },
     "src/lib/delivery.ts": {
-      "sha256": "78261032aa72b38edb4ab43c86410289690eece0ac10214410301b903c63cbc6",
+      "sha256": "d398363b9739b444498f072aa733a84e7ee1ec1a5d8c43b92da6b428a10f371c",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -6229,7 +6235,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "6154a43cfd21a066f5cb362803fac5e683ee58f95057b9f147e96f6e7a21bac6",
+      "sha256": "a5563714622dc62006ca87f00d31a45f4d11f862c7968e6efdd298d892e29b22",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -6696,7 +6702,7 @@
     "src/lib/route-address.ts": {
       "sha256": "3b4f5c0575337c336603fbbad5d2ee143247f07a63c5be11b43e132b2218db36",
       "features": [
-        "delivery-dispatch"
+        "shared-runtime"
       ]
     },
     "src/lib/route-permissions.ts": {
@@ -15065,7 +15071,6 @@
         "courier"
       ],
       "labels": [
-        "addressNeedsAttention",
         "assignedToMe",
         "back",
         "callCustomer",
@@ -15075,6 +15080,7 @@
         "courierFinishCurrentRoute",
         "courierStartBeforeDelivered",
         "deliveryExpectedArrival",
+        "deliveryLocationPending",
         "deliveryNotes",
         "deliveryPlanStops",
         "deliveryPlanWhatsApp",
@@ -15199,6 +15205,43 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/delivery/DeliveryWhatsAppDrawer.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/delivery/DeliveryWhatsAppDrawer.tsx",
+      "line": 1,
+      "features": [
+        "delivery-dispatch"
+      ],
+      "labels": [
+        "cancel",
+        "deliveryWhatsAppAutomatic",
+        "deliveryWhatsAppConfirmBody",
+        "deliveryWhatsAppConfirmTitle",
+        "deliveryWhatsAppEmpty",
+        "deliveryWhatsAppEvidence",
+        "deliveryWhatsAppIntro",
+        "deliveryWhatsAppPreview",
+        "deliveryWhatsAppPreviewFailed",
+        "deliveryWhatsAppPreviewFor",
+        "deliveryWhatsAppRefresh",
+        "deliveryWhatsAppSendAll",
+        "deliveryWhatsAppSendOne",
+        "deliveryWhatsAppSendSingle",
+        "deliveryWhatsAppStale",
+        "deliveryWhatsAppTitle",
+        "deliveryWhatsAppUnavailable",
+        "deliveryWhatsAppUnknownHint",
+        "loading",
+        "waAttachmentTitle"
+      ],
+      "actions": [
+        "loadedSignature",
+        "send",
+        "sendable",
+        "sending"
+      ]
+    },
+    {
       "id": "foodyadmin:src/components/delivery/DispatcherView.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/delivery/DispatcherView.tsx",
@@ -15207,7 +15250,6 @@
         "delivery-dispatch"
       ],
       "labels": [
-        "addressNeedsAttention",
         "addressVerificationFailed",
         "cancel",
         "close",
@@ -15348,6 +15390,20 @@
         "navigationUnverifiedAddress",
         "navigationUnverifiedDescription",
         "navigationUnverifiedTitle"
+      ],
+      "actions": []
+    },
+    {
+      "id": "foodyadmin:src/components/delivery/OrderWindowField.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/delivery/OrderWindowField.tsx",
+      "line": 1,
+      "features": [
+        "delivery-dispatch"
+      ],
+      "labels": [
+        "respectOrderWindowsHint",
+        "respectOrderWindowsLabel"
       ],
       "actions": []
     },
@@ -19800,6 +19856,37 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/staff/StaffProfileEditor.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/staff/StaffProfileEditor.tsx",
+      "line": 1,
+      "features": [
+        "staff-invitations"
+      ],
+      "labels": [
+        "cancel",
+        "discardChanges",
+        "discardUnsavedChanges",
+        "fullName",
+        "phone",
+        "routeSettingsEndAddress",
+        "routeSettingsEndPlaceholder",
+        "staffProfileAddress",
+        "staffProfileDescription",
+        "staffProfileDestination",
+        "staffProfileDestinationHint",
+        "staffProfileEdit",
+        "staffProfileHomeRequired",
+        "staffProfileLoginEmail",
+        "staffProfileLoginHint",
+        "staffProfileSameAddress"
+      ],
+      "actions": [
+        "close",
+        "save"
+      ]
+    },
+    {
       "id": "foodyadmin:src/components/staff/TableAssignmentModal.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/staff/TableAssignmentModal.tsx",
@@ -23759,6 +23846,7 @@
         "shared-runtime"
       ],
       "labels": [
+        "deliveryRoutingUnavailable",
         "unitHour",
         "unitMin"
       ],
@@ -24386,37 +24474,6 @@
       "labels": [],
       "actions": [
         "removeProcessingGuard"
-      ]
-    },
-    {
-      "id": "foodyadmin:src/components/staff/StaffProfileEditor.tsx:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/components/staff/StaffProfileEditor.tsx",
-      "line": 1,
-      "features": [
-        "staff-invitations"
-      ],
-      "labels": [
-        "cancel",
-        "discardChanges",
-        "discardUnsavedChanges",
-        "fullName",
-        "phone",
-        "routeSettingsEndAddress",
-        "routeSettingsEndPlaceholder",
-        "staffProfileAddress",
-        "staffProfileDescription",
-        "staffProfileDestination",
-        "staffProfileDestinationHint",
-        "staffProfileEdit",
-        "staffProfileHomeRequired",
-        "staffProfileLoginEmail",
-        "staffProfileLoginHint",
-        "staffProfileSameAddress"
-      ],
-      "actions": [
-        "close",
-        "save"
       ]
     }
   ]

@@ -95,3 +95,14 @@ export function deliveryRoutingError(error: unknown, t: (key: string) => string)
   } as Record<string, string>)[message];
   return key ? t(key) : null;
 }
+
+/** Describe provider limits separately from a changed route or an unlocated address. */
+export function deliveryRouteWarning(route: Pick<DeliveryRoute, 'routing_error' | 'needs_recalculation'>, t: (key: string) => string): string {
+  if (route.routing_error) return deliveryRoutingError(new Error(route.routing_error), t) ?? t('deliveryRoutingUnavailable');
+  return t(route.needs_recalculation ? 'deliveryRouteNeedsRecalculation' : 'routeEstimatePartial');
+}
+
+/** A provider failure leaves a location pending rather than proving the address invalid. */
+export function deliveryLocationWarning(route: Pick<DeliveryRoute, 'routing_error'>, t: (key: string) => string): string {
+  return t(route.routing_error ? 'deliveryLocationPending' : 'addressNeedsAttention');
+}

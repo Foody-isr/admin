@@ -11,7 +11,7 @@ import {
   updateRouteSettings, updateMyStopAddress,
   type DeliveryRoute, type RouteSettingsInput, type RouteStop, type StopAddressInput,
 } from '@/lib/delivery';
-import { deliveryRoutingError } from '@/lib/delivery-planning';
+import { deliveryRoutingError, deliveryRouteWarning, deliveryLocationWarning } from '@/lib/delivery-planning';
 import { callUrl, whatsappUrl } from '@/lib/delivery-links';
 import { NavigationAppMenu } from '@/components/delivery/NavigationAppMenu';
 import { RouteSettingsEditor } from '@/components/delivery/RouteSettingsEditor';
@@ -202,6 +202,7 @@ function RouteEndpointRow({
 /** Hero card for the currently active stop. */
 function CurrentStopCard({
   stop,
+  locationWarning,
   etaWindow,
   hasFollowing,
   busy,
@@ -212,6 +213,7 @@ function CurrentStopCard({
   t,
 }: {
   stop: RouteStop;
+  locationWarning: string;
   etaWindow: DeliveryEtaWindow | null;
   hasFollowing: boolean;
   busy: boolean;
@@ -286,7 +288,7 @@ function CurrentStopCard({
         {stop.needs_geocode && (
           <p className="mt-2 flex items-center gap-1 text-fs-xs text-[var(--warning-500)]">
             <AlertCircleIcon className="h-3 w-3 shrink-0" />
-            {t('addressNeedsAttention')}
+            {locationWarning}
           </p>
         )}
 
@@ -649,7 +651,7 @@ function CourierRouteView({ rid, assignedRoute, onReload, canStart, reportLocati
                     </p>
                     <DeliveryDuration route={route} t={t} />
                     {(route.needs_recalculation || unresolvedStops.length > 0) && (
-                      <p className="mt-0.5 text-[11px] text-[var(--warning-500)]">{t(route.needs_recalculation ? 'deliveryRouteNeedsRecalculation' : 'routeEstimatePartial')}</p>
+                      <p className="mt-0.5 text-[11px] text-[var(--warning-500)]">{deliveryRouteWarning(route, t)}</p>
                     )}
                   </div>
                   <Button
@@ -688,9 +690,9 @@ function CourierRouteView({ rid, assignedRoute, onReload, canStart, reportLocati
                 <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-[var(--warning-500)]" />
                 <div className="min-w-0 flex-1">
                   <p className="text-fs-sm font-medium text-[var(--fg)]">
-                    {t('unlocatedStopsCount').replace('{count}', String(unresolvedStops.length))}
+                    {route.routing_error ? t('deliveryLocationPending') : t('unlocatedStopsCount').replace('{count}', String(unresolvedStops.length))}
                   </p>
-                  <p className="mt-0.5 text-fs-xs leading-relaxed text-[var(--fg-muted)]">{t('unlocatedStopsExplanation')}</p>
+                  <p className="mt-0.5 text-fs-xs leading-relaxed text-[var(--fg-muted)]">{route.routing_error ? deliveryRouteWarning(route, t) : t('unlocatedStopsExplanation')}</p>
                 </div>
                 <Button variant="ghost" size="sm" className="shrink-0" disabled={busy} onClick={onReoptimize}>
                   {t('retry')}
@@ -732,6 +734,7 @@ function CourierRouteView({ rid, assignedRoute, onReload, canStart, reportLocati
                     <CurrentStopCard
                       key={stop.id}
                       stop={stop}
+                      locationWarning={deliveryLocationWarning(route, t)}
                       etaWindow={deliveryEtaWindow(route, stop, locale)}
                       hasFollowing={index < stops.length - 1 || !!route.end_address}
                       busy={busy}

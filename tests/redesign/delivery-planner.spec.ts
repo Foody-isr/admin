@@ -178,7 +178,47 @@ test('three zones assigned to two couriers send two complete allocations', async
   ]);
   expect(submitted.postDataJSON().courier_ids).toEqual([1, 2]);
   expect(submitted.postDataJSON().customer_window_minutes).toBe(90);
+  expect(submitted.postDataJSON().respect_order_windows).toBe(false);
   expect(submitted.postDataJSON().endpoints).toEqual([{ courier_id: 1, start_address: 'Depot demo, Tel Aviv', end_address: 'Herzl 10, Netanya' }]);
+});
+
+test('real order deadlines require an explicit planning choice', async ({ page }) => {
+  const state = await install(page);
+  state.routes = [];
+  state.candidates = [{ id: 2001, restaurant_id: 1, order_type: 'delivery', status: 'in_kitchen', customer_name: 'Client démo', delivery_address: '1 Rue démo', delivery_city: 'Ville démo' }];
+  await page.route('**/api/v1/delivery/routes/plan**', intercepted => intercepted.fulfill({ json: { routes: [] } }));
+  await page.goto('/1/orders/deliveries');
+  await page.getByRole('checkbox', { name: 'Tout sélectionner', exact: true }).check();
+  await page.getByRole('button', { name: 'Répartir entre les livreurs', exact: true }).first().click();
+  const choice = page.getByRole('switch', { name: 'Respecter les créneaux des commandes', exact: true });
+  await expect(choice).not.toBeChecked();
+  await choice.press('Space');
+  const request = page.waitForRequest(request => request.url().includes('/delivery/routes/plan') && request.method() === 'POST');
+  await page.getByRole('button', { name: 'Planifier 1 livraisons', exact: true }).click();
+  expect((await request).postDataJSON().respect_order_windows).toBe(true);
+});
+
+test('an existing route can disable saved order deadlines and retain the choice', async ({ page }, info) => {
+  const state = await install(page);
+  state.routes = [{ ...route(1, [stop(2)]), respect_order_windows: true }];
+  let saved: Record<string, unknown> | undefined;
+  await page.route('**/api/v1/delivery/routes/1/settings**', async intercepted => {
+    saved = intercepted.request().postDataJSON();
+    state.routes[0] = { ...state.routes[0], ...saved } as DeliveryRoute;
+    return intercepted.fulfill({ json: { route: state.routes[0] } });
+  });
+  await page.goto('/1/orders/deliveries');
+  await expect(page.getByText('Créneaux des commandes respectés', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Modifier', exact: true }).click();
+  const choice = page.getByRole('switch', { name: 'Respecter les créneaux des commandes', exact: true });
+  await expect(choice).toBeChecked();
+  await choice.press('Space');
+  await page.screenshot({ path: info.outputPath('route-order-windows-fr.png'), animations: 'disabled' });
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect.poll(() => saved?.respect_order_windows).toBe(false);
+  await expect(page.getByText('Horaires calculés par la tournée', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Modifier', exact: true }).click();
+  await expect(choice).not.toBeChecked();
 });
 
 test('a changed active route offers recalculation without draft unassignment', async ({ page }) => {
@@ -211,6 +251,23 @@ test('routing quota failure keeps the route and explains the failure locally', a
   await expect(page.getByRole('alert').filter({ hasText: 'Le quota du service de localisation est atteint' })).toBeVisible();
   await expect(page.getByText('1 sur 3 livrés', { exact: true })).toBeVisible();
   expect(state.routes[0].stops).toHaveLength(3);
+});
+
+test('a road quota retains known positions and does not label pending lookups as invalid addresses', async ({ page }) => {
+  const state = await install(page);
+  const located = { ...stop(2), coordinate_provider: 'google' };
+  const pending = { ...stop(3), needs_geocode: true, lat: null, lng: null };
+  state.mapProvider = 'google';
+  state.routes = [{ ...route(1, [located, pending]), routing_provider: 'google', needs_recalculation: true, routing_error: 'location service quota exceeded', route_geometry: [], total_distance_m: 0, est_duration_s: 0 }];
+  await page.goto('/1/orders/deliveries');
+  await expect(page.getByText('Le quota du service de localisation est atteint. Réessayez plus tard. Vos tournées existantes sont conservées.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Position temporairement indisponible — vérifiez le service cartographique', { exact: true })).toBeVisible();
+  await expect(page.getByText('Position introuvable — exclue du calcul du trajet', { exact: true })).toHaveCount(0);
+  await expect(page.locator('.foody-stop-pin')).toHaveCount(1);
+  await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /2 Rue de démonstration/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /3 Rue de démonstration/ })).toBeVisible();
+  expect(state.writes).toHaveLength(0);
 });
 
 test('legend highlights distinct routes assigned to the same courier', async ({ page }, info) => {

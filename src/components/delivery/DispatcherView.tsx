@@ -5,6 +5,7 @@ import { DeliveryDuration } from '@/components/delivery/DeliveryDuration';
 import { CustomerWindowField, parseCustomerWindowMinutes } from '@/components/delivery/CustomerWindowField';
 import { RouteAddressField } from '@/components/delivery/RouteAddressField';
 import { StopServiceField, validStopServiceMinutes } from '@/components/delivery/StopServiceField';
+import { OrderWindowField } from '@/components/delivery/OrderWindowField';
 
 import { ChoiceRow } from '@/components/ds/Selection';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -35,6 +36,8 @@ import {
   deliveryMatchesRouteDate,
   isOpenDeliveryRoute,
   isPendingDeliveryStop,
+  deliveryRouteWarning,
+  deliveryLocationWarning,
 } from '@/lib/delivery-planning';
 import { useWs } from '@/lib/ws-context';
 import {
@@ -184,7 +187,7 @@ function RouteRibbon({
         </button>
         <span className="flex shrink-0 items-center gap-1">
           {unresolved > 0 && (
-            <Badge tone="warning" title={t('addressNeedsAttention')}>
+            <Badge tone="warning" title={deliveryLocationWarning(route, t)}>
               <AlertCircleIcon className="h-3 w-3" />
               {unresolved}
             </Badge>
@@ -212,7 +215,7 @@ function RouteRibbon({
         {(route.needs_recalculation || unresolved > 0) && (
           <p className="mb-2 flex items-center gap-1.5 text-[11px] leading-snug text-[var(--warning-500)]">
             <AlertCircleIcon className="h-3 w-3 shrink-0" />
-            {t(route.needs_recalculation ? 'deliveryRouteNeedsRecalculation' : 'routeEstimatePartial')}
+            {deliveryRouteWarning(route, t)}
           </p>
         )}
 
@@ -322,7 +325,7 @@ function RouteRibbon({
                       ) : stop.needs_geocode ? (
                         <span className="mt-1 flex items-center gap-1 text-[11px] font-medium leading-snug text-[var(--warning-500)]">
                           <AlertCircleIcon className="h-3 w-3 shrink-0" />
-                          {t('addressNeedsAttention')}
+                          {deliveryLocationWarning(route, t)}
                         </span>
                       ) : null}
                     </span>
@@ -366,6 +369,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [zoneCouriers, setZoneCouriers] = useState<Map<string, number>>(new Map());
   const [manualCouriers, setManualCouriers] = useState<Map<number, number>>(new Map());
   const [customerWindow, setCustomerWindow] = useState('1:30');
+  const [respectOrderWindows, setRespectOrderWindows] = useState(false);
   const [resolvingEndpoints, setResolvingEndpoints] = useState<Set<string>>(new Set());
   const [courierEndpoints, setCourierEndpoints] = useState<Record<number, { start_address: string; end_address: string }>>({});
   const [departure, setDeparture] = useState(defaultDepartureValue);
@@ -684,9 +688,11 @@ export default function DispatcherView({ rid }: { rid: number }) {
         Number(serviceMinutes),
         parseCustomerWindowMinutes(customerWindow)!,
         selectedCourierIds.filter(id => courierEndpoints[id]).map(courier_id => ({ courier_id, ...courierEndpoints[courier_id] })),
+        respectOrderWindows,
       );
       setPicked(new Set());
       setCourierEndpoints({});
+      setRespectOrderWindows(false);
       setPlannerOpen(false);
       await load();
     } catch (cause) {
@@ -1049,7 +1055,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
                   {!selectedWindow && selectedEntry.stop.needs_geocode && (
                     <p className="mt-1 flex items-center gap-1 text-fs-xs font-medium leading-snug text-[var(--warning-500)]">
                       <AlertCircleIcon className="h-3.5 w-3.5 shrink-0" />
-                      {t('addressNeedsAttention')}
+                      {deliveryLocationWarning(selectedEntry.route, t)}
                     </p>
                   )}
                   <p className="mt-1 flex items-center gap-1 text-[11px] text-[var(--fg-subtle)]">
@@ -1127,6 +1133,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
               <Input id="delivery-departure" type="datetime-local" value={departure} onChange={(event) => setDeparture(event.target.value)} />
             </label>
             <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2"><StopServiceField value={serviceMinutes} onChange={setServiceMinutes} disabled={planning} t={t} /><CustomerWindowField value={customerWindow} onChange={setCustomerWindow} disabled={planning} t={t} /></div>
+            <div className="sm:col-span-2"><OrderWindowField checked={respectOrderWindows} onChange={setRespectOrderWindows} disabled={planning} t={t} /></div>
             <Button size="lg" className="w-full sm:col-span-2" disabled={planning || !canCreatePlan} onClick={() => void createPlan()}>
               <RouteIcon />
               {planning ? t('deliveryPlanGenerating') : t('deliveryPlanGenerate').replace('{count}', String(picked.size))}

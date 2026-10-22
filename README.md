@@ -1302,3 +1302,26 @@ kitchen-only activation uses password and profile only. Existing unused email li
 remain valid; failures preserve credentials and the invite for retry. Used, expired
 or ambiguous legacy links have explicit recovery via the existing staff resend
 action. No migration/environment change; deploy API before Admin.
+
+## Explicit delivery time constraints
+
+Deploy the API with migration `273_delivery_order_window_constraints.sql` before
+this client. New plans leave **Respect order time windows** disabled: optimize
+stop order first, then derive customer arrival ranges from the route. Enable it
+only when the saved order times have actually been agreed with customers. The
+choice is visible in the route summary, saved as `respect_order_windows`, and
+editable before departure. Changing it recalculates the sequence, including an
+old manual sequence. Existing routes retain their order until **Recalculate**;
+order dates and stored scheduling fields remain intact. Review reminder previews
+again after recalculation; sending remains an explicit, separate operation.
+
+Regression: `npx playwright test -c playwright.redesign.config.ts delivery-planner.spec.ts`.
+
+The matching API also returns an optional, bounded `routing_error`. Dispatch and
+courier views distinguish a provider quota or outage from an invalid address.
+Known Google positions remain visible on a Google basemap when only the road
+calculation fails; unresolved positions show a temporary service warning. Partial
+paths and arrival estimates stay hidden, and an incomplete reassignment is rejected
+before changing orders. Check Settings → Usage and quotas, then refresh and
+recalculate when the service is available. No allowance or production data change
+is part of this UI fix. The same planner browser suite covers this recovery state.

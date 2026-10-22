@@ -58,8 +58,10 @@ export interface DeliveryRoute {
   est_waiting_s?: number;
   est_service_s?: number;
   needs_recalculation?: boolean;
+  routing_error?: 'location service quota exceeded' | 'routing service unavailable' | 'some deliveries could not be routed';
   stop_service_minutes?: number;
   customer_window_minutes?: number | null;
+  respect_order_windows?: boolean;
   stops: RouteStop[];
   last_location?: CourierLocationDTO | null;
   routing_provider?: 'google' | 'geoapify' | 'approximate';
@@ -70,6 +72,7 @@ export interface DeliveryRoute {
 export interface RoadLeg { order_id: number; path: [number, number][] }
 
 export interface RouteSettingsInput {
+  respect_order_windows?: boolean;
   customer_window_minutes?: number;
   stop_service_minutes?: number;
   planned_departure_at: string;
@@ -228,6 +231,7 @@ export async function planDeliveryRoutes(
   stopServiceMinutes?: number,
   customerWindowMinutes?: number,
   endpoints?: Array<{ courier_id: number; start_address: string; end_address: string }>,
+  respectOrderWindows = false,
 ): Promise<DeliveryRoute[]> {
   const data = await apiFetch<{ routes: DeliveryRoute[] }>(
     `/api/v1/delivery/routes/plan?${q(restaurantId)}`, restaurantId,
@@ -240,6 +244,7 @@ export async function planDeliveryRoutes(
         assignments,
         stop_service_minutes: stopServiceMinutes,
         customer_window_minutes: customerWindowMinutes,
+        respect_order_windows: respectOrderWindows,
         endpoints,
       }),
     },

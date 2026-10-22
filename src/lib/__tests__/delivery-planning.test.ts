@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { deliveryMatchesRouteDate, formatDeliveryDuration, buildDeliveryEtaLabel, buildDeliveryEtaMessage, deliveryEtaWindow, deliveryRoutingError, isOpenDeliveryRoute } from '@/lib/delivery-planning';
+import { deliveryMatchesRouteDate, formatDeliveryDuration, buildDeliveryEtaLabel, buildDeliveryEtaMessage, deliveryEtaWindow, deliveryRoutingError, deliveryRouteWarning, deliveryLocationWarning, isOpenDeliveryRoute } from '@/lib/delivery-planning';
 import type { DeliveryRoute } from '@/lib/delivery';
 
 test('completed, skipped and empty routes do not remain operational plans', () => {
@@ -89,6 +89,14 @@ test('routing failures have localized, bounded feedback', () => {
   assert.equal(deliveryRoutingError(new Error('some deliveries could not be routed'), key => key), 'deliveryRoutingInfeasible');
   assert.equal(deliveryRoutingError(new Error('address not located'), key => key), 'deliveryAddressUnresolved');
   assert.equal(deliveryRoutingError(new Error('unknown error'), key => key), null);
+});
+
+test('a provider quota is not described as an invalid address or a stale sequence', () => {
+  const route = { needs_recalculation: true, routing_error: 'location service quota exceeded' as const };
+  assert.equal(deliveryRouteWarning(route, key => key), 'deliveryRoutingQuota');
+  assert.equal(deliveryLocationWarning(route, key => key), 'deliveryLocationPending');
+  assert.equal(deliveryLocationWarning({}, key => key), 'addressNeedsAttention');
+  assert.equal(deliveryRouteWarning({ needs_recalculation: true }, key => key), 'deliveryRouteNeedsRecalculation');
 });
 
 
