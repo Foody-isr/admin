@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "91fbd88f373c38f4ee2b12c7590903bacf22349d",
-  "documentationRevision": "b55021e04d0100511bc819f472e894bcf5b35b1ea6e6506cdb7bf56bfde7d6f4",
+  "documentationRef": "41735bf0730aa16d65ff61cb4452b02f3eac5b39",
+  "documentationRevision": "dd6c1ab157405e97f7813189102cb440cc4801f9efa99cad5ef5a0b4a7aab19c",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -183,15 +183,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/complete-setup-guide.mdx",
-          "sha256": "4f1d7fd361b1dd330c18aad884ddbc2971dad2e02a88d440c6ccd203992cf910"
+          "sha256": "2ce9d30726d7f9a8e22ce76240ca151ff4f4f96e0b5c6ace2ee1407a6e38f563"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/complete-setup-guide.mdx",
-          "sha256": "53ab931e268808a81159981655c8cd0b0381b66c242df688d0ecdb6f8a4b764c"
+          "sha256": "75f35c655d33c61fe231647ce6acf8e19f005ca8cb4c949c716e7d1f24e39811"
         },
         "he": {
           "path": "src/content/help/he/getting-started/complete-setup-guide.mdx",
-          "sha256": "3e3e5d12f54595796952137b721e43a14e046e681e7ec5768f9edd1a5de50c11"
+          "sha256": "fb039ad39b0550d20ed7b0b94d6a3aea4b37f05c7decdf5b0afdd45f4aa6b692"
         }
       }
     },
@@ -202,15 +202,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/how-it-all-connects.mdx",
-          "sha256": "306bf16822b404c81873e227afb2fd62e6f3007eed6a4a05eb19779b64bc6af3"
+          "sha256": "257879d867a79758451c7a9690cb8a081a1f56c21992e6c685f9bc9808c18288"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/how-it-all-connects.mdx",
-          "sha256": "530fe83d4f2190e99365ff7d3526e4131c96a9232a995478d0aaea127c95acc7"
+          "sha256": "97faa3a39cfde61e9bc54cfc6efaa8fa7b6ce9adf82227b0e77bc598fcd62c00"
         },
         "he": {
           "path": "src/content/help/he/getting-started/how-it-all-connects.mdx",
-          "sha256": "de92c416dc956ba4ef9d15ea7547f45af24f7de39d773bbfd40762e0a039dcb8"
+          "sha256": "e5bf006b07226653ae0485c5d41dfd6d83d06bfa05b12bcb993e215c8c177e97"
         }
       }
     },
@@ -221,15 +221,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/using-support.mdx",
-          "sha256": "580d170bdefbfdcb6049a7c8f4df6572d509ed009796bad1ed5f522b90f78b92"
+          "sha256": "845853420cf2080b9e7d9daf7366f87bdf07380b1bb23a4630c3da701553feb9"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/using-support.mdx",
-          "sha256": "80c85b0e24db4a756d80df378e0b73222008adcd67b93c40dad9ca880fd76bb5"
+          "sha256": "400a7f08c01d0a7bbffd9d5886b48902e0d66a9605c7c45a89cab3dc31e08c05"
         },
         "he": {
           "path": "src/content/help/he/getting-started/using-support.mdx",
-          "sha256": "11e613581348452b7d0b46d4e81a50b524d2a5f80ed6b71f1d0fc19b13a2e935"
+          "sha256": "91dc23f72a960e055c24058ebf029f2775c0bd3413427bbf210d8df7092766a8"
         }
       }
     },
@@ -715,15 +715,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "6b420047a9895eb26a418c8d2d6348694d837f95c94dd7f6381c66d869a5fcea"
+          "sha256": "dc196ce9f6ef6ead27d7e77eb9a039a907452900f342184f3846e8440ad51bfb"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "1906e529c4fc04f5a36d2169f03c8b9c66d6225c83139758a6aade45f7da0502"
+          "sha256": "7351bb5c3fad1afccf7ada2e202b6e1a47badc0b927f2c2095f9d34cf1f412d5"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "5cad4f36682075739a2f845506f9bdc33cc5217ae3f339cd9a2822b213a8a400"
+          "sha256": "71438771d585d46459b126820782224462e674a6d2109cc2ea7f25bb1919c2a3"
         }
       }
     },
@@ -753,15 +753,34 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/maps-and-usage.mdx",
-          "sha256": "8d9823a8d30e0f5040c9c8ca6e11448ad32e90a4acb1743baa273bd60fb048d0"
+          "sha256": "739dc1c2fb49e10bacb1a93a5acc9e1bee68db1129967c8a9f3bfd78cf8ae665"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/maps-and-usage.mdx",
-          "sha256": "daebfc05b28f398c4386694c0f7a741d8de6ba3ce9e7f962a4b11afe5fa5919b"
+          "sha256": "ed171c5dfd3d20868a5a69715991eb97fa73835c5f348b08ce4eb1d3cc742b31"
         },
         "he": {
           "path": "src/content/help/he/delivery/maps-and-usage.mdx",
-          "sha256": "7023510c4d907bce590bef4af73328654c8cea796da6d8759288a2687df01d83"
+          "sha256": "cae6db474f9e1450300ff2236483b51cf159d3e032ae3beb245327a3284f6b51"
+        }
+      }
+    },
+    "delivery/google-account-and-api-keys": {
+      "feature": "google-account-setup",
+      "audience": "public",
+      "status": "available",
+      "translations": {
+        "en": {
+          "path": "src/content/help/en/delivery/google-account-and-api-keys.mdx",
+          "sha256": "3a722a7d5a89ade1072f615112535d587bac769cc3faac09e486b5bd4f6fcaf8"
+        },
+        "fr": {
+          "path": "src/content/help/fr/delivery/google-account-and-api-keys.mdx",
+          "sha256": "7afe8c6ba7bb5e586866e2f1a1b644705127763bc49586f7d01671145206dc4f"
+        },
+        "he": {
+          "path": "src/content/help/he/delivery/google-account-and-api-keys.mdx",
+          "sha256": "98eb4e17645e7da03b5a0625bba88220de0230906f675601d7b609d9b763743c"
         }
       }
     },
@@ -2979,7 +2998,8 @@
     "src/app/[restaurantId]/settings/delivery/maps/page.tsx": {
       "sha256": "3649416d848f3c53e8ce824a211e0af85ba3d6cef43837f488e05de1ce2444c0",
       "features": [
-        "maps-usage"
+        "maps-usage",
+        "google-account-setup"
       ]
     },
     "src/app/[restaurantId]/settings/delivery/page.tsx": {
@@ -4045,11 +4065,12 @@
       ]
     },
     "src/components/help/SupportLauncher.tsx": {
-      "sha256": "10b09af004eadd6ad1e440772dbe6a5ad42759a90021e83a1f82248f9c062391",
+      "sha256": "7ecd68b1bc7ede32960f6f0ac4fc0ae8027c675ae887be98a48b11268c42f468",
       "features": [
         "getting-started-complete-setup-guide",
         "getting-started-how-it-all-connects",
-        "getting-started-using-support"
+        "getting-started-using-support",
+        "google-account-setup"
       ]
     },
     "src/components/i18n/LocaleEditingBanner.tsx": {
@@ -6223,8 +6244,9 @@
       ]
     },
     "src/lib/help/context.ts": {
-      "sha256": "19c3ddb2e7d548e1b1d274a67173fbfd583fc16a7810a1a2aeb11b1ad7a75e3c",
+      "sha256": "0fe6d70615b95a87ac0f927f9430cdd0b71130af5b9797958385e01fbb71537a",
       "features": [
+        "google-account-setup",
         "shared-runtime"
       ]
     },
@@ -6235,9 +6257,10 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "a5563714622dc62006ca87f00d31a45f4d11f862c7968e6efdd298d892e29b22",
+      "sha256": "5e4c4f806c7a3b96cd4576f07c91dfd2533989b53978e1ba55c168403136de2c",
       "features": [
         "delivery-dispatch",
+        "google-account-setup",
         "shared-runtime"
       ]
     },
@@ -12060,7 +12083,8 @@
       "source": "src/app/[restaurantId]/settings/delivery/maps/page.tsx",
       "line": 1,
       "features": [
-        "maps-usage"
+        "maps-usage",
+        "google-account-setup"
       ],
       "route": "/[restaurantId]/settings/delivery/maps"
     },
@@ -12070,7 +12094,8 @@
       "source": "src/app/[restaurantId]/settings/delivery/maps/page.tsx",
       "line": 1,
       "features": [
-        "maps-usage"
+        "maps-usage",
+        "google-account-setup"
       ],
       "labels": [
         "apiQuotaTitle",
@@ -15694,7 +15719,8 @@
       "features": [
         "getting-started-complete-setup-guide",
         "getting-started-how-it-all-connects",
-        "getting-started-using-support"
+        "getting-started-using-support",
+        "google-account-setup"
       ],
       "labels": [
         "supportBrowse",
@@ -15702,6 +15728,7 @@
         "supportContact",
         "supportDescription",
         "supportEnglish",
+        "supportGoogleGuide",
         "supportHeading",
         "supportOpen",
         "supportPlaceholder",
