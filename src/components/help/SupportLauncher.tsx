@@ -7,6 +7,7 @@ import { Drawer, Button } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import { askSupportAssistant, type SupportAnswer, type SupportTurn } from '@/lib/api';
 import { HELP_BASE_URL } from '@/lib/help/registry';
+import { LearnMore } from '@/components/help/LearnMore';
 import { supportTopicForPath } from '@/lib/help/context';
 
 type Turn = SupportTurn & { sources?: SupportAnswer['sources'] };
@@ -54,7 +55,7 @@ export default function SupportLauncher() {
         {!turns.length && !question && <div className="pt-8 text-center">
           <Sparkles className="mx-auto size-8 text-[var(--brand-500)]" /><h2 className="mx-auto mt-6 mb-4 max-w-[18ch] text-3xl font-semibold leading-tight">{t('supportHeading')}</h2>
           <p className="text-sm text-[var(--fg-muted)]">{t('supportDescription')}</p>
-          <div className="mt-8 text-start">{['supportSuggestionMenu', 'supportSuggestionStock', 'supportSuggestionOrders'].map(key => <button key={key} disabled={busy} onClick={() => void send(t(key))} className="w-full border-b border-[var(--line)] py-4 text-start text-sm hover:text-[var(--brand-500)]">{t(key)}</button>)}</div>
+          <div className="mt-8 text-start">{['supportSuggestionMenu', 'supportSuggestionStock', 'supportSuggestionOrders', 'supportSuggestionGoogle'].map(key => <button key={key} disabled={busy} onClick={() => void send(t(key))} className="w-full border-b border-[var(--line)] py-4 text-start text-sm hover:text-[var(--brand-500)]">{t(key)}</button>)}</div>
         </div>}
         <div role="log" aria-live="polite" aria-relevant="additions text">
           {turns.map((turn, i) => <div className="mb-6" key={i}>
@@ -69,6 +70,7 @@ export default function SupportLauncher() {
       </div>
       <div className="shrink-0 border-t border-[var(--line)] p-4">
         <a href={helpUrl} target="_blank" rel="noopener noreferrer" className="mb-3 flex items-center gap-2 text-sm font-medium">{t('supportBrowse')}<ExternalLink className="size-3.5" /></a>
+        <LearnMore topic="delivery" slug="google-account-and-api-keys" label={t('supportGoogleGuide')} className="mb-3" />
         <form onSubmit={e => { e.preventDefault(); void send(draft); }} className="flex items-end gap-2 rounded-2xl border border-[var(--line)] p-3 focus-within:ring-2 focus-within:ring-[var(--brand-500)]">
           <textarea aria-label={t('supportPlaceholder')} value={draft} maxLength={1500} rows={2} onChange={e => setDraft(e.target.value)} placeholder={t('supportPlaceholder')}
             className="min-w-0 flex-1 resize-none border-0 bg-transparent text-sm outline-none"
