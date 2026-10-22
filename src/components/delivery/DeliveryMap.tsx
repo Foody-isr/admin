@@ -5,6 +5,7 @@ import { Marker, Polyline, useMap } from 'react-leaflet';
 import { DeliveryTiles } from '@/components/delivery/DeliveryTiles';
 import { LeafletSurface } from '@/components/delivery/LeafletSurface';
 import L from 'leaflet';
+import { LocateFixedIcon, PlusIcon, MinusIcon } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import type { RoadLeg, RouteStop } from '@/lib/delivery';
 import { useI18n } from '@/lib/i18n';
@@ -48,6 +49,9 @@ export interface DeliveryMapProps {
   highlightRouteId?: number | null;
   onRouteSelect?: (id: number | null) => void;
   onStopClick?: (stop: RouteStop) => void;
+  /** Courier-only presentation; dispatcher maps keep their existing markers and controls. */
+  variant?: 'default' | 'courier';
+  selectedStopId?: number | null;
   className?: string;
 }
 
@@ -95,6 +99,32 @@ function numberedIcon(label: string, color: string): L.DivIcon {
   return icon;
 }
 
+const courierStopIconCache = new Map<string, L.DivIcon>();
+function courierStopIcon(sequence: number, selected: boolean): L.DivIcon {
+  const key = `${sequence}|${selected}`;
+  let icon = courierStopIconCache.get(key);
+  if (!icon) {
+    icon = L.divIcon({
+      className: 'foody-courier-stop-pin',
+      html: `<div style="width:34px;height:34px;border-radius:10px 10px 10px 2px;display:grid;place-items:center;border:2px solid #245b8c;box-shadow:0 2px 6px #0003;background:${selected ? '#245b8c' : '#fff'};color:${selected ? '#fff' : '#245b8c'};font:600 14px Arial,sans-serif">${sequence}</div>`,
+      iconSize: [34, 34], iconAnchor: [17, 34],
+    });
+    courierStopIconCache.set(key, icon);
+  }
+  return icon;
+}
+
+function CourierMapControls({ points, onFit }: { points: [number, number][]; onFit: () => void }) {
+  const map = useMap();
+  const { t } = useI18n();
+  const buttonClass = 'grid h-11 w-11 place-items-center rounded-full border border-[var(--line)] bg-[var(--surface)] text-[var(--fg)] shadow-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--info-500)]';
+  return <div className="foody-courier-map-controls absolute bottom-16 end-3 z-[500] flex flex-col gap-2">
+    <button type="button" className={buttonClass} aria-label={t('courierFitRoute')} disabled={points.length === 0} onClick={onFit}><LocateFixedIcon className="h-5 w-5" /></button>
+    <button type="button" className={buttonClass} aria-label={t('deliveryZoneZoomIn')} onClick={() => map.zoomIn()}><PlusIcon className="h-5 w-5" /></button>
+    <button type="button" className={buttonClass} aria-label={t('deliveryZoneZoomOut')} onClick={() => map.zoomOut()}><MinusIcon className="h-5 w-5" /></button>
+  </div>;
+}
+
 const courierIconCache = new Map<string, L.DivIcon>();
 function courierIcon(color: string, stale: boolean): L.DivIcon {
   const key = `${color}|${stale}`;
@@ -113,7 +143,7 @@ function courierIcon(color: string, stale: boolean): L.DivIcon {
 }
 
 /** Fit all geocodes once the responsive map has a real, stable visible size. */
-function FitBounds({ points }: { points: [number, number][] }) {
+function FitBounds({ points, request = 0, courier = false }: { points: [number, number][]; request?: number; courier?: boolean }) {
   const map = useMap();
   const key = points.map((p) => `${p[0]},${p[1]}`).join('|');
 
@@ -134,7 +164,8 @@ function FitBounds({ points }: { points: [number, number][] }) {
       map.fitBounds(L.latLngBounds(points), {
         animate: false,
         maxZoom: 15,
-        padding: [32, 32],
+        paddingTopLeft: courier ? [42, 82] : [32, 32],
+        paddingBottomRight: courier ? [52, 42] : [32, 32],
       });
     };
 
@@ -155,20 +186,21 @@ function FitBounds({ points }: { points: [number, number][] }) {
       if (settleTimer) clearTimeout(settleTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, key]);
+  }, [map, key, request, courier]);
   return null;
 }
 
 export default function DeliveryMap({
-  restaurantId, geometry, routingProvider, stops, start, end, routes, couriers, restaurant, highlightCourierId, highlightRouteId, onRouteSelect, onStopClick, className,
+  restaurantId, geometry, routingProvider, stops, start, end, routes, couriers, restaurant, highlightCourierId, highlightRouteId, onRouteSelect, onStopClick, variant = 'default', selectedStopId, className,
 }: DeliveryMapProps) {
   const { t } = useI18n();
   const [provider, setProvider] = useState('unavailable');
+  const [fitRequest, setFitRequest] = useState(0);
   const layers: RouteLayer[] = useMemo(() => {
     if (routes && routes.length) return routes.map(layer => ({ ...layer, start: layer.routingProvider === 'google' && provider !== 'google' ? undefined : layer.start, end: layer.routingProvider === 'google' && provider !== 'google' ? undefined : layer.end, geometry: layer.routingProvider === 'google' && provider !== 'google' ? undefined : layer.geometry, stops: layer.stops.filter(stop => stop.coordinate_provider !== 'google' || provider === 'google') }));
-    if (stops && stops.length) return [{ courierId: 0, color: BRAND, stops: stops.filter(stop => stop.coordinate_provider !== 'google' || provider === 'google'), start: routingProvider === 'google' && provider !== 'google' ? undefined : start, end: routingProvider === 'google' && provider !== 'google' ? undefined : end, geometry: routingProvider === 'google' && provider !== 'google' ? undefined : geometry, routingProvider }];
+    if (stops && stops.length) return [{ courierId: 0, color: variant === 'courier' ? '#245b8c' : BRAND, stops: stops.filter(stop => stop.coordinate_provider !== 'google' || provider === 'google'), start: routingProvider === 'google' && provider !== 'google' ? undefined : start, end: routingProvider === 'google' && provider !== 'google' ? undefined : end, geometry: routingProvider === 'google' && provider !== 'google' ? undefined : geometry, routingProvider }];
     return [];
-  }, [end, routes, start, stops, geometry, routingProvider, provider]);
+  }, [end, routes, start, stops, geometry, routingProvider, provider, variant]);
 
   const points = useMemo<[number, number][]>(() => {
     const pts: [number, number][] = [];
@@ -189,7 +221,7 @@ export default function DeliveryMap({
 
   return (
     <div className={cn('relative isolate', className)}>
-      <LeafletSurface center={{ lat: center[0], lng: center[1] }}>
+      <LeafletSurface center={{ lat: center[0], lng: center[1] }} options={{ zoomControl: variant !== 'courier' }}>
         <DeliveryTiles restaurantId={restaurantId} onProviderChange={setProvider} />
         {restaurant && <Marker position={[restaurant.lat, restaurant.lng]} icon={HOME_ICON} />}
         {layers.map((layer) => {
@@ -212,8 +244,18 @@ export default function DeliveryMap({
                 <Marker
                   key={s.id}
                   position={[s.lat as number, s.lng as number]}
-                  icon={numberedIcon(String(s.sequence), dim ? '#9aa0a6' : layer.color)}
-                  eventHandlers={onStopClick ? { click: () => onStopClick(s) } : undefined}
+                  icon={variant === 'courier' ? courierStopIcon(s.sequence, s.id === selectedStopId) : numberedIcon(String(s.sequence), dim ? '#9aa0a6' : layer.color)}
+                  title={`${s.sequence}: ${s.address}`}
+                  zIndexOffset={s.id === selectedStopId ? 1000 : 0}
+                  eventHandlers={onStopClick ? {
+                    click: () => onStopClick(s),
+                    keydown: (event: L.LeafletKeyboardEvent) => {
+                      if (variant === 'courier' && ['Enter', ' '].includes(event.originalEvent.key)) {
+                        event.originalEvent.preventDefault();
+                        onStopClick(s);
+                      }
+                    },
+                  } : undefined}
                 />
               ))}
               {layer.end && <Marker position={[layer.end.lat, layer.end.lng]} icon={END_ICON} />}
@@ -223,7 +265,8 @@ export default function DeliveryMap({
         {(couriers ?? []).map((c) => (
           <Marker key={`courier-${c.courierId}`} position={[c.lat, c.lng]} icon={courierIcon(c.color, !!c.stale)} />
         ))}
-        <FitBounds points={points} />
+        <FitBounds points={points} request={fitRequest} courier={variant === 'courier'} />
+        {variant === 'courier' && <CourierMapControls points={points} onFit={() => setFitRequest(value => value + 1)} />}
       </LeafletSurface>
       {routes && routes.length > 0 && onRouteSelect && <div aria-label={t('mapsLegend')} className="absolute end-3 top-3 z-[500] max-h-48 max-w-[240px] overflow-auto rounded-r-md border border-[var(--line)] bg-[var(--surface)] p-2 shadow-sm">
         <p className="px-2 py-1 text-fs-xs font-semibold">{t('mapsLegend')}</p>
