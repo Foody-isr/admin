@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "91fbd88f373c38f4ee2b12c7590903bacf22349d",
-  "documentationRevision": "b55021e04d0100511bc819f472e894bcf5b35b1ea6e6506cdb7bf56bfde7d6f4",
+  "documentationRef": "WORKSPACE",
+  "documentationRevision": "25a331d77dcbcab187eb95efe6711786345f915748fb94b1397fe7999b42cf33",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -715,15 +715,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "6b420047a9895eb26a418c8d2d6348694d837f95c94dd7f6381c66d869a5fcea"
+          "sha256": "4c4e81c225b5a547ac8bc9c670754d012396bc3664402e19d327501bc0c9519e"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "1906e529c4fc04f5a36d2169f03c8b9c66d6225c83139758a6aade45f7da0502"
+          "sha256": "751f08dfe5f236505d7bb9c77f03dbfb797cc0677fa5d1bcda11b60798c0de99"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "5cad4f36682075739a2f845506f9bdc33cc5217ae3f339cd9a2822b213a8a400"
+          "sha256": "e1655d3b18954ee724b090eb05431fd2e0b7d1580cb4c994b3f127497d623acf"
         }
       }
     },
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/courier-workspace.mdx",
-          "sha256": "9cfdd4fad4062f0bd1336fdb2475bce29178fdac9733da3386258405f2d2b3cb"
+          "sha256": "95bdde056484c3533cc4bad6894b63ea2b8256a9c96d2a9a8f3110f82fbb1479"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/courier-workspace.mdx",
-          "sha256": "2b4d298059caf9659fcafb1aa8764f75a42cbb9bcc1664fa9ddd241ccc83ade6"
+          "sha256": "82de08b72c9d77312e6e6d155975fc773f1cd249438b47b259d1bf6127206c9d"
         },
         "he": {
           "path": "src/content/help/he/delivery/courier-workspace.mdx",
-          "sha256": "2ba05d8758768923473cf2dd1d3a3e25fd1a01199550943386530531c11fedaf"
+          "sha256": "2477105e9d42ef859fa701dde0fb610c8cc38fbdeacd82bb62e9f9ac932ed4ea"
         }
       }
     },
@@ -3768,15 +3768,22 @@
         "courier"
       ]
     },
+    "src/components/delivery/CourierItinerary.module.css": {
+      "sha256": "8fe7d67c04a2c5c4a00f6ffda9c87c6c0e54fc376cd43b23d1006a5fedb043a7",
+      "features": [
+        "delivery-dispatch",
+        "courier"
+      ]
+    },
     "src/components/delivery/CourierItineraryView.tsx": {
-      "sha256": "6ea7ccd64f4317b7396e9b304b7508e4e031fa351770560a563fc4a3405fd542",
+      "sha256": "699d747992c87b9108c51a8df83c250e69eb985706edad082321b556f6ed8120",
       "features": [
         "delivery-dispatch",
         "courier"
       ]
     },
     "src/components/delivery/CourierShell.tsx": {
-      "sha256": "82107881f04553029f2fd121a03a5891d2275cb2ba2c4a6f034c11048b598aee",
+      "sha256": "bde5917b465c048a5f463fc38e1f7b124d9ddd50f2d92b03f1591def37e64de2",
       "features": [
         "delivery-dispatch",
         "courier"
@@ -3795,7 +3802,7 @@
       ]
     },
     "src/components/delivery/DeliveryMap.tsx": {
-      "sha256": "b55da8f0937d8525154df9d369b56e43707217d42f2a9a23fbcefe2be45270e0",
+      "sha256": "a7b533e2d446793d3eeb851ba0e8a8b2c5de62596ac85a8f047408b7042b6e77",
       "features": [
         "delivery-dispatch"
       ]
@@ -6235,7 +6242,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "a5563714622dc62006ca87f00d31a45f4d11f862c7968e6efdd298d892e29b22",
+      "sha256": "d0fb26351452b94eacb94fde8571ed41a8581a7a6bdcf55b0c1a9ea53009cf43",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -15077,14 +15084,24 @@
         "close",
         "correctAddress",
         "couldNotLoad",
+        "courierDeliveryProgress",
+        "courierEstimatedFinish",
         "courierFinishCurrentRoute",
-        "courierStartBeforeDelivered",
+        "courierNextStop",
+        "courierRefineRoute",
+        "courierResizePanel",
+        "courierRouteMap",
+        "courierRouteNumber",
+        "courierRouteOptions",
+        "courierSearchPlaceholder",
+        "courierSearchStops",
+        "courierSelectRoute",
+        "courierSelectStop",
+        "courierStartAction",
+        "courierStopOptions",
         "deliveryExpectedArrival",
-        "deliveryLocationPending",
-        "deliveryNotes",
         "deliveryPlanStops",
         "deliveryPlanWhatsApp",
-        "etaToFinish",
         "loading",
         "locationOffNotice",
         "markArrived",
@@ -15101,16 +15118,12 @@
         "reoptimize",
         "retry",
         "routeSettingsSaveFailed",
-        "routeStatusActive",
-        "routeStatusCompleted",
-        "routeStatusDraft",
+        "routeSettingsTitle",
         "routeTimelineTerminus",
         "startAnyway",
         "startRoute",
         "unitHour",
-        "unitMin",
-        "unlocatedStopsCount",
-        "unlocatedStopsExplanation"
+        "unitMin"
       ],
       "actions": [
         "load",
@@ -15134,12 +15147,12 @@
       ],
       "labels": [
         "darkMode",
-        "deliveryRouteToday",
         "language",
         "lightMode",
         "profile",
         "roleName_courier",
         "signOut",
+        "skipToContent",
         "switchRestaurant"
       ],
       "actions": []
@@ -15179,6 +15192,9 @@
         "delivery-dispatch"
       ],
       "labels": [
+        "courierFitRoute",
+        "deliveryZoneZoomIn",
+        "deliveryZoneZoomOut",
         "mapsAllRoutes",
         "mapsLegend",
         "mapsProviderChanged",
