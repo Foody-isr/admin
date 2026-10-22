@@ -6,6 +6,7 @@ import { Button, Input } from '@/components/ds';
 import { CustomerWindowField, parseCustomerWindowMinutes } from '@/components/delivery/CustomerWindowField';
 import { RouteAddressField } from '@/components/delivery/RouteAddressField';
 import { StopServiceField, validStopServiceMinutes } from '@/components/delivery/StopServiceField';
+import { OrderWindowField } from '@/components/delivery/OrderWindowField';
 import { deliveryRoutingError } from '@/lib/delivery-planning';
 import type { DeliveryRoute, RouteSettingsInput } from '@/lib/delivery';
 
@@ -38,6 +39,7 @@ export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t
   const [endAddress, setEndAddress] = useState(route.end_address ?? '');
   const [customerWindow, setCustomerWindow] = useState(String(route.customer_window_minutes ?? 90));
   const [serviceMinutes, setServiceMinutes] = useState(String(route.stop_service_minutes ?? 3));
+  const [respectOrderWindows, setRespectOrderWindows] = useState(route.respect_order_windows ?? false);
 
   useEffect(() => {
     if (editing) return;
@@ -46,7 +48,8 @@ export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t
     setEndAddress(route.end_address ?? '');
     setServiceMinutes(String(route.stop_service_minutes ?? 3));
     setCustomerWindow(String(route.customer_window_minutes ?? 90));
-  }, [editing, route.date, route.end_address, route.planned_departure_at, route.start_address, route.stop_service_minutes, route.customer_window_minutes]);
+    setRespectOrderWindows(route.respect_order_windows ?? false);
+  }, [editing, route.date, route.end_address, route.planned_departure_at, route.start_address, route.stop_service_minutes, route.customer_window_minutes, route.respect_order_windows]);
 
   const departureDate = departure ? new Date(departure) : null;
   const departureValid = departureDate != null && !Number.isNaN(departureDate.getTime());
@@ -60,6 +63,7 @@ export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t
     setEndAddress(route.end_address ?? '');
     setServiceMinutes(String(route.stop_service_minutes ?? 3));
     setCustomerWindow(String(route.customer_window_minutes ?? 90));
+    setRespectOrderWindows(route.respect_order_windows ?? false);
     setEditing(false);
   };
 
@@ -75,6 +79,7 @@ export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t
         end_address: endAddress.trim(),
         stop_service_minutes: Number(serviceMinutes),
         customer_window_minutes: parseCustomerWindowMinutes(customerWindow)!,
+        respect_order_windows: respectOrderWindows,
       });
       setEditing(false);
     } catch (cause) {
@@ -94,6 +99,7 @@ export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t
               <span className="font-medium text-[var(--fg)]">{departureLabel}</span>
             </p>
             <p className="flex items-center gap-2"><Clock3Icon className="h-3.5 w-3.5 shrink-0" /><span>{t('stopServiceMinutesSummary').replace('{minutes}', String(route.stop_service_minutes ?? 3))}</span></p>
+            <p className="flex items-center gap-2"><Clock3Icon className="h-3.5 w-3.5 shrink-0" /><span>{t(route.respect_order_windows ? 'respectOrderWindowsEnabled' : 'respectOrderWindowsDisabled')}</span></p>
             <p className="flex items-center gap-2">
               <MapPinIcon className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{route.start_address || t('routeSettingsOptionalStart')}</span>
@@ -135,6 +141,7 @@ export function RouteSettingsEditor({ route, locale, disabled = false, onSave, t
         <RouteAddressField restaurantId={route.restaurant_id} locale={locale} label={t('routeSettingsEndAddress')} placeholder={t('routeSettingsEndPlaceholder')} value={endAddress} onChange={setEndAddress} onResolvingChange={setResolvingEnd} disabled={disabled || saving} t={t} />
       </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-2"><StopServiceField value={serviceMinutes} onChange={setServiceMinutes} disabled={disabled || saving} t={t} /><CustomerWindowField value={customerWindow} onChange={setCustomerWindow} disabled={disabled || saving} t={t} /></div>
+      <div className="mt-3"><OrderWindowField checked={respectOrderWindows} onChange={setRespectOrderWindows} disabled={disabled || saving} t={t} /></div>
       <p className="mt-3 text-fs-xs leading-relaxed text-[var(--fg-subtle)]">{t('routeSettingsGeocodeHint')}</p>
       {saveError && <p role="alert" className="mt-3 text-fs-xs text-[var(--danger-500)]">{saveError}</p>}
       <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
