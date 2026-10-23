@@ -63,11 +63,19 @@ export function checkContract(root, docsRoot, base) {
   for (const file of changed) {
    const source = contract.sources[file] || previous.sources[file];
    const currentHash = contract.sources[file]?.sha256 || 'deleted';
-   const review = reviews.find(r => r.path===file && r.sha256===currentHash && r.disposition==='no-user-impact' && typeof r.reason==='string' && r.reason.trim().length>=50);
-   if (review) continue;
+   const exactReviews = reviews.filter(r => r.path===file && r.sha256===currentHash && r.disposition==='no-user-impact' && typeof r.reason==='string' && r.reason.trim().length>=50);
+   // Legacy reviews cover the whole file. An explicit scope, even invalid or
+   // empty, must never fall back to that broader exemption.
+   if (exactReviews.some(r => !Object.hasOwn(r,'features'))) continue;
+   const reviewedFeatures = new Set(exactReviews.filter(r =>
+    Array.isArray(r.features) && r.features.length>0 && new Set(r.features).size===r.features.length &&
+    r.features.every(id => typeof id==='string' && source.features.includes(id) && release.features.some(f => f.id===id)) &&
+    typeof r.baseSha256==='string' && /^[a-f0-9]{64}$/.test(r.baseSha256) && r.baseSha256===previous.sources[file]?.sha256
+   ).flatMap(r => r.features));
    const publicFeatures = source.features.filter(id => release.features.find(f => f.id===id)?.audience==='public');
    const affected = publicFeatures.length ? publicFeatures : source.features;
    for (const featureId of affected) {
+    if (reviewedFeatures.has(featureId)) continue;
     const feature = release.features.find(f=>f.id===featureId);
     const article = release.articles[feature?.article];
     if (!article) {errors.push(`${file}: missing guide for ${featureId}.`);continue;}
