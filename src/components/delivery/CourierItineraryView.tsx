@@ -329,6 +329,7 @@ function CourierRouteView({
   const { t, locale } = useI18n();
   const [route, setRoute] = useState<DeliveryRoute>(assignedRoute);
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [panelHeight, setPanelHeight] = useState(56);
   const [selectionRequest, setSelectionRequest] = useState(0);
@@ -414,6 +415,8 @@ function CourierRouteView({
     fn: () => Promise<T>,
     failureKey = 'deliveryPlanFailed'
   ): Promise<T | undefined> {
+    if (busyRef.current) return undefined;
+    busyRef.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -422,6 +425,7 @@ function CourierRouteView({
       await load();
       setError(deliveryRoutingError(e, t) ?? t(failureKey));
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }
@@ -479,6 +483,7 @@ function CourierRouteView({
       if (!route) return;
       const updated = await markStopDelivered(rid, route.id, stop.id);
       setRoute(updated);
+      setSelectedStopId(null);
       if (updated.status === 'completed') onCompleted(updated);
       await onReload();
     }, 'courierDeliveryFailed');
@@ -498,6 +503,8 @@ function CourierRouteView({
   const selectedId = stops.some((stop) => stop.id === selectedStopId)
     ? selectedStopId
     : currentStop?.id;
+  const actionStop = stops.find((stop) => stop.id === selectedId) ?? null;
+  const actionStopFinished = actionStop?.status === 'delivered' || actionStop?.status === 'skipped';
   const normalizedQuery = query.trim().toLocaleLowerCase(locale);
   const filteredStops = stops.filter((stop) =>
     [
@@ -848,13 +855,13 @@ function CourierRouteView({
               </p>
               <p className={styles.date}>{date}</p>
             </div>
-            {currentStop && route.status === 'active' && (
+            {actionStop && route.status === 'active' && (
               <div className={styles.nextStop}>
                 <p>
-                  {t('courierNextStop')} {String(currentStop.sequence).padStart(2, '0')}
+                  {t('courierSelectedStop')} {String(actionStop.sequence).padStart(2, '0')}
                 </p>
                 <p className="font-semibold text-[var(--fg)]">
-                  {currentStop.address || currentStop.customer_name}
+                  {actionStop.address || actionStop.customer_name}
                 </p>
               </div>
             )}
@@ -882,10 +889,10 @@ function CourierRouteView({
                   {t('courierStartAction')}
                 </Button>
               </>
-            ) : currentStop && route.status === 'active' ? (
+            ) : actionStop && route.status === 'active' ? (
               <>
                 <NavigationAppMenu
-                  destination={currentStop}
+                  destination={actionStop}
                   label={t('navigate')}
                   size="lg"
                   t={t}
@@ -893,8 +900,8 @@ function CourierRouteView({
                 <Button
                   variant="primary"
                   size="lg"
-                  disabled={busy}
-                  onClick={() => void onDelivered(currentStop)}
+                  disabled={busy || actionStopFinished}
+                  onClick={() => void onDelivered(actionStop)}
                 >
                   <CheckCircle2Icon />
                   {t('markDelivered')}
