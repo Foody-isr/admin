@@ -231,7 +231,7 @@ function TimelineStop({
                 {buildDeliveryEtaLabel(t('deliveryExpectedArrival'), eta)}
               </p>
             )}
-            {stop.total_amount > 0 && (
+            {stop.payment_method === 'cash' && stop.total_amount > 0 && (
               <p className={styles.stopMeta}>{money(stop.total_amount, { decimals: 0 })}</p>
             )}
             {stop.needs_geocode && (

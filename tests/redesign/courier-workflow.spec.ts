@@ -55,6 +55,19 @@ async function install(page: Page, options: { active?: boolean; missing?: boolea
 const run = (page: Page, id = 1) => page.locator(`[data-route-id="${id}"]`);
 const card = (page: Page, id = 1) => page.locator(`[data-stop-id="${id}"]`);
 
+for (const paymentMethod of ['cash', 'credit_card', 'verifone', undefined]) {
+  test(`courier shows the order amount only for cash: ${paymentMethod ?? 'unknown'}`, async ({ page }) => {
+    const state = await install(page);
+    Object.assign(state.routes[0].stops[0], { total_amount: 987, payment_method: paymentMethod });
+    await page.goto('/1/orders/deliveries');
+    await expect(card(page)).toBeVisible();
+    const amount = card(page).getByText(/987/);
+    if (paymentMethod === 'cash') await expect(amount).toBeVisible();
+    else await expect(amount).toHaveCount(0);
+    expect(state.errors).toEqual([]);
+  });
+}
+
 test('courier selects any assigned route and can call before departure', async ({ page }) => {
   const state = await install(page); await page.goto('/1/orders/deliveries');
   await page.getByRole('combobox', { name: 'Choisir une tournée' }).selectOption('2');
