@@ -22,6 +22,19 @@ test('reviewed footprint and all three translations pass',t=>{const f=fixture(t)
 test('a new screen cannot silently enter coverage',t=>{const f=fixture(t);f.write('src/app/new/page.tsx','new screen');assert.ok(checkContract(f.root,f.root,f.base).some(e=>e.includes('not inventoried')));});
 test('editing reviewed bytes invalidates the review',t=>{const f=fixture(t);f.write('src/app/example/page.tsx','changed');assert.ok(checkContract(f.root,f.root,f.base).some(e=>e.includes('after documentation review')));});
 test('deleting a source requires an inventory update',t=>{const f=fixture(t);fs.unlinkSync(path.join(f.root,'src/app/example/page.tsx'));assert.ok(checkContract(f.root,f.root,f.base).some(e=>e.includes('deleted source')));});
+test('an unstaged tracked deletion still requires translated procedures after inventory removal',t=>{
+ const f=fixture(t);
+ fs.unlinkSync(path.join(f.root,'src/app/example/page.tsx'));
+ delete f.contract.sources['src/app/example/page.tsx'];f.save();
+ const errors=checkContract(f.root,f.root,f.base);
+ assert.equal(errors.filter(e=>e.includes('guide update')).length,3);
+ assert.equal(errors.filter(e=>e.includes('not inventoried')).length,0);
+ for(const lang of ['en','fr','he']) {
+  const tr=f.release.articles['example/guide'].translations[lang],text=`removed screen guide ${lang}`;
+  f.write(tr.path,text);tr.sha256=hash(text);
+ }
+ f.save();assert.deepEqual(checkContract(f.root,f.root,f.base),[]);
+});
 test('a missing or stale translation fails',t=>{const f=fixture(t);fs.unlinkSync(path.join(f.root,f.release.articles['example/guide'].translations.he.path));assert.ok(checkContract(f.root,f.root,f.base).some(e=>e.includes('he translation')));});
 test('refreshing only source hashes cannot waive three-language updates',t=>{const f=fixture(t);f.write('src/app/example/page.tsx','changed');f.contract.sources['src/app/example/page.tsx'].sha256=hash('changed');f.save();assert.equal(checkContract(f.root,f.root,f.base).filter(e=>e.includes('guide update')).length,3);});
 test('all three authored procedure updates resolve a behavior change',t=>{const f=fixture(t);f.write('src/app/example/page.tsx','changed');f.contract.sources['src/app/example/page.tsx'].sha256=hash('changed');for(const lang of ['en','fr','he']){const tr=f.release.articles['example/guide'].translations[lang];f.write(tr.path,`changed guide ${lang}`);tr.sha256=hash(`changed guide ${lang}`);}f.save();assert.deepEqual(checkContract(f.root,f.root,f.base),[]);});

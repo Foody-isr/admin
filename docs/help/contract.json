@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "1d7c70d443d5a2de331214a860520cbba80e1696",
-  "documentationRevision": "4c5f101cbb6527ef31219e6cb453a9c70cca542c2097923ff0a25bfefc1eaa20",
+  "documentationRef": "22938e9ea5d47d33f7ac2094bbbeed1c916060dc",
+  "documentationRevision": "584a31c0e53d0af6d41262d35ec715b6bdb1977dc24840b1536322c028aa5ed9",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -221,15 +221,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/using-support.mdx",
-          "sha256": "5837b2b4cdc59ef5e8b9a3d3712cb975e0fac0155de598fe9c44fc7357c686f2"
+          "sha256": "26ec0e593615db0b57eb61e2ea2e3c60364d30de64675cadf375e941f293a407"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/using-support.mdx",
-          "sha256": "908ffb502050bfe1b88d948c96758e739a784be72a95f1edc75b6bc1736f52d8"
+          "sha256": "b84bf6f66f4b5d53d8feb685b59add6ebfe6ac6fef9fbffd16d8a945e31f8441"
         },
         "he": {
           "path": "src/content/help/he/getting-started/using-support.mdx",
-          "sha256": "9afc869222472c950f901bda7c85c481c648dc8ebf5326d9ccfd341e0c1ed5d8"
+          "sha256": "dbce43d8ea10fbbd0b30bb2d06402ad278636bd004b395924074da24d2c9145c"
         }
       }
     },
@@ -430,15 +430,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/managing-orders.mdx",
-          "sha256": "c30760db4e9357971b08a85bf1339d60349dd4d230525cc8c1cf59ff8883bdc7"
+          "sha256": "f0b1894a06438d2326764e43aae0cb71c5f06d537d15df1fa6948a38b225274a"
         },
         "fr": {
           "path": "src/content/help/fr/orders/managing-orders.mdx",
-          "sha256": "1fbd38c0bbfa078046d7ea617b6f75cdcb1335ee7e4e69816547b8e03ecd64a6"
+          "sha256": "2c5e15e8193c14afd3e91be48790636deeaa8ca507c6818c1a4942fdf1d0a13c"
         },
         "he": {
           "path": "src/content/help/he/orders/managing-orders.mdx",
-          "sha256": "45f6341999b85a351ce70e7e0d8a1b65e3ab4ecda6af668b719c0d6913027ec9"
+          "sha256": "9301146aef054f0ac9b660ccfd74a7f632d768b7d834a4573a0be07cd3b00209"
         }
       }
     },
@@ -620,15 +620,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/order-details.mdx",
-          "sha256": "db0214a83470b81e8ed0ea771c221a1244a20436b75813aef4f919b6590f3c2b"
+          "sha256": "7f396e3d774c552c68eb4cb24bcc1dc5edd11c09e7f6aac7fc012ea6e8926b5c"
         },
         "fr": {
           "path": "src/content/help/fr/orders/order-details.mdx",
-          "sha256": "43977430b1d8d709130feb12b5da0ea05897e99e46752017d3b64c9fd09b66b9"
+          "sha256": "49173883e12706c5782a8a4b77192af542904c6520bb1105226630cd553cad17"
         },
         "he": {
           "path": "src/content/help/he/orders/order-details.mdx",
-          "sha256": "ee9dc49e5b3f537e96417327a3e3fe4afb40034526c1542b4d3718d856af5c3f"
+          "sha256": "3679c1bc4f101354f7cdb38b2eba5642dcd2bf77b525700f223bc22b73d86197"
         }
       }
     },
@@ -1494,15 +1494,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/communications/whatsapp.mdx",
-          "sha256": "58c17f70bd64e7eb14f8d80573f046880b12671616c6c22aefe6fe4eb4b74079"
+          "sha256": "bfa7f5527341f1e42cfcce889b1ecaee9cac9b9337778c976eed9e552ab7ec06"
         },
         "fr": {
           "path": "src/content/help/fr/communications/whatsapp.mdx",
-          "sha256": "acd3955f0d14ea642c8a8c607eb6e70d74b95e37aa8fe84c6543c0ef411ed38b"
+          "sha256": "a028cf9e6b751add9023caec6f3b8102705e76b5514d2fbd4a0bea10dc2f753f"
         },
         "he": {
           "path": "src/content/help/he/communications/whatsapp.mdx",
-          "sha256": "bca7bf20061abc3b6e5fc7c2cf139c850ca59a073045d9e8fe4dd41d8adaf90e"
+          "sha256": "124348eb4c5aa165a0a0d227bd91704095cf250801ebf13c732d0f7be7b07362"
         }
       }
     },
@@ -1760,15 +1760,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "e29d751c5a739931acb7d8e6d123be8af8237760428bb3e7e233b3e2273d34eb"
+          "sha256": "3a5483eab25dd10f82c4518ae889d2e2db0f5baa23dd2355f94b7348e4e9ef53"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "1aefa04df377ce6f57f0ab32d99211ba0f859ff74c30eade1e08068d0cb6014c"
+          "sha256": "f08356c83fd63cb06dc0c0e8f3425222e0d987ac05a0ad438372c393701e9d58"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "101bcf2e70ced09a8df6dfd31f27bc247bb6e3a5befb7c3536afe9d789d8d797"
+          "sha256": "2713eb31711e10b68dd875e517b1ed5623eabd83ec414e21a743d19193109c72"
         }
       }
     },
@@ -1798,15 +1798,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/shared-runtime.md",
-          "sha256": "fb32a3d2f8e81f021905fba7d28af59ce24ddf1b7a6bbe23201d37d1734a511a"
+          "sha256": "69cf70caa0bcab7e0639bd4dfe329989b0a75c72cc6dcef997fb46d5204d5a5b"
         },
         "fr": {
           "path": "docs/help/internal/fr/shared-runtime.md",
-          "sha256": "2ca5fe92fdf1b4577a598c0358b51cd5f7d06b3d591517153be7e94f9126e1ec"
+          "sha256": "147b6d04aa93f0b7cb8527f2660f8dcdc749a427ec12cddf238f349b80687afd"
         },
         "he": {
           "path": "docs/help/internal/he/shared-runtime.md",
-          "sha256": "64aaee9ce512ef6a27efe2dc592f69c7cd41f2c7da110f77a324c7ca9808c4df"
+          "sha256": "a3da43e9bfbfadab62a3ca8efed634c0ea82f08ca39553107c549ef40bd88865"
         }
       }
     },
@@ -4922,11 +4922,12 @@
         "order-detail"
       ]
     },
-    "src/components/orders/OrderTwilioMessage.tsx": {
-      "sha256": "413cb12452f66650b166970769145576d28f4bf1698bf57896e60439b159967c",
+    "src/components/orders/OrderWhatsAppComposer.tsx": {
+      "sha256": "5782f7246feeb539951f11231fd24d257ac5d5c2416fe2397e7b13d1a1309e17",
       "features": [
         "orders-managing-orders",
-        "order-detail"
+        "order-detail",
+        "whatsapp"
       ]
     },
     "src/components/orders/OrdersOperationsRail.tsx": {
@@ -4937,7 +4938,7 @@
       ]
     },
     "src/components/orders/OrdersWorkspace.tsx": {
-      "sha256": "3e01765f6c4cab30de86fe519633ed0605b41b8c6ecc9aa98ab8f268453fa5cb",
+      "sha256": "fb1171cf6c93e4124d04acecd80706647899375d2a0e7ae42e251bd5b50c6243",
       "features": [
         "orders-managing-orders",
         "order-detail"
@@ -4979,22 +4980,8 @@
         "order-detail"
       ]
     },
-    "src/components/orders/WhatsAppDeliveryReminderDialog.tsx": {
-      "sha256": "c4e7ad1a1d16c81bf3e9e422579ac84abedcbba82635bab0058eaffadb03ff70",
-      "features": [
-        "orders-managing-orders",
-        "order-detail"
-      ]
-    },
-    "src/components/orders/WhatsAppRecapDialog.tsx": {
-      "sha256": "22a20a7781cbdd2e09cafc838a245956675bf4f7230ac906b7f3b92fe7446e7b",
-      "features": [
-        "orders-managing-orders",
-        "order-detail"
-      ]
-    },
     "src/components/orders/detail/CommandBar.tsx": {
-      "sha256": "22293ff5be18fa605963accf37cbe3ad8e34749d56824d6fe2e387116c0d4ae0",
+      "sha256": "6ebec494304cb45b3778b245f61cdf56bb9b49a34b1ea09be274685089f54efc",
       "features": [
         "orders-managing-orders",
         "order-detail"
@@ -5008,7 +4995,7 @@
       ]
     },
     "src/components/orders/detail/OrderDetailModal.tsx": {
-      "sha256": "e5603c8783559e591116d3adeebf8c59a5aafd30e8ff4cb634378cb1dc2428c9",
+      "sha256": "0ed0bcf8816243d9c959054525fdfe2ecdb7d45b76f4e0fb13283445a3ef20f9",
       "features": [
         "orders-managing-orders",
         "order-detail"
@@ -5051,7 +5038,7 @@
       ]
     },
     "src/components/orders/detail/context/CustomerPanel.tsx": {
-      "sha256": "f8a3176926b28e25a3bfd3bd5e4107c793a59ba35203305f5afcd84767e089e2",
+      "sha256": "0b20a91230261a9d3e7f5b06eafb936aa7a08e8c6435abe70bb39042c7b16fee",
       "features": [
         "orders-managing-orders",
         "order-detail"
@@ -5107,7 +5094,7 @@
       ]
     },
     "src/components/orders/detail/menus/SendToCustomerMenu.tsx": {
-      "sha256": "5a10e6050dc3467118c1a6bef3c5537b8d657879ae539643682fd47469be2919",
+      "sha256": "79190e3ec1bf89171dd4240142aa7eb2be49b48ffdaeb9f055eee38a10aba4a1",
       "features": [
         "orders-managing-orders",
         "order-detail"
@@ -5176,8 +5163,16 @@
         "order-detail"
       ]
     },
+    "src/components/orders/order-whatsapp.module.css": {
+      "sha256": "d2005f0511ff35c35c40004e53010e2fd0586623cd912d1de86fe67023ecd264",
+      "features": [
+        "orders-managing-orders",
+        "order-detail",
+        "whatsapp"
+      ]
+    },
     "src/components/orders/orders.module.css": {
-      "sha256": "d84f85b43fab08e085a746465eeddad372db8c4b7ad71b9acc125a8030183edc",
+      "sha256": "7e3385eebb6aa8779bc0aa01f5270f4fd97ed1369a3f211a8c4a86a454d6369d",
       "features": [
         "orders-managing-orders",
         "order-detail"
@@ -6289,11 +6284,12 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "e3a60d2225ced75a3f54b1ecc5ad5a2c6232e38ef6ce21f609e48696c4afe72e",
+      "sha256": "8af168fdd5d679c57f763e5701c941cfee610acd7e3cd41b648ca8c560f1c75a",
       "features": [
         "delivery-dispatch",
         "google-account-setup",
         "pos-behavior",
+        "whatsapp",
         "shared-runtime"
       ]
     },
@@ -6605,6 +6601,14 @@
       "sha256": "0cf93c1773fe3c8ddb1242c75da45dcb91405c8c37604505e465813e5fdff141",
       "features": [
         "order-detail",
+        "shared-runtime"
+      ]
+    },
+    "src/lib/orders/whatsapp-composer.ts": {
+      "sha256": "ebeab26b35bcecbf061878199755fbf1cc0afa01c6d3a2434873204a522494cc",
+      "features": [
+        "order-detail",
+        "whatsapp",
         "shared-runtime"
       ]
     },
@@ -15122,6 +15126,74 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/delivery/CourierItineraryView.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/delivery/CourierItineraryView.tsx",
+      "line": 1,
+      "features": [
+        "delivery-dispatch",
+        "courier"
+      ],
+      "labels": [
+        "assignedToMe",
+        "back",
+        "callCustomer",
+        "close",
+        "correctAddress",
+        "couldNotLoad",
+        "courierDeliveryProgress",
+        "courierEstimatedFinish",
+        "courierFinishCurrentRoute",
+        "courierRefineRoute",
+        "courierResizePanel",
+        "courierRouteMap",
+        "courierRouteNumber",
+        "courierRouteOptions",
+        "courierSearchPlaceholder",
+        "courierSearchStops",
+        "courierSelectRoute",
+        "courierSelectStop",
+        "courierSelectedStop",
+        "courierStartAction",
+        "courierStopOptions",
+        "deliveryExpectedArrival",
+        "deliveryPlanStops",
+        "deliveryPlanWhatsApp",
+        "loading",
+        "locationOffNotice",
+        "markArrived",
+        "markDelivered",
+        "moveDown",
+        "moveUp",
+        "navigate",
+        "navigationCheckLoading",
+        "navigationCheckUnavailable",
+        "navigationReviewBeforeStart",
+        "navigationReviewCount",
+        "navigationUnverifiedTitle",
+        "noStopsYet",
+        "reoptimize",
+        "retry",
+        "routeSettingsSaveFailed",
+        "routeSettingsTitle",
+        "routeTimelineTerminus",
+        "startAnyway",
+        "startRoute",
+        "unitHour",
+        "unitMin"
+      ],
+      "actions": [
+        "load",
+        "onArrived",
+        "onDelivered",
+        "onReoptimize",
+        "onSaveSettings",
+        "onSaveStopAddress",
+        "onStart",
+        "updated"
+      ]
+    },
+    {
       "id": "foodyadmin:src/components/delivery/CourierShell.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/delivery/CourierShell.tsx",
@@ -18395,34 +18467,70 @@
       "actions": []
     },
     {
-      "id": "foodyadmin:src/components/orders/OrderTwilioMessage.tsx:ui-controls:1",
+      "id": "foodyadmin:src/components/orders/OrderWhatsAppComposer.tsx:ui-controls:1",
       "kind": "ui-controls",
-      "source": "src/components/orders/OrderTwilioMessage.tsx",
+      "source": "src/components/orders/OrderWhatsAppComposer.tsx",
       "line": 1,
       "features": [
         "orders-managing-orders",
-        "order-detail"
+        "order-detail",
+        "whatsapp"
       ],
       "labels": [
-        "waAttachmentOrderPreview",
+        "cancel",
+        "deliveryCustomerWindowUnavailable",
+        "deliveryWhatsAppWaiting",
+        "guestCustomer",
+        "loading",
+        "orderMessageSending",
+        "orderMessagesTitle",
+        "refresh",
         "waAttachmentPreviewFailed",
-        "waAttachmentTitle",
-        "waMetaRefreshTracking",
-        "waMetaTrackingFailed",
-        "waOrderAccepted",
-        "waOrderConfirmSend",
+        "waCopyFailed",
         "waOrderExactPreview",
         "waOrderFrom",
-        "waOrderPreviewFailed",
         "waOrderReminderTomorrowHint",
-        "waOrderSendUnknown",
-        "waOrderTo",
-        "waOrderTwilioHint",
-        "whatsappRecapLanguage"
+        "waSatisfactionOrderHint",
+        "waSatisfactionTitle",
+        "wcApp",
+        "wcAppFooter",
+        "wcAppHint",
+        "wcAppOpenedHint",
+        "wcAutomations",
+        "wcBusinessHint",
+        "wcChanged",
+        "wcChannel",
+        "wcConfirmBulk",
+        "wcConfirmation",
+        "wcDiscard",
+        "wcDiscardHint",
+        "wcDiscardTitle",
+        "wcIndividualHint",
+        "wcManageTemplates",
+        "wcMessage",
+        "wcOrderCount",
+        "wcPopupBlocked",
+        "wcReceipt",
+        "wcRecipients",
+        "wcReminder",
+        "wcReviewAgain",
+        "wcSendCount",
+        "wcSendSingle",
+        "wcSingleOrder",
+        "wcSummary",
+        "wcTitle",
+        "wcUnavailable",
+        "whatsappRecapLanguage",
+        "whatsappRecapSend"
       ],
       "actions": [
-        "refreshTracking",
-        "send"
+        "accepted",
+        "loadedKind",
+        "openApp",
+        "saved",
+        "send",
+        "sendLabel",
+        "sending"
       ]
     },
     {
@@ -18497,7 +18605,12 @@
         "search",
         "total",
         "type",
-        "unpaid"
+        "unpaid",
+        "wcClearSelection",
+        "wcSelectOrder",
+        "wcSelectPage",
+        "wcSelected",
+        "wcSendMessage"
       ],
       "actions": [
         "closeOrderDetail",
@@ -18690,57 +18803,6 @@
       ]
     },
     {
-      "id": "foodyadmin:src/components/orders/WhatsAppDeliveryReminderDialog.tsx:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/components/orders/WhatsAppDeliveryReminderDialog.tsx",
-      "line": 1,
-      "features": [
-        "orders-managing-orders",
-        "order-detail"
-      ],
-      "labels": [
-        "back",
-        "close",
-        "copied",
-        "copy",
-        "deliveryCustomerWindowUnavailable",
-        "deliveryReminderSubtitle",
-        "deliveryReminderTitle",
-        "loading",
-        "whatsappRecapDiscardEdit",
-        "whatsappRecapLanguage",
-        "whatsappRecapSend"
-      ],
-      "actions": [
-        "send"
-      ]
-    },
-    {
-      "id": "foodyadmin:src/components/orders/WhatsAppRecapDialog.tsx:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/components/orders/WhatsAppRecapDialog.tsx",
-      "line": 1,
-      "features": [
-        "orders-managing-orders",
-        "order-detail"
-      ],
-      "labels": [
-        "back",
-        "close",
-        "copied",
-        "copy",
-        "whatsappRecapDiscardEdit",
-        "whatsappRecapLanguage",
-        "whatsappRecapNoPhone",
-        "whatsappRecapSend",
-        "whatsappRecapSubtitle",
-        "whatsappRecapTitle"
-      ],
-      "actions": [
-        "send"
-      ]
-    },
-    {
       "id": "foodyadmin:src/components/orders/detail/CommandBar.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/orders/detail/CommandBar.tsx",
@@ -18758,7 +18820,6 @@
         "markOutForDelivery",
         "markReady",
         "markServed",
-        "sendDeliveryReminder",
         "sendToCustomer",
         "sendToKitchen",
         "takePayment",
@@ -18802,9 +18863,7 @@
         "loading",
         "orderNumber",
         "status",
-        "uncategorized",
-        "waSatisfactionOrderHint",
-        "waSatisfactionTitle"
+        "uncategorized"
       ],
       "actions": [
         "handlePrimary",
@@ -18903,7 +18962,8 @@
         "orderMessagesTitle",
         "phone",
         "posDiningEdit",
-        "source"
+        "source",
+        "wcSendMessage"
       ],
       "actions": [
         "created"
@@ -19144,9 +19204,9 @@
         "linkCopied",
         "receiptEmailSubject",
         "receiptShareMessage",
-        "sendOrderConfirmation",
         "sendReceiptEmail",
-        "sendReceiptWhatsApp"
+        "sendReceiptWhatsApp",
+        "wcSendMessage"
       ],
       "actions": []
     },
@@ -23920,6 +23980,24 @@
       "actions": []
     },
     {
+      "id": "foodyadmin:src/lib/delivery.ts:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/lib/delivery.ts",
+      "line": 1,
+      "features": [
+        "delivery-dispatch",
+        "shared-runtime"
+      ],
+      "labels": [],
+      "actions": [
+        "cancelDeliveryRoute",
+        "removeStop",
+        "transferRouteStop",
+        "updateMyStopAddress",
+        "updateRouteSettings"
+      ]
+    },
+    {
       "id": "foodyadmin:src/lib/device-management.ts:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/lib/device-management.ts",
@@ -24537,92 +24615,6 @@
       "labels": [],
       "actions": [
         "removeProcessingGuard"
-      ]
-    },
-    {
-      "id": "foodyadmin:src/components/delivery/CourierItineraryView.tsx:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/components/delivery/CourierItineraryView.tsx",
-      "line": 1,
-      "features": [
-        "delivery-dispatch",
-        "courier"
-      ],
-      "labels": [
-        "assignedToMe",
-        "back",
-        "callCustomer",
-        "close",
-        "correctAddress",
-        "couldNotLoad",
-        "courierDeliveryProgress",
-        "courierEstimatedFinish",
-        "courierFinishCurrentRoute",
-        "courierRefineRoute",
-        "courierResizePanel",
-        "courierRouteMap",
-        "courierRouteNumber",
-        "courierRouteOptions",
-        "courierSearchPlaceholder",
-        "courierSearchStops",
-        "courierSelectRoute",
-        "courierSelectStop",
-        "courierSelectedStop",
-        "courierStartAction",
-        "courierStopOptions",
-        "deliveryExpectedArrival",
-        "deliveryPlanStops",
-        "deliveryPlanWhatsApp",
-        "loading",
-        "locationOffNotice",
-        "markArrived",
-        "markDelivered",
-        "moveDown",
-        "moveUp",
-        "navigate",
-        "navigationCheckLoading",
-        "navigationCheckUnavailable",
-        "navigationReviewBeforeStart",
-        "navigationReviewCount",
-        "navigationUnverifiedTitle",
-        "noStopsYet",
-        "reoptimize",
-        "retry",
-        "routeSettingsSaveFailed",
-        "routeSettingsTitle",
-        "routeTimelineTerminus",
-        "startAnyway",
-        "startRoute",
-        "unitHour",
-        "unitMin"
-      ],
-      "actions": [
-        "load",
-        "onArrived",
-        "onDelivered",
-        "onReoptimize",
-        "onSaveSettings",
-        "onSaveStopAddress",
-        "onStart",
-        "updated"
-      ]
-    },
-    {
-      "id": "foodyadmin:src/lib/delivery.ts:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/lib/delivery.ts",
-      "line": 1,
-      "features": [
-        "delivery-dispatch",
-        "shared-runtime"
-      ],
-      "labels": [],
-      "actions": [
-        "cancelDeliveryRoute",
-        "removeStop",
-        "transferRouteStop",
-        "updateMyStopAddress",
-        "updateRouteSettings"
       ]
     }
   ]

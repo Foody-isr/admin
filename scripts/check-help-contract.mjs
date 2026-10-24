@@ -14,7 +14,7 @@ const read = file => JSON.parse(fs.readFileSync(file, 'utf8'));
 function sourceFiles(root) {
  let top;
  try { top=git(root,'rev-parse','--show-toplevel'); } catch { /* Local-only application. */ }
- if(top===path.resolve(root)) return [...new Set((git(root,'ls-files')+'\n'+git(root,'ls-files','--others','--exclude-standard')).split('\n').filter(isSource))];
+ if(top===path.resolve(root)) return [...new Set((git(root,'ls-files')+'\n'+git(root,'ls-files','--others','--exclude-standard')).split('\n').filter(file=>isSource(file)&&fs.existsSync(path.join(root,file))))];
  const walk=(directory='')=>fs.readdirSync(path.join(root,directory),{withFileTypes:true}).flatMap(item=>{
   if(item.name.startsWith('.')||['node_modules','Pods','build','vendor'].includes(item.name))return [];
   const file=path.posix.join(directory,item.name);

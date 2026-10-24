@@ -102,7 +102,7 @@ test('overflow preserves payment and reference actions; nested dialog returns to
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: 'Actions', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: 'Modifier', exact: true })).toBeVisible();
-  await expect(page.getByRole('menuitem', { name: 'Envoyer la confirmation', exact: true })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Envoyer un message WhatsApp', exact: true })).toBeVisible();
   await page.getByRole('menuitem', { name: 'Encaisser', exact: true }).click();
   await expect(page.getByRole('dialog', { includeHidden: true })).toHaveCount(2);
   await page.keyboard.press('Escape');

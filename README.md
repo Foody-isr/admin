@@ -147,7 +147,7 @@ directly. This presentation does not change sending rules, provider selection or
 the mandatory confirmation/reminder pair.
 
 Accepting an order leaves the order open and never automatically opens the manual
-WhatsApp composer. Its explicit Actions → Send confirmation action remains available;
+WhatsApp composer. Its explicit Actions → Send a WhatsApp message action remains available;
 server-side automatic notifications retain their configured triggers.
 Order details → **Customer messages** (also under Actions) opens a read-only drawer
 of tracked attempts with current provider status and evidence timestamps. It refreshes
@@ -1375,3 +1375,32 @@ Order creation and edits preserve these selections separately from modifiers;
 tickets show their position labels. Deploy API migration 275 first. Regression:
 `npx playwright test -c playwright.modifiers.config.ts` (variant and modifier
 configuration). Public procedure: `/fr/help/menu/variants-and-sizes#conditional-positions`.
+
+
+## Unified WhatsApp order composer
+
+Order details now expose **Send a WhatsApp message** under customer contacts and in
+Actions. The orders list supports current-page selection (up to 25 orders) and the
+same composer. Filter, date, page or restaurant changes clear the selection.
+
+Choose **WhatsApp Business** for the configured approved confirmation, delivery
+reminder or satisfaction model; its saved language and attachment control the
+exact server preview. Choose **WhatsApp app** for individually editable confirmation,
+delivery information or receipt-link drafts, with customer/restaurant locale
+fallback and explicit discard protection. API free text and arbitrary model
+selection are not introduced. Workflow automations keep their saved triggers.
+
+Bulk API sends confirm the eligible count and report each order separately. Missing
+or blocked previews are excluded. A changed order stops remaining sends for review;
+a lost response retains its original dispatch identity even across channel/type
+changes. Refresh checks evidence without replay. App opening never counts as sent.
+Two orders for one phone can produce two messages, as explained in the panel.
+
+Requires the matching API read permission first: orders.manage may read the scoped
+message-template list without settings access; editing still needs settings.edit.
+No schema migration or environment change. Local regression:
+`npx playwright test -c playwright.redesign.config.ts order-whatsapp.spec.ts orders-detail-square.spec.ts orders-square.spec.ts`
+and `npx tsx --test src/lib/orders/__tests__/whatsapp-composer.test.ts`.
+Design decisions: `docs/foodyadmin-redesign/unified-whatsapp-composer.md`.
+Help contracts pin the reviewed immutable Landing documentation commit before
+PR readiness and coordinated publication.

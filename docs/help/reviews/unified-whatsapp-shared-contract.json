@@ -1,0 +1,16 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "8af168fdd5d679c57f763e5701c941cfee610acd7e3cd41b648ca8c560f1c75a",
+      "baseSha256": "e3a60d2225ced75a3f54b1ecc5ad5a2c6232e38ef6ce21f609e48696c4afe72e",
+      "features": [
+        "google-account-setup",
+        "delivery-dispatch",
+        "pos-behavior"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The exact diff adds only the unified WhatsApp composer dictionary in French, Hebrew and English and neutral English wording for the configured provider. Existing Google setup, courier/delivery dispatch and POS fulfillment controls, permissions, values and locale resolution are unchanged from current develop. This scoped review exempts only those unchanged features; the new WhatsApp flow has updated procedures in all three languages."
+    }
+  ]
+}
