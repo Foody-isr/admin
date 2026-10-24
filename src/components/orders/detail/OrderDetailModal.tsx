@@ -6,13 +6,9 @@ import { useEffect, useState } from 'react';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { groupOrder } from '@/lib/orders/group-order';
 import { deriveOrderCapabilities, type PrimaryAction } from '@/lib/orders/order-actions';
-import { WhatsAppRecapDialog } from '@/components/orders/WhatsAppRecapDialog';
-import { WhatsAppDeliveryReminderDialog } from '@/components/orders/WhatsAppDeliveryReminderDialog';
-import { OrderTwilioMessage } from '@/components/orders/OrderTwilioMessage';
-import { Drawer } from '@/components/ds';
+import { OrderWhatsAppComposer } from '@/components/orders/OrderWhatsAppComposer';
+import type { WhatsAppMessageKind, WhatsAppChannel } from '@/lib/orders/whatsapp-composer';
 import type { AcceptOrderResult, CheckoutConfig, Order } from '@/lib/api';
-import { isDeliveryReminderDue } from '@/lib/orders/delivery-reminder';
-import { pickWorkflow, useOrderWorkflows } from '@/lib/orders/use-order-workflows';
 
 import { OrderDetailShell } from './OrderDetailShell';
 import { OrderDetailHead, OrderDetailSummary, OrderDetailLoadingHead } from './OrderDetailHead';
@@ -95,16 +91,10 @@ export function OrderDetailModal({
   const { t, direction } = useI18n();
   const { symbol: currencySign } = useCurrency();
 
-  // WhatsApp order-confirmation recap ("Envoyer au client → Confirmation").
-  const [recapOpen, setRecapOpen] = useState(false);
-  const [deliveryReminderOpen, setDeliveryReminderOpen] = useState(false);
+  const [message, setMessage] = useState<{ kind: WhatsAppMessageKind; channel: WhatsAppChannel } | null>(null);
   const [referenceView, setReferenceView] = useState<OrderReferenceView | null>(null);
-  const workflows = useOrderWorkflows(order?.restaurant_id);
-  const [satisfactionOpen, setSatisfactionOpen] = useState(false);
   useEffect(() => {
-    setRecapOpen(false);
-    setSatisfactionOpen(false);
-    setDeliveryReminderOpen(false);
+    setMessage(null);
     setReferenceView(null);
   }, [order?.restaurant_id, order?.id]);
 
@@ -143,13 +133,6 @@ export function OrderDetailModal({
       onDelete: !!onDelete,
     },
   );
-  const workflow = pickWorkflow(workflows, order.order_type);
-  const showDeliveryReminder =
-    !!workflow?.delivery_reminder_enabled &&
-    isDeliveryReminderDue(order) &&
-    !caps.isCancelled &&
-    !caps.isTerminal;
-
   // Category groups, combo groups and reconciled totals all come from the
   // shared groupOrder() — the same math the WhatsApp recap uses, so customer
   // communication and this operational view agree about what was ordered.
@@ -242,12 +225,12 @@ export function OrderDetailModal({
                 onToggleForceProduction={onToggleForceProduction}
                 onCancel={onReject}
                 onDelete={onDelete}
-                onSatisfaction={canManage && !!order.customer_phone && ((order.order_type === 'delivery' && order.status === 'delivered') || (order.order_type === 'pickup' && ['picked_up', 'received', 'served'].includes(order.status))) ? () => setSatisfactionOpen(true) : undefined}
+                onSatisfaction={canManage && !!order.customer_phone && ((order.order_type === 'delivery' && order.status === 'delivered') || (order.order_type === 'pickup' && ['picked_up', 'received', 'served'].includes(order.status))) ? () => setMessage({ kind: 'satisfaction', channel: 'business' }) : undefined}
                 disabled={isLoading}
               >{utilities}</OrderOverflowMenu>
             )}
-            onSendConfirmation={() => setRecapOpen(true)}
-            onSendDeliveryReminder={showDeliveryReminder ? () => setDeliveryReminderOpen(true) : undefined}
+            onSendConfirmation={() => setMessage({ kind: 'order_recap', channel: 'business' })}
+            onSendReceipt={() => setMessage({ kind: 'receipt', channel: 'app' })}
             onConfirmWeights={onConfirmWeights}
             onTakePayment={onTakePayment}
             onCloseOrder={onCloseOrder}
@@ -297,6 +280,7 @@ export function OrderDetailModal({
                 onEditCustomer={onEditCustomer}
                 customFields={customFields.customer}
                 onViewMessages={() => setReferenceView('messages')}
+                onSendMessage={canManage ? () => setMessage({ kind: 'order_recap', channel: 'business' }) : undefined}
                 t={t}
               />
               <DeliveryPanel order={order} customFields={customFields.address} t={t} />
@@ -341,26 +325,19 @@ export function OrderDetailModal({
         direction={direction}
       />
 
-      <WhatsAppRecapDialog
-        open={recapOpen}
-        onOpenChange={setRecapOpen}
-        order={order}
+      {message && <OrderWhatsAppComposer
+        key={`${order.restaurant_id}:${order.id}:${message.kind}:${message.channel}`}
+        open
+        onOpenChange={open => { if (!open) setMessage(null); }}
+        orders={[order]}
         restaurantId={order.restaurant_id}
         restaurantName={restaurantName}
         restaurantDefaultLocale={restaurantDefaultLocale}
         checkoutConfig={checkoutConfig}
-      />
-      <Drawer open={satisfactionOpen} onOpenChange={setSatisfactionOpen} title={t('waSatisfactionTitle')} width={600}>
-        <p className="text-sm text-[var(--fg-muted)]">{t('waSatisfactionOrderHint')}</p>
-        {satisfactionOpen && <OrderTwilioMessage key={`${order.restaurant_id}:${order.id}:satisfaction`} restaurantId={order.restaurant_id} orderId={order.id} kind="satisfaction" />}
-      </Drawer>
-      <WhatsAppDeliveryReminderDialog
-        open={deliveryReminderOpen}
-        onOpenChange={setDeliveryReminderOpen}
-        order={order}
-        restaurantName={restaurantName}
-        restaurantDefaultLocale={restaurantDefaultLocale}
-      />
+        initialKind={message.kind}
+        initialChannel={message.channel}
+        onViewHistory={() => setReferenceView('messages')}
+      />}
     </>
   );
 }

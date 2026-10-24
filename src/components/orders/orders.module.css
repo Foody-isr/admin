@@ -65,3 +65,7 @@
 :global(.dark) .table :global(.orders-status-badge)[data-status-tone='progress'], :global([data-theme='dark']) .table :global(.orders-status-badge)[data-status-tone='progress'] { background: #4c3020; color: #f3b77c; }
 
 .paymentHeading { display: block; max-width: 100px; margin-inline: auto; text-align: center; white-space: normal; }
+
+.selectionBar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-height: 56px; border-block: 1px solid var(--orders-line); margin-top: 16px; padding-block: 8px; font-size: 14px; }
+.selectionCell { width: 48px; }
+@media (max-width: 767px) { .table .selectionCell { display: flex; justify-content: flex-end; padding: 8px 12px; } }

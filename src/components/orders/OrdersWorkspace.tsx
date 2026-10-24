@@ -24,6 +24,8 @@ import { useOrderSound } from '@/lib/use-order-sound';
 import { useBrowserNotifications } from '@/lib/use-browser-notifications';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { EditOrderDrawer } from '@/components/orders/EditOrderDrawer';
+import { OrderWhatsAppComposer } from '@/components/orders/OrderWhatsAppComposer';
+import { Checkbox } from '@/components/ui/checkbox';
 import { OrderDetailModal } from '@/components/orders/detail/OrderDetailModal';
 import { localizeOrderType } from '@/lib/orders/status-presentation';
 import { buildCustomFieldLabels } from '@/lib/orders/checkout-fields';
@@ -32,7 +34,7 @@ import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
 import { useOrderSeries } from '@/lib/series';
 import {
   PauseIcon, PlayIcon,
-  ClipboardListIcon, SearchIcon,
+  ClipboardListIcon, SearchIcon, MessageCircleIcon,
 } from 'lucide-react';
 import { Button, ConfirmDialog } from '@/components/ds';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
@@ -179,7 +181,17 @@ export default function OrdersWorkspace() {
   const serieList = useOrderSeries(rid);
   const [page, setPage] = useState(0);
 
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [whatsappOrders, setWhatsappOrders] = useState<Order[] | null>(null);
+  const selectionScope = JSON.stringify([rid, activeTab, searchSubmitted, typeFilter, paymentFilter, dateRange, dateField, page]);
+  useEffect(() => { setSelectedIds(new Set()); setWhatsappOrders(null); }, [selectionScope]);
   const orders = rawOrders;
+  const selectedOrders = orders.filter(order => selectedIds.has(order.id) && order.restaurant_id === rid);
+  const toggleSelection = (id: number, checked: boolean) => setSelectedIds(old => {
+    const next = new Set(old);
+    if (checked) next.add(id); else next.delete(id);
+    return next;
+  });
   const setOrders = setRawOrders;
 
   // Irreversible actions ask first. Native confirm() was unstyleable, took
@@ -860,11 +872,22 @@ export default function OrdersWorkspace() {
           </div>
         )}
 
+        {canManage && orders.length > 0 && !loading && !loadFailed && <div className={styles.selectionBar}>
+          <label className="flex min-h-11 items-center gap-3">
+            <Checkbox aria-label={t('wcSelectPage')} checked={selectedOrders.length === orders.length ? true : selectedOrders.length ? 'indeterminate' : false}
+              onCheckedChange={checked => setSelectedIds(checked === true ? new Set(orders.map(order => order.id)) : new Set())} />
+            <span aria-live="polite">{t('wcSelected').replace('{count}', String(selectedOrders.length))}</span>
+          </label>
+          {selectedOrders.length > 0 && <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>{t('wcClearSelection')}</Button>
+            <Button variant="secondary" size="sm" onClick={() => setWhatsappOrders(selectedOrders)}><MessageCircleIcon />{t('wcSendMessage')}</Button>
+          </div>}
+        </div>}
         <section id="orders-results" role="tabpanel" aria-labelledby={`orders-tab-${['review', 'kitchen', 'ready', 'delivery'].includes(activeTab) ? 'active' : activeTab}`}>
         {/* Table */}
         {loading ? (
           <OrdersTableSkeleton
-            columns={columns.visible.length + 1}
+            columns={columns.visible.length + (canManage ? 2 : 1)}
             label={t('loading')}
           />
         ) : loadFailed ? (
@@ -900,6 +923,7 @@ export default function OrdersWorkspace() {
               data-density="compact"
             >
               <DataTableHead className="sticky top-0 z-[2]">
+                {canManage && <DataTableHeadCell className="w-12"><span className="sr-only">{t('wcSelectPage')}</span></DataTableHeadCell>}
                 {columns.visible.map((col) => (
                   <DataTableHeadCell
                     key={col.key}
@@ -931,6 +955,9 @@ export default function OrdersWorkspace() {
                       }}
                       className="group cursor-pointer outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--brand-500)]"
                     >
+                      {canManage && <DataTableCell data-mobile-select="" onClick={event => event.stopPropagation()} className={styles.selectionCell}>
+                        <Checkbox aria-label={t('wcSelectOrder').replace('{id}', String(order.id))} checked={selectedIds.has(order.id)} onCheckedChange={checked => toggleSelection(order.id, checked === true)} />
+                      </DataTableCell>}
                       {columns.visible.map((col) => (
                         <DataTableCell
                           key={col.key}
@@ -956,6 +983,7 @@ export default function OrdersWorkspace() {
         )}
         </section>
       </div>
+      {whatsappOrders && <OrderWhatsAppComposer key={rid} open onOpenChange={open => { if (!open) setWhatsappOrders(null); }} restaurantId={rid} orders={whatsappOrders} restaurantName={restaurantName} restaurantDefaultLocale={restaurantLocale} checkoutConfig={checkoutConfig} />}
       {/* Clicking a row opens the complete order directly. */}
       {detailId != null && detailLoadFailed && !detailOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-[3px]" role="dialog" aria-modal="true">

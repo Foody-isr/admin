@@ -10,11 +10,12 @@ import styles from '../order-detail.module.css';
 import { ChevronRightIcon, MessageCircleIcon } from 'lucide-react';
 
 /** Customer and order facts in the drawer's label/value table. */
-export function CustomerPanel({ order, canManage, onEditCustomer, onViewMessages, customFields, t }: {
+export function CustomerPanel({ order, canManage, onEditCustomer, onViewMessages, onSendMessage, customFields, t }: {
   order: Order;
   canManage: boolean;
   onEditCustomer?: () => void;
   onViewMessages?: () => void;
+  onSendMessage?: () => void;
   customFields: CustomFieldAnswer[];
   t: (k: string) => string;
 }) {
@@ -41,6 +42,11 @@ export function CustomerPanel({ order, canManage, onEditCustomer, onViewMessages
         {customFields.map(f => <ContextRow key={f.id} label={f.label}>{f.value}</ContextRow>)}
       </div>
       <CustomerHistoryStrip restaurantId={order.restaurant_id} phone={order.customer_phone} t={t} />
+      {onSendMessage && <button type="button" onClick={onSendMessage} className="mt-3 flex min-h-11 w-full items-center gap-2 border-t border-[var(--line)] py-3 text-start text-fs-sm font-medium focus-visible:outline-none focus-visible:shadow-ring">
+        <MessageCircleIcon aria-hidden className="size-4 shrink-0" />
+        <span className="flex-1">{t('wcSendMessage')}</span>
+        <ChevronRightIcon aria-hidden className="size-4 shrink-0 rtl:rotate-180" />
+      </button>}
       {onViewMessages && <button type="button" onClick={onViewMessages} className="mt-3 flex min-h-11 w-full items-center gap-2 border-t border-[var(--line)] py-3 text-start text-fs-sm font-medium focus-visible:outline-none focus-visible:shadow-ring">
         <MessageCircleIcon aria-hidden className="size-4 shrink-0 text-[var(--fg-muted)]" />
         <span className="flex-1">{t('orderMessagesTitle')}</span>
