@@ -223,7 +223,7 @@ export interface TicketGroup {
 }
 /** A named open bill, independent of individual kitchen batches. */
 export interface OpenTicket {
- id: string; restaurant_id: number; group_id: string | null; name: string; order_type: 'pickup' | 'delivery';
+ id: string; restaurant_id: number; group_id: string | null; name: string; order_type: 'dine_in' | 'pickup' | 'delivery';
  closed_at: string | null; created_at: string; updated_at: string;
 }
 
@@ -238,7 +238,11 @@ export interface POSMode {
  tile_size: 'tall' | 'wide'; sort_cart: FullServiceSettings['sort_cart'];
 }
 /** Staff fulfillment prompts are independent from guest checkout. */
-export interface POSFulfillmentMethod { id: string; name: string; order_type: 'dine_in' | 'pickup' | 'delivery'; }
+export interface POSFulfillmentMethod {
+ id: string; name: string; order_type: 'dine_in' | 'pickup' | 'delivery';
+ /** Offer customer details after whole-order fulfillment selection; absent preserves legacy behavior. */
+ show_customer_information?: boolean;
+}
 export interface POSFulfillment {
  methods?: POSFulfillmentMethod[];
  prompt: 'never' | 'start' | 'checkout'; default: string;
@@ -266,6 +270,7 @@ export interface FullServiceSettings {
 
 export interface RestaurantSettings {
   pos_custom_dining_supported?: boolean;
+  pos_fulfillment_customer_information_supported?: boolean;
  full_service?: FullServiceSettings;
   /** Require the configured calendar for guest pickup and delivery. */
   preorders_only?: boolean;
