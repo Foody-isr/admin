@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "634c4af4e804fc63b635143541427229ea3773bc",
-  "documentationRevision": "370a1f5c94ebc716e0841e9a9fa31b447b278a7e2ebb5ea3169cdd4333582b7a",
+  "documentationRef": "4a31ffd03877d5f6fec1d69d72a3362fbb7b4341",
+  "documentationRevision": "ff856ac12e43795f8d704da0768ae6e0a5f8982e5ae48e302ae3a22f47af778e",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -715,15 +715,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "a5f882afc8cb80b4e33a0fa57f37d06bf3ef7817014f822e3b2efde8bc888ac2"
+          "sha256": "3f7bf16ad4d0f56aefb5b1a292bd78281058b79695feeb779542574f43374254"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "7ac896bda769aa61d1c97b5a07f60194145be2197d087b9ea1b2495f7ce882f9"
+          "sha256": "af62c366f404e774b878802f367f4c6e6d07efe448c8b4d8291cadffe02d3d34"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "bd6bcc639b3aab0a708885f81a91bf44e2a59a1b934f340126f24404b3efbcc2"
+          "sha256": "91a1fada91e90dae690d379ed0f1952a04e5d3e2faad7a99607fad591217fae8"
         }
       }
     },
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/courier-workspace.mdx",
-          "sha256": "2eff25905d9db548ac771440c07b20f3cdfbb1c1edb3d2e5da63ae973d032ebb"
+          "sha256": "e05a83d38c3dbfcfcbd536d762604fe39f99120a996cf0fc38a0e9231007bafc"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/courier-workspace.mdx",
-          "sha256": "03ae792cab1898d343b6441aa0e7adcaab91f1b42b75161181d23d1d6256c9e8"
+          "sha256": "b4c42af491af2ec885c158a4fa8e83d6d2149341a991dda16c0e4e218cd94652"
         },
         "he": {
           "path": "src/content/help/he/delivery/courier-workspace.mdx",
-          "sha256": "f4900bcbe5f84f88a79a026d71885de684464a160ec2b4c122aa99660540b695"
+          "sha256": "80b7cd4495178f07605d5687bbc429c706f065952bc59014027373a17bfd1e0f"
         }
       }
     },
@@ -2830,7 +2830,7 @@
       ]
     },
     "src/app/[restaurantId]/orders/courier-mode/page.tsx": {
-      "sha256": "b339f78d7c86603ee1f824304ed94b03aed2a86b70ade570b80a71cd478b78a1",
+      "sha256": "a8425513b95d757d586c3f8d98fa9aed6ad8ad163cdea451d297bd67eb7e7d49",
       "features": [
         "orders-managing-orders",
         "courier"
@@ -3801,14 +3801,14 @@
       ]
     },
     "src/components/delivery/CourierItinerary.module.css": {
-      "sha256": "8fe7d67c04a2c5c4a00f6ffda9c87c6c0e54fc376cd43b23d1006a5fedb043a7",
+      "sha256": "71a13b2d7f30b2f761f2ed9902b669d3a37537de0d099a75b595f6b63ff04688",
       "features": [
         "delivery-dispatch",
         "courier"
       ]
     },
     "src/components/delivery/CourierItineraryView.tsx": {
-      "sha256": "debe828763e6049c4d960e7f64a05007b9e6db4c5ee378a6c924d6ae131192fd",
+      "sha256": "c1e316ec1877a7ff7e8c7e4270c331c8783288aa5fc2fab16b17b743556bbc9e",
       "features": [
         "delivery-dispatch",
         "courier"
@@ -6254,7 +6254,7 @@
       ]
     },
     "src/lib/delivery.ts": {
-      "sha256": "9b7e09c802172fbf9c763dac662ae17da0f2ae6b3b22622bb0c91e47357123e7",
+      "sha256": "0549e30d710adae1e5411cfce21bdbb8041f95e5071c6d9e496d46bdb662af30",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -6310,7 +6310,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "862c26fcb77926fd3f7bf4e2ccd2577504861992b7160098c9856f4fa0473595",
+      "sha256": "15b3c420ad848a4d2557da941d7756c78cf4a2cc515d9a7834a1889f286e24be",
       "features": [
         "customers-profiles",
         "delivery-dispatch",
@@ -11340,6 +11340,25 @@
       "route": "/[restaurantId]/orders/courier-mode"
     },
     {
+      "id": "foodyadmin:src/app/[restaurantId]/orders/courier-mode/page.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/app/[restaurantId]/orders/courier-mode/page.tsx",
+      "line": 1,
+      "features": [
+        "orders-managing-orders",
+        "courier"
+      ],
+      "labels": [
+        "couldNotLoad",
+        "courierNoCouriers",
+        "courierSelectCourier",
+        "courierViewAs",
+        "loading",
+        "retry"
+      ],
+      "actions": []
+    },
+    {
       "id": "foodyadmin:src/app/[restaurantId]/orders/deliveries/page.tsx:next-page:1",
       "kind": "next-page",
       "source": "src/app/[restaurantId]/orders/deliveries/page.tsx",
@@ -15075,6 +15094,26 @@
       "actions": [
         "save"
       ]
+    },
+    {
+      "id": "foodyadmin:src/components/customers/CustomerPhoneFields.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/customers/CustomerPhoneFields.tsx",
+      "line": 1,
+      "features": [
+        "customers-profiles"
+      ],
+      "labels": [
+        "addCustomerPhone",
+        "customerContactPhones",
+        "customerPhoneAfter",
+        "customerPhoneDuplicate",
+        "customerRemovePhoneHint",
+        "customerUseForWhatsApp",
+        "customerWhatsAppPhoneHint",
+        "removeCustomerPhone"
+      ],
+      "actions": []
     },
     {
       "id": "foodyadmin:src/components/data-table/ColumnPicker.tsx:ui-controls:1",
@@ -21692,6 +21731,16 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:146",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 146,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.is_visible"
+    },
+    {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:648",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
@@ -23742,16 +23791,6 @@
       "field": "section.delete"
     },
     {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:146",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 146,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.is_visible"
-    },
-    {
       "id": "foodyadmin:src/components/website/CheckoutEditor.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/website/CheckoutEditor.tsx",
@@ -24711,26 +24750,6 @@
       "actions": [
         "removeProcessingGuard"
       ]
-    },
-    {
-      "id": "foodyadmin:src/components/customers/CustomerPhoneFields.tsx:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/components/customers/CustomerPhoneFields.tsx",
-      "line": 1,
-      "features": [
-        "customers-profiles"
-      ],
-      "labels": [
-        "addCustomerPhone",
-        "customerContactPhones",
-        "customerPhoneAfter",
-        "customerPhoneDuplicate",
-        "customerRemovePhoneHint",
-        "customerUseForWhatsApp",
-        "customerWhatsAppPhoneHint",
-        "removeCustomerPhone"
-      ],
-      "actions": []
     }
   ]
 }

@@ -311,6 +311,7 @@ function TimelineStop({
 
 function CourierRouteView({
   rid,
+  courierId,
   assignedRoute,
   onReload,
   canStart,
@@ -319,6 +320,7 @@ function CourierRouteView({
   visible,
 }: {
   rid: number;
+  courierId?: number;
   assignedRoute: DeliveryRoute;
   onReload: () => Promise<void>;
   canStart: boolean;
@@ -368,7 +370,7 @@ function CourierRouteView({
   useEffect(() => {
     const controller = new AbortController();
     setNavigationLoading(true);
-    checkMyRouteNavigation(rid, route.id, controller.signal)
+    checkMyRouteNavigation(rid, route.id, controller.signal, courierId)
       .then((checks) => {
         if (!controller.signal.aborted) {
           setNavigationChecks({
@@ -388,7 +390,7 @@ function CourierRouteView({
         if (!controller.signal.aborted) setNavigationLoading(false);
       });
     return () => controller.abort();
-  }, [rid, route.id, navigationKey, navigationRetry]);
+  }, [rid, courierId, route.id, navigationKey, navigationRetry]);
   const stops = useMemo(
     () =>
       route.stops
@@ -433,13 +435,13 @@ function CourierRouteView({
   const onReoptimize = () =>
     withBusy(async () => {
       if (!route) return;
-      setRoute(await optimizeRoute(rid, route.id, undefined, true));
+      setRoute(await optimizeRoute(rid, route.id, undefined, true, courierId));
     });
 
   const startNow = () =>
     withBusy(async () => {
       if (!route) return;
-      setRoute(await startRoute(rid, route.id));
+      setRoute(await startRoute(rid, route.id, courierId));
       await onReload();
     });
 
@@ -454,7 +456,7 @@ function CourierRouteView({
   const onSaveStopAddress = async (input: StopAddressInput) => {
     if (!route || !addressEditorStop) return;
     setError(null);
-    const updated = await updateMyStopAddress(rid, route.id, addressEditorStop.id, input);
+    const updated = await updateMyStopAddress(rid, route.id, addressEditorStop.id, input, courierId);
     setRoute(updated);
   };
 
@@ -463,7 +465,7 @@ function CourierRouteView({
     setBusy(true);
     setError(null);
     try {
-      setRoute(await updateRouteSettings(rid, route.id, input, true));
+      setRoute(await updateRouteSettings(rid, route.id, input, true, courierId));
     } catch (cause) {
       setError(deliveryRoutingError(cause, t) ?? t('routeSettingsSaveFailed'));
       throw cause;
@@ -475,13 +477,13 @@ function CourierRouteView({
   const onArrived = (stop: RouteStop) =>
     withBusy(async () => {
       if (!route) return;
-      setRoute(await markArrived(rid, route.id, stop.id));
+      setRoute(await markArrived(rid, route.id, stop.id, courierId));
     });
 
   const onDelivered = (stop: RouteStop) =>
     withBusy(async () => {
       if (!route) return;
-      const updated = await markStopDelivered(rid, route.id, stop.id);
+      const updated = await markStopDelivered(rid, route.id, stop.id, courierId);
       setRoute(updated);
       setSelectedStopId(null);
       if (updated.status === 'completed') onCompleted(updated);
@@ -497,7 +499,7 @@ function CourierRouteView({
       const j = i + dir;
       if (j < 0 || j >= ids.length) return;
       [ids[i], ids[j]] = [ids[j], ids[i]];
-      setRoute(await reorderStops(rid, route.id, ids));
+      setRoute(await reorderStops(rid, route.id, ids, courierId));
     });
 
   const selectedId = stops.some((stop) => stop.id === selectedStopId)
@@ -973,7 +975,7 @@ function CourierRouteView({
 }
 
 /** Map and timeline for every assigned route, retaining the active location reporter across selections. */
-export default function CourierItineraryView({ rid }: { rid: number }) {
+export default function CourierItineraryView({ rid, courierId }: { rid: number; courierId?: number }) {
   const { t, locale } = useI18n();
   const { lastEvent } = useWs();
   const [routes, setRoutes] = useState<DeliveryRoute[] | null>(null);
@@ -983,7 +985,7 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
   const load = useCallback(async () => {
     const id = ++requestId.current;
     try {
-      const next = await getMyRoutes(rid);
+      const next = await getMyRoutes(rid, courierId);
       if (id === requestId.current) {
         setRoutes(next);
         setError(false);
@@ -991,10 +993,12 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
     } catch {
       if (id === requestId.current) setError(true);
     }
-  }, [rid]);
+  }, [rid, courierId]);
   useEffect(() => {
     const requests = requestId;
     setRoutes(null);
+    setError(false);
+    setSelectedRouteId(null);
     setCompletedDestination(null);
     void load();
     return () => {
@@ -1070,16 +1074,17 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
           className={styles.route}
           hidden={route.id !== selectedRoute?.id}
           data-route-id={route.id}
-          key={`${rid}:${route.id}`}
+          key={`${rid}:${courierId ?? 'self'}:${route.id}`}
           aria-label={`${t('assignedToMe')} · ${route.date.slice(0, 10)}`}
         >
           <CourierRouteView
             rid={rid}
+            courierId={courierId}
             assignedRoute={route}
             onReload={load}
             visible={route.id === selectedRoute?.id}
             canStart={!routes.some((other) => other.status === 'active' && other.id !== route.id)}
-            reportLocation={route.id === routes.find((other) => other.status === 'active')?.id}
+            reportLocation={courierId === undefined && route.id === routes.find((other) => other.status === 'active')?.id}
             onCompleted={(finished) => {
               if (finished.end_address) setCompletedDestination(finished);
             }}
