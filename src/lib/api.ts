@@ -906,6 +906,8 @@ export interface OrderItem {
 }
 
 export interface Order {
+	/** Selected contact from staff read metadata; never part of the persisted order. */
+	customer_whatsapp_phone?: string;
   dining_option?: string;
   dining_option_label?: string;
   dining_option_is_default?: boolean;
@@ -4849,10 +4851,10 @@ export async function listOrders(restaurantId: number, params?: ListOrdersParams
 }
 
 export async function getOrder(restaurantId: number, orderId: number): Promise<Order> {
-  const data = await apiFetch<{ order: Order }>(
+  const data = await apiFetch<{ order: Order; customer_contact?: { whatsapp_phone: string } }>(
     `/api/v1/orders/${orderId}?restaurant_id=${restaurantId}`, restaurantId
   );
-  return data.order;
+  return data.customer_contact ? { ...data.order, customer_whatsapp_phone: data.customer_contact.whatsapp_phone } : data.order;
 }
 
 export interface AcceptOrderResult {
@@ -7331,6 +7333,7 @@ export async function updateSpokeConfig(
 // ─── Trusted Customers ──────────────────────────────────────────────────────
 
 export interface TrustedCustomer {
+	phones?: string[];
   id: number;
   restaurant_id: number;
   phone: string;
@@ -7340,10 +7343,11 @@ export interface TrustedCustomer {
 }
 
 export async function listTrustedCustomers(restaurantId: number): Promise<TrustedCustomer[]> {
-  const data = await apiFetch<{ trusted_customers: TrustedCustomer[] }>(
+  const data = await apiFetch<{ trusted_customers: TrustedCustomer[]; phones_by_customer?: Record<string, string[]> }>(
     `/api/v1/restaurants/${restaurantId}/customers/trusted`, restaurantId
   );
-  return data.trusted_customers ?? [];
+  return (data.trusted_customers ?? []).map(customer => data.phones_by_customer?.[customer.phone.replace(/\D/g, '').slice(-9)]
+    ? { ...customer, phones: data.phones_by_customer[customer.phone.replace(/\D/g, '').slice(-9)] } : customer);
 }
 
 export async function addTrustedCustomer(
@@ -7376,6 +7380,8 @@ export interface CustomerDeliverySeed {
 }
 
 export interface CustomerProfile {
+	phones?: { phone: string; is_whatsapp: boolean }[];
+	whatsapp_phone?: string;
   account_id: number | null;
   has_account: boolean;
   name: string;
@@ -7392,6 +7398,7 @@ export interface CustomerProfile {
 }
 
 export interface CustomerProfileInput {
+	phones?: { phone: string; original_phone?: string; is_whatsapp: boolean }[];
   name: string;
   address: string;
   city: string;

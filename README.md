@@ -1,3 +1,5 @@
+Customer phone numbers are edited in the existing Customers profile modal. Add up to ten contact numbers and select one WhatsApp recipient; the primary contact and login/OTP phone remain separate from that recipient. Profile and phone edits save atomically. Bulk corrections remain available in Actions after selecting at least two customers. Deploy API migration 276 before this interface.
+
 Staff → employee → Edit contact details explicitly saves restaurant-owned name,
 phone and home address without changing login credentials or another restaurant.
 Couriers also have a default final destination and a Same as home address choice.

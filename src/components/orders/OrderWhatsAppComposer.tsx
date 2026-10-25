@@ -116,7 +116,7 @@ export function OrderWhatsAppComposer(props: Props) {
             }
           } else {
             const saved = await getOrder(restaurantId, order.id);
-            if (saved.restaurant_id !== restaurantId || !whatsappPhone(saved.customer_phone)) throw new Error('Unavailable recipient');
+            if (saved.restaurant_id !== restaurantId || !whatsappPhone(saved.customer_whatsapp_phone ?? saved.customer_phone)) throw new Error('Unavailable recipient');
             const locale = resolveRecapLocale(saved.customer_locale, restaurantDefaultLocale);
             const body = savedTemplates.find(template => template.key === kind && template.locale === locale)?.body;
             let message: string;
@@ -222,7 +222,7 @@ export function OrderWhatsAppComposer(props: Props) {
   };
   const openApp = () => {
     if (!allowed || !active || active.state !== 'ready' || !draft?.message.trim()) return;
-    const url = buildWhatsAppUrl(whatsappPhone(active.order.customer_phone), draft.message);
+    const url = buildWhatsAppUrl(whatsappPhone(active.order.customer_whatsapp_phone ?? active.order.customer_phone), draft.message);
     if (!url) return;
     const tab = window.open('about:blank', '_blank');
     if (!tab) { setError(t('wcPopupBlocked')); return; }
@@ -311,7 +311,7 @@ export function OrderWhatsAppComposer(props: Props) {
           {active && active.state !== 'loading' && message && <section className={styles.message} aria-label={t('waOrderExactPreview')}>
             <div className={styles.messageHead}>
               <MessageCircle aria-hidden />
-              <div><strong>{active.order.customer_name || t('guestCustomer')}</strong><p><bdi dir="ltr">{channel === 'business' ? preview?.recipient : whatsappPhone(active.order.customer_phone)}</bdi></p></div>
+              <div><strong>{active.order.customer_name || t('guestCustomer')}</strong><p><bdi dir="ltr">{channel === 'business' ? preview?.recipient : whatsappPhone(active.order.customer_whatsapp_phone ?? active.order.customer_phone)}</bdi></p></div>
               <span className={styles.language}>{channel === 'business' ? messageLanguage?.toUpperCase() : <select aria-label={t('whatsappRecapLanguage')} value={draft?.locale} disabled={busy || loading} onChange={event => void switchLanguage(event.target.value as RecapLocale)}>{RECAP_LOCALES.map(value => <option key={value} value={value}>{LANGUAGE[value]}</option>)}</select>}</span>
             </div>
             {channel === 'business' && preview && <p className={styles.sender}>{t('waOrderFrom')}: <bdi dir="ltr">{preview.from}</bdi><span>{t(preview.provider === 'meta' ? 'waOrderProviderMeta' : 'waOrderProviderTwilio')}</span></p>}

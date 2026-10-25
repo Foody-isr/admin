@@ -214,7 +214,7 @@ export function InvoiceSection({ order }: { order: Order }) {
 
   const waUrl = invoice
     ? buildWhatsAppUrl(
-        order.customer_phone,
+        order.customer_whatsapp_phone ?? order.customer_phone,
         t('invoiceShareMessage')
           .replace('{name}', order.customer_name ? ` ${order.customer_name}` : '')
           .replace('{number}', String(invoice.document_number))

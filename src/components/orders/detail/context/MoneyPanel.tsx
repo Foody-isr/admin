@@ -126,7 +126,7 @@ export function MoneyPanel({
     }
   };
 
-  const digits = (order.customer_phone || '').replace(/\D/g, '');
+  const digits = (order.customer_whatsapp_phone ?? order.customer_phone ?? '').replace(/\D/g, '');
   const payLinkWhatsApp = payLink
     ? `https://wa.me/${digits}?text=${encodeURIComponent(`${t('paymentLinkHint')} ${payLink}`)}`
     : '';
