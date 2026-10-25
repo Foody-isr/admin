@@ -1469,3 +1469,18 @@ Home and Orders in Series mode start on that date and refresh it independently
 of new orders, while keeping history selected on the open page and explicit
 payment-attention links. Ordering windows and carte publication keep their own
 rules; no migration is required. Deploy API before Admin.
+
+## Manual weekly ordering
+
+Weekly batches accept `batch_ordering_mode: calendar | manual` (default calendar).
+Admin → Settings → Ordering & delivery → Orders & availability → Weekly batch
+offers Manual opening or According to a calendar. Save the policy, then explicitly
+open/pause using Pause online orders. Choosing manual preserves the effective pause
+and clears a scheduled reopening. Automatic intake times are retained for returning
+to calendar mode. Delivery days/windows, product rules, stock and existing orders
+are preserved. Manual orders use the operational current delivery series through
+its final service day in the restaurant timezone. Public batch timestamps are empty
+in manual mode; clients must not invent a reopening countdown. Active temporary
+test access must be disabled before public reopening. Deploy API migration
+`277_manual_batch_ordering.sql` before the clients and publish the reviewed guides
+with the feature.

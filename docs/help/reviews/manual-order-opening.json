@@ -1,0 +1,27 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "7a530fd07d105d6b3357bf5da8ace96f3bf53e84fe2f4615250c29d15fe9c52d",
+      "disposition": "no-user-impact",
+      "reason": "Adds only optional batch-policy response/input type declarations; existing request handling, customer profiles, payment operations and runtime API calls are unchanged."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "a506b00b58c546ac41879a09945fa9520f432892c32188355497b2a3cdf13fd9",
+      "disposition": "no-user-impact",
+      "reason": "Adds only the weekly intake mode labels and its test-access rejection explanation. All previously classified customer, menu, courier, Google, website, POS and WhatsApp controls, text and behavior are unchanged.",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime"
+      ],
+      "baseSha256": "0331452727d0706c49840bca26d91db2db8c7c52fd0a9a9f7c64afd9ae7c19f5"
+    }
+  ]
+}

@@ -367,6 +367,8 @@ export interface RestaurantSettings {
   batch_cutoff_time?: string; // "HH:MM"
   // When the next batch's ordering window opens. Defaults match cutoff
   // (zero-gap) on legacy data; set explicitly to introduce a switchover gap.
+  /** Manual intake retains delivery days and uses the explicit ordering pause. */
+  batch_ordering_mode?: 'calendar' | 'manual';
   batch_order_open_day?: number; // 0=Sun..6=Sat
   batch_order_open_time?: string; // "HH:MM"
   batch_fulfillment_days?: BatchFulfillmentDay[];
@@ -3341,6 +3343,7 @@ export interface BatchCycleSummary {
 export interface BatchFulfillmentConfigResponse {
   enabled: boolean;
   ordering_open: boolean;
+  ordering_mode?: 'calendar' | 'manual';
   current_batch_open_at: string;  // ISO 8601 datetime
   current_batch_cutoff: string;   // ISO 8601 datetime
   cutoff_day_name: string;
@@ -3379,6 +3382,7 @@ export async function getStaffBatchFulfillmentConfig(
 
 /** Draft batch config the operator is editing, sent to the preview endpoint. */
 export interface BatchPreviewInput {
+  batch_ordering_mode?: 'calendar' | 'manual';
   batch_order_open_day: number;
   batch_order_open_time: string;
   batch_cutoff_day: number;
