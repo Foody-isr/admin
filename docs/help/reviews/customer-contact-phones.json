@@ -1,0 +1,27 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "9da2fad72abf162cbb82ef9375d085a38b7ba9a56358b5609c12a532d830f06b",
+      "baseSha256": "8e4adf3628558720d5120ca4967202da3b059409d013f1674d1c5d658116ef4e",
+      "features": [
+        "payments-how-payments-work",
+        "pos-payments"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed against current develop: this diff adds profile contact editing, customer-list phone search and preferred WhatsApp recipient resolution. The same-file dashboard metrics, staff invitations, order creation, fulfillment rules, payment execution, delivery settings, account setup and support controls are unchanged. Changed customer and messaging procedures are updated in customers-profiles, whatsapp, orders-managing-orders and order-detail in all three languages."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "862c26fcb77926fd3f7bf4e2ccd2577504861992b7160098c9856f4fa0473595",
+      "baseSha256": "658be9c1258fe44dbb43e4b946d129115767132e64f78c6cc83d4f2cafa8761d",
+      "features": [
+        "delivery-dispatch",
+        "google-account-setup",
+        "pos-behavior"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed against current develop: this diff adds profile contact editing, customer-list phone search and preferred WhatsApp recipient resolution. The same-file dashboard metrics, staff invitations, order creation, fulfillment rules, payment execution, delivery settings, account setup and support controls are unchanged. Changed customer and messaging procedures are updated in customers-profiles, whatsapp, orders-managing-orders and order-detail in all three languages."
+    }
+  ]
+}

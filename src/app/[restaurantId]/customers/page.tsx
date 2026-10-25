@@ -18,7 +18,7 @@ import { normalizeCustomerPhone } from '@/lib/customer-phone';
 
 const PER_PAGE=25;
 // Keep the same canonical key used by the existing analytics/trusted-list join.
-function phoneKey(phone:string){let digits=phone.replace(/\D/g,'');if(digits.startsWith('972'))digits=digits.slice(3);if(digits.startsWith('0'))digits=digits.slice(1);return digits;}
+function phoneKey(phone:string){return phone.replace(/\D/g,'').slice(-9);}
 interface CustomerRow extends CustomerEditorTarget {orders:number;lastOrderAt:string|null;address?:string;city?:string;floor?:string;apt?:string;entryCode?:string;}
 
 /** Scope the customer workspace and its open forms to the active restaurant. */
@@ -38,13 +38,13 @@ function CustomerWorkspace({rid}:{rid:number}) {
   finally{if(sequence===request.current.value)setLoading(false);}
  },[rid,search,page,t]);
  useEffect(()=>{const scope=request.current;void reload().catch(()=>{/* Rendered by the workspace error state. */});return()=>{scope.value+=1;};},[reload]);
- useEffect(()=>{const timer=setTimeout(()=>{setSearch(searchInput.trim());setPage(1);},300);return()=>clearTimeout(timer);},[searchInput]);
+ useEffect(()=>{const next=searchInput.trim();if(next===search)return;const timer=setTimeout(()=>{setSearch(next);setPage(1);},300);return()=>clearTimeout(timer);},[searchInput,search]);
  useEffect(()=>setSelected(new Set()),[page,search]);
  const trustedByKey=useMemo(()=>new Map(trusted.map(customer=>[phoneKey(customer.phone),customer])),[trusted]);
  const rows=useMemo<CustomerRow[]>(()=>{
   const analyticsRows=(data?.customers??[]).map(customer=>({phone:customer.customer_phone,name:customer.customer_name,orders:customer.total_orders,lastOrderAt:customer.last_order_date,trusted:trustedByKey.get(phoneKey(customer.customer_phone))??null,address:customer.address,city:customer.city,floor:customer.floor,apt:customer.apt,entryCode:customer.entry_code,phones:customer.phones}));
   const seen=new Set(analyticsRows.map(row=>phoneKey(row.phone)));
-  const extras=page===1&&!search?trusted.filter(customer=>!seen.has(phoneKey(customer.phone))).map(customer=>({phone:customer.phone,name:customer.name,orders:0,lastOrderAt:null,trusted:customer})):[];
+  const extras=page===1?trusted.filter(customer=>!seen.has(phoneKey(customer.phone))&&(!search||[customer.name,customer.phone,...(customer.phones??[])].some(value=>value.toLocaleLowerCase().includes(search.toLocaleLowerCase())))).map(customer=>({phone:customer.phone,name:customer.name,orders:0,lastOrderAt:null,trusted:customer,phones:customer.phones})):[];
   return [...extras,...analyticsRows];
  },[data,trusted,trustedByKey,page,search]);
  const totalPages=Math.max(1,Math.ceil((data?.total??0)/PER_PAGE));
@@ -57,7 +57,7 @@ function CustomerWorkspace({rid}:{rid:number}) {
   <ListToolbar search={{ value: searchInput, onChange: setSearchInput, label: t('search') }}
     actions={<ActionsDropdown actions={[
       { label: t('refresh'), onClick: () => void reload().catch(() => {}) },
-      ...(canManage && selectedRows.length >= 1 && !loading && !error ? [{ label: t('correctCustomerPhonesSelected').replace('{n}',String(selectedRows.length)), onClick: () => setPhoneRows(selectedRows) }] : []),
+      ...(canManage && selectedRows.length >= 2 && !loading && !error ? [{ label: t('correctCustomerPhonesSelected').replace('{n}',String(selectedRows.length)), onClick: () => setPhoneRows(selectedRows) }] : []),
       ...(canManage && selectedRows.length >= 2 && !loading && !error ? [{ label: t('mergeCustomersSelected').replace('{n}',String(selectedRows.length)), onClick: () => setMergeRows(selectedRows) }] : []),
       ...(selectedRows.length ? [{ label: t('listClearSelection'), onClick: () => setSelected(new Set()) }] : []),
     ]} />}
@@ -70,7 +70,7 @@ function CustomerWorkspace({rid}:{rid:number}) {
      const address=formatDeliveryAddress({address:row.address,city:row.city,floor:row.floor,apt:row.apt,entryCode:row.entryCode},t,{compact:true});const key=phoneKey(row.phone);
      return <DataTableRow key={key||index} index={index}>
       {canManage&&<DataTableCell data-mobile-select=""><label className="inline-flex min-h-11 min-w-11 items-center justify-center"><input type="checkbox" className="size-4 accent-[var(--action)]" aria-label={`${t('select')} ${row.name||row.phone}`} checked={selected.has(key)} onChange={()=>toggle(key)}/></label></DataTableCell>}
-      <DataTableCell mobilePrimary><div className="flex flex-wrap items-center gap-2">{canManage?<button type="button" className="min-h-11 text-start font-semibold text-[var(--action)] underline-offset-4 hover:underline" aria-label={`${t('editCustomer')} · ${row.name||row.phone}`} onClick={()=>setEditRow(row)}><bdi dir="ltr">{row.phone}</bdi></button>:<bdi dir="ltr" className="font-semibold">{row.phone}</bdi>}{canManage&&<Button variant="ghost" aria-label={`${t('correctCustomerPhones')} · ${row.name||row.phone}`} onClick={()=>setPhoneRows([row])}>{t('correctCustomerPhone')}</Button>}{!normalizeCustomerPhone(row.phone)&&<Badge tone="warning">{t('invalidPhoneBadge')}</Badge>}{(row.phones?.length??1)>1&&<Badge tone="neutral">{t('mergeCustomersNumbers').replace('{n}',String(row.phones!.length))}</Badge>}</div></DataTableCell>
+      <DataTableCell mobilePrimary><div className="flex flex-wrap items-center gap-2">{canManage?<button type="button" className="min-h-11 text-start font-semibold text-[var(--action)] underline-offset-4 hover:underline" aria-label={`${t('editCustomer')} · ${row.name||row.phone}`} onClick={()=>setEditRow(row)}><bdi dir="ltr">{row.phone}</bdi></button>:<bdi dir="ltr" className="font-semibold">{row.phone}</bdi>}{!normalizeCustomerPhone(row.phone)&&<Badge tone="warning">{t('invalidPhoneBadge')}</Badge>}{(row.phones?.length??1)>1&&<Badge tone="neutral">{t('mergeCustomersNumbers').replace('{n}',String(row.phones!.length))}</Badge>}</div></DataTableCell>
       <DataTableCell mobileLabel={t('name')}><span dir="auto" className="break-words">{row.name||'—'}</span></DataTableCell>
       <DataTableCell mobileLabel={t('address')}>{address?<div dir="auto" className="text-sm"><p>{address.line1}</p>{address.line2&&<p className="mt-1 text-[var(--fg-muted)]">{address.line2}</p>}</div>:'—'}</DataTableCell>
       <DataTableCell mobileLabel={t('orders')} className="tabular-nums">{row.orders}</DataTableCell><DataTableCell mobileLabel={t('lastOrder')}>{date(row.lastOrderAt)}</DataTableCell><DataTableCell mobileLabel={t('canPayCash')}><Badge tone={row.trusted?'success':'neutral'}>{t(row.trusted?'yes':'no')}</Badge></DataTableCell>

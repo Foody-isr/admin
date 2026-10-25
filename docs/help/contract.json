@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "e8025a7f64145bc16642794f0b115cec901a7a27",
-  "documentationRevision": "6a7c27951b603feffaec5bc9b77403a70c72e19d9120b591a6ec792cb652bcca",
+  "documentationRef": "634c4af4e804fc63b635143541427229ea3773bc",
+  "documentationRevision": "370a1f5c94ebc716e0841e9a9fa31b447b278a7e2ebb5ea3169cdd4333582b7a",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -107,15 +107,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/customers/managing-customers.mdx",
-          "sha256": "1d843b7a4392b9026e895d357cb80eb75471d99f84d28cb046c6af78fa69bffc"
+          "sha256": "ba06782d62d16d6d42a3c660ffbba2337c56a99e28b69f2498d0541a87564e41"
         },
         "fr": {
           "path": "src/content/help/fr/customers/managing-customers.mdx",
-          "sha256": "349387686450e27549ac6aaec05ca151d09735f01d024269bf16fc10ef72f665"
+          "sha256": "e880537d9ffdcaa5c842f6c091e9da411358de0258a88bf74d489873428dedad"
         },
         "he": {
           "path": "src/content/help/he/customers/managing-customers.mdx",
-          "sha256": "f2e517f9626f64872455c711c78a0090513aa883bd9a20ddc2b324b07df1fa03"
+          "sha256": "a5dd274127b35eeb684fa7af75df3a24e5d48776848d756f3a00bf171e71ad2f"
         }
       }
     },
@@ -430,15 +430,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/managing-orders.mdx",
-          "sha256": "0a00eda09b9313a476b9af76286ed09914dbd910b7b0e8570d9a67385b6822eb"
+          "sha256": "dc4d6f1771962ae2daeb03bde34b2687f2f881fb52ce492bd1206bb623028225"
         },
         "fr": {
           "path": "src/content/help/fr/orders/managing-orders.mdx",
-          "sha256": "5e6a2e72c910f81a4d3cb9492e1c81f81cf98277af6ad9f439ec393c695d45de"
+          "sha256": "909f7a242b2df75ad78960571a11ca1fb49ff749248ec1d308ae82dea509e868"
         },
         "he": {
           "path": "src/content/help/he/orders/managing-orders.mdx",
-          "sha256": "8eb576a20700db8288993fd8fb4c8e0408f94aebaf85dd3d86425498594ba277"
+          "sha256": "57fc96c19ef82d6a17956a2ae8ddd703c382762f7a3d231fdf5b805c92daa1fa"
         }
       }
     },
@@ -620,15 +620,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/order-details.mdx",
-          "sha256": "844a7158f50bf2f2f5cab3a44938cec98ef85f0ab80418a7939b6aec997abf7e"
+          "sha256": "73effb0b3adb7290a8638d42ebf9dfe419648807abbaabb776e3a4c0dfe84f1c"
         },
         "fr": {
           "path": "src/content/help/fr/orders/order-details.mdx",
-          "sha256": "e289225495235e4e1aabf73cda59f778e930851f88f2364c72c6b1ebea9058c1"
+          "sha256": "13aa5dd6b0fd3038490040d7e366adfb5d948fecf84a2502c6e155de152f9a3f"
         },
         "he": {
           "path": "src/content/help/he/orders/order-details.mdx",
-          "sha256": "94e25a4d198cd6e2043e88853e0a3c367bbd2731801ddba6cc05d72bca92940f"
+          "sha256": "cf291d01a6ea83266255832039aa808d645d3231eae9f4fc2cc6ef090a90d912"
         }
       }
     },
@@ -1494,15 +1494,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/communications/whatsapp.mdx",
-          "sha256": "2561bffc0dadc95dd88f2395e058375f79c89dc518542af156c3b5ec26235b62"
+          "sha256": "f8c2ee695843f93b8c92b2391460339a57829dce1402a455ad7d3e01326b5626"
         },
         "fr": {
           "path": "src/content/help/fr/communications/whatsapp.mdx",
-          "sha256": "74f3014edd569c517267a8bc81ce8d95ba7063100d0a8ba53f3afd26863b8dd7"
+          "sha256": "60460d65ab73244a1d717bb96a34049a9324d0ef9143f14880bee4d3bc70cb63"
         },
         "he": {
           "path": "src/content/help/he/communications/whatsapp.mdx",
-          "sha256": "1be737f971d52a62172b883c770ac620f7c7b3091eec357a627f5f4b602deb8e"
+          "sha256": "4e71c38c5304b922f5f9d7838bebf1184b291f0ff1427a5bc0075aa08b73b72f"
         }
       }
     },
@@ -2046,7 +2046,7 @@
       ]
     },
     "src/app/[restaurantId]/customers/page.tsx": {
-      "sha256": "61bbb3dcb1f40a0855879fcf1d46b6ce7d1eaef1dc198fb0824f7fb5fa738cd9",
+      "sha256": "fb277d0585962939c3abac331b626991cf35a51f9c4fb6b909517c375525a045",
       "features": [
         "customers-profiles"
       ]
@@ -3740,13 +3740,19 @@
       ]
     },
     "src/components/customers/CustomerForms.tsx": {
-      "sha256": "6375340d6d54922e786230231aa910a933f166ae6fa494cf27c134137a90f7a7",
+      "sha256": "723f3f5398f3fa8d390d1a04e7adae4a5fbc4a80d689bcbd952341a882f3176d",
       "features": [
         "customers-profiles"
       ]
     },
     "src/components/customers/CustomerPhoneCorrectionModal.tsx": {
       "sha256": "e9b89ce4e04d811f6a071887ba11c9dfdde4c76b747bcf1c664ca60ff59e5a8e",
+      "features": [
+        "customers-profiles"
+      ]
+    },
+    "src/components/customers/CustomerPhoneFields.tsx": {
+      "sha256": "663b1e2871f2bfb0ce1b556bd9c136056e86a85805eb8b031546e6505110626f",
       "features": [
         "customers-profiles"
       ]
@@ -4929,7 +4935,7 @@
       ]
     },
     "src/components/orders/OrderWhatsAppComposer.tsx": {
-      "sha256": "70a1bf4ac5fdfe61ecedf5eac4978b469340e4c2f407735a0bf76e713712827f",
+      "sha256": "b2da0b70a9cc3c2dc3cf6d4a64d8da9e6a05f7212b62b8c138b210a0e0025dda",
       "features": [
         "orders-managing-orders",
         "order-detail",
@@ -5058,14 +5064,14 @@
       ]
     },
     "src/components/orders/detail/context/InvoicePanel.tsx": {
-      "sha256": "0aca0e52791f6f62b7d305d41054959d2324816e2b568f5266a93fed601d5ca3",
+      "sha256": "6d24ece73de04b99e30b8f170bc557c6766302e5880c46eb9dd14cb1dc853b50",
       "features": [
         "orders-managing-orders",
         "order-detail"
       ]
     },
     "src/components/orders/detail/context/MoneyPanel.tsx": {
-      "sha256": "cc685cb7def8698ce9e85615207958cafbc5686db5dd14f98fefdf89dbbd58ff",
+      "sha256": "f552e13529a5e13504ff5850008f29268f61fa29096c8d0c21c8396891bbe228",
       "features": [
         "orders-managing-orders",
         "order-detail"
@@ -6118,7 +6124,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "8e4adf3628558720d5120ca4967202da3b059409d013f1674d1c5d658116ef4e",
+      "sha256": "9da2fad72abf162cbb82ef9375d085a38b7ba9a56358b5609c12a532d830f06b",
       "features": [
         "customers-profiles",
         "payments-how-payments-work",
@@ -6304,7 +6310,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "658be9c1258fe44dbb43e4b946d129115767132e64f78c6cc83d4f2cafa8761d",
+      "sha256": "862c26fcb77926fd3f7bf4e2ccd2577504861992b7160098c9856f4fa0473595",
       "features": [
         "customers-profiles",
         "delivery-dispatch",
@@ -8134,8 +8140,6 @@
         "addCustomer",
         "address",
         "canPayCash",
-        "correctCustomerPhone",
-        "correctCustomerPhones",
         "correctCustomerPhonesSelected",
         "customerLoadFailed",
         "customers",
@@ -15030,17 +15034,14 @@
         "allowCashPayment",
         "allowCashPaymentDesc",
         "cancel",
-        "customerDetachHint",
         "customerLoadFailed",
         "customerPartiallySaved",
         "customerSavedRefresh",
         "deliveryDetails",
-        "detachNumber",
         "discardChanges",
         "discardUnsavedChanges",
         "editCustomer",
         "loading",
-        "mergeCustomersNumbers",
         "nameOptional",
         "notesOptional",
         "phoneNumber",
@@ -15050,7 +15051,9 @@
       "actions": [
         "close",
         "load",
-        "save"
+        "save",
+        "saved",
+        "savedPhone"
       ]
     },
     {
@@ -24708,6 +24711,26 @@
       "actions": [
         "removeProcessingGuard"
       ]
+    },
+    {
+      "id": "foodyadmin:src/components/customers/CustomerPhoneFields.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/customers/CustomerPhoneFields.tsx",
+      "line": 1,
+      "features": [
+        "customers-profiles"
+      ],
+      "labels": [
+        "addCustomerPhone",
+        "customerContactPhones",
+        "customerPhoneAfter",
+        "customerPhoneDuplicate",
+        "customerRemovePhoneHint",
+        "customerUseForWhatsApp",
+        "customerWhatsAppPhoneHint",
+        "removeCustomerPhone"
+      ],
+      "actions": []
     }
   ]
 }
