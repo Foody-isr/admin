@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "b146b31b49509fe1b26c27fb4df663e8104f5ccb",
-  "documentationRevision": "30700f970a5cdeed1587d81f33ac9f23509ccaf5f14ac9d07a20bf9b96ff32c6",
+  "documentationRef": "eb50edf171df985c7c59bd43295c50b947c5008f",
+  "documentationRevision": "84ed98b2ee428f2db01c1eca1d50500bb207c8e45406d9a29c242bdb468f2c69",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -1551,15 +1551,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "56f7d6999d2353cd817b01a0138f16f57f73218fc07d0cd73e7af85a85dd9543"
+          "sha256": "cad70ebeb65819901ba41349e7888008ef84abd9a7f9f3ac534664acf6658fd1"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "5c104386c01e594eb1759b38a526e323c826f6d4a1d953b9f6d37af5d42c0390"
+          "sha256": "4574bb68f444f644358a936d64bc696a33bce0e53ce6abee9f1b22d8401e928a"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "2e8ab65962c4c4eed9668334237d4cfc8486f2661fc9ca738be36cf03dadef72"
+          "sha256": "b67d91e0eda391b1419fdf1735533f64bf701db9902d7a589516e8685ae3930b"
         }
       }
     },
@@ -1570,15 +1570,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/tracking-and-account.mdx",
-          "sha256": "810a0ce4a4d0fec4746a494d07d0f27a0b9e6381f3b5735a3f5ee5b73984b9f7"
+          "sha256": "db05327d17e0c548797f98e99f8326cf4272a39d08d16ae8b240e85f65a75278"
         },
         "fr": {
           "path": "src/content/help/fr/guest/tracking-and-account.mdx",
-          "sha256": "fe71f6588159420b2f772e0598432c74218239ee768cbbe66000284108080687"
+          "sha256": "35d998e12e3780a5da7842a2d41410750b57e91526130f2ecb0e8fb10d7a5e6e"
         },
         "he": {
           "path": "src/content/help/he/guest/tracking-and-account.mdx",
-          "sha256": "4bf1bf46ef1161374e1975811fadfdaf28f3f1b0964a2568c7031a46674a85f6"
+          "sha256": "1f7e6700af70182193583307d8f1717fe7ab93aafd1ec2eb6c8e49b9c03dca2f"
         }
       }
     },
@@ -1608,15 +1608,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/catering-request.mdx",
-          "sha256": "db0f71e02cd72dbf40fc638a1894ffe444b0d53edcb33bb3a126372f3f558c05"
+          "sha256": "7a49b8a3c00794e2b7489ee7430ab1325442bf43da995eefe8cc5668c4e95e2c"
         },
         "fr": {
           "path": "src/content/help/fr/guest/catering-request.mdx",
-          "sha256": "6a1fa37c182e9c33ecdc7881db5b5001aba62e6e3cf7f6f40d65ddd4bfbba83d"
+          "sha256": "9a4ac7ab9021c57562167a51846d4ae91b097d694e07ec7c8f96a0c8d467313c"
         },
         "he": {
           "path": "src/content/help/he/guest/catering-request.mdx",
-          "sha256": "7b1b197d83328d3a16f12797802e0b9a1f8ab2905adf256537894059c3be7e06"
+          "sha256": "bc9da791700811a664a26608738fcdf685b0218cb83bb31b66201340bfbd30fa"
         }
       }
     },
