@@ -9,7 +9,7 @@ const nodeOptions = [
 // The fixture holds all draft/publication writes in memory.
 export default defineConfig({
   testDir: "./tests/website-editor",
-  testMatch: ["receipt-editor.spec.ts", "footer-recovery.spec.ts", "order-service-colors.spec.ts", "order-typography.spec.ts", "order-list-styles.spec.ts", "category-menu.spec.ts", "video-upload.spec.ts", "text-image-backgrounds.spec.ts", "text-section-dimensions.spec.ts"],
+  testMatch: ["receipt-editor.spec.ts", "footer-recovery.spec.ts", "order-service-colors.spec.ts", "order-typography.spec.ts", "order-list-styles.spec.ts", "category-menu.spec.ts", "menu-tabs.spec.ts", "video-upload.spec.ts", "text-image-backgrounds.spec.ts", "text-section-dimensions.spec.ts"],
   outputDir: "test-results/website-editor",
   workers: 1,
   timeout: 120_000,

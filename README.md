@@ -1442,3 +1442,13 @@ and `npx tsx --test src/lib/orders/__tests__/whatsapp-composer.test.ts`.
 Design decisions: `docs/foodyadmin-redesign/unified-whatsapp-composer.md`.
 Help contracts pin the reviewed immutable Landing documentation commit before
 PR readiness and coordinated publication.
+
+## Website menu tabs and groups
+
+On Website V3 order pages, multiple visible cartes have separate underlined tabs.
+Only the selected carte renders its items and groups. Category-menu shapes and
+visibility control the groups within that carte; hiding category navigation never
+hides the carte tabs. Switching cartes clears menu search and keeps the cart.
+The Admin interactive preview and public storefront share the same renderer.
+Synthetic browser regression: `FOODY_MENU_TABS=1 npx playwright test -c
+playwright.website-editor.config.ts menu-tabs.spec.ts` from foodyadmin.
