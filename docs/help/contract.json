@@ -3,7 +3,7 @@
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
   "documentationRef": "WORKSPACE",
-  "documentationRevision": "6866b8d6ded16d7205ee96a5c9ecf60eeeb357d580953629b1ed17c74d98fc7f",
+  "documentationRevision": "35fcf7e0edc12983677b73ae82f19e1b1c847c326a19f03b7ce2f72e09893dd9",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -107,15 +107,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/customers/managing-customers.mdx",
-          "sha256": "803e8f355d12842304258e952bad57cf6fbd178a50a4984cf7fa41adac00febe"
+          "sha256": "1d843b7a4392b9026e895d357cb80eb75471d99f84d28cb046c6af78fa69bffc"
         },
         "fr": {
           "path": "src/content/help/fr/customers/managing-customers.mdx",
-          "sha256": "c1c816b7fd5467f92129ef1d303fc962b0418ad35928f212c7c0a7a03829c2f7"
+          "sha256": "349387686450e27549ac6aaec05ca151d09735f01d024269bf16fc10ef72f665"
         },
         "he": {
           "path": "src/content/help/he/customers/managing-customers.mdx",
-          "sha256": "66b0d506b0ee9592c6e4fbfd31df132c5482fb23219495b158dfb53440cec628"
+          "sha256": "f2e517f9626f64872455c711c78a0090513aa883bd9a20ddc2b324b07df1fa03"
         }
       }
     },
@@ -1551,15 +1551,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "ff694496fdc4d3b67d9238537e2d08f89e8beb7f2625ad6815c41dbace109103"
+          "sha256": "56f7d6999d2353cd817b01a0138f16f57f73218fc07d0cd73e7af85a85dd9543"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "f006778a65e2de62de5c986a760c7a588b6a259143cba8c2932b8ce2df4e32cc"
+          "sha256": "5c104386c01e594eb1759b38a526e323c826f6d4a1d953b9f6d37af5d42c0390"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "0c9843e7b62648c34630f3bb727d1cd241ef2b6941795d5909ea9ef41d9b814d"
+          "sha256": "2e8ab65962c4c4eed9668334237d4cfc8486f2661fc9ca738be36cf03dadef72"
         }
       }
     },
@@ -1608,15 +1608,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/catering-request.mdx",
-          "sha256": "de0a006747c7fc971a6f7a50bff9400f0ed11df075517474c93e147023e93c79"
+          "sha256": "db0f71e02cd72dbf40fc638a1894ffe444b0d53edcb33bb3a126372f3f558c05"
         },
         "fr": {
           "path": "src/content/help/fr/guest/catering-request.mdx",
-          "sha256": "83e82f0c9f6fa7b2c159f23a7d3bf0d4cf60a03074bd03e2966e721147203af9"
+          "sha256": "6a1fa37c182e9c33ecdc7881db5b5001aba62e6e3cf7f6f40d65ddd4bfbba83d"
         },
         "he": {
           "path": "src/content/help/he/guest/catering-request.mdx",
-          "sha256": "7a81d412148bd31fabbd1f99353119c41b4ba3645812e76c4ffe00f1868df098"
+          "sha256": "7b1b197d83328d3a16f12797802e0b9a1f8ab2905adf256537894059c3be7e06"
         }
       }
     },
@@ -2046,7 +2046,7 @@
       ]
     },
     "src/app/[restaurantId]/customers/page.tsx": {
-      "sha256": "92bfdf93626656e322167561c70b46ca831242ec735beada99ff49f48c2c0c3c",
+      "sha256": "61bbb3dcb1f40a0855879fcf1d46b6ce7d1eaef1dc198fb0824f7fb5fa738cd9",
       "features": [
         "customers-profiles"
       ]
@@ -3741,6 +3741,12 @@
     },
     "src/components/customers/CustomerForms.tsx": {
       "sha256": "6375340d6d54922e786230231aa910a933f166ae6fa494cf27c134137a90f7a7",
+      "features": [
+        "customers-profiles"
+      ]
+    },
+    "src/components/customers/CustomerPhoneCorrectionModal.tsx": {
+      "sha256": "e9b89ce4e04d811f6a071887ba11c9dfdde4c76b747bcf1c664ca60ff59e5a8e",
       "features": [
         "customers-profiles"
       ]
@@ -6106,8 +6112,9 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "7ecfef6d935d361a60033c0e2dd495287d98a6e963e941a52d6f884c9b8bec2e",
+      "sha256": "715c99ca9bf8d1b05da8e617d786b30899f003c34090e4afeb524cd2f3e8b919",
       "features": [
+        "customers-profiles",
         "payments-how-payments-work",
         "pos-payments",
         "shared-runtime"
@@ -6177,6 +6184,13 @@
     "src/lib/currency.ts": {
       "sha256": "40445b07e9dde117452bf39a7475fa85718637ee73129e7b6e2cfe1b8e260401",
       "features": [
+        "shared-runtime"
+      ]
+    },
+    "src/lib/customer-phone.ts": {
+      "sha256": "a795040ea21bc7db7fc3f1460b33de5ce1e8232185a0a36640431bd08f661cf6",
+      "features": [
+        "customers-profiles",
         "shared-runtime"
       ]
     },
@@ -6284,8 +6298,9 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "0b71fbd3236222dd481275617a37bfab54c9b60d409a6ec2af8af4fe24bb4552",
+      "sha256": "6fedfe5ba2e72c52c0e26edda6f5eeb197be727caeb7a3fe9a10c54b8e841a28",
       "features": [
+        "customers-profiles",
         "delivery-dispatch",
         "google-account-setup",
         "pos-behavior",
@@ -8113,9 +8128,13 @@
         "addCustomer",
         "address",
         "canPayCash",
+        "correctCustomerPhone",
+        "correctCustomerPhones",
+        "correctCustomerPhonesSelected",
         "customerLoadFailed",
         "customers",
         "editCustomer",
+        "invalidPhoneBadge",
         "lastOrder",
         "listClearSelection",
         "loading",
@@ -23612,6 +23631,7 @@
       "source": "src/lib/api.ts",
       "line": 1,
       "features": [
+        "customers-profiles",
         "payments-how-payments-work",
         "pos-payments",
         "shared-runtime"
@@ -24645,6 +24665,26 @@
         "openCategoryPicker",
         "openDevices",
         "remove",
+        "save"
+      ]
+    },
+    {
+      "id": "foodyadmin:src/components/customers/CustomerPhoneCorrectionModal.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/customers/CustomerPhoneCorrectionModal.tsx",
+      "line": 1,
+      "features": [
+        "customers-profiles"
+      ],
+      "labels": [
+        "correctCustomerPhones",
+        "customerPhoneAfter",
+        "customerPhoneBefore",
+        "customerPhoneConflict",
+        "customerPhoneCorrectionHint",
+        "phoneNumber"
+      ],
+      "actions": [
         "save"
       ]
     }

@@ -1,0 +1,28 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "715c99ca9bf8d1b05da8e617d786b30899f003c34090e4afeb524cd2f3e8b919",
+      "baseSha256": "7ecfef6d935d361a60033c0e2dd495287d98a6e963e941a52d6f884c9b8bec2e",
+      "features": [
+        "payments-how-payments-work",
+        "pos-payments"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed the diff: only customer phone input validation, canonical phone request values, customer phone correction routes/controls or their generated three-language help corpus change. Other classified staff, payment configuration, delivery settings, WhatsApp connection and support-panel procedures are unchanged. The changed procedures are documented under customers-profiles, guest-ordering and guest-catering."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "6fedfe5ba2e72c52c0e26edda6f5eeb197be727caeb7a3fe9a10c54b8e841a28",
+      "baseSha256": "0b71fbd3236222dd481275617a37bfab54c9b60d409a6ec2af8af4fe24bb4552",
+      "features": [
+        "delivery-dispatch",
+        "google-account-setup",
+        "pos-behavior",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed the diff: only customer phone input validation, canonical phone request values, customer phone correction routes/controls or their generated three-language help corpus change. Other classified staff, payment configuration, delivery settings, WhatsApp connection and support-panel procedures are unchanged. The changed procedures are documented under customers-profiles, guest-ordering and guest-catering."
+    }
+  ]
+}
