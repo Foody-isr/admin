@@ -93,6 +93,10 @@ function q(restaurantId: number, extra?: Record<string, string>): string {
   return sp.toString();
 }
 
+function courierQuery(restaurantId: number, courierId?: number): string {
+  return q(restaurantId, courierId === undefined ? undefined : { courier_id: String(courierId) });
+}
+
 /** The current courier's active or next assigned route. */
 export async function getMyRoute(restaurantId: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
@@ -109,25 +113,28 @@ export async function listAvailableDeliveries(restaurantId: number): Promise<Ord
   return data.orders ?? [];
 }
 
-export async function startRoute(restaurantId: number, routeId: number): Promise<DeliveryRoute> {
+/** Start the current or superadmin-selected courier’s assigned route. */
+export async function startRoute(restaurantId: number, routeId: number, courierId?: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/start?${q(restaurantId)}`, restaurantId,
+    `/api/v1/delivery/routes/${routeId}/start?${courierQuery(restaurantId, courierId)}`, restaurantId,
     { method: 'POST' },
   );
   return data.route;
 }
 
-export async function markArrived(restaurantId: number, routeId: number, stopId: number): Promise<DeliveryRoute> {
+/** Record arrival on the current or superadmin-selected courier’s route. */
+export async function markArrived(restaurantId: number, routeId: number, stopId: number, courierId?: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/arrived?${q(restaurantId)}`, restaurantId,
+    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/arrived?${courierQuery(restaurantId, courierId)}`, restaurantId,
     { method: 'POST' },
   );
   return data.route;
 }
 
-export async function markStopDelivered(restaurantId: number, routeId: number, stopId: number): Promise<DeliveryRoute> {
+/** Confirm delivery on the current or superadmin-selected courier’s route. */
+export async function markStopDelivered(restaurantId: number, routeId: number, stopId: number, courierId?: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/delivered?${q(restaurantId)}`, restaurantId,
+    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/delivered?${courierQuery(restaurantId, courierId)}`, restaurantId,
     { method: 'POST' },
   );
   return data.route;
@@ -159,9 +166,10 @@ export async function unassignRouteStop(restaurantId: number, routeId: number, s
   return data.route;
 }
 
-export async function reorderStops(restaurantId: number, routeId: number, stopIds: number[]): Promise<DeliveryRoute> {
+/** Save stop order, checking the selected courier when supplied. */
+export async function reorderStops(restaurantId: number, routeId: number, stopIds: number[], courierId?: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/stops/reorder?${q(restaurantId)}`, restaurantId,
+    `/api/v1/delivery/routes/${routeId}/stops/reorder?${courierQuery(restaurantId, courierId)}`, restaurantId,
     { method: 'PATCH', body: JSON.stringify({ stop_ids: stopIds }) },
   );
   return data.route;
@@ -172,10 +180,11 @@ export async function optimizeRoute(
   routeId: number,
   from?: { lat: number; lng: number },
   ownRoute = false,
+  courierId?: number,
 ): Promise<DeliveryRoute> {
   const action = ownRoute ? 'my-optimize' : 'optimize';
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/${action}?${q(restaurantId)}`, restaurantId,
+    `/api/v1/delivery/routes/${routeId}/${action}?${courierQuery(restaurantId, courierId)}`, restaurantId,
     { method: 'POST', body: JSON.stringify(from ? { from } : {}) },
   );
   return data.route;
@@ -188,9 +197,10 @@ export async function updateMyStopAddress(
   routeId: number,
   stopId: number,
   input: StopAddressInput,
+  courierId?: number,
 ): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/my-address?${q(restaurantId)}`,
+    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/my-address?${courierQuery(restaurantId, courierId)}`,
     restaurantId,
     { method: 'PATCH', body: JSON.stringify(input) },
   );
@@ -203,10 +213,11 @@ export async function updateRouteSettings(
   routeId: number,
   input: RouteSettingsInput,
   ownRoute = false,
+  courierId?: number,
 ): Promise<DeliveryRoute> {
   const endpoint = ownRoute ? 'my-settings' : 'settings';
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/${endpoint}?${q(restaurantId)}`,
+    `/api/v1/delivery/routes/${routeId}/${endpoint}?${courierQuery(restaurantId, courierId)}`,
     restaurantId,
     { method: 'PATCH', body: JSON.stringify(input) },
   );
@@ -328,17 +339,17 @@ export async function reportLocation(
 }
 
 /** All unfinished routes assigned to the current courier, including future runs. */
-export async function getMyRoutes(restaurantId: number): Promise<DeliveryRoute[]> {
+export async function getMyRoutes(restaurantId: number, courierId?: number): Promise<DeliveryRoute[]> {
   const data = await apiFetch<{ routes: DeliveryRoute[] }>(
-    `/api/v1/delivery/routes/mine/all?${q(restaurantId)}`, restaurantId,
+    `/api/v1/delivery/routes/mine/all?${courierQuery(restaurantId, courierId)}`, restaurantId,
   );
   return data.routes ?? [];
 }
 
 /** Preflight this courier's addresses against their saved destinations. */
-export async function checkMyRouteNavigation(restaurantId: number, routeId: number, signal?: AbortSignal): Promise<Array<{ stop_id: number; verified: boolean; reason: string }>> {
+export async function checkMyRouteNavigation(restaurantId: number, routeId: number, signal?: AbortSignal, courierId?: number): Promise<Array<{ stop_id: number; verified: boolean; reason: string }>> {
   const data = await apiFetch<{ checks: Array<{ stop_id: number; verified: boolean; reason: string }> }>(
-    `/api/v1/delivery/routes/${routeId}/my-navigation-check?${q(restaurantId)}`, restaurantId,
+    `/api/v1/delivery/routes/${routeId}/my-navigation-check?${courierQuery(restaurantId, courierId)}`, restaurantId,
     { method: 'POST', signal },
   );
   return data.checks;

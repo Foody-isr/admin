@@ -1,0 +1,28 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/orders/courier-mode/page.tsx",
+      "sha256": "a8425513b95d757d586c3f8d98fa9aed6ad8ad163cdea451d297bd67eb7e7d49",
+      "baseSha256": "b339f78d7c86603ee1f824304ed94b03aed2a86b70ade570b80a71cd478b78a1",
+      "features": [
+        "orders-managing-orders"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The route adds only the explicit superadmin courier selector and reuses the existing courier itinerary. The general order list, order detail, fulfillment actions and order-management permissions remain unchanged; the courier and dispatch guides document the new behavior in all three languages."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "0aefec0804c151239dd5c4442e0a43727e478e1849c291e5a25d03cc0c66a5aa",
+      "baseSha256": "658be9c1258fe44dbb43e4b946d129115767132e64f78c6cc83d4f2cafa8761d",
+      "features": [
+        "customers-profiles",
+        "google-account-setup",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The added strings concern only the courier selector, the separately reviewed POS editor headings and the concurrent carte item picker. No existing customer, Google setup, POS behavior or WhatsApp translation is changed, and runtime locale, currency and translation behavior is unchanged. Courier and dispatch procedures describe the selector in all three languages; other working-tree feature changes retain their separate reviews."
+    }
+  ]
+}

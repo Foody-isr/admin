@@ -1,3 +1,35 @@
+.preview {
+  display: flex;
+  flex-direction: column;
+  height: var(--courier-height, calc(100dvh - var(--topbar-total-h) - 48px));
+  min-height: 0;
+}
+.courierPicker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 13px;
+}
+.courierPicker select {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  max-width: 320px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--fg);
+}
+.previewBody {
+  --courier-height: 100%;
+  flex: 1;
+  min-height: 0;
+}
 .workspace {
   --courier-route: var(--info-500);
   position: relative;
