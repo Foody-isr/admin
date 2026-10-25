@@ -1,0 +1,29 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/orders/courier-mode/page.tsx",
+      "sha256": "a8425513b95d757d586c3f8d98fa9aed6ad8ad163cdea451d297bd67eb7e7d49",
+      "baseSha256": "b339f78d7c86603ee1f824304ed94b03aed2a86b70ade570b80a71cd478b78a1",
+      "features": [
+        "orders-managing-orders"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The route adds only the explicit superadmin courier selector and reuses the existing courier itinerary. The general order list, order detail, fulfillment actions and order-management permissions remain unchanged; courier and dispatch procedures describe the addition in all three languages."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "e653a20a927321d3e8cd195feb472d04d0a3bec748f79c47115c71f51fd3bf5f",
+      "baseSha256": "024f743632f935af2995be97c4d5a675081a7c191275091c5809996d0f9e49c3",
+      "features": [
+        "customers-profiles",
+        "google-account-setup",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-menus-and-groups"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff against develop adds only nine French, Hebrew and English strings for the superadmin courier selector and its empty state. Existing customer, menu, Google, POS and WhatsApp labels are unchanged, as are locale resolution, currency and shared translation behavior. Courier and dispatch procedures document the addition in all three languages."
+    }
+  ]
+}

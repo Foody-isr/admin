@@ -5,23 +5,26 @@ import type { DeliveryRoute, RouteStop } from '../../src/lib/delivery';
 const stop = (id: number): RouteStop => ({ id, order_id: 1000 + id, sequence: id, status: 'pending', customer_name: `Client démo ${id}`, customer_phone: '+972500000000', address: 'Yoram Kaniuk 1', city: 'Tel Aviv', lat: 32.07, lng: 34.79, eta_seconds: id * 600, distance_from_prev_m: 1000, total_amount: 90, needs_geocode: false });
 const route = (id: number, status: DeliveryRoute['status'] = 'draft'): DeliveryRoute => ({ id, restaurant_id: 1, courier_id: 91, status, date: id === 1 ? '2026-10-14' : '2026-10-16', planned_departure_at: '2026-10-14T08:00:00+03:00', start_address: 'Dépôt démo', start_lat: 32.06, start_lng: 34.78, est_duration_s: 1800, total_distance_m: 2000, stop_service_minutes: 3, stops: id === 1 ? [stop(1), stop(2)] : [stop(3)], routing_provider: 'geoapify' });
 
-async function install(page: Page, options: { active?: boolean; missing?: boolean; mismatch?: boolean; locale?: string } = {}) {
+async function install(page: Page, options: { active?: boolean; missing?: boolean; mismatch?: boolean; locale?: string; role?: 'superadmin' | 'manager' | 'courier' } = {}) {
   const fixture = createFixture();
-  const state = { routes: [route(1, options.active ? 'active' : 'draft'), route(2)], requests: [] as string[], writes: [] as { path: string; rid?: string; body: any }[], failDelivered: false, failDeliveredStatus: 400, failNavigation: false, errors: [] as string[] };
+  const state = { routes: [route(1, options.active ? 'active' : 'draft'), route(2)], requests: [] as string[], courierRequests: [] as { path: string; courierId: string | null; rid?: string }[], writes: [] as { path: string; rid?: string; courierId?: string | null; body: any }[], failDelivered: false, failDeliveredStatus: 400, failNavigation: false, errors: [] as string[] };
   if (options.missing) Object.assign(state.routes[0].stops[0], { lat: null, lng: null, needs_geocode: true });
   page.on('pageerror', error => state.errors.push(error.message));
-  await page.addInitScript(({ locale }) => {
+  await page.addInitScript(({ locale, role }) => {
     localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
-    localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 91, full_name: 'Livreur démo', role: 'courier' }));
+    localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 91, full_name: 'Livreur démo', role }));
     localStorage.setItem('foody_restaurant_ids', '[1,2]');
     localStorage.setItem('foody-admin-locale', locale);
     localStorage.setItem('foody_admin_theme', locale === 'he' ? 'dark' : 'light');
-  }, { locale: options.locale ?? 'fr' });
+  }, { locale: options.locale ?? 'fr', role: options.role ?? 'courier' });
   await page.route('**/api/v1/**', async intercepted => {
     const request = intercepted.request(), url = new URL(request.url()), path = url.pathname, rid = request.headers()['x-restaurant-id'];
     state.requests.push(path);
-    if (path === '/api/v1/users/me') return intercepted.fulfill({ json: { role_name: 'Courier', permissions: ['orders.view'], user: { id: 91, role: 'courier' } } });
-    if (path === '/api/v1/delivery/routes/mine/all') return intercepted.fulfill({ json: { routes: state.routes.filter(route => route.stops.some(stop => stop.status !== 'delivered' && stop.status !== 'skipped')).map(route => ({ ...route, restaurant_id: Number(rid) })) } });
+    const courierId = url.searchParams.get('courier_id');
+    state.courierRequests.push({ path, courierId, rid });
+    if (path === '/api/v1/users/me') return intercepted.fulfill({ json: { role_name: options.role === 'superadmin' ? 'Super Admin' : options.role === 'manager' ? 'Manager' : 'Courier', permissions: options.role === 'superadmin' || options.role === 'manager' ? ['orders.view', 'orders.manage'] : ['orders.view'], user: { id: 91, role: options.role ?? 'courier' } } });
+    if (path.match(/\/restaurants\/\d+\/staff$/)) return intercepted.fulfill({ json: { staff: [{ id: 91, full_name: 'Livreur Alpha', role: 'courier' }, { id: 92, full_name: 'Livreur Beta', role: 'waiter', role_name: 'Courier' }, { id: 93, full_name: 'Manager démo', role: 'manager' }] } });
+    if (path === '/api/v1/delivery/routes/mine/all') return intercepted.fulfill({ json: { routes: state.routes.filter(route => courierId === null || route.courier_id === Number(courierId)).filter(route => route.stops.some(stop => stop.status !== 'delivered' && stop.status !== 'skipped')).map(route => ({ ...route, restaurant_id: Number(rid) })) } });
     if (path === '/api/v1/public/delivery/map-config') return intercepted.fulfill({ json: { provider: 'geoapify', tile_url: `/api/v1/public/delivery/map/{style}/{z}/{x}/{y}.png?restaurant_id=${rid}` } });
     if (path.startsWith('/api/v1/public/delivery/map/')) return intercepted.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#e9eded"/></svg>' });
     if (path.endsWith('/my-navigation-check')) {
@@ -31,7 +34,7 @@ async function install(page: Page, options: { active?: boolean; missing?: boolea
     }
     if (request.method() !== 'GET' && path.startsWith('/api/v1/delivery/routes/')) {
       const body = request.postDataJSON() ?? {};
-      state.writes.push({ path, rid, body });
+      state.writes.push({ path, rid, courierId, body });
       const selected = state.routes.find(route => route.id === Number(path.split('/')[5]))!;
       if (path.endsWith('/delivered')) {
         if (state.failDelivered) return intercepted.fulfill({ status: state.failDeliveredStatus, json: { error: 'delivery operation failed' } });
@@ -424,13 +427,128 @@ test('stop options retain address correction and manual ordering', async ({ page
 });
 
 test('manager courier preview fits inside the administration shell', async ({ page }) => {
-  const state = await install(page);
-  await page.route('**/api/v1/users/me', intercepted => intercepted.fulfill({ json: { role_name: 'Manager', permissions: ['orders.view', 'orders.manage'], user: { id: 91, role: 'staff' } } }));
+  const state = await install(page, { role: 'manager' });
   await page.goto('/1/orders/courier-mode');
   await expect(run(page).getByTestId('courier-action-dock').getByRole('button', { name: 'Démarrer la tournée' })).toBeInViewport();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(run(page).getByTestId('courier-action-dock').getByRole('button', { name: 'Démarrer la tournée' })).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(state.errors).toEqual([]);
+});
+
+for (const locale of ['fr', 'en', 'he']) {
+  test(`superadmin switches between restaurant couriers in the shared workspace (${locale})`, async ({ page }, info) => {
+    const state = await install(page, { role: 'superadmin', active: true, locale });
+    state.routes[1].courier_id = 92;
+    let watches = 0;
+    await page.exposeFunction('recordLocationWatch', () => { watches++; });
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'geolocation', { value: {
+        watchPosition: () => { (window as any).recordLocationWatch(); return 1; },
+        clearWatch: () => {},
+      } });
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/1/orders/courier-mode');
+    const label = locale === 'he' ? 'צפייה בתור שליח' : locale === 'en' ? 'View as courier' : 'Voir comme livreur';
+    const picker = page.getByRole('combobox', { name: label });
+    await expect(picker).toHaveValue('91');
+    await expect(picker.locator('option')).toHaveCount(2);
+    await expect(card(page, 1)).toBeVisible();
+    await expect(card(page, 3)).toHaveCount(0);
+    await expect(run(page).getByTestId('courier-action-dock')).toBeInViewport();
+    await picker.selectOption('92');
+    await expect(card(page, 3)).toBeVisible();
+    await expect(card(page, 1)).toHaveCount(0);
+    await expect(page.getByRole('combobox', { name: locale === 'he' ? 'בחירת מסלול' : locale === 'en' ? 'Select a route' : 'Choisir une tournée' })).toHaveValue('2');
+    await picker.selectOption('91');
+    await expect(card(page, 1)).toBeVisible();
+    const selections = state.courierRequests.filter(request => request.path.endsWith('/mine/all')).map(request => request.courierId);
+    expect(selections.filter((id, index) => id !== selections[index - 1])).toEqual(['91', '92', '91']);
+    expect(state.courierRequests.filter(request => request.path.includes('/delivery/routes/')).every(request => request.rid === '1' && request.courierId !== null)).toBe(true);
+    expect(state.requests).not.toContain('/api/v1/delivery/available');
+    expect(watches).toBe(0);
+    expect(state.requests).not.toContain('/api/v1/delivery/location');
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('foody_restaurant_user')!).role)).toBe('superadmin');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath(`superadmin-courier-${locale}.png`), fullPage: true });
+    expect(state.errors).toEqual([]);
+  });
+}
+
+test('superadmin courier actions retain the selected courier and active restaurant', async ({ page }) => {
+  const state = await install(page, { role: 'superadmin', active: true });
+  state.routes[1].courier_id = 92;
+  await page.goto('/2/orders/courier-mode');
+  await page.getByRole('combobox', { name: 'Voir comme livreur' }).selectOption('92');
+  await expect(card(page, 3)).toBeVisible();
+  await run(page, 2).getByRole('button', { name: 'Démarrer la tournée', exact: true }).click();
+  await run(page, 2).getByTestId('courier-action-dock').getByRole('button', { name: 'Marquer livrée', exact: true }).click();
+  await expect.poll(() => state.routes[1].stops[0].status).toBe('delivered');
+  expect(state.writes.map(write => ({ path: write.path, rid: write.rid, courierId: write.courierId }))).toEqual([
+    { path: '/api/v1/delivery/routes/2/start', rid: '2', courierId: '92' },
+    { path: '/api/v1/delivery/routes/2/stops/3/delivered', rid: '2', courierId: '92' },
+  ]);
+  expect(state.routes[0].stops.every(stop => stop.status === 'pending')).toBe(true);
+  expect(state.errors).toEqual([]);
+});
+
+test('a late response from the previous courier cannot replace the new selection', async ({ page }) => {
+  const state = await install(page, { role: 'superadmin' });
+  state.routes[1].courier_id = 92;
+  await page.goto('/1/orders/courier-mode');
+  await expect(card(page, 1)).toBeVisible();
+  const picker = page.getByRole('combobox', { name: 'Voir comme livreur' });
+  await picker.selectOption('92');
+  await expect(card(page, 3)).toBeVisible();
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  let waiting = false;
+  let released = false;
+  await page.route(url => url.pathname === '/api/v1/delivery/routes/mine/all', async intercepted => {
+    if (new URL(intercepted.request().url()).searchParams.get('courier_id') !== '91') {
+      return intercepted.fallback();
+    }
+    waiting = true;
+    await pending;
+    await intercepted.fulfill({ json: { routes: [state.routes[0]] } });
+    released = true;
+  });
+  await picker.selectOption('91');
+  await expect.poll(() => waiting).toBe(true);
+  await picker.selectOption('92');
+  await expect(card(page, 3)).toBeVisible();
+  release();
+  await expect.poll(() => released).toBe(true);
+  await expect(picker).toHaveValue('92');
+  await expect(card(page, 3)).toBeVisible();
+  await expect(card(page, 1)).toHaveCount(0);
+  expect(state.errors).toEqual([]);
+});
+
+test('superadmin staff loading can recover and an empty list never loads their own routes', async ({ page }) => {
+  const state = await install(page, { role: 'superadmin' });
+  let failure = true;
+  await page.route('**/api/v1/restaurants/1/staff', intercepted => intercepted.fulfill(
+    failure ? { status: 503, json: { error: 'unavailable' } } : { json: { staff: [] } }
+  ));
+  await page.goto('/1/orders/courier-mode');
+  const retry = page.getByRole('button', { name: 'Réessayer', exact: true });
+  await expect(retry).toBeVisible();
+  failure = false;
+  await retry.click();
+  await expect(page.getByRole('status')).toHaveText('Aucun livreur n’est configuré pour ce restaurant.');
+  expect(state.requests).not.toContain('/api/v1/delivery/routes/mine/all');
+  expect(state.errors).toEqual([]);
+});
+
+test('manager courier mode keeps its own route without the superadmin selector', async ({ page }) => {
+  const state = await install(page, { role: 'manager' });
+  await page.goto('/1/orders/courier-mode');
+  await expect(card(page, 1)).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Voir comme livreur' })).toHaveCount(0);
+  expect(state.courierRequests.filter(request => request.path.includes('/delivery/routes/')).every(request => request.courierId === null)).toBe(true);
+  expect(state.requests).not.toContain('/api/v1/restaurants/1/staff');
   expect(state.errors).toEqual([]);
 });
 
