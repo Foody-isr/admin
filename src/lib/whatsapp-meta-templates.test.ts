@@ -27,3 +27,12 @@ test('media headers retain the body mapping and require a compatible explicit so
  assert.equal(validWhatsAppAttachment(pdf,{source:'receipt',asset_id:'foreign'}),false);
  assert.equal(compatibleMetaTemplate('order_recap',{...pdf,components:[{type:'HEADER',format:'VIDEO'},{type:'BODY',text:body}]}),false);
 });
+
+test('approved Meta images work automatically and preserve explicit local overrides', () => {
+ const template: MetaWhatsAppTemplate={id:'3',name:'meta_photo',language:'fr',status:'APPROVED',category:'UTILITY',image_available:true,components:[{type:'HEADER',format:'IMAGE'},{type:'BODY',text:orderNotificationTemplate('order_recap','fr')}]};
+ for (const source of ['', 'none', 'meta'] as const) assert.equal(validWhatsAppAttachment(template,{source,asset_id:''}),true);
+ assert.equal(validWhatsAppAttachment(template),true);
+ assert.equal(validWhatsAppAttachment(template,{source:'fixed',asset_id:''}),false);
+ assert.equal(validWhatsAppAttachment(template,{source:'meta',asset_id:'11111111-1111-4111-8111-111111111111'}),false);
+ assert.equal(validWhatsAppAttachment({...template,image_available:false},{source:'meta',asset_id:''}),false);
+});

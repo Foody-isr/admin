@@ -1,0 +1,50 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "d515f0e32e151207bb2c734fcf8652bf88232bc289f15fc53f8c1d4f32c70094",
+      "baseSha256": "7ecfef6d935d361a60033c0e2dd495287d98a6e963e941a52d6f884c9b8bec2e",
+      "features": [
+        "payments-how-payments-work",
+        "pos-payments",
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed diff only adds automatic Meta WhatsApp image retrieval and preview. These separately classified payment, invitation, routing, fulfillment or shared-runtime procedures retain their existing behavior and controls."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "06c19e52e0309c87d559121da9fea860913934dff94914cdabde4416a8f479ac",
+      "baseSha256": "95c1eb8b268821003211e779a8e0dc902a62c60299156cdc41a487cac2849dd5",
+      "features": [
+        "delivery-dispatch",
+        "google-account-setup",
+        "pos-behavior",
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed diff only adds automatic Meta WhatsApp image retrieval and preview. These separately classified payment, invitation, routing, fulfillment or shared-runtime procedures retain their existing behavior and controls."
+    },
+    {
+      "path": "src/lib/whatsapp-meta-templates.ts",
+      "sha256": "9f5f51fdd4cc9a689111a6923a7bbde5ba43d0fbb6cbb75092395fab9435a7b9",
+      "baseSha256": "358a2b4d5fb16bf4c70071c3123705416789024d1266ae3947ef71b061f1a89d",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed diff only adds automatic Meta WhatsApp image retrieval and preview. These separately classified payment, invitation, routing, fulfillment or shared-runtime procedures retain their existing behavior and controls."
+    },
+    {
+      "path": "src/app/[restaurantId]/settings/orders/WorkflowStageMessage.tsx",
+      "sha256": "4de85c5c0c03e3ba43d970087e1701f3a193d9f07ae9d418d6ba2ca16601d8e1",
+      "baseSha256": "5fae5341fc502ee9008a3fe3136ca7306bc839d46eac0a419cc294a5c59ce11e",
+      "features": [
+        "order-types",
+        "fulfillment-policy"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed diff only adds automatic Meta WhatsApp image retrieval and preview. These separately classified payment, invitation, routing, fulfillment or shared-runtime procedures retain their existing behavior and controls."
+    }
+  ]
+}

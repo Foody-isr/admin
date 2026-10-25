@@ -9444,10 +9444,10 @@ export function resumeMetaWhatsAppSignup(restaurantId: number): Promise<MetaWhat
 }
 
 export type MetaTemplateKind = 'order_recap' | 'delivery_reminder' | 'order_status' | 'receipt' | 'satisfaction';
-export interface WhatsAppAttachment { source: '' | 'none' | 'fixed' | 'receipt'; asset_id: string }
+export interface WhatsAppAttachment { source: '' | 'none' | 'fixed' | 'receipt' | 'meta'; asset_id: string }
 export interface MetaTemplateRef { name: string; language: string; attachment?: WhatsAppAttachment }
 export interface MetaWhatsAppTemplate extends MetaTemplateRef {
-  id: string; status: string; category: string; parameter_format?: string;
+  id: string; status: string; category: string; parameter_format?: string; image_available?: boolean;
   components: { type: string; text?: string; format?: string }[];
 }
 /** Lists the restaurant's native Meta templates, including pending and rejected entries. */
@@ -9506,6 +9506,10 @@ export async function uploadWhatsAppMedia(rid: number,file: File): Promise<Whats
 /** Read one private file as a short-lived browser blob, without credentials in URLs. */
 export async function getWhatsAppMediaFile(rid: number,id: string): Promise<Blob> {
  return (await privateMetaFileRequest(rid,`media/${encodeURIComponent(id)}`)).blob();
+}
+/** Read the approved image from the active restaurant's Meta template through the authenticated API. */
+export async function getMetaWhatsAppTemplateImage(rid: number,id: string): Promise<Blob> {
+ return (await privateMetaFileRequest(rid,`templates/${encodeURIComponent(id)}/image`)).blob();
 }
 /** Preview the current order's PDF without sending it to WhatsApp. */
 export async function getWhatsAppReceiptFile(rid: number,orderId: number,language: string): Promise<Blob> {
@@ -10977,7 +10981,7 @@ export function getAddressAutocompleteConfig(restaurantId: number) {
 export interface OrderWhatsAppPreview {
   send_blocked_reason?: 'not_due' | 'already_attempted';
   previous_status?: OrderWhatsAppPreview['status'];
- attachment?: { source: 'fixed' | 'receipt'; asset_id?: string; filename: string; mime_type: string; format: 'IMAGE' | 'DOCUMENT' };
+ attachment?: { source: 'fixed' | 'receipt' | 'meta'; asset_id?: string; template_id?: string; filename: string; mime_type: string; format: 'IMAGE' | 'DOCUMENT' };
   id: string;
   kind: 'order_recap' | 'delivery_reminder' | 'satisfaction';
   status: 'ready' | 'sending' | 'accepted' | 'unknown' | 'sent' | 'delivered' | 'read' | 'failed';

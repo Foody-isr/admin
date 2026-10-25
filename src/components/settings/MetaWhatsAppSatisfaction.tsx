@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Heart, Plus } from 'lucide-react';
 import { Badge, Button, ConfirmDialog, Drawer, Field, Input } from '@/components/ds';
 import { configureMetaSatisfaction, getMetaWhatsAppStatus, type MetaSatisfactionSettings, type MetaWhatsAppStatus, type MetaWhatsAppTemplate } from '@/lib/api';
-import { metaTemplateHeader, validWhatsAppAttachment, compatibleMetaTemplate } from '@/lib/whatsapp-meta-templates';
+import { defaultWhatsAppAttachment, metaTemplateHeader, validWhatsAppAttachment, compatibleMetaTemplate } from '@/lib/whatsapp-meta-templates';
 import { useI18n } from '@/lib/i18n';
 
+import { WhatsAppTemplatePreview } from '@/components/settings/WhatsAppTemplatePreview';
 import { WhatsAppAttachmentPicker } from './WhatsAppAttachmentPicker';
 
 const inputClass = 'w-full rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm';
@@ -77,12 +78,12 @@ export function MetaWhatsAppSatisfaction({ rid, status, templates, canEdit, disa
         <p className="wa-muted">{t(draft.mode === 'manual' ? 'waSatisfactionManualHint' : draft.mode === 'disabled' ? 'waSatisfactionDisabledHint' : 'waSatisfactionAutomaticHint')}</p>
       </section>
       {draft.mode !== 'disabled' && <>
-        <section className="wa-editor-section space-y-4"><Field label={t('waWorkspaceSelect')}><select className={inputClass} aria-label={t('waWorkspaceSelect')} value={draft.template.name ? `${draft.template.name}|${draft.template.language}` : ''} disabled={!canEdit || busy || uncertain} onChange={event => { const [name = '', language = ''] = event.target.value.split('|'); setDraft(old => ({ ...old, template: { name, language,attachment:{source:metaTemplateHeader(templates.find(row=>row.name===name && row.language===language))?'fixed':'none',asset_id:''} } })); }}><option value="">{t('waMetaNoTemplate')}</option>{!!draft.template.name && !selected && <option disabled value={`${draft.template.name}|${draft.template.language}`}>{draft.template.name}</option>}{templates.map(item => <option key={item.id} value={`${item.name}|${item.language}`} disabled={!compatibleMetaTemplate('satisfaction', item)}>{item.name} · {item.language}</option>)}</select></Field>
-          {selected && metaTemplateHeader(selected) && <WhatsAppAttachmentPicker key={`${rid}:satisfaction:${selected.id}`} rid={rid} format={metaTemplateHeader(selected) as 'IMAGE'|'DOCUMENT'} value={draft.template.attachment} disabled={!canEdit || busy || uncertain} onBusyChange={setAttachmentBusy} onChange={attachment=>setDraft(old=>({...old,template:{...old.template,attachment}}))}/>}
+        <section className="wa-editor-section space-y-4"><Field label={t('waWorkspaceSelect')}><select className={inputClass} aria-label={t('waWorkspaceSelect')} value={draft.template.name ? `${draft.template.name}|${draft.template.language}` : ''} disabled={!canEdit || busy || uncertain} onChange={event => { const [name = '', language = ''] = event.target.value.split('|'); setDraft(old => ({ ...old, template: { name, language,attachment:defaultWhatsAppAttachment(templates.find(row=>row.name===name && row.language===language)) } })); }}><option value="">{t('waMetaNoTemplate')}</option>{!!draft.template.name && !selected && <option disabled value={`${draft.template.name}|${draft.template.language}`}>{draft.template.name}</option>}{templates.map(item => <option key={item.id} value={`${item.name}|${item.language}`} disabled={!compatibleMetaTemplate('satisfaction', item)}>{item.name} · {item.language}</option>)}</select></Field>
+          {selected && metaTemplateHeader(selected) && <WhatsAppAttachmentPicker key={`${rid}:satisfaction:${selected.id}`} rid={rid} template={selected} format={metaTemplateHeader(selected) as 'IMAGE'|'DOCUMENT'} value={draft.template.attachment} disabled={!canEdit || busy || uncertain} onBusyChange={setAttachmentBusy} onChange={attachment=>setDraft(old=>({...old,template:{...old.template,attachment}}))}/>}
  {canEdit && <Button variant="ghost" disabled={busy || attachmentBusy} onClick={() => { if (dirty) { setCreateAfterDiscard(true); setDiscard(true); } else { setOpen(false); onCreate(); } }}><Plus aria-hidden="true" />{t('waWorkspaceCreateFor')}</Button>}
           {dirty && <p className="wa-muted">{t('waWorkspaceDirty')}</p>}
         </section>
-        <section className="wa-editor-section"><h3>{t('waWorkspacePreview')}</h3>{selected ? <p className="wa-preview" dir={selected.language.startsWith('he') ? 'rtl' : 'ltr'}>{selected.components.find(item => item.type === 'BODY')?.text}</p> : <p className="wa-muted">{t('waWorkspaceNoPreview')}</p>}</section>
+        <section className="wa-editor-section"><h3>{t('waWorkspacePreview')}</h3>{selected ? <WhatsAppTemplatePreview rid={rid} template={selected} attachment={draft.template.attachment} /> : <p className="wa-muted">{t('waWorkspaceNoPreview')}</p>}</section>
         <p className="wa-muted mt-4">{t('waSatisfactionTitleHint')}</p>
         {!status.notifications_active && <p className="wa-feedback wa-muted">{t('waSatisfactionNeedsProvider')}</p>}
       </>}

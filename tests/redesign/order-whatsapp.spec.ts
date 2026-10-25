@@ -387,3 +387,12 @@ test('English dark composer keeps message and send action accessible', async ({ 
   await expect(drawer.getByRole('button', { name: 'Send message', exact: true })).toBeInViewport({ ratio: 1 });
   await page.screenshot({ path: info.outputPath('order-whatsapp-dark-en.png'), animations: 'disabled' });
 });
+
+test('Meta image attachment is displayed inline in the order message review', async ({page}) => {
+ await install(page,false,true);
+ let reads=0;
+ await page.route('**/whatsapp/orders/1048/preview',route=>route.fulfill({json:{id:'11111111-1111-4111-8111-111111111111',provider:'meta',kind:'order_recap',status:'ready',language:'fr',message:'Confirmation approuvée avec image.',recipient:'+972500000000',from:'+972500000002',attachment:{source:'meta',template_id:'700',filename:'order_recap.png',mime_type:'image/png',format:'IMAGE'}}}));
+ await page.route('**/whatsapp/meta/templates/700/image',route=>{reads++;expect(route.request().headers()['x-restaurant-id']).toBe('1');return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6t4AAAAAASUVORK5CYII=','base64')})});
+ const drawer=await confirmation(page);await expect(drawer.getByRole('img',{name:'Image jointe au message WhatsApp'})).toBeVisible();expect(reads).toBeGreaterThan(0);
+ await page.setViewportSize({width:375,height:1000});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});

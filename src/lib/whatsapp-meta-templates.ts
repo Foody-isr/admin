@@ -24,6 +24,7 @@ export function metaTemplateHeader(template?: MetaWhatsAppTemplate): '' | 'IMAGE
 export function validWhatsAppAttachment(template: MetaWhatsAppTemplate,choice?: WhatsAppAttachment): boolean {
  const format=metaTemplateHeader(template);
  if(!format)return !choice?.asset_id && (!choice?.source || choice.source==='none');
+ if(format==='IMAGE' && template.image_available && !choice?.asset_id && (!choice?.source || choice.source==='none' || choice.source==='meta'))return true;
  if(format==='DOCUMENT' && choice?.source==='receipt')return !choice.asset_id;
  return choice?.source==='fixed' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(choice.asset_id);
 }
@@ -37,4 +38,9 @@ export function compatibleMetaTemplate(kind: MetaTemplateKind, template: MetaWha
     return positionalBody(body, 5);
   }
   return validMetaTemplateBody(kind, body);
+}
+
+/** Prefer the image already attached to Meta's approved template when one is available. */
+export function defaultWhatsAppAttachment(template?: MetaWhatsAppTemplate): WhatsAppAttachment {
+ return {source:metaTemplateHeader(template)==='IMAGE' && template?.image_available?'meta':metaTemplateHeader(template)?'fixed':'none',asset_id:''};
 }

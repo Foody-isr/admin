@@ -763,6 +763,46 @@ test('read-only staff preview a private photo using scoped headers without editi
  await expect(drawer.getByLabel('Photo',{exact:true})).toBeDisabled();
  await expect(drawer.getByRole('button',{name:'Supprimer le fichier',exact:true})).toHaveCount(0);
  const popupPromise=page.waitForEvent('popup');await drawer.getByRole('button',{name:'Voir le fichier',exact:true}).click();const popup=await popupPromise;
- await expect(popup).toHaveURL(/^blob:/);expect(reads).toEqual([asset.id]);expect(state.writes).toHaveLength(0);
+ await expect(popup).toHaveURL(/^blob:/);expect(reads.length).toBeGreaterThanOrEqual(1);expect(reads.every(id=>id===asset.id)).toBe(true);expect(state.writes).toHaveLength(0);
  await popup.close();
+});
+
+
+test('Meta image is fetched automatically and displayed after an external template edit', async ({page},info) => {
+ const state=await install(page,{coexistence:true,metaReady:true});
+ Object.assign(state.control.meta.connection!,{order_recap_name:'order_recap',order_recap_language:'fr',delivery_reminder_name:'delivery_reminder',delivery_reminder_language:'fr'});
+ const reads:string[]=[];
+ await page.route('**/whatsapp/meta/templates/700/image', async route => {
+  expect(route.request().method()).toBe('GET');expect(route.request().headers()['x-restaurant-id']).toBe('1');
+  expect(route.request().headers()['authorization']).toBe('Bearer isolated-ui-fixture');reads.push(route.request().url());
+  return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6t4AAAAAASUVORK5CYII=','base64')});
+ });
+ await page.route('**/whatsapp/meta/media',route=>route.fulfill({json:{media:[]}}));
+ await page.goto('/1/settings/whatsapp');
+ state.control.catalogue[0].image_available=true;
+ state.control.catalogue[0].components.unshift({type:'HEADER',format:'IMAGE'});
+ await page.getByRole('button',{name:'Actualiser les modèles et la connexion',exact:true}).click();
+ await page.getByRole('button',{name:'Configurer · Confirmation détaillée de commande',exact:true}).click();
+ const drawer=page.getByRole('dialog');
+ await expect(drawer.getByLabel('Photo',{exact:true})).toHaveValue('meta');
+ const image=drawer.getByRole('img',{name:'Image jointe au message WhatsApp'});
+ await expect(image).toBeVisible();expect(await image.evaluate((img:HTMLImageElement)=>img.naturalWidth)).toBeGreaterThan(0);
+ await page.screenshot({path:info.outputPath('whatsapp-meta-image-preview-fr.png'),animations:'disabled'});
+ expect(reads.length).toBeGreaterThanOrEqual(1);expect(state.writes).toHaveLength(0);
+ await drawer.getByRole('button',{name:'Terminé',exact:true}).click();
+ await page.getByRole('button',{name:'Activer les notifications Meta',exact:true}).click();
+ expect(state.writes).toHaveLength(1);expect(state.writes[0].path).toContain('/notifications');
+});
+
+test('Meta image retrieval failure offers retry and leaves configuration untouched', async ({page}) => {
+ const state=await install(page,{coexistence:true,metaReady:true,permissions:['settings.view']});
+ Object.assign(state.control.meta.connection!,{order_recap_name:'order_recap',order_recap_language:'fr'});
+ Object.assign(state.control.catalogue[0],{image_available:true});state.control.catalogue[0].components.unshift({type:'HEADER',format:'IMAGE'});
+ let attempts=0, ready=false;
+ await page.route('**/whatsapp/meta/templates/700/image',route=>{attempts++;return !ready?route.fulfill({status:422,json:{error:'wa_meta_media_invalid'}}):route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6t4AAAAAASUVORK5CYII=','base64')})});
+ await page.route('**/whatsapp/meta/media',route=>route.fulfill({json:{media:[]}}));
+ await page.goto('/1/settings/whatsapp');await page.getByRole('button',{name:'Voir · Confirmation détaillée de commande',exact:true}).click();
+ const drawer=page.getByRole('dialog');await expect(drawer.getByRole('alert')).toContainText('Impossible de récupérer l’image depuis Meta');
+ ready=true;const before=attempts;await drawer.getByRole('button',{name:'Actualiser',exact:true}).click();await expect(drawer.getByRole('img')).toBeVisible();
+ expect(attempts).toBeGreaterThan(before);expect(state.writes).toHaveLength(0);
 });
