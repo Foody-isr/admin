@@ -12,17 +12,18 @@
     },
     {
       "path": "src/lib/i18n.tsx",
-      "sha256": "15b3c420ad848a4d2557da941d7756c78cf4a2cc515d9a7834a1889f286e24be",
-      "baseSha256": "862c26fcb77926fd3f7bf4e2ccd2577504861992b7160098c9856f4fa0473595",
+      "sha256": "e653a20a927321d3e8cd195feb472d04d0a3bec748f79c47115c71f51fd3bf5f",
+      "baseSha256": "024f743632f935af2995be97c4d5a675081a7c191275091c5809996d0f9e49c3",
       "features": [
         "customers-profiles",
         "google-account-setup",
         "pos-behavior",
         "whatsapp",
-        "shared-runtime"
+        "shared-runtime",
+        "menu-menus-and-groups"
       ],
       "disposition": "no-user-impact",
-      "reason": "The diff adds only nine French, Hebrew and English strings for the superadmin courier selector and its empty state. All existing customer, Google, POS and WhatsApp labels are unchanged, as are locale resolution, currency and shared translation behavior. Courier and dispatch procedures document the addition in all three languages."
+      "reason": "The diff against develop adds only nine French, Hebrew and English strings for the superadmin courier selector and its empty state. Existing customer, menu, Google, POS and WhatsApp labels are unchanged, as are locale resolution, currency and shared translation behavior. Courier and dispatch procedures document the addition in all three languages."
     }
   ]
 }

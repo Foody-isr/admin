@@ -58,6 +58,7 @@ import { useItemLeaveGuard } from "@/components/menu-item/useItemLeaveGuard";
 import { StockPreparation } from "./StockPreparation";
 import { StockHistory } from "./StockHistory";
 import { CarteGroups } from "./CarteGroups";
+import { CarteItemPicker } from "./CarteItemPicker";
 import ActionMenu from "@/components/common/ActionMenu";
 import styles from "./CarteEditor.module.css";
 
@@ -181,6 +182,7 @@ function CarteEditor({
   const [menu, setMenu] = useState<Menu | null>(null);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [menus, setMenus] = useState<Menu[]>([]);
   const [batch, setBatch] = useState<BatchFulfillmentConfigResponse | null>(
     null,
   );
@@ -198,7 +200,7 @@ function CarteEditor({
   );
   const [groupKey, setGroupKey] = useState<string | null>(null);
   const [picker, setPicker] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  const [choosePickerTarget, setChoosePickerTarget] = useState(false);
   const [preview, setPreview] = useState<Menu | null>(null);
   const [historyItem, setHistoryItem] = useState<number | null>(null);
   const [confirmation, setConfirmation] = useState<
@@ -246,6 +248,7 @@ function CarteEditor({
         const found = menus.find((m) => m.id === mid);
         if (!found) throw new Error();
         setMenu(found);
+        setMenus(menus);
         setRestaurant(restaurant);
         setItems(library);
         setBatch(config);
@@ -630,7 +633,7 @@ function CarteEditor({
               onClick: () => {
                 if (doc?.groups[0]) {
                   setPicker(doc.groups[0].key);
-                  setSearch("");
+                  setChoosePickerTarget(true);
                 }
               },
             },
@@ -686,7 +689,7 @@ function CarteEditor({
             onGroupSettings={setGroupKey}
             onChooseItems={(key) => {
               setPicker(key);
-              setSearch("");
+              setChoosePickerTarget(false);
             }}
             onRemoveGroup={setRemoveGroup}
             onHistory={setHistoryItem}
@@ -956,73 +959,24 @@ function CarteEditor({
           )}
         </DialogContent>
       </Dialog>
-      <Dialog
-        open={picker !== null}
-        onOpenChange={(open) => {
-          if (!open) setPicker(null);
-        }}
-      >
-        <DialogContent {...dialogFocus}>
-          <DialogHeader>
-            <DialogTitle>{t("carteChooseItems")}</DialogTitle>
-            <DialogDescription>{t("carteChooseHint")}</DialogDescription>
-          </DialogHeader>
-          <label className="block space-y-2">
-            <span>{t("carteTargetGroup")}</span>
-            <select
-              className="input"
-              aria-label={t("carteTargetGroup")}
-              value={picker ?? ""}
-              onChange={(event) => setPicker(event.target.value)}
-            >
-              {doc?.groups.map((value) => (
-                <option key={value.key} value={value.key}>
-                  {value.name || t("carteUntitled")}
-                </option>
-              ))}
-            </select>
-          </label>
-          <input
-            className="input"
-            aria-label={t("search")}
-            placeholder={t("search")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <div className="max-h-96 overflow-y-auto divide-y">
-            {items
-              .filter((item) =>
-                item.name
-                  .toLocaleLowerCase()
-                  .includes(search.toLocaleLowerCase()),
-              )
-              .map((item) => {
-                const target = doc?.groups.find((g) => g.key === picker);
-                return (
-                  <label className="flex gap-3 items-center py-3" key={item.id}>
-                    <input
-                      type="checkbox"
-                      checked={target?.item_ids.includes(item.id) || false}
-                      disabled={!canEdit || busy}
-                      onChange={(e) => {
-                        if (target)
-                          updateGroup(target.key, {
-                            item_ids: e.target.checked
-                              ? [...target.item_ids, item.id]
-                              : target.item_ids.filter((id) => id !== item.id),
-                          });
-                      }}
-                    />
-                    <span>{item.name}</span>
-                  </label>
-                );
-              })}
-          </div>
-          <Button variant="secondary" onClick={() => setPicker(null)}>
-            {t("close")}
-          </Button>
-        </DialogContent>
-      </Dialog>
+      {picker !== null && doc && (
+        <CarteItemPicker
+          rid={rid}
+          restaurantName={restaurant?.name ?? ""}
+          items={items}
+          menus={menus}
+          mid={mid}
+          groups={doc.groups}
+          targetKey={picker}
+          chooseTarget={choosePickerTarget}
+          stock={stock}
+          disabled={!canEdit || busy}
+          onTargetChange={setPicker}
+          onChange={(key, item_ids) => updateGroup(key, { item_ids })}
+          onClose={() => setPicker(null)}
+          onCreate={() => { setPicker(null); navigate(`/${rid}/menu/items/new?returnTo=${encodeURIComponent(`/${rid}/menu/menus/${mid}`)}`); }}
+        />
+      )}
       <Dialog
         open={historyItem !== null}
         onOpenChange={(open) => {
