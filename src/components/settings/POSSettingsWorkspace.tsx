@@ -47,7 +47,7 @@ function Workspace({rid,view,modeId,section}:{rid:number;view:View;modeId:string
  </>;
  const save=<Button form="pos-settings-form" type="submit" disabled={!policy.editable||!policy.dirty||policy.saving}>{t(policy.saving?'saving':'save')}</Button>;
  return <>
-  {view==='mode'?<Dialog.Root open onOpenChange={open=>{if(!open)exit();}}><Dialog.Portal><Dialog.Overlay className="fixed inset-0 z-50 bg-[var(--overlay)]"/><Dialog.Content ref={editorRef} onOpenAutoFocus={e=>{e.preventDefault();editorRef.current?.focus();}} aria-describedby={undefined} className="pos-settings pos-mode-editor" data-pos-settings="mode">
+  {view==='mode'?<Dialog.Root open onOpenChange={open=>{if(!open)exit();}}><Dialog.Portal><Dialog.Overlay className="fixed inset-0 z-50 bg-[var(--overlay)]"/><Dialog.Content ref={editorRef} onOpenAutoFocus={e=>{e.preventDefault();editorRef.current?.focus();}} aria-describedby={undefined} className="pos-settings pos-mode-editor" data-pos-settings="mode" data-mode-section={section||'checkout'}>
    <header className="pos-editor-head"><Button type="button" variant="secondary" icon aria-label={t('close')} disabled={policy.saving} onClick={exit}><X/></Button><div><p>{t(modeId==='default'?'posDefaultsHint':'posModeSharedHint')}</p><Dialog.Title>{title}</Dialog.Title></div>{save}</header>
    <div className="pos-editor-layout"><aside><h2>{t('settings')}</h2><Link href={`/${rid}/settings/modes/${modeId}`} aria-current={section!=='open-checks'?'page':undefined}>{t('posCheckout')}</Link><Link className="pos-mode-open-checks-link" href={`/${rid}/settings/modes/${modeId}/open-checks`} aria-current={section==='open-checks'?'page':undefined}><ReceiptText aria-hidden/>{t('posOpenChecks')}</Link></aside><main>{content}</main></div>
   </Dialog.Content></Dialog.Portal></Dialog.Root>:<div className="pos-settings" data-pos-settings={view}>
@@ -240,17 +240,22 @@ function ModeEditor({policy,rid,id,section}:{policy:Policy;rid:number;id:string;
  const behavior:POSCheckBehavior=value?.check_behavior??draft.check_behavior??{allow_hold_fire:true,collapse_sent:true,open_checks_enabled:true,open_checks_home:false,predefined_tickets:false};
  const patchBehavior=(next:Partial<POSCheckBehavior>)=>patch({check_behavior:{...behavior,...next}});
  const base=`/${rid}/settings/modes/${id}`;
- const links=[['order-entry','posOrderEntry'],['covers','fullServiceSeating'],['courses','posCourseManagement'],['cart','posCart'],['open-checks','posOpenChecks']] as const;
+ const links=[['cart','posCart'],['order-entry','posOrderEntry'],['covers','fullServiceSeating'],['courses','posCourseManagement'],['open-checks','posOpenChecks']] as const;
  const heading=links.find(([key])=>key===section)?.[1];
  const openDevices=()=>{setSelecting(true);setSelected(mode?.device_ids??[]);setDeviceError('');listDevices(rid).then(rows=>{if(rows.some(row=>row.restaurant_id!==rid))throw new Error('Incorrect restaurant');setDevices(rows.filter(d=>['tablet','phone','computer','payment_terminal'].includes(d.kind)));}).catch(()=>setDeviceError(t('tableSettingsLoadFailed')));};
  return <>
-  <div className="pos-editor-subhead">{section&&<Link href={base} aria-label={t('back')}><ArrowLeft className="rtl:rotate-180"/></Link>}<h2>{t(heading??'posCheckout')}</h2></div>
+  <div className="pos-editor-subhead">{section&&<Link href={base} aria-label={t('back')}><ArrowLeft className="rtl:rotate-180"/></Link>}<h2>{t(heading??'posCheckoutPageTitle')}</h2></div>
   {!section&&<>
-   <p className="pos-setting-hint">{t(isDefault?'posDefaultsHint':'posModeSharedHint')}</p>
-   {mode&&<label className="pos-inset-field mt-6">{t('name')}<Input aria-label={t('name')} maxLength={80} value={mode.name} onChange={e=>patch({name:e.target.value})}/></label>}
-   {mode&&<button type="button" className="pos-setting-row mt-8" onClick={openDevices}><strong>{t('posAssignedDevices')}</strong><span className="pos-row-detail">{mode.device_ids.length}<ChevronRight aria-hidden className="size-5 rtl:rotate-180"/></span></button>}
-   <SettingSection title={t('posCheckout')}>{links.map(([key,label])=><SettingLink key={key} href={`${base}/${key}`} label={t(label)}/>)}<SettingLink href={`/${rid}/settings/fulfillment`} label={t('posFulfillment')}/></SettingSection>
-   {mode&&<Button type="button" variant="danger" disabled={!policy.editable||policy.saving} onClick={()=>setRemove(true)}>{t('posDeleteMode')}</Button>}
+   <SettingSection title={t('posGeneralChecks')}>
+    {links.filter(([key])=>key!=='open-checks').map(([key,label])=><SettingLink key={key} href={`${base}/${key}`} label={t(key==='order-entry'?'posCheckoutOrderEntry':label)}/>)}
+    <SettingLink href={`/${rid}/settings/fulfillment`} label={t('posFulfillment')}/>
+    <div className="pos-mode-mobile-extension"><SettingLink href={`${base}/open-checks`} label={t('posOpenChecks')}/></div>
+   </SettingSection>
+   {mode&&<SettingSection title={t('posModeProfile')}>
+    <label className="pos-inset-field">{t('name')}<Input aria-label={t('name')} maxLength={80} value={mode.name} onChange={e=>patch({name:e.target.value})}/></label>
+    <button type="button" className="pos-setting-row" onClick={openDevices}><strong>{t('posAssignedDevices')}</strong><span className="pos-row-detail">{mode.device_ids.length}<ChevronRight aria-hidden className="size-5 rtl:rotate-180"/></span></button>
+    <Button type="button" variant="danger" className="pos-mode-delete" disabled={!policy.editable||policy.saving} onClick={()=>setRemove(true)}>{t('posDeleteMode')}</Button>
+   </SettingSection>}
   </>}
   {section==='order-entry'&&<>
    <p className="pos-entry-intro">{t('posTileSizeHint')}</p>

@@ -47,6 +47,45 @@ test('mode assignment moves an actual device once and does not change restaurant
  expect(writes).toEqual([]);await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
  expect(writes[0].modes?.[0].device_ids).toEqual([deviceId]);expect(writes[0].modes?.[1].device_ids).toEqual([]);expect(writes[0].seating_mode).toBe('optionalSeats');
 });
+test.describe('Square mode editor alignment',()=>{
+test.use({deviceScaleFactor:2});
+test('checkout overview matches the supplied Square Dashboard geometry',async({page},info)=>{
+ const writes=await install(page);await page.setViewportSize({width:1440,height:716});await page.goto(`/1/settings/modes/${modeId}`);
+ const editor=page.locator('.pos-mode-editor'),head=editor.locator('.pos-editor-head'),main=editor.locator('.pos-editor-layout>main');
+ await expect(main.getByRole('heading',{name:'Paiement',exact:true})).toBeVisible();await page.evaluate(()=>document.fonts.ready);
+ expect(await head.boundingBox()).toMatchObject({x:0,y:0,width:1440,height:93});
+ expect(await head.locator('button').first().boundingBox()).toMatchObject({x:32,y:16,width:48,height:48});
+ expect(await editor.locator('aside').boundingBox()).toMatchObject({x:0,y:93,width:280});
+ expect(await main.locator('.pos-editor-subhead').boundingBox()).toMatchObject({x:352,y:117,height:32});
+ const general=main.locator('.pos-setting-section').first();
+ expect(await general.getByRole('heading',{name:'Général',exact:true}).boundingBox()).toMatchObject({x:352,y:197,height:24});
+ const rows=general.locator(':scope>.pos-setting-row');
+ await expect(rows).toHaveText(['Panier','Saisie de commande','Suivi des couverts et des places','Gestion des services','Modes de traitement']);
+ for(let i=0;i<5;i++)expect(await rows.nth(i).boundingBox()).toMatchObject({x:352,y:233+i*56,width:1016,height:56});
+ await expect(main.getByRole('heading',{name:'Paiement',exact:true})).toHaveCSS('color','rgb(26, 26, 26)');
+ await expect(rows.first()).toHaveCSS('border-bottom-color','rgb(240, 240, 240)');
+ await expect(head.locator('button').first()).toHaveCSS('background-color','rgb(240, 240, 240)');
+ await expect(editor.locator('aside a[aria-current=page]')).toHaveCSS('background-color','rgb(204, 204, 204)');
+ const title=await head.locator('h2').boundingBox();expect(title!.x+title!.width/2).toBe(720);
+ await expect(head.locator('button').first().locator('svg')).toHaveCSS('width','24px');
+ await page.addStyleTag({content:'nextjs-portal{display:none}'});await page.screenshot({path:info.outputPath('mode-checkout-square-fr-1440.png')});
+ expect(writes).toEqual([]);
+});
+for(const [locale,theme,width]of [['fr','light',320],['fr','light',390],['he','dark',390],['he','light',1440]]as const)test(`checkout overview keeps profile and extension reachable ${locale} ${theme} ${width}`,async({page},info)=>{
+ const writes=await install(page,locale,theme);await page.setViewportSize({width,height:844});await page.goto(`/1/settings/modes/${modeId}`);
+ const editor=page.locator('.pos-mode-editor');await expect(editor.locator('.pos-editor-subhead')).toBeVisible();
+ expect(await editor.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+ const title=await editor.locator('.pos-editor-head h2').boundingBox();expect(Math.abs(title!.x+title!.width/2-width/2)).toBeLessThan(1);
+ const main=editor.locator('.pos-editor-layout>main');await expect(main.getByRole('textbox')).toHaveValue('Service complet');
+ await page.evaluate(()=>document.fonts.ready);await page.addStyleTag({content:'nextjs-portal{display:none}'});
+ for(const row of await main.locator('.pos-setting-section').first().locator('.pos-setting-row').all())expect(await row.evaluate(el=>el.scrollHeight<=el.clientHeight)).toBe(true);
+ await page.screenshot({path:info.outputPath(`mode-checkout-${locale}-${theme}-${width}.png`)});
+ const extensions=main.locator('.pos-mode-mobile-extension a');
+ if(width<768){await extensions.click();await expect(page.locator('.pos-open-notice')).toBeVisible();}
+ else await expect(extensions).toBeHidden();
+ expect(writes).toEqual([]);
+});
+});
 test('Modes list opens an undimmed profile, stages rename, saves and manages the real profile',async({page},info)=>{
  const writes=await install(page);await page.setViewportSize({width:1440,height:716});await page.goto('/1/settings/modes');
  const list=page.locator('[data-pos-settings=modes]');await expect(list.getByRole('heading',{name:'Modes',exact:true})).toBeVisible();
@@ -107,7 +146,7 @@ for(const [locale,theme,width,height] of [['fr','light',1440,756],['fr','dark',1
  await expect(page.locator('.pos-tile-option')).toHaveCount(2);await page.evaluate(()=>document.fonts.ready);
  if(width===1440){const box=await page.locator('.pos-tile-option').first().boundingBox();expect(box).toMatchObject({x:352,width:500,height:234});}
  const main=page.locator('.pos-editor-layout>main');expect(await main.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
- expect(await page.locator('.pos-mode-editor').evaluate(el=>({background:getComputedStyle(el).backgroundColor,color:getComputedStyle(el).color}))).toEqual(theme==='dark'?{background:'rgb(28, 28, 28)',color:'rgb(245, 245, 245)'}:{background:'rgb(255, 255, 255)',color:'rgb(23, 23, 23)'});
+ expect(await page.locator('.pos-mode-editor').evaluate(el=>({background:getComputedStyle(el).backgroundColor,color:getComputedStyle(el).color}))).toEqual(theme==='dark'?{background:'rgb(28, 28, 28)',color:'rgb(245, 245, 245)'}:{background:'rgb(255, 255, 255)',color:'rgb(26, 26, 26)'});
  await page.addStyleTag({content:'nextjs-portal{display:none}'});await page.screenshot({path:info.outputPath(`mode-${locale}-${theme}-${width}.png`)});
 });
 test('read-only mode options and service actions cannot persist',async({page})=>{
