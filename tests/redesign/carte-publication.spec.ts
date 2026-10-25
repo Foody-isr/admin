@@ -532,7 +532,7 @@ test("Add selects a target group and item navigation guards the resulting draft"
     .getByRole("combobox", { name: "Groupe de cartes", exact: true })
     .selectOption("group-2");
   await picker.getByRole("checkbox").first().check();
-  await picker.getByRole("button", { name: "Fermer", exact: true }).click();
+  await picker.getByRole("button", { name: "Terminé", exact: true }).click();
   await page
     .getByRole("link", { name: "Salade méditerranéenne", exact: true })
     .click();
@@ -542,6 +542,99 @@ test("Add selects a target group and item navigation guards the resulting draft"
     .getByRole("button", { name: "Continuer la modification", exact: true })
     .click();
   await expect(page).toHaveURL(new RegExp(`/menu/menus/${f.menu.id}$`));
+  expect(f.writes).toEqual([]);
+});
+
+test("item picker filters library categories, keeps hidden selections and renders photos", async ({ page }) => {
+  const f = await install(page, "fr", true);
+  f.items[0].image_url = "/images/login/cafe-israel.webp";
+  await page.goto(`/1/menu/menus/${f.menu.id}`);
+  await page.getByRole("button", { name: "Ajouter des articles", exact: true }).first().click();
+  const picker = page.locator("[data-carte-item-picker]");
+  const item = (id: number) => picker.locator(`[data-picker-item="${id}"]`);
+  await expect(item(1).locator("img")).toBeVisible();
+  await expect.poll(() => item(1).locator("img").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+  await expect(picker.locator("svg.lucide-search")).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  await page.screenshot({ path: test.info().outputPath("picker-articles.png") });
+  await expect(picker.getByRole("status")).toHaveText("3 élément(s) sélectionné(s)");
+  await picker.getByRole("button", { name: "Filtres", exact: true }).click();
+  await page.screenshot({ path: test.info().outputPath("picker-filters.png") });
+  await page.getByRole("button", { name: "Catégorie Tous", exact: true }).click();
+  const filter = page.locator("[data-carte-picker-filter]");
+  await filter.getByRole("checkbox", { name: "Boissons", exact: true }).check();
+  await page.screenshot({ path: test.info().outputPath("picker-category.png") });
+  await filter.getByRole("button", { name: "Appliquer", exact: true }).click();
+  await expect(item(1)).toHaveCount(0);
+  await expect(item(2)).toHaveCount(0);
+  await expect(item(3)).toBeVisible();
+  await expect(item(3).getByRole("checkbox")).toBeChecked();
+  await expect(picker.getByRole("status")).toHaveText("3 élément(s) sélectionné(s)");
+  await item(3).getByRole("checkbox").uncheck();
+  await picker.getByRole("textbox", { name: "Rechercher", exact: true }).fill("absent");
+  await expect(picker.getByText("Aucun résultat trouvé", { exact: true })).toBeVisible();
+  await picker.getByRole("textbox", { name: "Rechercher", exact: true }).fill("");
+  await picker.getByRole("button", { name: "Filtres", exact: true }).click();
+  await page.getByRole("button", { name: "Effacer tous les filtres", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(item(1).getByRole("checkbox")).toBeChecked();
+  await expect(item(2).getByRole("checkbox")).toBeChecked();
+  await expect(item(3).getByRole("checkbox")).not.toBeChecked();
+  await picker.getByRole("button", { name: "Terminé", exact: true }).click();
+  expect(f.writes).toEqual([]);
+  await header(page).getByRole("button", { name: "Enregistrer le brouillon", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Brouillon enregistré");
+  expect(Array.from(f.docs.values())[0].payload.groups[0].item_ids).toEqual([1, 2]);
+  expect(Array.from(f.docs.values())[0].payload.groups[1].item_ids).toEqual([]);
+});
+
+test("picker filters apply explicitly and stay usable on Hebrew mobile", async ({ page }) => {
+  const f = await install(page, "he", true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/1/menu/menus/${f.menu.id}`);
+  await page.getByRole("button", { name: "הוספת פריטים", exact: true }).first().click();
+  const picker = page.locator("[data-carte-item-picker]");
+  await picker.getByRole("button", { name: "מסננים", exact: true }).click();
+  await page.getByRole("button", { name: "מלאי הכל", exact: true }).click();
+  const filter = page.locator("[data-carte-picker-filter]");
+  await expect(filter.getByRole("button", { name: "החל", exact: true })).toBeDisabled();
+  await filter.getByRole("radio", { name: "אזל המלאי", exact: true }).check();
+  await filter.getByRole("button", { name: "סגור", exact: true }).click();
+  await expect(picker.locator("[data-picker-item]")).toHaveCount(3);
+  await picker.getByRole("button", { name: "מסננים", exact: true }).click();
+  await page.getByRole("button", { name: "מלאי הכל", exact: true }).click();
+  await filter.getByRole("radio", { name: "אזל המלאי", exact: true }).check();
+  await filter.getByRole("button", { name: "החל", exact: true }).click();
+  await expect(picker.locator("[data-picker-item]")).toHaveCount(0);
+  const bounds = await picker.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  expect(f.writes).toEqual([]);
+});
+
+test("category loading can retry and Escape discards only unapplied filters", async ({ page }) => {
+  const f = await install(page, "fr", true);
+  f.items[0].image_url = "/missing-picker-photo.jpg";
+  let failCategories = true;
+  await page.route("**/api/v1/menu/item-categories?*", route => failCategories
+    ? route.fulfill({ status: 503, json: { error: "unavailable" } }) : route.fallback());
+  await page.goto(`/1/menu/menus/${f.menu.id}`);
+  await page.getByRole("button", { name: "Ajouter des articles", exact: true }).first().click();
+  const picker = page.locator("[data-carte-item-picker]");
+  await expect(picker.locator('[data-picker-item="1"] img')).toHaveCount(0);
+  await picker.getByRole("button", { name: "Filtres", exact: true }).click();
+  await page.getByRole("button", { name: "Catégorie Tous", exact: true }).click();
+  const filter = page.locator("[data-carte-picker-filter]");
+  await expect(filter.getByRole("alert")).toHaveText(/Impossible de charger les catégories/);
+  failCategories = false;
+  await filter.getByRole("button", { name: "Réessayer", exact: true }).click();
+  await filter.getByRole("textbox", { name: "Rechercher des catégories", exact: true }).fill("cuis");
+  await expect(filter.getByRole("checkbox", { name: "Boissons", exact: true })).toHaveCount(0);
+  await filter.getByRole("checkbox", { name: "Cuisine", exact: true }).check();
+  await page.keyboard.press("Escape");
+  await expect(filter).toHaveCount(0);
+  await expect(picker.locator("[data-picker-item]")).toHaveCount(3);
+  await expect(picker.getByRole("button", { name: "Filtres", exact: true })).toBeFocused();
   expect(f.writes).toEqual([]);
 });
 

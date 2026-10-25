@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "634c4af4e804fc63b635143541427229ea3773bc",
-  "documentationRevision": "370a1f5c94ebc716e0841e9a9fa31b447b278a7e2ebb5ea3169cdd4333582b7a",
+  "documentationRef": "78ee822e97339242b0e49d3c46fada71ef22abf3",
+  "documentationRevision": "93691061cb554730b6884953fd6046c67e7c8caf5211e35fc6101d8c13e8ced5",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -392,15 +392,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/menus-and-groups.mdx",
-          "sha256": "855209d29110026b7ef3eb545957fb16943e70395ac5fc08588ab26047e37e46"
+          "sha256": "815b98b23ccbcd677ac3da3cd000d8119b6b51fb36344cfe31e5fcff6decb1c6"
         },
         "fr": {
           "path": "src/content/help/fr/menu/menus-and-groups.mdx",
-          "sha256": "5b6877dc9d044c35739e8b176c2982c93b0cdfd23627ece5f3b1ddcd60675f31"
+          "sha256": "b053261d7e3909bad05ff5d9671b1bcff80417e9c076faeaed70e5b3c44d25d6"
         },
         "he": {
           "path": "src/content/help/he/menu/menus-and-groups.mdx",
-          "sha256": "46fa71176632eb6401bcee361b2c4db3761bad1459ec42808393cd356cab1f0a"
+          "sha256": "04efb90ca24d84876abe9011d76bdc644fa919f646dc40d192ce88ed3d651eb9"
         }
       }
     },
@@ -4798,7 +4798,7 @@
       ]
     },
     "src/components/menu/publication/CarteEditor.tsx": {
-      "sha256": "812fa0b43b3c6ae3b3cd1eccd90ad1d858803bdd9a993d8b694b901e662714f7",
+      "sha256": "1aee3f44091b24363dce54d731797f2bce2d060900ac9c2defe0d2c33e34b9de",
       "features": [
         "menu-menus-and-groups"
       ]
@@ -6310,9 +6310,10 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "862c26fcb77926fd3f7bf4e2ccd2577504861992b7160098c9856f4fa0473595",
+      "sha256": "024f743632f935af2995be97c4d5a675081a7c191275091c5809996d0f9e49c3",
       "features": [
         "customers-profiles",
+        "menu-menus-and-groups",
         "delivery-dispatch",
         "google-account-setup",
         "pos-behavior",
@@ -7268,6 +7269,18 @@
       "sha256": "e53675673dd468cea83dbc85967047163e6db706fd9f4250f8df4c87f59f7578",
       "features": [
         "shared-runtime"
+      ]
+    },
+    "src/components/menu/publication/CarteItemPicker.tsx": {
+      "sha256": "4f22fab8ada2e5dd554e07b42007bda04040566c75389a2c9062a9135701d7cf",
+      "features": [
+        "menu-menus-and-groups"
+      ]
+    },
+    "src/components/menu/publication/CarteItemPicker.module.css": {
+      "sha256": "168d592aa5ec6fbb87f31ef276a4617d5a406d5d458a864052f73ecda660a820",
+      "features": [
+        "menu-menus-and-groups"
       ]
     }
   },
@@ -17916,12 +17929,11 @@
     },
     {
       "id": "foodyadmin:src/components/menu/publication/CarteEditor.tsx:ui-controls:1",
-      "kind": "ui-controls",
       "source": "src/components/menu/publication/CarteEditor.tsx",
-      "line": 1,
       "features": [
         "menu-menus-and-groups"
       ],
+      "kind": "ui-controls",
       "labels": [
         "add",
         "cancel",
@@ -17929,8 +17941,6 @@
         "carteAddGroupCard",
         "carteAddItems",
         "carteBack",
-        "carteChooseHint",
-        "carteChooseItems",
         "carteConflict",
         "carteConflictHint",
         "carteDeleteGroupHint",
@@ -17966,7 +17976,6 @@
         "carteSavedAt",
         "carteSettings",
         "carteSharedLibraryHint",
-        "carteTargetGroup",
         "carteUnsaved",
         "carteUnsavedHint",
         "carteUnsavedTitle",
@@ -17986,8 +17995,7 @@
         "saleStockOpen",
         "saleStockPrepare",
         "saleStockTitle",
-        "saving",
-        "search"
+        "saving"
       ],
       "actions": [
         "accept",
@@ -17999,7 +18007,8 @@
         "save",
         "saved",
         "updateGroup"
-      ]
+      ],
+      "line": 1
     },
     {
       "id": "foodyadmin:src/components/menu/publication/CarteGroups.tsx:ui-controls:1",
@@ -24731,6 +24740,51 @@
         "removeCustomerPhone"
       ],
       "actions": []
+    },
+    {
+      "id": "foodyadmin:src/components/menu/publication/CarteItemPicker.tsx:ui-controls:1",
+      "source": "src/components/menu/publication/CarteItemPicker.tsx",
+      "features": [
+        "menu-menus-and-groups"
+      ],
+      "kind": "ui-controls",
+      "labels": [
+        "all",
+        "apply",
+        "carteChooseHint",
+        "cartePickerAllStock",
+        "cartePickerCategoriesError",
+        "cartePickerClear",
+        "cartePickerClearFilters",
+        "cartePickerCreate",
+        "cartePickerFilters",
+        "cartePickerItems",
+        "cartePickerLowStock",
+        "cartePickerMenu",
+        "cartePickerSelected",
+        "cartePickerSoldOut",
+        "cartePickerTitle",
+        "cartePickerVariants",
+        "carteTargetGroup",
+        "carteUntitled",
+        "category",
+        "close",
+        "done",
+        "filterBy",
+        "items",
+        "loading",
+        "noResults",
+        "pointOfSale",
+        "retry",
+        "saleStockError",
+        "search",
+        "searchCategories",
+        "stock"
+      ],
+      "actions": [
+        "openFilter"
+      ],
+      "line": 1
     }
   ]
 }
