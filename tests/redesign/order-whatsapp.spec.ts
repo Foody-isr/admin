@@ -1,5 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createFixture } from './fixtures.mjs';
+
+// Live release checks load the deployed client but isolate all business data and message operations.
+test.beforeEach(async ({ page }) => {
+ if (!process.env.FOODY_IMAGE_LIVE) return;
+ await page.routeWebSocket('**/*', socket => socket.close());
+ await page.route('**/*', route => ['dev-admin.foody-pos.co.il', 'admin.foody-pos.co.il'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
+});
 import type { BlockedOrderWhatsAppAutomation, OrderWhatsAppHistoryEntry } from '../../src/lib/api';
 
 async function install(page: Page, lostResponse = false, meta = false, completed = false, options: { pending?: boolean; readOnly?: boolean; locale?: string } = {}) {
@@ -392,7 +399,7 @@ test('Meta image attachment is displayed inline in the order message review', as
  await install(page,false,true);
  let reads=0;
  await page.route('**/whatsapp/orders/1048/preview',route=>route.fulfill({json:{id:'11111111-1111-4111-8111-111111111111',provider:'meta',kind:'order_recap',status:'ready',language:'fr',message:'Confirmation approuvée avec image.',recipient:'+972500000000',from:'+972500000002',attachment:{source:'meta',template_id:'700',filename:'order_recap.png',mime_type:'image/png',format:'IMAGE'}}}));
- await page.route('**/whatsapp/meta/templates/700/image',route=>{reads++;expect(route.request().headers()['x-restaurant-id']).toBe('1');return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6t4AAAAAASUVORK5CYII=','base64')})});
+ await page.route('**/whatsapp/meta/templates/700/image',route=>{reads++;expect(route.request().headers()['x-restaurant-id']).toBe('1');return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAHgAAAA8CAIAAAAiz+n/AAABrUlEQVR4nO3au1HGQAwE4L8GqqEEhiqICCiNltwBOSmGGbLzvU/Wrk7ybHj2nL7ZwK/H8fUTUcgDvgMnCeiA3isBHdB7xST00+szfA8bQv+x9gS+T6vQnb5WxBmhm5TneZrj5oIusfYc5NxE0NPEdW74XFzQ68QVbvh0LNCCxCVu+Ix46JuU2azB0LcqU1kjoRWUeaxh0GrKJNZ4aAXlxNoRdLPO3x8vpaxDQ6zB0KPKUtYuoOt1biqvWANLjYSeVhax9gs9pDxt7QVaqs7mSh3QAR3QbNBvn+/XBLQkdJa4yR3Qwsol6/2hFx8IpaAh1lYb3amctd6/0XXoIeuAXoLutw7oVege67NwSxfQY9B16/8FAS0D3TwCWsl6GtrL2zsp6H7r5CyP0Dqlziq7gD4US52s9/XN8JD+qaOH+PT5FfyI/zr0oXWssXVGQmtaw5XB0DrWDMp46LutSZQpoO+z5lFmgU6s17mTq8GnI4K+Ws9xXy8Cn4sOOmvdz509Fz4RKXSFO6FvroFPYQC6k9sKMTv0qDh8n+ahs/TwPbiAtpiADui9EtABvVd+ASar4UoSfz9lAAAAAElFTkSuQmCC','base64')})});
  const drawer=await confirmation(page);await expect(drawer.getByRole('img',{name:'Image jointe au message WhatsApp'})).toBeVisible();expect(reads).toBeGreaterThan(0);
  await page.setViewportSize({width:375,height:1000});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });

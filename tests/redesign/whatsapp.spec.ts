@@ -1,5 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createFixture } from './fixtures.mjs';
+
+// Live release checks load the deployed client but isolate all business data and message operations.
+test.beforeEach(async ({ page }) => {
+ if (!process.env.FOODY_IMAGE_LIVE) return;
+ await page.routeWebSocket('**/*', socket => socket.close());
+ await page.route('**/*', route => ['dev-admin.foody-pos.co.il', 'admin.foody-pos.co.il'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
+});
 import type { MetaWhatsAppStatus, MetaWhatsAppTemplate, WhatsAppSender } from '../../src/lib/api';
 import { orderNotificationTemplate } from '../../src/lib/orders/twilio-templates';
 
@@ -754,7 +761,7 @@ test('read-only staff preview a private photo using scoped headers without editi
  const reads:string[]=[];
  await page.route('**/whatsapp/meta/media**',async route=>{
   const request=route.request();expect(request.method()).toBe('GET');expect(request.headers()['x-restaurant-id']).toBe('1');expect(request.headers()['authorization']).toBe('Bearer isolated-ui-fixture');
-  if(new URL(request.url()).pathname.endsWith(asset.id)){reads.push(asset.id);return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6t4AAAAAASUVORK5CYII=','base64')})}
+  if(new URL(request.url()).pathname.endsWith(asset.id)){reads.push(asset.id);return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAHgAAAA8CAIAAAAiz+n/AAABrUlEQVR4nO3au1HGQAwE4L8GqqEEhiqICCiNltwBOSmGGbLzvU/Wrk7ybHj2nL7ZwK/H8fUTUcgDvgMnCeiA3isBHdB7xST00+szfA8bQv+x9gS+T6vQnb5WxBmhm5TneZrj5oIusfYc5NxE0NPEdW74XFzQ68QVbvh0LNCCxCVu+Ix46JuU2azB0LcqU1kjoRWUeaxh0GrKJNZ4aAXlxNoRdLPO3x8vpaxDQ6zB0KPKUtYuoOt1biqvWANLjYSeVhax9gs9pDxt7QVaqs7mSh3QAR3QbNBvn+/XBLQkdJa4yR3Qwsol6/2hFx8IpaAh1lYb3amctd6/0XXoIeuAXoLutw7oVege67NwSxfQY9B16/8FAS0D3TwCWsl6GtrL2zsp6H7r5CyP0Dqlziq7gD4US52s9/XN8JD+qaOH+PT5FfyI/zr0oXWssXVGQmtaw5XB0DrWDMp46LutSZQpoO+z5lFmgU6s17mTq8GnI4K+Ws9xXy8Cn4sOOmvdz509Fz4RKXSFO6FvroFPYQC6k9sKMTv0qDh8n+ahs/TwPbiAtpiADui9EtABvVd+ASar4UoSfz9lAAAAAElFTkSuQmCC','base64')})}
   return route.fulfill({json:{media:[asset]}});
  });
  await page.goto('/1/settings/whatsapp');
@@ -775,7 +782,7 @@ test('Meta image is fetched automatically and displayed after an external templa
  await page.route('**/whatsapp/meta/templates/700/image', async route => {
   expect(route.request().method()).toBe('GET');expect(route.request().headers()['x-restaurant-id']).toBe('1');
   expect(route.request().headers()['authorization']).toBe('Bearer isolated-ui-fixture');reads.push(route.request().url());
-  return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6t4AAAAAASUVORK5CYII=','base64')});
+  return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAHgAAAA8CAIAAAAiz+n/AAABrUlEQVR4nO3au1HGQAwE4L8GqqEEhiqICCiNltwBOSmGGbLzvU/Wrk7ybHj2nL7ZwK/H8fUTUcgDvgMnCeiA3isBHdB7xST00+szfA8bQv+x9gS+T6vQnb5WxBmhm5TneZrj5oIusfYc5NxE0NPEdW74XFzQ68QVbvh0LNCCxCVu+Ix46JuU2azB0LcqU1kjoRWUeaxh0GrKJNZ4aAXlxNoRdLPO3x8vpaxDQ6zB0KPKUtYuoOt1biqvWANLjYSeVhax9gs9pDxt7QVaqs7mSh3QAR3QbNBvn+/XBLQkdJa4yR3Qwsol6/2hFx8IpaAh1lYb3amctd6/0XXoIeuAXoLutw7oVege67NwSxfQY9B16/8FAS0D3TwCWsl6GtrL2zsp6H7r5CyP0Dqlziq7gD4US52s9/XN8JD+qaOH+PT5FfyI/zr0oXWssXVGQmtaw5XB0DrWDMp46LutSZQpoO+z5lFmgU6s17mTq8GnI4K+Ws9xXy8Cn4sOOmvdz509Fz4RKXSFO6FvroFPYQC6k9sKMTv0qDh8n+ahs/TwPbiAtpiADui9EtABvVd+ASar4UoSfz9lAAAAAElFTkSuQmCC','base64')});
  });
  await page.route('**/whatsapp/meta/media',route=>route.fulfill({json:{media:[]}}));
  await page.goto('/1/settings/whatsapp');
@@ -799,7 +806,7 @@ test('Meta image retrieval failure offers retry and leaves configuration untouch
  Object.assign(state.control.meta.connection!,{order_recap_name:'order_recap',order_recap_language:'fr'});
  Object.assign(state.control.catalogue[0],{image_available:true});state.control.catalogue[0].components.unshift({type:'HEADER',format:'IMAGE'});
  let attempts=0, ready=false;
- await page.route('**/whatsapp/meta/templates/700/image',route=>{attempts++;return !ready?route.fulfill({status:422,json:{error:'wa_meta_media_invalid'}}):route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6t4AAAAAASUVORK5CYII=','base64')})});
+ await page.route('**/whatsapp/meta/templates/700/image',route=>{attempts++;return !ready?route.fulfill({status:422,json:{error:'wa_meta_media_invalid'}}):route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAHgAAAA8CAIAAAAiz+n/AAABrUlEQVR4nO3au1HGQAwE4L8GqqEEhiqICCiNltwBOSmGGbLzvU/Wrk7ybHj2nL7ZwK/H8fUTUcgDvgMnCeiA3isBHdB7xST00+szfA8bQv+x9gS+T6vQnb5WxBmhm5TneZrj5oIusfYc5NxE0NPEdW74XFzQ68QVbvh0LNCCxCVu+Ix46JuU2azB0LcqU1kjoRWUeaxh0GrKJNZ4aAXlxNoRdLPO3x8vpaxDQ6zB0KPKUtYuoOt1biqvWANLjYSeVhax9gs9pDxt7QVaqs7mSh3QAR3QbNBvn+/XBLQkdJa4yR3Qwsol6/2hFx8IpaAh1lYb3amctd6/0XXoIeuAXoLutw7oVege67NwSxfQY9B16/8FAS0D3TwCWsl6GtrL2zsp6H7r5CyP0Dqlziq7gD4US52s9/XN8JD+qaOH+PT5FfyI/zr0oXWssXVGQmtaw5XB0DrWDMp46LutSZQpoO+z5lFmgU6s17mTq8GnI4K+Ws9xXy8Cn4sOOmvdz509Fz4RKXSFO6FvroFPYQC6k9sKMTv0qDh8n+ahs/TwPbiAtpiADui9EtABvVd+ASar4UoSfz9lAAAAAElFTkSuQmCC','base64')})});
  await page.route('**/whatsapp/meta/media',route=>route.fulfill({json:{media:[]}}));
  await page.goto('/1/settings/whatsapp');await page.getByRole('button',{name:'Voir · Confirmation détaillée de commande',exact:true}).click();
  const drawer=page.getByRole('dialog');await expect(drawer.getByRole('alert')).toContainText('Impossible de récupérer l’image depuis Meta');

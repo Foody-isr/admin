@@ -25,7 +25,7 @@ export function WhatsAppImagePreview({ rid, templateId, assetId, revision }: { r
  return <div className="mb-3 overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface)]">
   {image && !failed ? /* eslint-disable-next-line @next/next/no-img-element -- Authenticated, short-lived blob preview. */
    <img src={image} alt={t('waMetaImageAlt')} className="max-h-64 w-full object-contain" onError={() => setFailed(true)} /> :
-   <div className="p-4 text-sm leading-6 text-[var(--fg-muted)]" role={failed ? 'alert' : 'status'}>{t(failed ? 'waMetaImageFailed' : 'waMetaImageLoading')}{failed && <Button type="button" variant="ghost" size="sm" onClick={() => setRetry(n => n + 1)}>{t('refresh')}</Button>}</div>}
+   <div className="p-4 text-sm leading-6 text-[var(--fg-muted)]" role={failed ? 'alert' : 'status'}>{t(failed ? templateId ? 'waMetaImageFailed' : 'waAttachmentPreviewFailed' : templateId ? 'waMetaImageLoading' : 'loading')}{failed && <Button type="button" variant="ghost" size="sm" onClick={() => setRetry(n => n + 1)}>{t('refresh')}</Button>}</div>}
  </div>;
 }
 
@@ -34,7 +34,7 @@ export function WhatsAppTemplatePreview({ rid, template, attachment, body }: { r
  const image = metaTemplateHeader(template) === 'IMAGE';
  const fixed = attachment?.source === 'fixed';
  return <div className="wa-preview" dir={template?.language.startsWith('he') ? 'rtl' : 'ltr'}>
-  {image && (fixed ? !!attachment.asset_id : true) && <WhatsAppImagePreview rid={rid} templateId={fixed ? undefined : template?.id} assetId={fixed ? attachment?.asset_id : undefined} revision={template} />}
+  {image && (fixed ? !!attachment.asset_id : true) && <WhatsAppImagePreview key={`${rid}:${template?.id}:${attachment?.asset_id ?? 'meta'}`} rid={rid} templateId={fixed ? undefined : template?.id} assetId={fixed ? attachment?.asset_id : undefined} revision={template} />}
   <p className="whitespace-pre-wrap break-words">{body ?? metaTemplateBody(template)}</p>
  </div>;
 }

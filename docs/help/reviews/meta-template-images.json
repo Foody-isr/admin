@@ -2,25 +2,27 @@
   "files": [
     {
       "path": "src/lib/api.ts",
-      "sha256": "d515f0e32e151207bb2c734fcf8652bf88232bc289f15fc53f8c1d4f32c70094",
-      "baseSha256": "7ecfef6d935d361a60033c0e2dd495287d98a6e963e941a52d6f884c9b8bec2e",
+      "sha256": "8e4adf3628558720d5120ca4967202da3b059409d013f1674d1c5d658116ef4e",
+      "baseSha256": "715c99ca9bf8d1b05da8e617d786b30899f003c34090e4afeb524cd2f3e8b919",
       "features": [
         "payments-how-payments-work",
         "pos-payments",
-        "shared-runtime"
+        "shared-runtime",
+        "customers-profiles"
       ],
       "disposition": "no-user-impact",
       "reason": "The reviewed diff only adds automatic Meta WhatsApp image retrieval and preview. These separately classified payment, invitation, routing, fulfillment or shared-runtime procedures retain their existing behavior and controls."
     },
     {
       "path": "src/lib/i18n.tsx",
-      "sha256": "06c19e52e0309c87d559121da9fea860913934dff94914cdabde4416a8f479ac",
-      "baseSha256": "95c1eb8b268821003211e779a8e0dc902a62c60299156cdc41a487cac2849dd5",
+      "sha256": "658be9c1258fe44dbb43e4b946d129115767132e64f78c6cc83d4f2cafa8761d",
+      "baseSha256": "3479f7ff44abfc8c29a3104a343c537d962da270946a662e9c1bfb3e21cc26ee",
       "features": [
         "delivery-dispatch",
         "google-account-setup",
         "pos-behavior",
-        "shared-runtime"
+        "shared-runtime",
+        "customers-profiles"
       ],
       "disposition": "no-user-impact",
       "reason": "The reviewed diff only adds automatic Meta WhatsApp image retrieval and preview. These separately classified payment, invitation, routing, fulfillment or shared-runtime procedures retain their existing behavior and controls."
