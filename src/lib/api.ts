@@ -7425,6 +7425,13 @@ export async function updateCustomerProfile(
   return data.profile;
 }
 
+/** Correct saved customer contacts atomically within the active restaurant. */
+export async function correctCustomerPhones(restaurantId: number, corrections: {phone: string; replacement: string}[]): Promise<void> {
+  await apiFetch(`/api/v1/restaurants/${restaurantId}/customers/phones`, restaurantId, {
+    method: 'PUT', body: JSON.stringify({corrections}),
+  });
+}
+
 // ─── Recherche et fusion de clients ──────────────────────────────────────────
 
 /** Une adresse de livraison connue du client, prête à remplir le formulaire. */
