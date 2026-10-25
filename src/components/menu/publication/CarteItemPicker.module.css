@@ -1,0 +1,67 @@
+.overlay { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 80%); }
+.dialog { position: fixed; top: 24px; left: 50%; z-index: 50; display: flex; flex-direction: column; width: 664px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 48px); transform: translateX(-50%); padding: 24px 32px 20px; border-radius: 20px; background: var(--surface); color: var(--fg); box-shadow: 0 16px 48px rgb(0 0 0 / 15%); font-family: "Orders Sans", var(--font-sans); font-size: 16px; line-height: 24px; outline: none; }
+.actions { display: flex; flex-shrink: 0; justify-content: space-between; align-items: center; gap: 16px; }
+.close, .filterButton { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; height: 48px; min-width: 48px; border-radius: 999px; background: var(--brand-soft); }
+.close svg, .filterButton svg { width: 24px; height: 24px; }
+.primary { min-height: 48px; padding: 12px 20px; border-radius: 999px; background: var(--fg); color: var(--surface); font-weight: 600; }
+.primary:disabled { background: var(--brand-soft); color: var(--fg-subtle); cursor: default; }
+.dialog button:focus-visible, .dialog input:focus-visible, .dialog select:focus-visible, .popover button:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+.dialog button, .dialog select, .popover button { font: inherit; }
+.dialog .primary, .dialog .clear, .popover .clearAll { font-weight: 600; }
+.title { flex-shrink: 0; margin: 24px 0 36px; font-size: 24px; font-weight: 600; line-height: 32px; letter-spacing: -.4px; }
+.searchBar { display: flex; flex-shrink: 0; gap: 8px; margin: 0 12px; }
+.search { display: flex; flex: 1; align-items: center; gap: 16px; min-width: 0; height: 48px; border: 1px solid var(--line); border-radius: 999px; padding: 0 16px; }
+.search:focus-within { outline: 2px solid var(--fg); outline-offset: 2px; }
+.search svg { width: 24px; height: 24px; flex-shrink: 0; }
+.search input { width: 100%; min-width: 0; background: transparent; border: 0; outline: none !important; font: inherit; }
+.search input::placeholder { color: var(--fg-subtle); opacity: 1; }
+.filterButton { gap: 8px; padding: 0 16px; font-weight: 600; }
+.listHeading { display: flex; flex-shrink: 0; justify-content: space-between; align-items: center; gap: 12px; min-height: 69px; border-bottom: 1px solid var(--line-strong); }
+.listHeading strong { font-weight: 600; }
+.list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.itemRow { display: flex; width: 100%; min-height: 74px; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); padding: 16px 0; text-align: start; cursor: pointer; }
+.itemRow:hover, .stockRow:hover { background: var(--surface-2); }
+.itemRow strong, .stockRow strong { font-weight: 600; }
+.thumbnail { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; overflow: hidden; border-radius: 4px; background: var(--brand-soft); }
+.thumbnail img { width: 100%; height: 100%; object-fit: cover; }
+.thumbnail svg { width: 24px; height: 24px; }
+.itemText { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 2px; overflow-wrap: anywhere; }
+.itemText > span { color: var(--fg-subtle); font-size: 14px; line-height: 20px; }
+.itemRow input, .stockRow input { flex-shrink: 0; margin-inline-start: auto; width: 20px; height: 20px; }
+.empty { padding: 32px 0; text-align: center; color: var(--fg-subtle); }
+.target { display: flex; flex-shrink: 0; align-items: center; gap: 12px; margin: -16px 0 20px; font-size: 14px; }
+.target select { min-width: 0; flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: var(--surface); }
+.popover { z-index: 51; width: 200px; padding: 16px; border: 0; border-radius: 12px; background: var(--surface); color: var(--fg); font-family: "Orders Sans", var(--font-sans); font-size: 16px; box-shadow: 0 8px 28px rgb(0 0 0 / 18%); }
+.clearAll { width: 100%; padding: 16px 0; border-bottom: 1px solid var(--line-strong); text-align: start; text-decoration: underline; font-weight: 600; letter-spacing: -.5px; white-space: nowrap; }
+.filterRow { display: flex; flex-direction: column; gap: 2px; width: 100%; min-height: 78px; border-bottom: 1px solid var(--line); padding: 16px 0; text-align: start; }
+.filterRow:hover { background: var(--surface-2); }
+.filterRow:last-child { border: 0; }
+.filterRow span { overflow: hidden; color: var(--fg-subtle); font-size: 14px; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
+.filterOverlay { z-index: 52; background: rgb(0 0 0 / 70%); }
+.filterDialog { z-index: 53; padding-bottom: 20px; }
+.filterActions { display: flex; align-items: center; gap: 28px; }
+.clear { text-decoration: underline; font-weight: 600; }
+.filterBy { flex-shrink: 0; margin: 24px 0 12px; color: var(--fg-subtle); font-size: 14px; line-height: 20px; }
+.filterTitle { flex-shrink: 0; margin: 0 0 20px; font-size: 24px; font-weight: 600; line-height: 32px; letter-spacing: -.4px; }
+.filterDialog > .search { flex: 0 0 48px; margin-inline: -12px; }
+.filterList { margin: 16px -12px 0; }
+.filterList .itemRow { min-height: 69px; padding: 12px 8px 12px 52px; }
+:global([dir="rtl"]) .filterList .itemRow { padding-inline: 52px 8px; }
+.filterList .itemRow:has(input:checked) { background: var(--surface-2); }
+.filterList .itemText strong { font-size: 14px; line-height: 20px; }
+.filterList .itemText > span { font-size: 12px; line-height: 18px; }
+.stockRow { display: flex; min-height: 56px; align-items: center; gap: 12px; margin: 0 28px; border-bottom: 1px solid var(--line); padding: 16px 0; cursor: pointer; }
+.stockRow:last-child { border: 0; }
+.filterList:has(.stockRow) { margin-top: 24px; margin-bottom: 24px; }
+@media (max-width: 600px) {
+  .dialog { top: 16px; max-width: calc(100vw - 24px); max-height: calc(100dvh - 32px); padding: 20px; border-radius: 16px; }
+  .title { margin: 24px 0; font-size: 22px; line-height: 28px; }
+  .searchBar { margin: 0; }
+  .search { gap: 8px; padding: 0 12px; }
+  .listHeading { flex-wrap: wrap; gap: 0 12px; padding: 16px 0; font-size: 14px; line-height: 20px; }
+  .filterList .itemRow { padding-inline: 12px 8px; }
+  :global([dir="rtl"]) .filterList .itemRow { padding-inline: 12px 8px; }
+  .filterActions { gap: 16px; }
+  .stockRow { margin-inline: 12px; }
+  .target { flex-direction: column; align-items: stretch; margin-top: 0; }
+}
