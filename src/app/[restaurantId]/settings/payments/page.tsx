@@ -10,10 +10,10 @@ import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Button, ConfirmDialog, Field, NumberField, PageHead, Section, Select } from '@/components/ds';
 
-type Draft = { vat_rate: number; tips_enabled: boolean; online_payment_only: boolean | undefined };
+type Draft = { vat_rate: number; tips_enabled: boolean; online_payment_only: boolean | undefined; weight_hold_buffer_percent: number | undefined };
 function draftFrom(settings: RestaurantSettings): Draft {
   if (!Number.isFinite(settings.vat_rate) || typeof settings.tips_enabled !== 'boolean') throw new Error('Incomplete payment settings');
-  return { vat_rate: settings.vat_rate!, tips_enabled: settings.tips_enabled, online_payment_only: typeof settings.online_payment_only === 'boolean' ? settings.online_payment_only : undefined };
+  return { vat_rate: settings.vat_rate!, tips_enabled: settings.tips_enabled, online_payment_only: typeof settings.online_payment_only === 'boolean' ? settings.online_payment_only : undefined, weight_hold_buffer_percent: Number.isFinite(settings.weight_hold_buffer_percent) ? settings.weight_hold_buffer_percent : undefined };
 }
 const equal = (first: unknown, second: unknown) => JSON.stringify(first) === JSON.stringify(second);
 
@@ -29,7 +29,6 @@ function PaymentsWorkspace({ rid }: { rid: number }) {
   const canEdit = hasAnyPermission('settings.edit');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [baseline, setBaseline] = useState<Draft | null>(null);
-  const [weightBuffer, setWeightBuffer] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -45,7 +44,7 @@ function PaymentsWorkspace({ rid }: { rid: number }) {
     setLoading(true); setLoadError(false);
     try {
       const settings = await getRestaurantSettings(rid), next = draftFrom(settings);
-      if (current()) { setDraft(next); setBaseline(next); setWeightBuffer(Number.isFinite(settings.weight_hold_buffer_percent) ? settings.weight_hold_buffer_percent : undefined); }
+      if (current()) { setDraft(next); setBaseline(next); }
     } catch { if (current()) setLoadError(true); }
     finally { if (current()) setLoading(false); }
   }, [rid]);
@@ -67,11 +66,15 @@ function PaymentsWorkspace({ rid }: { rid: number }) {
     lock.current = true; setSaving(true); setSaveError(false); setSaved(false);
     const generation = lifetime.current.generation, current = () => generation === lifetime.current.generation;
     // Never rewrite an unknown online-payment policy while changing VAT or tips.
-    // Weight buffers, rounding and suggested tips have no settings write contract.
+    // Omitted fields stay unknown, including on an older API deployment.
     const input: Partial<RestaurantSettings> = {};
     if (draft.vat_rate !== baseline.vat_rate) input.vat_rate = draft.vat_rate;
     if (draft.tips_enabled !== baseline.tips_enabled) input.tips_enabled = draft.tips_enabled;
     if (draft.online_payment_only !== undefined && draft.online_payment_only !== baseline.online_payment_only) input.online_payment_only = draft.online_payment_only;
+    if (draft.weight_hold_buffer_percent !== undefined && draft.weight_hold_buffer_percent !== baseline.weight_hold_buffer_percent) {
+      if (!Number.isFinite(draft.weight_hold_buffer_percent) || draft.weight_hold_buffer_percent < 0 || draft.weight_hold_buffer_percent > 100) { lock.current = false; setSaving(false); setSaveError(true); return; }
+      input.weight_hold_buffer_percent = draft.weight_hold_buffer_percent;
+    }
     try {
       const response = await updateRestaurantSettings(rid, input);
       const next = draftFrom({ ...draft, ...response, online_payment_only: typeof response.online_payment_only === 'boolean' ? response.online_payment_only : draft.online_payment_only });
@@ -100,8 +103,11 @@ function PaymentsWorkspace({ rid }: { rid: number }) {
         <p className="mt-5 text-sm leading-6 text-[var(--fg-muted)]">{t('paymentTipsFixed')}</p>
       </Section>
       <Section title={t('weightHoldBufferTitle')}>
-        <div className="flex items-start gap-3 text-sm leading-6 text-[var(--fg-muted)]"><Info className="mt-1 size-4 shrink-0" aria-hidden="true" /><p>{t('paymentWeightReadOnly')}</p></div>
-        {weightBuffer !== undefined ? <div className="mt-4 max-w-xs"><Field label={t('weightHoldBufferLabel')}><NumberField readOnly value={weightBuffer} format={String} onChange={() => {}} dir="ltr" /></Field></div> : <p className="mt-3 text-sm font-medium">{t('paymentWeightUnknown')}</p>}
+        <div className="flex items-start gap-3 text-sm leading-6 text-[var(--fg-muted)]"><Info className="mt-1 size-4 shrink-0" aria-hidden="true" /><p id="weight-buffer-hint">{t('paymentWeightHelp')}</p></div>
+        {draft.weight_hold_buffer_percent !== undefined ? <>
+          <div className="mt-4 max-w-xs"><Field label={t('weightHoldBufferLabel')}><NumberField aria-describedby="weight-buffer-hint weight-buffer-example" min={0} max={100} readOnly={!canEdit || saving} value={draft.weight_hold_buffer_percent} format={String} onChange={weight_hold_buffer_percent => patch({ weight_hold_buffer_percent })} dir="ltr" /></Field></div>
+          <p id="weight-buffer-example" className="mt-3 text-sm leading-6 text-[var(--fg-muted)]">{t('paymentWeightExample').replace('{margin}', String(draft.weight_hold_buffer_percent)).replace('{hold}', String(Math.round((150 + draft.weight_hold_buffer_percent) * 100) / 100))}</p>
+        </> : <p className="mt-3 text-sm font-medium">{t('paymentWeightUnknown')}</p>}
       </Section>
       {saveError && <p role="alert" className="text-sm text-[var(--danger-500)]">{t('paymentSettingsSaveFailed')}</p>}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line)] pt-5"><p role="status" className="text-sm text-[var(--fg-muted)]">{t(saving ? 'saving' : dirty ? 'settingsUnsaved' : saved ? 'saved' : 'settingsUnchanged')}</p>{canEdit && <div className="flex gap-2"><Button type="button" variant="secondary" disabled={!dirty || saving} onClick={() => setLeaving('reset')}>{t('reset')}</Button><Button type="submit" disabled={!dirty || saving}>{t(saving ? 'saving' : 'saveChanges')}</Button></div>}</div>

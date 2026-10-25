@@ -16,6 +16,9 @@ export default function ItemUnsavedDialog({
   saveDisabled,
   error,
   hint,
+  title,
+  description,
+  saveLabel,
 }: {
   open: boolean;
   onCancel: () => void;
@@ -25,6 +28,9 @@ export default function ItemUnsavedDialog({
   saveDisabled?: boolean;
   error?: string;
   hint?: string;
+  title?: string;
+  description?: string;
+  saveLabel?: string;
 }) {
   const { t } = useI18n();
   const focus = useDialogReturnFocus();
@@ -51,9 +57,9 @@ export default function ItemUnsavedDialog({
             else onCancel();
           }}
         >
-          <AlertDialog.Title>{t('itemUnsavedTitle')}</AlertDialog.Title>
+          <AlertDialog.Title>{title || t('itemUnsavedTitle')}</AlertDialog.Title>
           <AlertDialog.Description>
-            {t('itemUnsavedDescription')}
+            {description || t('itemUnsavedDescription')}
           </AlertDialog.Description>
           {hint && <p className="item-unsaved-hint">{hint}</p>}
           {error && (
@@ -70,7 +76,7 @@ export default function ItemUnsavedDialog({
               disabled={saving || saveDisabled}
               onClick={onSave}
             >
-              {saving ? t('saving') : t('save')}
+              {saving ? t('saving') : (saveLabel || t('save'))}
             </Button>
           </div>
           <AlertDialog.Cancel asChild>

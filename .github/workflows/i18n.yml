@@ -4,10 +4,6 @@ on:
   pull_request:
     branches:
       - develop
-    paths:
-      - 'src/**'
-      - 'scripts/check-i18n.cjs'
-      - '.github/workflows/i18n.yml'
   workflow_dispatch:
 
 permissions:

@@ -1,38 +1,49 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { useWs } from '@/lib/ws-context';
 import {
-  getMyRoute, startRoute, markArrived, markStopDelivered, reorderStops, optimizeRoute,
-  listAvailableDeliveries, addStops, updateRouteSettings, updateMyStopAddress,
-  type DeliveryRoute, type RouteSettingsInput, type RouteStop, type StopAddressInput,
+  getMyRoutes,
+  checkMyRouteNavigation,
+  startRoute,
+  markArrived,
+  markStopDelivered,
+  reorderStops,
+  optimizeRoute,
+  updateRouteSettings,
+  updateMyStopAddress,
+  type DeliveryRoute,
+  type RouteSettingsInput,
+  type RouteStop,
+  type StopAddressInput,
 } from '@/lib/delivery';
-import { deliveryRoutingError } from '@/lib/delivery-planning';
-import { ApiError, type Order } from '@/lib/api';
-import { callUrl, whatsappUrl } from '@/lib/delivery-links';
-import { NavigationAppMenu } from '@/components/delivery/NavigationAppMenu';
-import { RouteSettingsEditor } from '@/components/delivery/RouteSettingsEditor';
-import { CourierAddressEditor } from '@/components/delivery/CourierAddressEditor';
-import { formatDeliveryAddress } from '@/lib/delivery-address';
 import {
+  deliveryRoutingError,
+  deliveryRouteWarning,
+  deliveryLocationWarning,
   buildDeliveryEtaLabel,
   buildDeliveryEtaMessage,
   deliveryEtaWindow,
   type DeliveryEtaWindow,
 } from '@/lib/delivery-planning';
+import { callUrl, whatsappUrl } from '@/lib/delivery-links';
+import { NavigationAppMenu } from '@/components/delivery/NavigationAppMenu';
+import { RouteSettingsEditor } from '@/components/delivery/RouteSettingsEditor';
+import { CourierAddressEditor } from '@/components/delivery/CourierAddressEditor';
+import { DeliveryDuration } from '@/components/delivery/DeliveryDuration';
+import { formatDeliveryAddress } from '@/lib/delivery-address';
 import { useLocationReporter } from '@/lib/useLocationReporter';
 import {
-  Badge,
   Button,
-  Card,
-  CardBody,
-  Tabs,
-  TabsList,
-  Tab,
-  TabsContent,
   ConfirmDialog,
+  Drawer,
+  Input,
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuTrigger,
 } from '@/components/ds';
 import {
   PhoneIcon,
@@ -45,390 +56,252 @@ import {
   AlertCircleIcon,
   MapPinIcon,
   FlagIcon,
-  Maximize2Icon,
-  Minimize2Icon,
   PackageIcon,
-  UserRoundIcon,
   MessageCircleIcon,
   PencilIcon,
+  SearchIcon,
+  MoreVerticalIcon,
+  SlidersHorizontalIcon,
+  XIcon,
+  StickyNoteIcon,
+  HomeIcon,
 } from 'lucide-react';
+import styles from './CourierItinerary.module.css';
 
-// ── Dynamic import: Leaflet crashes on SSR ────────────────────────────────────
 const DeliveryMap = dynamic(() => import('@/components/delivery/DeliveryMap'), { ssr: false });
+type Translator = (key: string) => string;
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-type Tab = 'assigned' | 'available';
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatEta(seconds: number, t: (k: string) => string): string {
-  if (seconds <= 0) return '';
+function formatEta(seconds: number, t: Translator): string {
+  if (seconds <= 0) return '—';
   const m = Math.round(seconds / 60);
   if (m < 60) return `${m} ${t('unitMin')}`;
-  const h = Math.floor(m / 60);
-  const rem = m % 60;
+  const h = Math.floor(m / 60),
+    rem = m % 60;
   return rem > 0 ? `${h}${t('unitHour')} ${rem}${t('unitMin')}` : `${h}${t('unitHour')}`;
-}
-
-function stopStatusTone(status: RouteStop['status']): 'success' | 'info' | 'neutral' {
-  if (status === 'delivered') return 'success';
-  if (status === 'arrived') return 'info';
-  return 'neutral';
-}
-
-function stopAddress(stop: RouteStop, t: (k: string) => string) {
-  return formatDeliveryAddress({
-    address: stop.address,
-    city: stop.city,
-    floor: stop.delivery_floor,
-    apt: stop.delivery_apt,
-    entryCode: stop.delivery_entry_code,
-  }, t);
 }
 
 function stopWhatsappMessage(
   stop: RouteStop,
   etaWindow: DeliveryEtaWindow | null,
-  t: (k: string) => string,
+  t: Translator
 ): string {
   return buildDeliveryEtaMessage(
     t(etaWindow ? 'deliveryEtaWhatsappTemplate' : 'deliveryEtaWhatsappTemplateNoTime'),
     stop,
-    etaWindow,
+    etaWindow
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-/** Horizontal progress bar: delivered/total with animated fill. */
-function RouteProgress({ delivered, total }: { delivered: number; total: number }) {
-  const pct = total === 0 ? 0 : Math.round((delivered / total) * 100);
+function NoStopsCard({ t }: { t: Translator }) {
   return (
-    <div className="flex items-center gap-[var(--s-3)]">
-      <div
-        className="flex-1 h-1.5 rounded-full overflow-hidden"
-        style={{ background: 'var(--surface-2)' }}
-        role="progressbar"
-        aria-valuenow={pct}
-        aria-valuemin={0}
-        aria-valuemax={100}
-      >
-        <div
-          className="h-full rounded-full transition-all duration-500 ease-out"
-          style={{
-            width: `${pct}%`,
-            background: pct === 100 ? 'var(--success-500)' : 'var(--brand-500)',
-          }}
-        />
-      </div>
-      <span className="text-fs-xs font-medium tabular-nums" style={{ color: 'var(--fg-muted)', minWidth: '2.8rem', textAlign: 'end' }}>
-        {delivered}/{total}
-      </span>
+    <div className={styles.empty}>
+      <PackageIcon className="mx-auto mb-3 h-8 w-8 text-[var(--fg-subtle)]" />
+      <p>{t('noStopsYet')}</p>
     </div>
   );
 }
 
-/** Card shown when there is no current stop to act on. */
-function NoStopsCard({ t }: { t: (k: string) => string }) {
-  return (
-    <div
-      className="flex flex-col items-center justify-center gap-[var(--s-3)] py-10 text-center rounded-lg border border-dashed"
-      style={{ borderColor: 'var(--line)', color: 'var(--fg-subtle)' }}
-    >
-      <PackageIcon className="w-10 h-10 opacity-40" />
-      <p className="text-fs-sm font-medium">{t('noStopsYet')}</p>
-    </div>
-  );
-}
-
-/** Optional route endpoint rendered as part of the courier's stop timeline. */
 function RouteEndpointRow({
   kind,
   address,
   lat,
   lng,
+  time,
   t,
 }: {
   kind: 'start' | 'end';
   address: string;
   lat?: number | null;
   lng?: number | null;
-  t: (k: string) => string;
+  time?: string;
+  t: Translator;
 }) {
-  const isStart = kind === 'start';
-  const Icon = isStart ? MapPinIcon : FlagIcon;
-  const accent = isStart ? 'var(--success-500)' : 'var(--danger-500)';
-
   return (
-    <div
-      className={`relative flex items-stretch ${isStart ? 'border-b border-[var(--line)]' : ''}`}
-      style={{ background: `color-mix(in oklab, ${accent} 5%, var(--surface))` }}
-    >
-      <div className="relative flex w-16 shrink-0 justify-center py-4 sm:w-[76px]">
-        <span
-          className={`absolute start-1/2 w-0.5 -translate-x-1/2 ${
-            isStart ? 'bg-[var(--success-500)]' : 'bg-[var(--danger-500)]'
-          } ${
-            isStart ? 'bottom-0 top-8' : 'bottom-8 top-0'
-          }`}
-          aria-hidden="true"
-        />
-        <span
-          className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full border shadow-1 ${
-            isStart
-              ? 'border-[var(--success-500)] bg-[var(--success-50)] text-[var(--success-500)]'
-              : 'border-[var(--danger-500)] bg-[var(--danger-50)] text-[var(--danger-500)]'
-          }`}
-        >
-          <Icon className="h-4 w-4" />
-        </span>
+    <div className={`${styles.stop} ${styles.endpoint}`}>
+      <div className={styles.rail}>
+        {kind === 'start' ? <HomeIcon /> : <FlagIcon />}
+        {time && <span dir="ltr">{time}</span>}
       </div>
-      <div className="min-w-0 flex-1 py-3.5 pe-4">
-        <Badge tone={isStart ? 'success' : 'danger'} dot>
-          {t(isStart ? 'routeTimelineStartReminder' : 'routeTimelineTerminus')}
-        </Badge>
-        <p className="mt-2 break-words text-fs-md font-semibold leading-snug text-[var(--fg)] sm:text-fs-lg">
-          {address}
+      <div className={styles.stopBody}>
+        <p className={styles.address}>{address}</p>
+        <p className={styles.stopMeta}>
+          {t(kind === 'start' ? 'routeTimelineStartReminder' : 'routeTimelineTerminus')}
         </p>
-        <NavigationAppMenu
-          destination={{ address, lat, lng }}
-          variant="ghost"
-          size="sm"
-          className="mt-2 -ms-2"
-          label={t('navigate')}
-          t={t}
-        />
+        {kind === 'end' && (
+          <div className={styles.stopActions}>
+            <NavigationAppMenu destination={{ address, lat, lng }} label={t('navigate')} t={t} />
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-/** Hero card for the currently active stop. */
-function CurrentStopCard({
+/** One destination in the route timeline; selecting it never changes delivery status. */
+function TimelineStop({
   stop,
-  etaWindow,
-  hasFollowing,
+  route,
+  current,
+  selected,
   busy,
-  onEditAddress,
-  t,
-}: {
-  stop: RouteStop;
-  etaWindow: DeliveryEtaWindow | null;
-  hasFollowing: boolean;
-  busy: boolean;
-  onEditAddress: () => void;
-  t: (k: string) => string;
-}) {
-  const { money } = useCurrency();
-  const isArrived = stop.status === 'arrived';
-  const address = stopAddress(stop, t);
-  const deliveryNotes = stop.delivery_notes?.trim();
-  const expectedArrival = etaWindow
-    ? buildDeliveryEtaLabel(t('deliveryExpectedArrival'), etaWindow)
-    : null;
-
-  return (
-    <div
-      className={`relative flex items-stretch ${hasFollowing ? 'border-b border-[var(--line)]' : ''}`}
-      style={{ background: 'color-mix(in oklab, var(--brand-500) 4%, var(--surface))' }}
-      aria-current="step"
-    >
-      <div className="relative flex w-16 shrink-0 flex-col items-center px-2 py-4 text-center sm:w-[76px] sm:py-5">
-        <span className="num text-fs-md font-semibold text-[var(--brand-600)] sm:text-fs-lg">
-          {String(stop.sequence).padStart(2, '0')}
-        </span>
-        {etaWindow && (
-          <span className="num mt-2 text-[11px] font-medium leading-tight text-[var(--fg-muted)]">
-            {etaWindow.start}<br />{etaWindow.end}
-          </span>
-        )}
-        {hasFollowing && (
-          <span className="absolute bottom-0 top-[76px] w-0.5 rounded-full bg-[var(--brand-500)]" />
-        )}
-      </div>
-
-      <div className="min-w-0 flex-1 py-5 pe-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-fs-lg font-semibold leading-snug text-[var(--fg)] sm:text-fs-xl">
-              {address?.line1 || stop.customer_name}
-            </p>
-            {address?.line2 && (
-              <p className="mt-1 text-fs-xs font-medium text-[var(--fg-muted)]">{address.line2}</p>
-            )}
-          </div>
-          <span className="num shrink-0 rounded-r-md bg-[var(--surface-2)] px-2.5 py-1.5 text-fs-xs font-semibold text-[var(--brand-600)]">
-            #{stop.order_id}
-          </span>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-fs-sm text-[var(--fg-muted)]">
-          <span className="inline-flex items-center gap-1.5">
-            <UserRoundIcon className="h-3.5 w-3.5" />
-            {stop.customer_name}
-          </span>
-          {stop.customer_phone && <span className="num" dir="ltr">{stop.customer_phone}</span>}
-          {stop.total_amount > 0 && <span className="num">{money(stop.total_amount, { decimals: 0 })}</span>}
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Badge tone={stopStatusTone(stop.status)} dot>
-            {t(isArrived ? 'stopStatusArrived' : 'stopStatusPending')}
-          </Badge>
-          {expectedArrival && (
-            <span className="text-fs-xs font-medium leading-snug text-[var(--info-500)]">{expectedArrival}</span>
-          )}
-        </div>
-
-        {stop.needs_geocode && (
-          <p className="mt-2 flex items-center gap-1 text-fs-xs text-[var(--warning-500)]">
-            <AlertCircleIcon className="h-3 w-3 shrink-0" />
-            {t('addressNeedsAttention')}
-          </p>
-        )}
-
-        <div className="mt-3 flex flex-wrap items-center gap-1">
-          <NavigationAppMenu destination={stop} variant="ghost" size="sm" label={t('navigate')} t={t} />
-          <Button variant="ghost" size="sm" onClick={onEditAddress} disabled={busy}>
-            <PencilIcon />
-            {t('correctAddress')}
-          </Button>
-          {stop.customer_phone && (
-            <a
-              href={whatsappUrl(stop.customer_phone, stopWhatsappMessage(stop, etaWindow, t))}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={t('deliveryPlanWhatsApp')}
-              title={t('deliveryPlanWhatsApp')}
-            >
-              <Button variant="ghost" size="sm" icon><MessageCircleIcon /></Button>
-            </a>
-          )}
-        </div>
-
-        {deliveryNotes && (
-          <div className="mt-3 rounded-r-md border-s-2 border-[var(--brand-300)] bg-[var(--surface-2)] px-3 py-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--fg-subtle)]">{t('deliveryNotes')}</p>
-            <p className="mt-0.5 whitespace-pre-wrap break-words text-fs-sm text-[var(--fg)]">{deliveryNotes}</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/** Single row in the upcoming stops list. */
-function StopRow({
-  stop,
-  etaWindow,
   index,
   total,
-  busy,
-  onMoveUp,
-  onMoveDown,
-  onEditAddress,
-  hasFollowingEndpoint,
-  t,
+  onSelect,
+  onEdit,
+  onMove,
+  onArrived,
+  onDelivered,
 }: {
   stop: RouteStop;
-  etaWindow: DeliveryEtaWindow | null;
+  route: DeliveryRoute;
+  current: boolean;
+  selected: boolean;
+  busy: boolean;
   index: number;
   total: number;
-  busy: boolean;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  onEditAddress: () => void;
-  hasFollowingEndpoint: boolean;
-  t: (k: string) => string;
+  onSelect: () => void;
+  onEdit: () => void;
+  onMove: (direction: -1 | 1) => void;
+  onArrived: () => void;
+  onDelivered: () => void;
 }) {
-  const isDelivered = stop.status === 'delivered';
-  const isFirst = index === 0;
-  const isLast = index === total - 1;
-  const address = stopAddress(stop, t);
-  const deliveryNotes = stop.delivery_notes?.trim();
-  const expectedArrival = etaWindow
-    ? buildDeliveryEtaLabel(t('deliveryExpectedArrival'), etaWindow)
-    : null;
-
+  const { t, locale } = useI18n();
+  const { money } = useCurrency();
+  const eta = deliveryEtaWindow(route, stop, locale);
+  const details = formatDeliveryAddress(
+    {
+      address: stop.address,
+      city: stop.city,
+      floor: stop.delivery_floor,
+      apt: stop.delivery_apt,
+      entryCode: stop.delivery_entry_code,
+    },
+    t
+  )?.line2;
+  const finished = stop.status === 'delivered' || stop.status === 'skipped';
+  const canDeliver = route.status === 'active';
   return (
     <div
-      className="relative flex items-stretch"
-      style={{
-        opacity: isDelivered ? 0.5 : 1,
-        borderBottom: index < total - 1 || hasFollowingEndpoint ? '1px solid var(--line)' : 'none',
-      }}
+      data-stop-id={stop.id}
+      aria-current={current ? 'step' : undefined}
+      className={`${styles.stop} ${selected ? styles.selected : ''}`}
     >
-      <div className="relative flex w-16 shrink-0 flex-col items-center px-2 py-4 text-center sm:w-[76px] sm:py-5">
-        <span className="num text-fs-md font-medium text-[var(--fg-muted)]">
-          {isDelivered ? <CheckIcon className="h-4 w-4" /> : String(stop.sequence).padStart(2, '0')}
-        </span>
-        {etaWindow && (
-          <span className="num mt-2 text-[11px] leading-tight text-[var(--fg-subtle)]">
-            {etaWindow.start}<br />{etaWindow.end}
-          </span>
-        )}
-        {(index < total - 1 || hasFollowingEndpoint) && (
-          <span className="absolute bottom-0 top-[76px] w-0.5 rounded-full bg-[var(--brand-300)]" />
-        )}
+      <div className={styles.rail}>
+        <strong>
+          {finished ? (
+            <CheckIcon
+              className="h-4 w-4"
+              aria-label={t(stop.status === 'delivered' ? 'stopStatusDelivered' : 'courierSkipped')}
+            />
+          ) : (
+            String(stop.sequence).padStart(2, '0')
+          )}
+        </strong>
+        {eta && <span dir="ltr">{eta.start}</span>}
       </div>
-
-      <div className="min-w-0 flex-1 py-5 pe-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-fs-md font-semibold leading-snug text-[var(--fg)] sm:text-fs-lg">
-              {address?.line1 || stop.customer_name}
-            </p>
-          </div>
-          <span className="num shrink-0 rounded-r-md bg-[var(--surface-2)] px-2.5 py-1.5 text-fs-xs font-semibold text-[var(--fg-muted)]">
-            #{stop.order_id}
-          </span>
-        </div>
-        {address?.line2 && (
-          <p className="mt-1 text-fs-xs font-medium text-[var(--fg-muted)]">{address.line2}</p>
-        )}
-        <p className="mt-2 inline-flex items-center gap-1.5 text-fs-sm text-[var(--fg-muted)]">
-          <UserRoundIcon className="h-3.5 w-3.5" />
-          {stop.customer_name}
-        </p>
-        {deliveryNotes && (
-          <p className="mt-1 line-clamp-2 text-fs-xs text-[var(--fg-subtle)]">
-            {t('deliveryNotes')}: {deliveryNotes}
-          </p>
-        )}
-        {expectedArrival ? (
-          <p className="mt-2 text-fs-xs font-medium leading-snug text-[var(--info-500)]">
-            {expectedArrival}
-          </p>
-        ) : stop.eta_seconds > 0 ? (
-          <p className="text-fs-xs" style={{ color: 'var(--fg-subtle)' }}>
-            {formatEta(stop.eta_seconds, t)}
-          </p>
-        ) : null}
-        {!isDelivered && (
-          <div className="mt-3 flex items-center gap-1">
-            <NavigationAppMenu destination={stop} variant="ghost" size="sm" label={t('navigate')} t={t} />
-            <Button variant="ghost" size="sm" icon onClick={onEditAddress} disabled={busy} aria-label={t('correctAddress')} title={t('correctAddress')}>
-              <PencilIcon />
-            </Button>
+      <div className={styles.stopBody}>
+        <button
+          type="button"
+          className={styles.destination}
+          onClick={onSelect}
+          aria-expanded={selected}
+          aria-label={`${t('courierSelectStop')} ${stop.sequence}: ${stop.address || stop.customer_name}`}
+        >
+          <span className={styles.address}>{stop.address || stop.customer_name}</span>
+          <span className={styles.order}>#{stop.order_id}</span>
+        </button>
+        {stop.city && <p className={styles.stopMeta}>{stop.city}</p>}
+        <div className={`${styles.stopMeta} ${styles.notes}`}>
+          <StickyNoteIcon aria-hidden="true" />
+          <div>
+            <p>{stop.customer_name}</p>
             {stop.customer_phone && (
-              <a
-                href={whatsappUrl(stop.customer_phone, stopWhatsappMessage(stop, etaWindow, t))}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={t('deliveryPlanWhatsApp')}
-                title={t('deliveryPlanWhatsApp')}
-              >
-                <Button variant="ghost" size="sm" icon>
-                  <MessageCircleIcon />
-                </Button>
+              <a href={callUrl(stop.customer_phone)} dir="ltr" aria-label={t('callCustomer')}>
+                {stop.customer_phone}
               </a>
             )}
-            <Button variant="ghost" size="sm" icon onClick={onMoveUp} disabled={busy || isFirst} aria-label={t('moveUp')}>
-              <ChevronUpIcon />
-            </Button>
-            <Button variant="ghost" size="sm" icon onClick={onMoveDown} disabled={busy || isLast} aria-label={t('moveDown')}>
-              <ChevronDownIcon />
-            </Button>
+            {details && <p>{details}</p>}
+            {stop.delivery_notes?.trim() && <p>{stop.delivery_notes.trim()}</p>}
+          </div>
+        </div>
+        {selected && (
+          <div>
+            {eta && (
+              <p className={`${styles.stopMeta} text-[var(--info-500)]`}>
+                {buildDeliveryEtaLabel(t('deliveryExpectedArrival'), eta)}
+              </p>
+            )}
+            {stop.payment_method === 'cash' && stop.total_amount > 0 && (
+              <p className={styles.stopMeta}>{money(stop.total_amount, { decimals: 0 })}</p>
+            )}
+            {stop.needs_geocode && (
+              <p className="mt-2 text-fs-xs text-[var(--warning-500)]">
+                {deliveryLocationWarning(route, t)}
+              </p>
+            )}
+            {!finished && (
+              <>
+                <div className={styles.stopActions}>
+                  <NavigationAppMenu
+                    destination={stop}
+                    variant="secondary"
+                    size="sm"
+                    label={t('navigate')}
+                    t={t}
+                  />
+                  {stop.customer_phone && (
+                    <Button asChild variant="ghost" size="md" icon>
+                      <a
+                        href={whatsappUrl(stop.customer_phone, stopWhatsappMessage(stop, eta, t))}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={t('deliveryPlanWhatsApp')}
+                      >
+                        <MessageCircleIcon />
+                      </a>
+                    </Button>
+                  )}
+                  <Menu>
+                    <MenuTrigger asChild>
+                      <Button variant="ghost" size="md" icon aria-label={t('courierStopOptions')}>
+                        <MoreVerticalIcon />
+                      </Button>
+                    </MenuTrigger>
+                    <MenuContent side="top">
+                      <MenuItem disabled={busy} onSelect={onEdit}>
+                        <PencilIcon />
+                        {t('correctAddress')}
+                      </MenuItem>
+                      <MenuItem disabled={busy || index === 0} onSelect={() => onMove(-1)}>
+                        <ChevronUpIcon />
+                        {t('moveUp')}
+                      </MenuItem>
+                      <MenuItem disabled={busy || index === total - 1} onSelect={() => onMove(1)}>
+                        <ChevronDownIcon />
+                        {t('moveDown')}
+                      </MenuItem>
+                    </MenuContent>
+                  </Menu>
+                  {canDeliver && current && stop.status !== 'arrived' && (
+                    <Button variant="ghost" size="md" disabled={busy} onClick={onArrived}>
+                      <MapPinIcon />
+                      {t('markArrived')}
+                    </Button>
+                  )}
+                  {!current && (
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      disabled={busy || !canDeliver}
+                      onClick={onDelivered}
+                    >
+                      <CheckCircle2Icon />
+                      {t('markDelivered')}
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -436,137 +309,125 @@ function StopRow({
   );
 }
 
-/** Single row in the available (self-pick) deliveries list. */
-function AvailableOrderRow({
-  order,
-  index,
-  total,
-  busy,
-  onAdd,
-  t,
+function CourierRouteView({
+  rid,
+  courierId,
+  assignedRoute,
+  onReload,
+  canStart,
+  reportLocation,
+  onCompleted,
+  visible,
 }: {
-  order: Order;
-  index: number;
-  total: number;
-  busy: boolean;
-  onAdd: (o: Order) => void;
-  t: (k: string) => string;
+  rid: number;
+  courierId?: number;
+  assignedRoute: DeliveryRoute;
+  onReload: () => Promise<void>;
+  canStart: boolean;
+  reportLocation: boolean;
+  visible: boolean;
+  onCompleted: (route: DeliveryRoute) => void;
 }) {
-  const { money } = useCurrency();
-  const address = formatDeliveryAddress({
-    address: order.delivery_address,
-    city: order.delivery_city,
-    floor: order.delivery_floor,
-    apt: order.delivery_apt,
-    entryCode: order.delivery_entry_code,
-  }, t);
-  const deliveryNotes = order.delivery_notes?.trim();
-
-  return (
-    <div
-      className="flex items-center gap-[var(--s-3)] py-[var(--s-3)] px-[var(--s-4)]"
-      style={{ borderBottom: index < total - 1 ? '1px solid var(--line)' : 'none' }}
-    >
-      {/* Customer */}
-      <div className="flex-1 min-w-0">
-        <p className="text-fs-sm font-medium text-[var(--fg)] truncate leading-tight">
-          {order.customer_name}
-        </p>
-        <p className="text-fs-xs text-[var(--fg-muted)] truncate mt-0.5">{address?.line1 || `#${order.id}`}</p>
-        {address?.line2 && (
-          <p className="text-fs-xs font-medium text-[var(--fg-muted)] truncate">{address.line2}</p>
-        )}
-        {deliveryNotes && (
-          <p className="text-fs-xs text-[var(--fg-subtle)] line-clamp-2 mt-0.5">
-            {t('deliveryNotes')}: {deliveryNotes}
-          </p>
-        )}
-      </div>
-
-      {/* Total */}
-      {order.total_amount > 0 && (
-        <span className="text-fs-sm font-medium tabular-nums shrink-0" style={{ color: 'var(--fg-muted)' }}>
-          {money(order.total_amount, { decimals: 0 })}
-        </span>
-      )}
-
-      {/* Add button */}
-      <Button
-        variant="secondary"
-        size="sm"
-        disabled={busy}
-        onClick={() => onAdd(order)}
-        className="shrink-0"
-      >
-        {t('addToRoute')}
-      </Button>
-    </div>
-  );
-}
-
-// ── Main component ────────────────────────────────────────────────────────────
-
-export default function CourierItineraryView({ rid }: { rid: number }) {
   const { t, locale } = useI18n();
-  const { lastEvent } = useWs();
-  const [route, setRoute] = useState<DeliveryRoute | null>(null);
-  const [tab, setTab] = useState<Tab>('assigned');
+  const [route, setRoute] = useState<DeliveryRoute>(assignedRoute);
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
-  const [available, setAvailable] = useState<Order[]>([]);
-  const [mapExpanded, setMapExpanded] = useState(false);
+  const [panelHeight, setPanelHeight] = useState(56);
+  const [selectionRequest, setSelectionRequest] = useState(0);
+  const [selectedStopId, setSelectedStopId] = useState<number | null>(null);
+  const [query, setQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const dragStart = useRef<number | null>(null);
   const [addressEditorStop, setAddressEditorStop] = useState<RouteStop | null>(null);
   const [startConfirmOpen, setStartConfirmOpen] = useState(false);
-  const prevEvent = useRef(lastEvent);
-  const loadRequestId = useRef(0);
-  const { denied: locationDenied } = useLocationReporter(rid, route?.status === 'active');
-
-  const load = useCallback(async () => {
-    const requestId = ++loadRequestId.current;
-    try {
-      setError(null);
-      const nextRoute = await getMyRoute(rid);
-      if (requestId === loadRequestId.current) setRoute(nextRoute);
-    } catch (e) {
-      if (requestId === loadRequestId.current) setError((e as Error)?.message || 'load failed');
-    }
-  }, [rid]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const loadAvailable = useCallback(async () => {
-    setAvailable(await listAvailableDeliveries(rid));
-  }, [rid]);
-
-  useEffect(() => { if (tab === 'available') loadAvailable(); }, [tab, loadAvailable]);
-
-  // Re-fetch the selected route on delivery updates. The event can reference a
-  // newly assigned route rather than the empty placeholder currently displayed.
-  useEffect(() => {
-    if (!lastEvent || lastEvent === prevEvent.current) return;
-    prevEvent.current = lastEvent;
-    if (lastEvent.type === 'route.updated' || lastEvent.type.startsWith('order.')) {
-      void load();
-    }
-  }, [lastEvent, load]);
-
-  const stops = useMemo(
-    () => [...(route?.stops ?? [])].sort((a, b) => a.sequence - b.sequence),
-    [route],
+  const { denied: locationDenied } = useLocationReporter(
+    rid,
+    reportLocation && route.status === 'active'
   );
+
+  const load = onReload;
+  useEffect(() => {
+    setRoute(assignedRoute);
+  }, [assignedRoute]);
+
+  // Completion, reordering and GPS updates must not repeat paid address checks.
+  const navigationKey = JSON.stringify(
+    [...route.stops]
+      .sort((a, b) => a.id - b.id)
+      .map((stop) => [stop.id, stop.address, stop.city, stop.lat, stop.lng])
+  );
+  const [navigationChecks, setNavigationChecks] = useState<{
+    key: string;
+    values: Map<number, boolean>;
+  } | null>(null);
+  const [navigationLoading, setNavigationLoading] = useState(true);
+  const [navigationUnavailable, setNavigationUnavailable] = useState(false);
+  const [navigationRetry, setNavigationRetry] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    setNavigationLoading(true);
+    checkMyRouteNavigation(rid, route.id, controller.signal, courierId)
+      .then((checks) => {
+        if (!controller.signal.aborted) {
+          setNavigationChecks({
+            key: navigationKey,
+            values: new Map(checks.map((check) => [check.stop_id, check.verified])),
+          });
+          setNavigationUnavailable(checks.some((check) => check.reason === 'unavailable'));
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setNavigationChecks({ key: navigationKey, values: new Map() });
+          setNavigationUnavailable(true);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setNavigationLoading(false);
+      });
+    return () => controller.abort();
+  }, [rid, courierId, route.id, navigationKey, navigationRetry]);
+  const stops = useMemo(
+    () =>
+      route.stops
+        .map((stop) => ({
+          ...stop,
+          navigation_verified:
+            navigationChecks?.key === navigationKey &&
+            navigationChecks.values.get(stop.id) === true,
+        }))
+        .sort((a, b) => a.sequence - b.sequence),
+    [route.stops, navigationChecks, navigationKey]
+  );
+  const navigationUnverified = stops.filter(
+    (stop) => stop.status !== 'delivered' && stop.status !== 'skipped' && !stop.navigation_verified
+  );
+
   const currentStop = stops.find((s) => s.status !== 'delivered' && s.status !== 'skipped') ?? null;
   const delivered = stops.filter((s) => s.status === 'delivered').length;
-  const unresolvedStops = stops.filter((s) => s.needs_geocode && s.status !== 'delivered' && s.status !== 'skipped');
-  const locatedStops = stops.length - unresolvedStops.length;
+  const unresolvedStops = stops.filter(
+    (s) => s.needs_geocode && s.status !== 'delivered' && s.status !== 'skipped'
+  );
 
-  async function withBusy<T>(fn: () => Promise<T>): Promise<T | undefined> {
+  async function withBusy<T>(
+    fn: () => Promise<T>,
+    failureKey = 'deliveryPlanFailed'
+  ): Promise<T | undefined> {
+    if (busyRef.current) return undefined;
+    busyRef.current = true;
     setBusy(true);
+    setError(null);
     try {
       return await fn();
     } catch (e) {
       await load();
-      setError(deliveryRoutingError(e,t) ?? t('deliveryPlanFailed'));
+      setError(deliveryRoutingError(e, t) ?? t(failureKey));
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }
@@ -574,17 +435,18 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
   const onReoptimize = () =>
     withBusy(async () => {
       if (!route) return;
-      setRoute(await optimizeRoute(rid, route.id, undefined, true));
+      setRoute(await optimizeRoute(rid, route.id, undefined, true, courierId));
     });
 
   const startNow = () =>
     withBusy(async () => {
       if (!route) return;
-      setRoute(await startRoute(rid, route.id));
+      setRoute(await startRoute(rid, route.id, courierId));
+      await onReload();
     });
 
   const onStart = () => {
-    if (unresolvedStops.length > 0) {
+    if (unresolvedStops.length > 0 || navigationUnverified.length > 0) {
       setStartConfirmOpen(true);
       return;
     }
@@ -594,7 +456,7 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
   const onSaveStopAddress = async (input: StopAddressInput) => {
     if (!route || !addressEditorStop) return;
     setError(null);
-    const updated = await updateMyStopAddress(rid, route.id, addressEditorStop.id, input);
+    const updated = await updateMyStopAddress(rid, route.id, addressEditorStop.id, input, courierId);
     setRoute(updated);
   };
 
@@ -603,11 +465,9 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
     setBusy(true);
     setError(null);
     try {
-      setRoute(await updateRouteSettings(rid, route.id, input, true));
+      setRoute(await updateRouteSettings(rid, route.id, input, true, courierId));
     } catch (cause) {
-      setError(cause instanceof ApiError
-        ? cause.details || cause.message
-        : (cause as Error)?.message || t('routeSettingsSaveFailed'));
+      setError(deliveryRoutingError(cause, t) ?? t('routeSettingsSaveFailed'));
       throw cause;
     } finally {
       setBusy(false);
@@ -617,14 +477,18 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
   const onArrived = (stop: RouteStop) =>
     withBusy(async () => {
       if (!route) return;
-      setRoute(await markArrived(rid, route.id, stop.id));
+      setRoute(await markArrived(rid, route.id, stop.id, courierId));
     });
 
   const onDelivered = (stop: RouteStop) =>
     withBusy(async () => {
       if (!route) return;
-      setRoute(await markStopDelivered(rid, route.id, stop.id));
-    });
+      const updated = await markStopDelivered(rid, route.id, stop.id, courierId);
+      setRoute(updated);
+      setSelectedStopId(null);
+      if (updated.status === 'completed') onCompleted(updated);
+      await onReload();
+    }, 'courierDeliveryFailed');
 
   // Move a stop up/down in the sequence and persist the new order.
   const move = (stop: RouteStop, dir: -1 | 1) =>
@@ -635,388 +499,598 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
       const j = i + dir;
       if (j < 0 || j >= ids.length) return;
       [ids[i], ids[j]] = [ids[j], ids[i]];
-      setRoute(await reorderStops(rid, route.id, ids));
+      setRoute(await reorderStops(rid, route.id, ids, courierId));
     });
 
-  const onAdd = (order: Order) =>
-    withBusy(async () => {
-      if (!route) return;
-      const updated = await addStops(rid, route.id, [order.id]);
-      setRoute(updated);
-      await loadAvailable();
-    });
-
-  // ── Loading / Error ────────────────────────────────────────────────────────
-  if (!route) {
-    if (error) {
-      return (
-        <Card>
-          <CardBody className="flex flex-col items-center gap-[var(--s-3)] py-10 text-center">
-            <p className="text-fs-sm text-[var(--fg-muted)]">{t('couldNotLoad')}</p>
-            <Button variant="secondary" size="md" onClick={load}>
-              {t('retry')}
-            </Button>
-          </CardBody>
-        </Card>
-      );
+  const selectedId = stops.some((stop) => stop.id === selectedStopId)
+    ? selectedStopId
+    : currentStop?.id;
+  const actionStop = stops.find((stop) => stop.id === selectedId) ?? null;
+  const actionStopFinished = actionStop?.status === 'delivered' || actionStop?.status === 'skipped';
+  const normalizedQuery = query.trim().toLocaleLowerCase(locale);
+  const filteredStops = stops.filter((stop) =>
+    [
+      stop.address,
+      stop.city,
+      stop.customer_name,
+      stop.customer_phone,
+      String(stop.order_id),
+      stop.delivery_notes,
+    ].some((value) => value?.toLocaleLowerCase(locale).includes(normalizedQuery))
+  );
+  const date = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }).format(
+    new Date(`${route.date.slice(0, 10)}T12:00:00`)
+  );
+  const reference = route.eta_reference_at || route.started_at || route.planned_departure_at;
+  const finishAt = reference
+    ? new Date(new Date(reference).getTime() + route.est_duration_s * 1000)
+    : null;
+  const finish =
+    !route.needs_recalculation &&
+    route.est_duration_s > 0 &&
+    finishAt &&
+    !Number.isNaN(finishAt.getTime())
+      ? new Intl.DateTimeFormat(locale, {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: route.timezone,
+        }).format(finishAt)
+      : null;
+  const departure = route.planned_departure_at ? new Date(route.planned_departure_at) : null;
+  const departureTime =
+    departure && !Number.isNaN(departure.getTime())
+      ? new Intl.DateTimeFormat(locale, {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: route.timezone,
+        }).format(departure)
+      : undefined;
+  const selectStop = (stop: RouteStop, fromMap = false) => {
+    setSelectedStopId(stop.id);
+    setSelectionRequest((value) => value + 1);
+    if (fromMap) {
+      setQuery('');
+      setPanelHeight((height) => Math.max(height, 56));
     }
-    return (
-      <div className="flex flex-col items-center justify-center gap-[var(--s-3)] py-20">
-        <div
-          className="animate-spin w-8 h-8 rounded-full border-4 border-t-transparent"
-          style={{ borderColor: 'var(--brand-500)', borderTopColor: 'transparent' }}
-        />
-        <p className="text-fs-sm text-[var(--fg-muted)]">{t('deliveryRouteToday')}…</p>
-      </div>
+  };
+  useEffect(() => {
+    if (!visible || selectionRequest === 0) return;
+    const row = scrollRef.current?.querySelector<HTMLElement>(`[data-stop-id="${selectedId}"]`);
+    // Scroll only the timeline: never move the outer page or obscure the action dock.
+    if (row && scrollRef.current)
+      scrollRef.current.scrollTop = Math.max(0, row.offsetTop - scrollRef.current.offsetTop - 8);
+  }, [selectedId, visible, selectionRequest]);
+  useEffect(() => {
+    if (searchOpen) searchRef.current?.focus();
+  }, [searchOpen]);
+  const snapPanel = (value: number) =>
+    setPanelHeight(
+      [34, 56, 86].reduce((closest, step) =>
+        Math.abs(step - value) < Math.abs(closest - value) ? step : closest
+      )
     );
-  }
-
-  // ── Route status badge tone ────────────────────────────────────────────────
-  const routeTone =
-    route.status === 'completed' ? 'success'
-    : route.status === 'active' ? 'brand'
-    : route.status === 'cancelled' ? 'danger'
-    : 'neutral';
-
-  const routeStatusLabel =
-    route.status === 'draft' ? t('routeStatusDraft')
-    : route.status === 'active' ? t('routeStatusActive')
-    : route.status === 'completed' ? t('routeStatusCompleted')
-    : route.status;
-  const hasCurrentStopActions = route.status === 'active' && currentStop != null;
-  const hasFinalNavigation = currentStop == null
-    && !!route.end_address
-    && (route.status === 'active' || route.status === 'completed');
 
   return (
-    <div className={`flex flex-col gap-3 sm:gap-[var(--s-4)] ${hasCurrentStopActions || hasFinalNavigation ? 'pb-40 sm:pb-28' : 'pb-4'}`}>
-      {/* ── Inline error banner ─────────────────────────────────────────── */}
-      {error && (
-        <div
-          className="flex items-center justify-between gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] rounded-lg text-fs-sm"
-          style={{ background: 'color-mix(in oklab, var(--danger-500) 10%, transparent)', color: 'var(--danger-500)', border: '1px solid color-mix(in oklab, var(--danger-500) 25%, transparent)' }}
-        >
-          <span>{error}</span>
-          <button
-            type="button"
-            onClick={() => setError(null)}
-            className="shrink-0 font-semibold hover:opacity-70 transition-opacity"
-            aria-label={t('close')}
-          >
-            ✕
-          </button>
-        </div>
-      )}
-      {/* ── Location off notice (non-blocking) ─────────────────────── */}
-      {locationDenied && (
-        <p className="text-fs-xs text-[var(--fg-muted)]">{t('locationOffNotice')}</p>
-      )}
-      {/* Route state sits below the courier shell without repeating its title. */}
-      <div className="flex min-h-8 items-center justify-between gap-3 px-1 sm:px-0">
-        <div className="flex min-w-0 items-center gap-2">
-          <Badge tone={routeTone} dot>{routeStatusLabel}</Badge>
-          <span className="truncate text-fs-xs text-[var(--fg-muted)]">
-            {route.status === 'active' && route.est_duration_s > 0
-              ? t('etaToFinish').replace('{time}', formatEta(route.est_duration_s, t))
-              : `${stops.length} ${t('deliveryPlanStops')}`}
-          </span>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="shrink-0 px-2 sm:px-3"
-          disabled={busy || stops.length === 0}
-          onClick={onReoptimize}
-        >
-          <ZapIcon />
-          {t('reoptimize')}
-        </Button>
+    <div
+      className={styles.routeView}
+      style={
+        {
+          '--panel-height': `clamp(260px, ${panelHeight}%, calc(100% - 72px - var(--safe-top)))`,
+        } as CSSProperties
+      }
+    >
+      <div className={styles.map} aria-label={t('courierRouteMap')}>
+        {visible && (
+          <DeliveryMap
+            restaurantId={rid}
+            geometry={route.route_geometry}
+            routingProvider={route.routing_provider}
+            stops={stops}
+            start={
+              route.start_lat != null && route.start_lng != null
+                ? { lat: route.start_lat, lng: route.start_lng }
+                : undefined
+            }
+            end={
+              route.end_lat != null && route.end_lng != null
+                ? { lat: route.end_lat, lng: route.end_lng }
+                : undefined
+            }
+            variant="courier"
+            selectedStopId={selectedId}
+            onStopClick={(stop) => selectStop(stop, true)}
+            className="h-full w-full"
+          />
+        )}
       </div>
-
-      {/* ── Tab toggle: Assigned / Available ───────────────────────────── */}
-      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} variant="segmented">
-        <TabsList className="grid w-full grid-cols-2">
-          <Tab value="assigned" className="h-10 min-w-0 justify-center px-2 text-fs-xs sm:h-[30px] sm:text-fs-sm">
-            <RouteIcon />
-            <span className="truncate">{t('assignedToMe')}</span>
-            {stops.length > 0 && (
-              <span
-                className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full tabular-nums"
-                style={{
-                  background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
-                  color: 'var(--brand-500)',
+      <div className={styles.sheet}>
+        <div
+          className={styles.grip}
+          role="slider"
+          tabIndex={0}
+          aria-label={t('courierResizePanel')}
+          aria-valuemin={34}
+          aria-valuemax={86}
+          aria-valuenow={panelHeight}
+          aria-orientation="vertical"
+          onPointerDown={(event) => {
+            dragStart.current = event.clientY;
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerUp={(event) => {
+            if (dragStart.current == null) return;
+            const delta = dragStart.current - event.clientY;
+            const height =
+              event.currentTarget.closest(`.${styles.routeView}`)?.getBoundingClientRect().height ||
+              1;
+            dragStart.current = null;
+            if (Math.abs(delta) < 8)
+              setPanelHeight((value) => (value === 86 ? 34 : value === 34 ? 56 : 86));
+            else snapPanel(panelHeight + (delta / height) * 100);
+          }}
+          onPointerCancel={() => {
+            dragStart.current = null;
+          }}
+          onKeyDown={(event) => {
+            if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            setPanelHeight((value) =>
+              event.key === 'Home'
+                ? 34
+                : event.key === 'End'
+                  ? 86
+                  : event.key === 'ArrowUp'
+                    ? value < 56
+                      ? 56
+                      : 86
+                    : value > 56
+                      ? 56
+                      : 34
+            );
+          }}
+        />
+        <div className={styles.summary}>
+          <div className={styles.summaryLine}>
+            <div className={styles.summaryText}>
+              <p>
+                <strong>
+                  {finish
+                    ? `${t('courierEstimatedFinish')} ${finish}`
+                    : t(route.status === 'active' ? 'routeStatusActive' : 'routeStatusDraft')}
+                </strong>
+              </p>
+              <p>
+                {stops.length} {t('deliveryPlanStops')}
+                {!route.needs_recalculation && route.total_distance_m > 0 && (
+                  <>
+                    {' '}
+                    ·{' '}
+                    {new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(
+                      route.total_distance_m / 1000
+                    )}{' '}
+                    km
+                  </>
+                )}
+              </p>
+            </div>
+            <div className={styles.tools}>
+              <button
+                type="button"
+                className={styles.iconButton}
+                aria-label={t('courierSearchStops')}
+                aria-expanded={searchOpen}
+                onClick={() => {
+                  setSearchOpen((value) => !value);
+                  setQuery('');
                 }}
               >
-                {stops.length}
-              </span>
-            )}
-          </Tab>
-          <Tab value="available" className="h-10 min-w-0 justify-center px-2 text-fs-xs sm:h-[30px] sm:text-fs-sm">
-            <PackageIcon />
-            <span className="truncate">{t('availableDeliveries')}</span>
-            <span
-              className="rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-[var(--fg-muted)]"
-            >
-              {available.length}
-            </span>
-          </Tab>
-        </TabsList>
-
-        {/* ── Assigned tab ─────────────────────────────────────────────── */}
-        <TabsContent value="assigned">
-          <div className="flex flex-col gap-[var(--s-4)]">
-            {stops.length > 0 && (
-              <RouteSettingsEditor
-                route={route}
-                locale={locale}
-                disabled={busy || route.status !== 'draft'}
-                onSave={onSaveSettings}
-                t={t}
-              />
-            )}
-
-            {/* Compact route overview. The timeline remains the primary surface. */}
-            {stops.length > 0 && (
-              <Card className="overflow-hidden">
-                <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="whitespace-nowrap text-fs-sm font-semibold text-[var(--fg)]">
-                      {formatEta(route.est_duration_s, t) || '—'} · {unresolvedStops.length > 0 ? `${locatedStops}/${stops.length}` : stops.length} {t('deliveryPlanStops')}
-                    </p>
-                    {unresolvedStops.length > 0 && (
-                      <p className="mt-0.5 text-[11px] text-[var(--warning-500)]">{t('routeEstimatePartial')}</p>
-                    )}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="shrink-0 px-2"
-                    onClick={() => setMapExpanded((current) => !current)}
-                    aria-expanded={mapExpanded}
-                    aria-label={t(mapExpanded ? 'deliveryMapCollapse' : 'deliveryMapExpand')}
+                <SearchIcon />
+              </button>
+              <Menu>
+                <MenuTrigger asChild>
+                  <button
+                    type="button"
+                    className={styles.iconButton}
+                    aria-label={t('courierRouteOptions')}
                   >
-                    {t(mapExpanded ? 'deliveryMapCollapse' : 'deliveryMapExpand')}
-                    {mapExpanded ? <Minimize2Icon /> : <Maximize2Icon />}
-                  </Button>
-                </div>
-                <div className={`overflow-hidden transition-[height] duration-slow ease-out ${mapExpanded ? 'h-[42vh] min-h-[280px] sm:min-h-[320px]' : 'h-0 sm:h-52'}`}>
-                  <DeliveryMap
-                    restaurantId={rid}
-                    geometry={route.route_geometry}
-                    routingProvider={route.routing_provider}
-                    stops={stops}
-                    start={route.start_lat != null && route.start_lng != null ? { lat: route.start_lat, lng: route.start_lng } : undefined}
-                    end={route.end_lat != null && route.end_lng != null ? { lat: route.end_lat, lng: route.end_lng } : undefined}
-                    className="h-full w-full"
-                  />
-                </div>
-              </Card>
-            )}
-
-            {/* Progress bar */}
-            {stops.length > 0 && (
-              <RouteProgress delivered={delivered} total={stops.length} />
-            )}
-
-            {unresolvedStops.length > 0 && (
-              <div className="flex items-start gap-3 rounded-r-lg border border-[var(--warning-500)]/30 bg-[var(--warning-50)] px-4 py-3">
-                <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-[var(--warning-500)]" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-fs-sm font-medium text-[var(--fg)]">
-                    {t('unlocatedStopsCount').replace('{count}', String(unresolvedStops.length))}
-                  </p>
-                  <p className="mt-0.5 text-fs-xs leading-relaxed text-[var(--fg-muted)]">{t('unlocatedStopsExplanation')}</p>
-                </div>
-                <Button variant="ghost" size="sm" className="shrink-0" disabled={busy} onClick={onReoptimize}>
+                    <MoreVerticalIcon />
+                  </button>
+                </MenuTrigger>
+                <MenuContent align="end">
+                  <MenuItem onSelect={() => setSettingsOpen(true)}>
+                    <SlidersHorizontalIcon />
+                    {t('routeSettingsTitle')}
+                  </MenuItem>
+                  <MenuItem
+                    disabled={busy || stops.length === 0}
+                    onSelect={() => void onReoptimize()}
+                  >
+                    <ZapIcon />
+                    {t('reoptimize')}
+                  </MenuItem>
+                </MenuContent>
+              </Menu>
+            </div>
+          </div>
+          {error && (
+            <div role="alert" className={`${styles.notice} ${styles.error}`}>
+              <p>{error}</p>
+              <Button variant="ghost" size="sm" onClick={() => setError(null)}>
+                {t('close')}
+              </Button>
+            </div>
+          )}
+          {searchOpen && (
+            <div className={styles.search}>
+              <Input
+                ref={searchRef}
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t('courierSearchPlaceholder')}
+                aria-label={t('courierSearchStops')}
+              />
+              <button
+                type="button"
+                className={styles.iconButton}
+                aria-label={t('close')}
+                onClick={() => {
+                  setSearchOpen(false);
+                  setQuery('');
+                }}
+              >
+                <XIcon />
+              </button>
+            </div>
+          )}
+          {route.status === 'active' && (
+            <div className={styles.progress}>
+              <div
+                className={styles.progressTrack}
+                role="progressbar"
+                aria-label={t('courierDeliveryProgress')}
+                aria-valuenow={delivered}
+                aria-valuemin={0}
+                aria-valuemax={stops.length}
+              >
+                <div
+                  className={styles.progressFill}
+                  style={{ width: `${stops.length ? (delivered / stops.length) * 100 : 0}%` }}
+                />
+              </div>
+              <span>
+                {delivered}/{stops.length}
+              </span>
+            </div>
+          )}
+        </div>
+        <div className={styles.scroll} ref={scrollRef}>
+          <div className={styles.notices}>
+            {locationDenied && <p>{t('locationOffNotice')}</p>}
+            {(route.needs_recalculation || unresolvedStops.length > 0) && (
+              <div className={styles.notice}>
+                <p>{deliveryRouteWarning(route, t)}</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void onReoptimize()}
+                >
                   {t('retry')}
                 </Button>
               </div>
             )}
-
-            {route.status === 'draft' && stops.length > 0 && (
-              <Button
-                variant="primary"
-                size="lg"
-                className="w-full justify-center shadow-2"
-                disabled={busy}
-                onClick={onStart}
-              >
-                <RouteIcon />
-                {t('startRoute')}
-              </Button>
+            {!navigationLoading && navigationUnavailable && (
+              <div role="alert" className={styles.notice}>
+                <p>{t('navigationCheckUnavailable')}</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setNavigationRetry((value) => value + 1)}
+                >
+                  {t('retry')}
+                </Button>
+              </div>
             )}
-
-            {stops.length === 0 ? (
-              <NoStopsCard t={t} />
+            {navigationLoading ? (
+              <p role="status">{t('navigationCheckLoading')}</p>
             ) : (
-              <Card className="overflow-hidden">
-                {route.start_address && (
-                  <RouteEndpointRow
-                    kind="start"
-                    address={route.start_address}
-                    lat={route.start_lat}
-                    lng={route.start_lng}
-                    t={t}
-                  />
-                )}
-                {stops.map((stop, index) => (
-                  stop.id === currentStop?.id ? (
-                    <CurrentStopCard
-                      key={stop.id}
-                      stop={stop}
-                      etaWindow={deliveryEtaWindow(route, stop, locale)}
-                      hasFollowing={index < stops.length - 1 || !!route.end_address}
-                      busy={busy}
-                      onEditAddress={() => setAddressEditorStop(stop)}
-                      t={t}
-                    />
-                  ) : (
-                    <StopRow
-                      key={stop.id}
-                      stop={stop}
-                      etaWindow={deliveryEtaWindow(route, stop, locale)}
-                      index={index}
-                      total={stops.length}
-                      busy={busy}
-                      onMoveUp={() => move(stop, -1)}
-                      onMoveDown={() => move(stop, 1)}
-                      onEditAddress={() => setAddressEditorStop(stop)}
-                      hasFollowingEndpoint={!!route.end_address}
-                      t={t}
-                    />
-                  )
-                ))}
-                {route.end_address && (
-                  <RouteEndpointRow
-                    kind="end"
-                    address={route.end_address}
-                    lat={route.end_lat}
-                    lng={route.end_lng}
-                    t={t}
-                  />
-                )}
-              </Card>
+              navigationUnverified.length > 0 && (
+                <p role="alert" className="text-[var(--warning-500)]">
+                  <AlertCircleIcon className="me-1 inline h-3.5 w-3.5" />
+                  {t('navigationReviewCount').replace(
+                    '{count}',
+                    String(navigationUnverified.length)
+                  )}
+                </p>
+              )
             )}
           </div>
-        </TabsContent>
-
-        {/* ── Available tab ────────────────────────────────────────────── */}
-        <TabsContent value="available">
-          {available.length === 0 ? (
-            <div
-              className="flex flex-col items-center justify-center gap-[var(--s-3)] py-16 text-center rounded-lg border border-dashed"
-              style={{ borderColor: 'var(--line)', color: 'var(--fg-subtle)' }}
-            >
-              <PackageIcon className="w-10 h-10 opacity-40" />
-              <p className="text-fs-sm font-medium">{t('noAvailableDeliveries')}</p>
+          {!query && route.start_address && (
+            <RouteEndpointRow
+              kind="start"
+              address={route.start_address}
+              time={departureTime}
+              t={t}
+            />
+          )}
+          {filteredStops.map((stop) => (
+            <TimelineStop
+              key={stop.id}
+              stop={stop}
+              route={route}
+              current={stop.id === currentStop?.id}
+              selected={stop.id === selectedId}
+              index={stops.indexOf(stop)}
+              total={stops.length}
+              busy={busy}
+              onSelect={() => selectStop(stop)}
+              onEdit={() => setAddressEditorStop(stop)}
+              onMove={(direction) => void move(stop, direction)}
+              onArrived={() => void onArrived(stop)}
+              onDelivered={() => void onDelivered(stop)}
+            />
+          ))}
+          {filteredStops.length === 0 && (
+            <p role="status" className="px-6 py-8 text-center text-fs-sm text-[var(--fg-muted)]">
+              {t(query ? 'courierNoSearchResults' : 'noStopsYet')}
+            </p>
+          )}
+          {!query && route.end_address && (
+            <RouteEndpointRow
+              kind="end"
+              address={route.end_address}
+              lat={route.end_lat}
+              lng={route.end_lng}
+              t={t}
+            />
+          )}
+        </div>
+        <div
+          className={`${styles.dock} ${route.status === 'draft' && canStart ? styles.draftDock : ''}`}
+          data-testid="courier-action-dock"
+        >
+          <div className={styles.dockTop}>
+            <div>
+              <p className={styles.duration}>
+                {route.needs_recalculation ? '—' : formatEta(route.est_duration_s, t)}
+              </p>
+              <p className={styles.date}>{date}</p>
             </div>
-          ) : (
-            <Card>
-              <div>
-                {available.map((order, i) => (
-                  <AvailableOrderRow
-                    key={order.id}
-                    order={order}
-                    index={i}
-                    total={available.length}
-                    busy={busy}
-                    onAdd={onAdd}
-                    t={t}
-                  />
-                ))}
+            {actionStop && route.status === 'active' && (
+              <div className={styles.nextStop}>
+                <p>
+                  {t('courierSelectedStop')} {String(actionStop.sequence).padStart(2, '0')}
+                </p>
+                <p className="font-semibold text-[var(--fg)]">
+                  {actionStop.address || actionStop.customer_name}
+                </p>
               </div>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
-
-      {tab === 'assigned' && hasCurrentStopActions && (
-        <div
-          className="sticky bottom-3 z-[450] mx-1 flex flex-wrap gap-2 rounded-r-xl border border-[var(--line-strong)] p-2.5 shadow-3 backdrop-blur-xl pb-[max(var(--s-3),var(--safe-bottom))] sm:mx-0 sm:flex-nowrap sm:p-3"
-          style={{ background: 'color-mix(in oklab, var(--surface) 92%, transparent)' }}
-        >
-          <NavigationAppMenu
-            destination={currentStop}
-            variant="secondary"
-            size="lg"
-            className="order-2 flex-1 sm:order-none"
-            label={t('navigate')}
-            t={t}
-          />
-          {currentStop.customer_phone && (
-            <Button asChild variant="secondary" size="lg" icon className="order-2 sm:order-none" aria-label={t('deliveryPlanWhatsApp')}>
-              <a
-                href={whatsappUrl(currentStop.customer_phone, stopWhatsappMessage(
-                  currentStop,
-                  deliveryEtaWindow(route, currentStop, locale),
-                  t,
-                ))}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <MessageCircleIcon />
-              </a>
-            </Button>
-          )}
-          {currentStop.customer_phone && (
-            <Button asChild variant="secondary" size="lg" icon className="order-2 sm:order-none" aria-label={t('callCustomer')}>
-              <a href={callUrl(currentStop.customer_phone)}><PhoneIcon /></a>
-            </Button>
-          )}
-          {currentStop.status === 'arrived' ? (
-            <Button
-              variant="primary"
-              size="lg"
-              className="order-1 w-full bg-[var(--success-500)] hover:brightness-95 sm:order-none sm:w-auto sm:flex-1"
-              disabled={busy}
-              onClick={() => onDelivered(currentStop)}
-            >
-              <CheckCircle2Icon />
-              {t('markDelivered')}
-            </Button>
-          ) : (
-            <Button variant="primary" size="lg" className="order-1 w-full sm:order-none sm:w-auto sm:flex-1" disabled={busy} onClick={() => onArrived(currentStop)}>
-              <CheckIcon />
-              {t('markArrived')}
-            </Button>
+            )}
+          </div>
+          <div className={styles.dockActions}>
+            {route.status === 'draft' ? (
+              <>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  disabled={busy}
+                  onClick={() => setSettingsOpen(true)}
+                >
+                  <SlidersHorizontalIcon />
+                  {t('courierRefineRoute')}
+                </Button>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  disabled={busy || !canStart || navigationLoading || stops.length === 0}
+                  onClick={onStart}
+                  aria-label={t('startRoute')}
+                >
+                  <RouteIcon />
+                  {t('courierStartAction')}
+                </Button>
+              </>
+            ) : actionStop && route.status === 'active' ? (
+              <>
+                <NavigationAppMenu
+                  destination={actionStop}
+                  label={t('navigate')}
+                  size="lg"
+                  t={t}
+                />
+                <Button
+                  variant="primary"
+                  size="lg"
+                  disabled={busy || actionStopFinished}
+                  onClick={() => void onDelivered(actionStop)}
+                >
+                  <CheckCircle2Icon />
+                  {t('markDelivered')}
+                </Button>
+              </>
+            ) : null}
+          </div>
+          {route.status === 'draft' && !canStart && (
+            <p className="mt-2 text-fs-xs text-[var(--fg-subtle)]">
+              {t('courierFinishCurrentRoute')}
+            </p>
           )}
         </div>
-      )}
-
-      {tab === 'assigned' && hasFinalNavigation && (
-        <div
-          className="sticky bottom-3 z-[450] mx-1 rounded-r-xl border border-[var(--line-strong)] p-2.5 shadow-3 backdrop-blur-xl pb-[max(var(--s-3),var(--safe-bottom))] sm:mx-0 sm:p-3"
-          style={{ background: 'color-mix(in oklab, var(--surface) 92%, transparent)' }}
-        >
-          <NavigationAppMenu
-            destination={{ address: route.end_address ?? '', lat: route.end_lat, lng: route.end_lng }}
-            variant="primary"
-            size="lg"
-            className="w-full justify-center"
-            label={t('routeSettingsNavigateEnd')}
-            t={t}
-          />
+      </div>
+      <Drawer
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        title={t('routeSettingsTitle')}
+        width={480}
+        closeDisabled={busy}
+      >
+        <RouteSettingsEditor
+          route={route}
+          locale={locale}
+          disabled={busy || route.status !== 'draft'}
+          onSave={onSaveSettings}
+          t={t}
+        />
+        <div className="mt-5">
+          <DeliveryDuration route={route} t={t} />
         </div>
-      )}
-
+        <Button
+          variant="secondary"
+          className="mt-5"
+          disabled={busy || stops.length === 0}
+          onClick={() => void onReoptimize()}
+        >
+          <ZapIcon />
+          {t('reoptimize')}
+        </Button>
+      </Drawer>
       <CourierAddressEditor
         open={addressEditorStop != null}
-        onOpenChange={(open) => { if (!open) setAddressEditorStop(null); }}
+        onOpenChange={(open) => {
+          if (!open) setAddressEditorStop(null);
+        }}
         restaurantId={rid}
         stop={addressEditorStop}
         onSave={onSaveStopAddress}
         t={t}
       />
-
       <ConfirmDialog
         open={startConfirmOpen}
         onOpenChange={setStartConfirmOpen}
-        title={t('startRouteWithUnlocatedTitle')}
-        description={t('startRouteWithUnlocatedDescription').replace('{count}', String(unresolvedStops.length))}
+        title={t('navigationUnverifiedTitle')}
+        description={t('navigationReviewBeforeStart').replace(
+          '{count}',
+          String(navigationUnverified.length)
+        )}
         confirmLabel={t('startAnyway')}
         cancelLabel={t('back')}
-        onConfirm={() => { setStartConfirmOpen(false); void startNow(); }}
+        onConfirm={() => {
+          setStartConfirmOpen(false);
+          void startNow();
+        }}
       />
+    </div>
+  );
+}
+
+/** Map and timeline for every assigned route, retaining the active location reporter across selections. */
+export default function CourierItineraryView({ rid, courierId }: { rid: number; courierId?: number }) {
+  const { t, locale } = useI18n();
+  const { lastEvent } = useWs();
+  const [routes, setRoutes] = useState<DeliveryRoute[] | null>(null);
+  const [completedDestination, setCompletedDestination] = useState<DeliveryRoute | null>(null);
+  const [error, setError] = useState(false);
+  const requestId = useRef(0);
+  const load = useCallback(async () => {
+    const id = ++requestId.current;
+    try {
+      const next = await getMyRoutes(rid, courierId);
+      if (id === requestId.current) {
+        setRoutes(next);
+        setError(false);
+      }
+    } catch {
+      if (id === requestId.current) setError(true);
+    }
+  }, [rid, courierId]);
+  useEffect(() => {
+    const requests = requestId;
+    setRoutes(null);
+    setError(false);
+    setSelectedRouteId(null);
+    setCompletedDestination(null);
+    void load();
+    return () => {
+      requests.current++;
+    };
+  }, [load]);
+  useEffect(() => {
+    if (lastEvent?.type === 'route.updated' || lastEvent?.type.startsWith('order.')) void load();
+  }, [lastEvent, load]);
+  const [selectedRouteId, setSelectedRouteId] = useState<number | null>(null);
+  const selectedRoute =
+    routes?.find((route) => route.id === selectedRouteId) ??
+    routes?.find((route) => route.status === 'active') ??
+    routes?.[0];
+  return (
+    <div className={styles.workspace}>
+      {routes && routes.length > 0 && (
+        <div className={styles.routePicker}>
+          <label className="sr-only" htmlFor={`courier-routes-${rid}`}>
+            {t('courierSelectRoute')}
+          </label>
+          <select
+            id={`courier-routes-${rid}`}
+            value={selectedRoute?.id}
+            onChange={(event) => setSelectedRouteId(Number(event.target.value))}
+          >
+            {routes.map((route, index) => (
+              <option value={route.id} key={route.id}>
+                {t('courierRouteNumber').replace('{number}', String(index + 1))} ·{' '}
+                {new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }).format(
+                  new Date(`${route.date.slice(0, 10)}T12:00:00`)
+                )}{' '}
+                · {t(route.status === 'active' ? 'routeStatusActive' : 'routeStatusDraft')}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {error && (
+        <div className="absolute inset-x-4 top-20 z-40 rounded-lg bg-[var(--danger-50)] p-4">
+          <p role="alert">{t('couldNotLoad')}</p>
+          <Button variant="secondary" onClick={() => void load()}>
+            {t('retry')}
+          </Button>
+        </div>
+      )}
+      {routes === null && !error && (
+        <p role="status" className={styles.empty}>
+          {t('loading')}
+        </p>
+      )}
+      {completedDestination?.end_address && (
+        <div className="absolute inset-x-3 top-20 z-40 rounded-xl border border-[var(--line)] bg-[var(--surface)] shadow-2">
+          <section aria-label={t('routeTimelineTerminus')}>
+            <RouteEndpointRow
+              kind="end"
+              address={completedDestination.end_address}
+              lat={completedDestination.end_lat}
+              lng={completedDestination.end_lng}
+              t={t}
+            />
+            <div className="flex justify-end p-2">
+              <Button variant="ghost" size="sm" onClick={() => setCompletedDestination(null)}>
+                {t('close')}
+              </Button>
+            </div>
+          </section>
+        </div>
+      )}
+      {routes?.length === 0 && <NoStopsCard t={t} />}
+      {routes?.map((route) => (
+        <section
+          className={styles.route}
+          hidden={route.id !== selectedRoute?.id}
+          data-route-id={route.id}
+          key={`${rid}:${courierId ?? 'self'}:${route.id}`}
+          aria-label={`${t('assignedToMe')} · ${route.date.slice(0, 10)}`}
+        >
+          <CourierRouteView
+            rid={rid}
+            courierId={courierId}
+            assignedRoute={route}
+            onReload={load}
+            visible={route.id === selectedRoute?.id}
+            canStart={!routes.some((other) => other.status === 'active' && other.id !== route.id)}
+            reportLocation={courierId === undefined && route.id === routes.find((other) => other.status === 'active')?.id}
+            onCompleted={(finished) => {
+              if (finished.end_address) setCompletedDestination(finished);
+            }}
+          />
+        </section>
+      ))}
     </div>
   );
 }

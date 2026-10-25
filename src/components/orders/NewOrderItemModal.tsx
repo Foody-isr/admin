@@ -6,7 +6,7 @@ import { NumberInput } from '@/components/ui/NumberInput';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import type { MenuItem, MenuItemModifier } from '@/lib/api';
-import { itemSizeOptions, itemSizeGroupLabel, isSizeOrderable, type ItemSizeOption } from '@/lib/item-options';
+import { itemOptionPositions, itemSizeOptions, itemSizeGroupLabel, isSizeOrderable, type ItemSizeOption } from '@/lib/item-options';
 
 // ─── Cart line model (shared with the order-builder page) ────────────────────
 
@@ -18,6 +18,7 @@ export interface NewOrderLineModifier {
 
 /** One picked sub-item inside a combo line. */
 export interface ComboSelection {
+  isSubstitution?: boolean;
   stepId: number;
   stepName: string;
   menuItemId: number;
@@ -28,6 +29,7 @@ export interface ComboSelection {
 }
 
 export interface NewOrderLine {
+  optionSelections?: import("@/lib/api").OptionSelection[];
   /** Stable per-line id — distinct lines of the same item must not merge. */
   uid: string;
   item: MenuItem;
@@ -98,6 +100,7 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
   const variants = useMemo(() => (item ? itemSizeOptions(item) : []), [item]);
   const modifierGroups = useMemo(() => (item ? collectModifierGroups(item) : []), [item]);
 
+  const [optionChoices, setOptionChoices] = useState<Record<string, number>>({});
   const [variantId, setVariantId] = useState<number | undefined>(undefined);
   const [checkedMods, setCheckedMods] = useState<Set<number>>(new Set());
   const [quantity, setQuantity] = useState(1);
@@ -116,12 +119,15 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
       ),
     );
     setQuantity(1);
+    setOptionChoices({});
     setNotes('');
   }
 
   if (!item) return null;
   const activeItem = item;
 
+  const positions = itemOptionPositions(activeItem, variantId);
+  const optionsValid = positions.every(position => position.set.options?.some(option => option.id === optionChoices[position.key] && option.is_active && !option.is_combo_only));
   const selectedVariant: ItemSizeOption | undefined = variants.find((v) => v.id === variantId);
   // Block adding a sold-out size — the order-time guard would reject it anyway.
   const selectedSoldOut = !!selectedVariant && !isSizeOrderable(selectedVariant);
@@ -146,12 +152,13 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
   }
 
   function handleAdd() {
-    if (selectedSoldOut) return;
+    if (selectedSoldOut || !optionsValid) return;
     onAdd({
       uid: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${activeItem.id}-${Date.now()}`,
       item: activeItem,
       quantity: Math.max(1, quantity),
       notes: notes.trim(),
+      optionSelections: positions.map(position => ({ option_set_id: position.set.id, option_id: optionChoices[position.key], selection_index: position.index, group_name: position.label, name: position.set.options?.find(option => option.id === optionChoices[position.key])?.name })),
       selectedVariantId: selectedVariant?.id,
       selectedVariantName: selectedVariant?.name,
       selectedVariantPrice: selectedVariant?.price,
@@ -169,7 +176,7 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
       subtitle={item.description || undefined}
       width={520}
       onSave={handleAdd}
-      saveDisabled={selectedSoldOut}
+      saveDisabled={selectedSoldOut || !optionsValid}
       saveLabel={
         selectedSoldOut
           ? t('outOfStock')
@@ -206,7 +213,7 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
                         name="variant"
                         checked={variantId === v.id}
                         disabled={soldOut}
-                        onChange={() => setVariantId(v.id)}
+                        onChange={() => { setVariantId(v.id); setOptionChoices(previous => { const visible = new Set(itemOptionPositions(activeItem, v.id).map(position => position.key)); return Object.fromEntries(Object.entries(previous).filter(([key]) => visible.has(key))); }); }}
                       />
                   </label>
                 );
@@ -215,6 +222,12 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
           </div>
         )}
 
+        {positions.map(position => <Field key={position.key} label={position.label}>
+          <select className="input" value={optionChoices[position.key] ?? ''} onChange={event => setOptionChoices(previous => ({ ...previous, [position.key]: Number(event.target.value) }))}>
+            <option value="">{t('variantChoose')}</option>
+            {(position.set.options ?? []).filter(option => option.is_active && !option.is_combo_only).map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+          </select>
+        </Field>)}
         {modifierGroups.map((group) => (
           <div key={group.key} className="flex flex-col gap-2">
             {group.label && (

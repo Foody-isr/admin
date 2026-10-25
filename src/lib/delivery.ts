@@ -22,7 +22,10 @@ export interface RouteStop {
   distance_from_prev_m: number;
   eta_seconds: number;
   total_amount: number;
+  payment_method?: string;
   needs_geocode: boolean;
+  coordinate_provider?: string;
+  navigation_verified?: boolean;
 }
 
 export interface CourierLocationDTO {
@@ -35,6 +38,7 @@ export interface CourierLocationDTO {
 }
 
 export interface DeliveryRoute {
+  timezone?: string;
   id: number;
   restaurant_id: number;
   courier_id: number;
@@ -51,9 +55,17 @@ export interface DeliveryRoute {
   eta_reference_at?: string | null;
   total_distance_m: number;
   est_duration_s: number;
+  est_travel_s?: number;
+  est_waiting_s?: number;
+  est_service_s?: number;
+  needs_recalculation?: boolean;
+  routing_error?: 'location service quota exceeded' | 'routing service unavailable' | 'some deliveries could not be routed';
+  stop_service_minutes?: number;
+  customer_window_minutes?: number | null;
+  respect_order_windows?: boolean;
   stops: RouteStop[];
   last_location?: CourierLocationDTO | null;
-  routing_provider?: 'geoapify' | 'approximate';
+  routing_provider?: 'google' | 'geoapify' | 'approximate';
   route_geometry?: RoadLeg[];
 }
 
@@ -61,6 +73,9 @@ export interface DeliveryRoute {
 export interface RoadLeg { order_id: number; path: [number, number][] }
 
 export interface RouteSettingsInput {
+  respect_order_windows?: boolean;
+  customer_window_minutes?: number;
+  stop_service_minutes?: number;
   planned_departure_at: string;
   start_address: string;
   end_address: string;
@@ -76,6 +91,10 @@ export interface StopAddressInput {
 function q(restaurantId: number, extra?: Record<string, string>): string {
   const sp = new URLSearchParams({ restaurant_id: String(restaurantId), ...(extra ?? {}) });
   return sp.toString();
+}
+
+function courierQuery(restaurantId: number, courierId?: number): string {
+  return q(restaurantId, courierId === undefined ? undefined : { courier_id: String(courierId) });
 }
 
 /** The current courier's active or next assigned route. */
@@ -94,25 +113,28 @@ export async function listAvailableDeliveries(restaurantId: number): Promise<Ord
   return data.orders ?? [];
 }
 
-export async function startRoute(restaurantId: number, routeId: number): Promise<DeliveryRoute> {
+/** Start the current or superadmin-selected courier’s assigned route. */
+export async function startRoute(restaurantId: number, routeId: number, courierId?: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/start?${q(restaurantId)}`, restaurantId,
+    `/api/v1/delivery/routes/${routeId}/start?${courierQuery(restaurantId, courierId)}`, restaurantId,
     { method: 'POST' },
   );
   return data.route;
 }
 
-export async function markArrived(restaurantId: number, routeId: number, stopId: number): Promise<DeliveryRoute> {
+/** Record arrival on the current or superadmin-selected courier’s route. */
+export async function markArrived(restaurantId: number, routeId: number, stopId: number, courierId?: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/arrived?${q(restaurantId)}`, restaurantId,
+    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/arrived?${courierQuery(restaurantId, courierId)}`, restaurantId,
     { method: 'POST' },
   );
   return data.route;
 }
 
-export async function markStopDelivered(restaurantId: number, routeId: number, stopId: number): Promise<DeliveryRoute> {
+/** Confirm delivery on the current or superadmin-selected courier’s route. */
+export async function markStopDelivered(restaurantId: number, routeId: number, stopId: number, courierId?: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/delivered?${q(restaurantId)}`, restaurantId,
+    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/delivered?${courierQuery(restaurantId, courierId)}`, restaurantId,
     { method: 'POST' },
   );
   return data.route;
@@ -144,9 +166,10 @@ export async function unassignRouteStop(restaurantId: number, routeId: number, s
   return data.route;
 }
 
-export async function reorderStops(restaurantId: number, routeId: number, stopIds: number[]): Promise<DeliveryRoute> {
+/** Save stop order, checking the selected courier when supplied. */
+export async function reorderStops(restaurantId: number, routeId: number, stopIds: number[], courierId?: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/stops/reorder?${q(restaurantId)}`, restaurantId,
+    `/api/v1/delivery/routes/${routeId}/stops/reorder?${courierQuery(restaurantId, courierId)}`, restaurantId,
     { method: 'PATCH', body: JSON.stringify({ stop_ids: stopIds }) },
   );
   return data.route;
@@ -157,10 +180,11 @@ export async function optimizeRoute(
   routeId: number,
   from?: { lat: number; lng: number },
   ownRoute = false,
+  courierId?: number,
 ): Promise<DeliveryRoute> {
   const action = ownRoute ? 'my-optimize' : 'optimize';
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/${action}?${q(restaurantId)}`, restaurantId,
+    `/api/v1/delivery/routes/${routeId}/${action}?${courierQuery(restaurantId, courierId)}`, restaurantId,
     { method: 'POST', body: JSON.stringify(from ? { from } : {}) },
   );
   return data.route;
@@ -173,9 +197,10 @@ export async function updateMyStopAddress(
   routeId: number,
   stopId: number,
   input: StopAddressInput,
+  courierId?: number,
 ): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/my-address?${q(restaurantId)}`,
+    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/my-address?${courierQuery(restaurantId, courierId)}`,
     restaurantId,
     { method: 'PATCH', body: JSON.stringify(input) },
   );
@@ -188,10 +213,11 @@ export async function updateRouteSettings(
   routeId: number,
   input: RouteSettingsInput,
   ownRoute = false,
+  courierId?: number,
 ): Promise<DeliveryRoute> {
   const endpoint = ownRoute ? 'my-settings' : 'settings';
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/${endpoint}?${q(restaurantId)}`,
+    `/api/v1/delivery/routes/${routeId}/${endpoint}?${courierQuery(restaurantId, courierId)}`,
     restaurantId,
     { method: 'PATCH', body: JSON.stringify(input) },
   );
@@ -214,6 +240,10 @@ export async function planDeliveryRoutes(
   orderIds: number[],
   plannedDepartureAt: string,
   assignments?: Array<{ courier_id: number; order_ids: number[] }>,
+  stopServiceMinutes?: number,
+  customerWindowMinutes?: number,
+  endpoints?: Array<{ courier_id: number; start_address: string; end_address: string }>,
+  respectOrderWindows = false,
 ): Promise<DeliveryRoute[]> {
   const data = await apiFetch<{ routes: DeliveryRoute[] }>(
     `/api/v1/delivery/routes/plan?${q(restaurantId)}`, restaurantId,
@@ -224,6 +254,10 @@ export async function planDeliveryRoutes(
         order_ids: orderIds,
         planned_departure_at: plannedDepartureAt,
         assignments,
+        stop_service_minutes: stopServiceMinutes,
+        customer_window_minutes: customerWindowMinutes,
+        respect_order_windows: respectOrderWindows,
+        endpoints,
       }),
     },
   );
@@ -253,6 +287,16 @@ export async function changeRouteCourier(
     `/api/v1/delivery/routes/${routeId}/courier?${q(restaurantId)}`,
     restaurantId,
     { method: 'PATCH', body: JSON.stringify({ courier_id: courierId }) },
+  );
+  return data.route;
+}
+
+/** Undo an accidental departure before any stop has begun; keep the assignment. */
+export async function resetRouteDeparture(restaurantId: number, routeId: number): Promise<DeliveryRoute> {
+  const data = await apiFetch<{ route: DeliveryRoute }>(
+    `/api/v1/delivery/routes/${routeId}/reset-departure?${q(restaurantId)}`,
+    restaurantId,
+    { method: 'POST' },
   );
   return data.route;
 }
@@ -292,4 +336,46 @@ export async function reportLocation(
     `/api/v1/delivery/location?${q(restaurantId)}`, restaurantId,
     { method: 'POST', body: JSON.stringify(pos) },
   );
+}
+
+/** All unfinished routes assigned to the current courier, including future runs. */
+export async function getMyRoutes(restaurantId: number, courierId?: number): Promise<DeliveryRoute[]> {
+  const data = await apiFetch<{ routes: DeliveryRoute[] }>(
+    `/api/v1/delivery/routes/mine/all?${courierQuery(restaurantId, courierId)}`, restaurantId,
+  );
+  return data.routes ?? [];
+}
+
+/** Preflight this courier's addresses against their saved destinations. */
+export async function checkMyRouteNavigation(restaurantId: number, routeId: number, signal?: AbortSignal, courierId?: number): Promise<Array<{ stop_id: number; verified: boolean; reason: string }>> {
+  const data = await apiFetch<{ checks: Array<{ stop_id: number; verified: boolean; reason: string }> }>(
+    `/api/v1/delivery/routes/${routeId}/my-navigation-check?${courierQuery(restaurantId, courierId)}`, restaurantId,
+    { method: 'POST', signal },
+  );
+  return data.checks;
+}
+
+/** Server-backed address prediction or completed selection. */
+export interface AddressSuggestion { id: string; kind?: string; address: string; city: string; lookup_token?: string }
+
+/** Search addresses without exposing the provider credential. */
+export async function autocompleteRouteAddress(restaurantId: number, text: string, lang: string, sessionId: string, signal?: AbortSignal): Promise<AddressSuggestion[]> {
+  const data = await apiFetch<{ suggestions: AddressSuggestion[] }>(`/api/v1/public/address-autocomplete?${q(restaurantId)}`, restaurantId, {
+    method: 'POST', body: JSON.stringify({ text, lang, session_id: sessionId }), signal,
+  });
+  return data.suggestions;
+}
+
+/** Resolve a restaurant-bound prediction before accepting its full address. */
+export async function resolveRouteAddress(restaurantId: number, token: string): Promise<AddressSuggestion> {
+  const data = await apiFetch<{ suggestion: AddressSuggestion }>(`/api/v1/public/address-autocomplete/resolve?${q(restaurantId)}`, restaurantId, {
+    method: 'POST', body: JSON.stringify({ lookup_token: token }),
+  });
+  return data.suggestion;
+}
+
+/** Current customer range; null preserves the order's saved slot for unconfigured routes. */
+export async function getDeliveryCustomerWindow(restaurantId: number, orderId: number): Promise<{ start: string; end: string; timezone?: string } | null> {
+  const data = await apiFetch<{ window: { start: string; end: string; timezone?: string } | null }>(`/api/v1/delivery/orders/${orderId}/customer-window?${q(restaurantId)}`, restaurantId);
+  return data.window ?? null;
 }

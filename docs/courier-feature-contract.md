@@ -66,5 +66,35 @@ the owner opts in and a courier is assigned.
 - The delivery note is a single string (not yet per-locale).
 - ETA is **passed through** from `external_metadata` (e.g. a dispatch
   integration); the server does not compute it.
-- A dedicated courier-only screen (couriers see just their assigned orders) is
-  not included here.
+- The courier-only screen uses `GET /api/v1/delivery/routes/mine/all` for every
+  unfinished assigned route. It does not request or expose the Available pool.
+- `POST /api/v1/delivery/routes/{id}/my-navigation-check` checks the caller owns
+  the route and returns `{ checks: [{ stop_id, verified, reason }] }`. It compares
+  precise country-scoped geocoding with the saved point (100 m tolerance), without
+  replacing coordinates. Manual corrections are trusted only while a private
+  address/point fingerprint still matches. The public customer contract is unchanged.
+- `stop_service_minutes` is additive on routes, plan requests and settings updates.
+  It is an integer from 0 to 60, default 3. Arrival precedes the stop's own handover;
+  later arrivals and total duration include each configured handover.
+
+## Superadmin courier mode
+
+`/[restaurantId]/orders/courier-mode` lets only platform superadmins select a
+current Courier staff member of that restaurant. The shared courier screen and
+its requests pass optional `courier_id` to `mine/all`, `my-navigation-check`,
+`my-settings`, `my-optimize`, `my-address`, `start`, `arrived`, `delivered` and
+`stops/reorder`. The API validates the superadmin claim, active staff membership,
+Courier role (legacy or RBAC), and route ownership in the explicit restaurant.
+Normal courier requests omit the selector and retain their existing scope.
+
+Switching remounts the shared view to clear old route, stop, search and dialog
+state; responses from the old selection cannot populate the new view. The
+original account/token stays intact. Actions are real delivery operations, while
+location reporting is disabled for a selected courier so the superadmin's device
+never replaces that courier's GPS. Address corrections retain the actual actor
+in their audit. Deploy the matching API before Admin; no migration is required.
+
+Help impact: `delivery/courier-workspace#superadmin-courier-selection` and
+`delivery/dispatch-and-routes#superadmin-courier-mode` are updated in FR/HE/EN.
+Synthetic coverage lives in `tests/redesign/courier-workflow.spec.ts` and API
+`internal/delivery/courier_context_test.go`.

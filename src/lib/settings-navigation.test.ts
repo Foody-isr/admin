@@ -51,3 +51,20 @@ test('Stories belongs to communications and remains available to readers on mobi
   for (const permission of ['settings.view', 'settings.edit']) assert.ok(destinations(permission).some(item => item.href === stories.href));
   for (const permission of ['tables.manage', 'orders.view']) assert.ok(!destinations(permission).some(item => item.href === stories.href));
 });
+
+test('maps and zones are distinct ordering destinations with the delivery read permissions', () => {
+  const group = settingsNavigation(5).find(group => group.labelKey === 'settingsGroupOrdering')!;
+  const maps = group.items.find(item => item.href === '/5/settings/delivery/maps')!;
+  const zones = group.items.find(item => item.href === '/5/settings/delivery')!;
+  assert.equal(maps.labelKey, 'mapsTitle');
+  assert.equal(isSettingsDestinationActive(maps.href, zones), false);
+  assert.equal(maps.desktopOnly, undefined);
+  for (const permission of ['orders.manage', 'settings.view', 'settings.edit']) {
+    const visible = visibleSettingsNavigation(5, (...required) => required.includes(permission)).flatMap(item => item.items);
+    assert.ok(visible.some(item => item.href === maps.href));
+  }
+  for (const permission of ['orders.view', 'tables.manage']) {
+    const visible = visibleSettingsNavigation(5, (...required) => required.includes(permission)).flatMap(item => item.items);
+    assert.ok(!visible.some(item => item.href === maps.href));
+  }
+});

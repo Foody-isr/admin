@@ -1,8 +1,16 @@
 'use client';
 
+import { DeliveryWhatsAppDrawer } from '@/components/delivery/DeliveryWhatsAppDrawer';
+import { DeliveryDuration } from '@/components/delivery/DeliveryDuration';
+import { CustomerWindowField, parseCustomerWindowMinutes } from '@/components/delivery/CustomerWindowField';
+import { RouteAddressField } from '@/components/delivery/RouteAddressField';
+import { StopServiceField, validStopServiceMinutes } from '@/components/delivery/StopServiceField';
+import { OrderWindowField } from '@/components/delivery/OrderWindowField';
+
 import { ChoiceRow } from '@/components/ds/Selection';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import {
   AlertCircleIcon,
   ArrowRightLeftIcon,
@@ -14,6 +22,7 @@ import {
   PencilIcon,
   RefreshCwIcon,
   RouteIcon,
+  Settings2Icon,
   SparklesIcon,
   Undo2Icon,
   UserIcon,
@@ -21,14 +30,14 @@ import {
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
-import { whatsappUrl } from '@/lib/delivery-links';
 import {
   buildDeliveryEtaLabel,
-  buildDeliveryEtaMessage,
   deliveryEtaWindow,
+  deliveryMatchesRouteDate,
   isOpenDeliveryRoute,
   isPendingDeliveryStop,
-  type DeliveryEtaWindow,
+  deliveryRouteWarning,
+  deliveryLocationWarning,
 } from '@/lib/delivery-planning';
 import { useWs } from '@/lib/ws-context';
 import {
@@ -37,6 +46,7 @@ import {
   listOpenDeliveryRoutes,
   optimizeRoute,
   planDeliveryRoutes,
+  resetRouteDeparture,
   transferRouteStop,
   unassignRouteStop,
   updateRouteSettings,
@@ -46,7 +56,6 @@ import {
 } from '@/lib/delivery';
 import { RouteSettingsEditor } from '@/components/delivery/RouteSettingsEditor';
 import {
-  ApiError,
   geocodeAddress,
   getOrder,
   listOrders,
@@ -87,15 +96,6 @@ function colorFor(index: number): string {
   return COURIER_COLORS[index % COURIER_COLORS.length];
 }
 
-function formatDuration(seconds: number, t: Translator): string {
-  if (seconds <= 0) return '';
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes} ${t('unitMin')}`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest > 0 ? `${hours}${t('unitHour')} ${rest}${t('unitMin')}` : `${hours}${t('unitHour')}`;
-}
-
 function formatDistance(metres: number): string {
   if (metres <= 0) return '';
   return metres < 1000 ? `${metres} m` : `${(metres / 1000).toFixed(1)} km`;
@@ -133,13 +133,10 @@ function routeStatusTone(status: DeliveryRoute['status']): 'neutral' | 'success'
   }
 }
 
-function deliveryMessage(t: Translator, stop: RouteStop, window: DeliveryEtaWindow | null): string {
-  const key = window ? 'deliveryEtaWhatsappTemplate' : 'deliveryEtaWhatsappTemplateNoTime';
-  return buildDeliveryEtaMessage(t(key), stop, window);
-}
 
 interface RouteRibbonProps {
   route: DeliveryRoute;
+  routeNumber: number;
   courier?: StaffMember;
   color: string;
   locale: string;
@@ -148,14 +145,17 @@ interface RouteRibbonProps {
   history: boolean;
   onSelectCourier: () => void;
   onSelectStop: (stopId: number) => void;
+  onMessage: (orderId: number) => void;
   onOptimize: () => void;
   onSaveSettings: (input: RouteSettingsInput) => Promise<void>;
   onCancel: () => void;
+  onResetDeparture: () => void;
   t: Translator;
 }
 
 function RouteRibbon({
   route,
+  routeNumber,
   courier,
   color,
   locale,
@@ -164,9 +164,11 @@ function RouteRibbon({
   history,
   onSelectCourier,
   onSelectStop,
+  onMessage,
   onOptimize,
   onSaveSettings,
   onCancel,
+  onResetDeparture,
   t,
 }: RouteRibbonProps) {
   const delivered = route.stops.filter((stop) => stop.status === 'delivered').length;
@@ -174,6 +176,7 @@ function RouteRibbon({
   const unresolved = pending.filter((stop) => stop.needs_geocode).length;
   const ordered = [...(history ? route.stops : pending)].sort((a, b) => a.sequence - b.sequence);
   const progress = route.stops.length > 0 ? (delivered / route.stops.length) * 100 : 0;
+  const canResetDeparture = route.status === 'active' && route.stops.length > 0 && route.stops.every((stop) => stop.status === 'pending');
   const courierInk = `color-mix(in srgb, ${color} 40%, var(--fg))`;
 
   return (
@@ -181,13 +184,14 @@ function RouteRibbon({
       <CardHeader className="px-4 py-3">
         <button type="button" onClick={onSelectCourier} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-r-md text-start focus-visible:outline-none focus-visible:shadow-ring">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-r-md bg-[var(--surface-2)]" style={{ color: courierInk }}><UserIcon className="h-5 w-5" /></span>
-          <span className="truncate text-fs-sm font-semibold text-[var(--fg)]">
-            {courier?.full_name ?? `#${route.courier_id}`}
+          <span className="min-w-0">
+            <span className="block truncate text-fs-sm font-semibold text-[var(--fg)]">{courier?.full_name ?? t('courier')}</span>
+            <span className="mt-1 flex items-center gap-2 text-fs-xs text-[var(--fg-muted)]"><span aria-hidden className="h-1 w-5 shrink-0 rounded-full" style={{ background: color }} />{t('mapsRoute')} {routeNumber}</span>
           </span>
         </button>
         <span className="flex shrink-0 items-center gap-1">
           {unresolved > 0 && (
-            <Badge tone="warning" title={t('addressNeedsAttention')}>
+            <Badge tone="warning" title={deliveryLocationWarning(route, t)}>
               <AlertCircleIcon className="h-3 w-3" />
               {unresolved}
             </Badge>
@@ -205,18 +209,17 @@ function RouteRibbon({
             <div className="text-fs-xs text-[var(--fg-subtle)]">{t(history ? 'deliveryPlanStops' : 'deliveryPlanRemaining')}</div>
           </div>
           <div>
-            <div className="text-fs-sm font-semibold text-[var(--fg)]">{formatDuration(route.est_duration_s, t) || '—'}</div>
-            <div className="text-[11px] text-[var(--fg-subtle)]">{t('deliveryPlanDuration')}</div>
+            <DeliveryDuration route={route} t={t} />
           </div>
           <div>
-            <div className="text-fs-sm font-semibold text-[var(--fg)]"><bdi dir="ltr">{formatDistance(route.total_distance_m) || '—'}</bdi></div>
+            <div className="text-fs-sm font-semibold text-[var(--fg)]"><bdi dir="ltr">{route.needs_recalculation ? '—' : formatDistance(route.total_distance_m) || '—'}</bdi></div>
             <div className="text-[11px] text-[var(--fg-subtle)]">{t('deliveryPlanDistance')}</div>
           </div>
         </div>
-        {unresolved > 0 && (
+        {(route.needs_recalculation || unresolved > 0) && (
           <p className="mb-2 flex items-center gap-1.5 text-[11px] leading-snug text-[var(--warning-500)]">
             <AlertCircleIcon className="h-3 w-3 shrink-0" />
-            {t('routeEstimatePartial')}
+            {deliveryRouteWarning(route, t)}
           </p>
         )}
 
@@ -237,9 +240,9 @@ function RouteRibbon({
           />
         </div>
 
-        {!history && route.status === 'draft' && (
+        {!history && (route.status === 'draft' || canResetDeparture || (route.status === 'active' && route.needs_recalculation)) && (
           <div className="mb-2 flex flex-wrap items-center justify-end gap-1.5 border-b border-[var(--line)] pb-2">
-            <Button
+            {(route.status === 'draft' || route.needs_recalculation) && <Button
               type="button"
               variant="secondary"
               disabled={busy || route.stops.length === 0}
@@ -248,8 +251,17 @@ function RouteRibbon({
             >
               <RefreshCwIcon className={busy ? 'animate-spin' : undefined} />
               {t('deliveryPlanRecalculate')}
-            </Button>
-            <Button
+            </Button>}
+            {canResetDeparture && <Button
+              type="button"
+              variant="secondary"
+              disabled={busy}
+              onClick={onResetDeparture}
+            >
+              <Undo2Icon />
+              {t('deliveryPlanResetDeparture')}
+            </Button>}
+            {route.status === 'draft' && <Button
               type="button"
               variant="ghost"
               disabled={busy}
@@ -259,7 +271,7 @@ function RouteRibbon({
             >
               <Undo2Icon />
               {t('deliveryPlanUnassignRoute')}
-            </Button>
+            </Button>}
           </div>
         )}
 
@@ -276,7 +288,6 @@ function RouteRibbon({
               }, t);
               const deliveryNotes = stop.delivery_notes?.trim();
               const isSelected = selectedStopId === stop.id;
-              const message = deliveryMessage(t, stop, window);
               return (
                 <div
                   key={stop.id}
@@ -327,7 +338,7 @@ function RouteRibbon({
                       ) : stop.needs_geocode ? (
                         <span className="mt-1 flex items-center gap-1 text-[11px] font-medium leading-snug text-[var(--warning-500)]">
                           <AlertCircleIcon className="h-3 w-3 shrink-0" />
-                          {t('addressNeedsAttention')}
+                          {deliveryLocationWarning(route, t)}
                         </span>
                       ) : null}
                     </span>
@@ -336,16 +347,7 @@ function RouteRibbon({
                     </span>
                   </button>
                   {stop.customer_phone && !history && (
-                    <a
-                      href={whatsappUrl(stop.customer_phone, message)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="me-1 mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-r-md text-[var(--fg-muted)] transition-colors hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:shadow-ring"
-                      aria-label={t('deliveryPlanWhatsApp')}
-                      title={t('deliveryPlanWhatsApp')}
-                    >
-                      <MessageCircleIcon className="h-4 w-4" />
-                    </a>
+                    <button type="button" onClick={() => onMessage(stop.order_id)} className="flex h-9 w-9 items-center justify-center rounded-r-md text-[var(--fg-muted)] hover:bg-[var(--surface-2)]" aria-label={t('deliveryPlanWhatsApp')} title={t('deliveryPlanWhatsApp')}><MessageCircleIcon className="h-4 w-4" /></button>
                   )}
                 </div>
               );
@@ -365,6 +367,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const initialPlanResolved = useRef(false);
   const loadRequestId = useRef(0);
   const [dayRoutes, setRoutes] = useState<DeliveryRoute[]>([]);
+  const [messageTarget, setMessageTarget] = useState<{ orderId?: number } | null>(null);
   const [view, setView] = useState<'open' | 'history'>('open');
   const [showMap, setShowMap] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -378,8 +381,16 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [plannerCouriers, setPlannerCouriers] = useState<Set<number>>(new Set());
   const [zoneCouriers, setZoneCouriers] = useState<Map<string, number>>(new Map());
   const [manualCouriers, setManualCouriers] = useState<Map<number, number>>(new Map());
+  const [customerWindow, setCustomerWindow] = useState('1:30');
+  const [respectOrderWindows, setRespectOrderWindows] = useState(false);
+  const [resolvingEndpoints, setResolvingEndpoints] = useState<Set<string>>(new Set());
+  const [courierEndpoints, setCourierEndpoints] = useState<Record<number, { start_address: string; end_address: string }>>({});
   const [departure, setDeparture] = useState(defaultDepartureValue);
+  const planningDate = departure.slice(0, 10);
+  useEffect(() => { setCourierEndpoints({}); }, [rid, planningDate]);
+  const [serviceMinutes, setServiceMinutes] = useState('3');
   const [planning, setPlanning] = useState(false);
+  const [selectedRoute, setSelectedRoute] = useState<number | null>(null);
   const [selectedCourier, setSelectedCourier] = useState<number | null>(null);
   const [selectedStopId, setSelectedStopId] = useState<number | null>(null);
   const [moveTarget, setMoveTarget] = useState<number | null>(null);
@@ -389,6 +400,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [addressEditorLoading, setAddressEditorLoading] = useState(false);
   const [undoAction, setUndoAction] = useState<
     | { kind: 'route'; routeId: number; stopCount: number }
+    | { kind: 'departure'; routeId: number; stopCount: number }
     | { kind: 'stop'; routeId: number; stopId: number; customerName: string }
     | null
   >(null);
@@ -449,8 +461,9 @@ export default function DispatcherView({ rid }: { rid: number }) {
       setOpenRoutes(managerOpenRouteRows);
       setReady(candidateRows.orders);
       setCouriers(courierRows);
+      const visibleDate = visibleRoutes[0]?.date ?? departure.slice(0, 10);
       setPicked((current) => {
-        const availableIds = new Set(available.map((order) => order.id));
+        const availableIds = new Set(available.filter(order => deliveryMatchesRouteDate(order, visibleDate)).map((order) => order.id));
         const retained = new Set(Array.from(current).filter((id) => availableIds.has(id)));
         return current.size === 0 ? availableIds : retained;
       });
@@ -502,15 +515,22 @@ export default function DispatcherView({ rid }: { rid: number }) {
     if (lastEvent.type === 'route.updated' || lastEvent.type.startsWith('order.')) void load();
   }, [lastEvent, load]);
 
+  const courierById = useMemo(() => {
+    const map = new Map<number, StaffMember>();
+    couriers.forEach((courier) => map.set(courier.id, courier));
+    return map;
+  }, [couriers]);
+
   const routeColorMap = useMemo(() => {
     const colors = new Map<number, string>();
-    routes.forEach((route, index) => colors.set(route.id, colorFor(index)));
+    routes.forEach(route => colors.set(route.id, `hsl(${(route.id * 137.508) % 360} 64% 36%)`));
     return colors;
   }, [routes]);
 
   const layers = useMemo<RouteLayer[]>(
-    () => routes.map((route) => ({
+    () => routes.map((route, index) => ({
       routeId: route.id,
+      label: `${courierById.get(route.courier_id)?.full_name ?? t('courier')} · ${t('mapsRoute')} ${index + 1}`,
       geometry: route.route_geometry,
       routingProvider: route.routing_provider,
       courierId: route.courier_id,
@@ -523,7 +543,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
         ? { lat: route.end_lat, lng: route.end_lng }
         : undefined,
     })),
-    [routes, routeColorMap, view],
+    [routes, routeColorMap, view, courierById, t],
   );
 
   const courierMarkers = useMemo<CourierMarker[]>(() => {
@@ -542,11 +562,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
     return markers;
   }, [routes, livePositions, nowTick, routeColorMap]);
 
-  const courierById = useMemo(() => {
-    const map = new Map<number, StaffMember>();
-    couriers.forEach((courier) => map.set(courier.id, courier));
-    return map;
-  }, [couriers]);
+
 
   const openRouteByOrderId = useMemo(() => {
     const map = new Map<number, DeliveryRoute>();
@@ -557,8 +573,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
   }, [openRoutes]);
 
   const unplannedOrders = useMemo(
-    () => ready.filter((order) => !openRouteByOrderId.has(order.id)),
-    [ready, openRouteByOrderId],
+    () => ready.filter((order) => !openRouteByOrderId.has(order.id) && deliveryMatchesRouteDate(order, departure)),
+    [ready, openRouteByOrderId, departure],
   );
 
   const activeCourierIds = useMemo(
@@ -570,8 +586,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
     [couriers, activeCourierIds],
   );
   const selectedOrders = useMemo(
-    () => ready.filter((order) => picked.has(order.id)),
-    [ready, picked],
+    () => unplannedOrders.filter((order) => picked.has(order.id)),
+    [unplannedOrders, picked],
   );
   const selectedZones = useMemo(
     () => Array.from(new Set(selectedOrders.map((order) => deliveryZone(order, t('deliveryPlanUnknownZone'))))),
@@ -633,7 +649,11 @@ export default function DispatcherView({ rid }: { rid: number }) {
   });
 
   const createPlan = async () => {
-    if (picked.size === 0 || !departure) return;
+    if (resolvingEndpoints.size > 0 || picked.size === 0 || !departure || !validStopServiceMinutes(serviceMinutes) || parseCustomerWindowMinutes(customerWindow) == null) return;
+    if (selectedOrders.length !== picked.size) {
+      setError(t('deliveryRouteDateMismatch'));
+      return;
+    }
     let assignments: Array<{ courier_id: number; order_ids: number[] }> | undefined;
     let selectedCourierIds = Array.from(plannerCouriers);
 
@@ -679,8 +699,14 @@ export default function DispatcherView({ rid }: { rid: number }) {
         Array.from(picked),
         new Date(departure).toISOString(),
         assignments,
+        Number(serviceMinutes),
+        parseCustomerWindowMinutes(customerWindow)!,
+        selectedCourierIds.filter(id => courierEndpoints[id]).map(courier_id => ({ courier_id, ...courierEndpoints[courier_id] })),
+        respectOrderWindows,
       );
       setPicked(new Set());
+      setCourierEndpoints({});
+      setRespectOrderWindows(false);
       setPlannerOpen(false);
       await load();
     } catch (cause) {
@@ -699,7 +725,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
       setMoveTarget(null);
       await load();
     } catch (cause) {
-      setError((cause as Error)?.message || t('deliveryPlanMoveFailed'));
+      setError(deliveryRoutingError(cause, t) ?? t('deliveryPlanMoveFailed'));
     } finally {
       setMoving(false);
     }
@@ -725,9 +751,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
       setRoutes((current) => current.map((route) => route.id === routeId ? updated : route));
       setOpenRoutes((current) => current.map((route) => route.id === routeId ? updated : route));
     } catch (cause) {
-      setError(cause instanceof ApiError
-        ? cause.details || cause.message
-        : (cause as Error)?.message || t('routeSettingsSaveFailed'));
+      setError(deliveryRoutingError(cause, t) ?? t('routeSettingsSaveFailed'));
       throw cause;
     } finally {
       setRouteBusy(null);
@@ -769,6 +793,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
     try {
       if (undoAction.kind === 'route') {
         await cancelDeliveryRoute(rid, routeId);
+      } else if (undoAction.kind === 'departure') {
+        await resetRouteDeparture(rid, routeId);
       } else {
         await unassignRouteStop(rid, routeId, undoAction.stopId);
       }
@@ -780,7 +806,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
     } catch (cause) {
       setUndoAction(null);
       await load();
-      setError(t('deliveryPlanUndoFailed'));
+      setError(t(undoAction.kind === 'departure' ? 'deliveryPlanResetDepartureFailed' : 'deliveryPlanUndoFailed'));
     } finally {
       setRouteBusy(null);
     }
@@ -799,7 +825,6 @@ export default function DispatcherView({ rid }: { rid: number }) {
 
   const selectedWindow = selectedEntry && view === 'open' && isPendingDeliveryStop(selectedEntry.stop)
     ? deliveryEtaWindow(selectedEntry.route, selectedEntry.stop, locale) : null;
-  const selectedMessage = selectedEntry ? deliveryMessage(t, selectedEntry.stop, selectedWindow) : '';
   const selectedAddress = selectedEntry ? formatDeliveryAddress({
     address: selectedEntry.stop.address,
     city: selectedEntry.stop.city,
@@ -808,9 +833,24 @@ export default function DispatcherView({ rid }: { rid: number }) {
     entryCode: selectedEntry.stop.delivery_entry_code,
   }, t) : null;
   const movableRoutes = selectedEntry
-    ? routes.filter((route) => route.id !== selectedEntry.route.id && route.status === 'draft')
+    ? routes.filter((route) => route.id !== selectedEntry.route.id && route.status === 'draft' && route.date.slice(0, 10) === selectedEntry.route.date.slice(0, 10))
     : [];
-  const canCreatePlan = picked.size > 0 && Boolean(departure) && (
+  const endpointCouriers = planningCouriers.filter(courier => distributionMode === 'smart' ? plannerCouriers.has(courier.id) : distributionMode === 'zone' ? selectedZones.some(zone => zoneCouriers.get(zone) === courier.id) : selectedOrders.some(order => manualCouriers.get(order.id) === courier.id));
+  const savedCourierEndpoints = (id: number) => {
+    const existing = dayRoutes.find(route => route.courier_id === id && route.status === 'draft' && route.date.slice(0, 10) === departure.slice(0, 10));
+    const courier = couriers.find(member => member.id === id);
+    return { start_address: existing?.start_address ?? '', end_address: existing ? existing.end_address ?? '' : courier?.courier_default_end_address ?? (courier?.courier_final_same_as_address ? courier.address : courier?.courier_final_address) ?? '' };
+  };
+  const setEndpoint = (id: number, field: 'start_address' | 'end_address', value: string) => setCourierEndpoints(current => ({ ...current, [id]: { ...(current[id] ?? savedCourierEndpoints(id)), [field]: value } }));
+
+  const setEndpointResolving = (key: string, resolving: boolean) => setResolvingEndpoints(current => {
+    if (current.has(key) === resolving) return current;
+    const next = new Set(current);
+    if (resolving) next.add(key); else next.delete(key);
+    return next;
+  });
+
+  const canCreatePlan = resolvingEndpoints.size === 0 && picked.size > 0 && Boolean(departure) && validStopServiceMinutes(serviceMinutes) && parseCustomerWindowMinutes(customerWindow) != null && (
     distributionMode === 'smart'
       ? plannerCouriers.size > 0
       : distributionMode === 'zone'
@@ -839,6 +879,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
 
       <PageHead className="mb-0" title={t('deliveries')} desc={t('deliveryPlanWorkspaceIntro')} actions={
         <>
+          {view === 'open' && dayRoutes.some(route => isOpenDeliveryRoute(route) && route.stops.some(isPendingDeliveryStop)) && <Button variant="secondary" onClick={() => setMessageTarget({})}><MessageCircleIcon />{t('deliveryWhatsAppTitle')}</Button>}
+          <Button variant="secondary" asChild><Link href={`/${rid}/settings/delivery/maps`}><Settings2Icon aria-hidden />{t('mapsTitle')}</Link></Button>
           <Button variant="secondary" icon aria-label={t('refresh')} disabled={loading} onClick={() => void load()}><RefreshCwIcon className={loading ? 'animate-spin' : undefined} /></Button>
           {view === 'open' && unplannedOrders.length > 0 && <Button disabled={picked.size === 0} onClick={() => setPlannerOpen(true)}>{t('deliveryPlanStepTwo')}</Button>}
         </>
@@ -954,25 +996,29 @@ export default function DispatcherView({ rid }: { rid: number }) {
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
             {routes.length === 0 ? (
               <EmptyState icon={view === 'history' ? <CheckIcon /> : <RouteIcon />} title={t(loading ? 'loading' : view === 'history' ? 'deliveryPlanNoHistory' : 'deliveryPlanNoActiveRoutes')} desc={loading ? undefined : t(view === 'history' ? 'deliveryPlanHistoryHint' : 'deliveryPlanActiveHint')} />
-            ) : routes.map((route) => (
+            ) : routes.map((route, index) => (
               <RouteRibbon
                 key={route.id}
                 route={route}
+                routeNumber={index + 1}
                 courier={courierById.get(route.courier_id)}
                 color={routeColorMap.get(route.id) ?? colorFor(0)}
                 locale={locale}
                 selectedStopId={selectedStopId}
                 busy={loading || routeBusy === route.id}
                 history={view === 'history'}
-                onSelectCourier={() => setSelectedCourier((current) => current === route.courier_id ? null : route.courier_id)}
+                onSelectCourier={() => { setSelectedRoute(current => current === route.id ? null : route.id); setSelectedCourier(null); }}
                 onSelectStop={(stopId) => {
                   setSelectedStopId(stopId);
+                  setSelectedRoute(route.id);
                   setSelectedCourier(route.courier_id);
                   setMoveTarget(null);
                 }}
+                onMessage={orderId => setMessageTarget({ orderId })}
                 onOptimize={() => void recalculateRoute(route.id)}
                 onSaveSettings={(input) => saveRouteSettings(route.id, input)}
                 onCancel={() => setUndoAction({ kind: 'route', routeId: route.id, stopCount: route.stops.filter(isPendingDeliveryStop).length })}
+                onResetDeparture={() => setUndoAction({ kind: 'departure', routeId: route.id, stopCount: route.stops.length })}
                 t={t}
               />
             ))}
@@ -986,9 +1032,12 @@ export default function DispatcherView({ rid }: { rid: number }) {
             routes={layers}
             couriers={courierMarkers}
             highlightCourierId={selectedCourier}
+            highlightRouteId={selectedRoute}
+            onRouteSelect={id => { setSelectedRoute(id); setSelectedCourier(null); setSelectedStopId(null); }}
             onStopClick={(stop) => {
               setSelectedStopId(stop.id);
               const route = routes.find((candidate) => candidate.stops.some((candidateStop) => candidateStop.id === stop.id));
+              setSelectedRoute(route?.id ?? null);
               setSelectedCourier(route?.courier_id ?? null);
               setMoveTarget(null);
             }}
@@ -1023,7 +1072,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
                   {!selectedWindow && selectedEntry.stop.needs_geocode && (
                     <p className="mt-1 flex items-center gap-1 text-fs-xs font-medium leading-snug text-[var(--warning-500)]">
                       <AlertCircleIcon className="h-3.5 w-3.5 shrink-0" />
-                      {t('addressNeedsAttention')}
+                      {deliveryLocationWarning(selectedEntry.route, t)}
                     </p>
                   )}
                   <p className="mt-1 flex items-center gap-1 text-[11px] text-[var(--fg-subtle)]">
@@ -1046,12 +1095,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
                   {t('correctAddress')}
                 </Button>}
                 {view === 'open' && selectedEntry.stop.customer_phone && (
-                  <Button asChild variant="primary">
-                    <a href={whatsappUrl(selectedEntry.stop.customer_phone, selectedMessage)} target="_blank" rel="noopener noreferrer">
-                      <MessageCircleIcon />
-                      {t('deliveryPlanWhatsApp')}
-                    </a>
-                  </Button>
+                  <Button variant="primary" onClick={() => setMessageTarget({ orderId: selectedEntry.stop.order_id })}><MessageCircleIcon />{t('deliveryPlanWhatsApp')}</Button>
                 )}
                 {view === 'open' && movableRoutes.length > 0 && selectedEntry.route.status === 'draft' && selectedEntry.stop.status === 'pending' && (
                   <>
@@ -1100,12 +1144,14 @@ export default function DispatcherView({ rid }: { rid: number }) {
           .replace('{available}', String(unplannedOrders.length))}
         width={760}
         footer={(
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+          <div className="grid gap-3 sm:grid-cols-2">
             <label htmlFor="delivery-departure">
               <span className="mb-2 block text-fs-xs font-semibold text-[var(--fg-muted)]">{t('deliveryPlanDeparture')}</span>
               <Input id="delivery-departure" type="datetime-local" value={departure} onChange={(event) => setDeparture(event.target.value)} />
             </label>
-            <Button size="lg" className="w-full sm:w-auto" disabled={planning || !canCreatePlan} onClick={() => void createPlan()}>
+            <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2"><StopServiceField value={serviceMinutes} onChange={setServiceMinutes} disabled={planning} t={t} /><CustomerWindowField value={customerWindow} onChange={setCustomerWindow} disabled={planning} t={t} /></div>
+            <div className="sm:col-span-2"><OrderWindowField checked={respectOrderWindows} onChange={setRespectOrderWindows} disabled={planning} t={t} /></div>
+            <Button size="lg" className="w-full sm:col-span-2" disabled={planning || !canCreatePlan} onClick={() => void createPlan()}>
               <RouteIcon />
               {planning ? t('deliveryPlanGenerating') : t('deliveryPlanGenerate').replace('{count}', String(picked.size))}
             </Button>
@@ -1159,6 +1205,15 @@ export default function DispatcherView({ rid }: { rid: number }) {
             </div>
           )}
 
+          {endpointCouriers.map(courier => <fieldset key={courier.id} className="space-y-3 rounded-r-md border border-[var(--line)] p-3">
+            <legend className="px-1 text-fs-sm font-semibold">{courier.full_name}</legend>
+            <p className="text-fs-xs text-[var(--fg-subtle)]">{t('routeSettingsHint')}</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <RouteAddressField restaurantId={rid} locale={locale} label={t('routeSettingsStartAddress')} placeholder={t('routeSettingsStartPlaceholder')} value={courierEndpoints[courier.id]?.start_address ?? savedCourierEndpoints(courier.id).start_address} onChange={value => setEndpoint(courier.id, 'start_address', value)} onResolvingChange={resolving => setEndpointResolving(`${courier.id}:start`, resolving)} disabled={planning} t={t} />
+              <RouteAddressField restaurantId={rid} locale={locale} label={t('routeSettingsEndAddress')} placeholder={t('routeSettingsEndPlaceholder')} value={courierEndpoints[courier.id]?.end_address ?? savedCourierEndpoints(courier.id).end_address} onChange={value => setEndpoint(courier.id, 'end_address', value)} onResolvingChange={resolving => setEndpointResolving(`${courier.id}:end`, resolving)} disabled={planning} t={t} />
+            </div>
+          </fieldset>)}
+
           {distributionMode === 'zone' && (
             <div className="space-y-2">
               {selectedZones.map((zone) => (
@@ -1208,10 +1263,12 @@ export default function DispatcherView({ rid }: { rid: number }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {undoAction?.kind === 'route' ? t('deliveryPlanUnassignConfirmTitle') : t('deliveryPlanReturnConfirmTitle')}
+              {undoAction?.kind === 'departure' ? t('deliveryPlanResetDeparture') : undoAction?.kind === 'route' ? t('deliveryPlanUnassignConfirmTitle') : t('deliveryPlanReturnConfirmTitle')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {undoAction?.kind === 'route'
+              {undoAction?.kind === 'departure'
+                ? t('deliveryPlanResetDepartureConfirmBody').replace('{count}', String(undoAction.stopCount))
+                : undoAction?.kind === 'route'
                 ? t('deliveryPlanUnassignConfirmBody').replace('{count}', String(undoAction.stopCount))
                 : t('deliveryPlanReturnConfirmBody').replace('{customer}', undoAction?.customerName ?? '')}
             </AlertDialogDescription>
@@ -1228,6 +1285,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {messageTarget && <DeliveryWhatsAppDrawer key={`${rid}:${departure.slice(0, 10)}:${messageTarget.orderId ?? 'all'}`} open onOpenChange={open => { if (!open) setMessageTarget(null); }} restaurantId={rid} date={departure.slice(0, 10)} routes={dayRoutes} orderId={messageTarget.orderId} />}
     </div>
   );
 }

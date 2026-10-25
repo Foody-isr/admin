@@ -1,19 +1,22 @@
 "use client";
 
+import { ReceiptEditor } from "./ReceiptEditor";
 import CheckoutEditor from "@/components/website/CheckoutEditor";
 import type { CheckoutConfig } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { ColorStylePicker } from "./ColorStylePicker";
 import { normalizeOrderJourneyColors, type OrderJourneyColors, type OrderJourneyScreen } from "@/lib/website-v3/order-journey";
-import { InspectorField, controlClass } from "./controls";
+import { InspectorField, ToggleField, controlClass } from "./controls";
 
 export type { OrderJourneyScreen } from "@/lib/website-v3/order-journey";
 
 /** Edits the shared commerce flow while the builder owns the preview screen. */
 export function OrderJourneyEditor({
   restaurantId, colorStyle, screen, onScreenChange, orderType, onOrderTypeChange,
-  value, onChange, placesAvailable, onEditCartButton, colors, onColorsChange,
+  receiptLocale, onReceiptLocaleChange, value, onChange, placesAvailable, onEditCartButton, colors, onColorsChange,
 }: {
+  receiptLocale: "en" | "fr" | "he";
+  onReceiptLocaleChange: (value: "en" | "fr" | "he") => void;
   restaurantId: number;
   colorStyle: string;
   colors: OrderJourneyColors | undefined;
@@ -35,9 +38,12 @@ export function OrderJourneyEditor({
           <option value="cart">{t("editorJourneyCart")}</option>
           <option value="checkout">{t("editorJourneyCheckout")}</option>
           <option value="confirmation">{t("editorJourneyConfirmation")}</option>
+          <option value="receipt">{t("editorJourneyReceipt")}</option>
         </select>
       </InspectorField>
       <p>{t("editorJourneyPreviewHint")}</p>
+      <ToggleField fieldId="checkout.offer_sign_in" label={t("editorOfferSignIn")} description={t("editorOfferSignInHint")}
+        checked={value?.offer_sign_in !== false} onChange={checked => onChange({ ...value, offer_sign_in: checked })} />
       <div className="sqe-journey-links">
         <ColorStylePicker value={normalizeOrderJourneyColors(colors)[screen] ?? "default"}
           defaultLabel={t("editorJourneyInheritMenu")} inheritedStyle={colorStyle}
@@ -62,7 +68,7 @@ export function OrderJourneyEditor({
         </div>
       </details>
     </div>
-    {screen !== "cart" && <div className="sqe-journey-editor">
+    {screen === "receipt" ? <ReceiptEditor value={value?.receipt} onChange={receipt => onChange({ ...value, receipt })} language={receiptLocale} onLanguageChange={onReceiptLocaleChange} /> : screen !== "cart" && <div className="sqe-journey-editor">
       <p className="sqe-journey-note">{t("editorJourneyContentHint")}</p>
       <CheckoutEditor key={screen + orderType} value={value} onChange={onChange} placesAvailable={placesAvailable}
         embedded subTab={screen === "confirmation" ? "confirmation" : orderType} onSubTabChange={() => {}} />

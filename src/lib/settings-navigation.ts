@@ -22,11 +22,13 @@ export function settingsNavigation(restaurantId: number): SettingsNavigationGrou
       { href: `${base}/settings/language`, labelKey: 'language' },
       { href: `${base}/settings/notifications`, labelKey: 'notifications' },
       { href: `${base}/settings/security`, labelKey: 'security' },
+      { href: `${base}/settings/usage`, labelKey: 'apiQuotaTitle', perm: ['settings.view', 'settings.edit'] },
     ] },
     { labelKey: 'settingsGroupRestaurant', items: [
       { href: `${base}/settings`, labelKey: 'general', exact: true },
       { href: `${base}/settings/orders/processing`, labelKey: 'ordersProcessingShort' },
       { href: `${base}/settings/orders/workflow`, labelKey: 'orderWorkflow' },
+      { href: `${base}/settings/orders/test-access`, labelKey: 'orderingTestAccessTitle', perm: ['settings.view', 'settings.edit'] },
       { href: `${base}/settings/stock`, labelKey: 'stockSettings' },
       { href: `${base}/restaurant/floor-plans`, labelKey: 'floorPlans', desktopOnly: true },
       { href: `${base}/restaurant/sections`, labelKey: 'sections' },
@@ -44,7 +46,8 @@ export function settingsNavigation(restaurantId: number): SettingsNavigationGrou
     ] },
     { labelKey: 'settingsGroupOrdering', items: [
       { href: `${base}/settings/orders`, labelKey: 'settingsOrderTaking', exact: true },
-      { href: `${base}/settings/delivery`, labelKey: 'deliveryZones' },
+      { href: `${base}/settings/delivery`, labelKey: 'deliveryZones', exact: true },
+      { href: `${base}/settings/delivery/maps`, labelKey: 'mapsTitle' },
       { href: `${base}/settings/ai-assistant`, labelKey: 'aiOrderAssistant' },
     ] },
     { labelKey: 'paymentsAndVat', items: [

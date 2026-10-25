@@ -7,12 +7,15 @@ import type { CustomFieldAnswer } from '@/lib/orders/checkout-fields';
 import { ContextRow } from '../primitives/ContextBlock';
 import { CustomerHistoryStrip } from './CustomerHistoryStrip';
 import styles from '../order-detail.module.css';
+import { ChevronRightIcon, MessageCircleIcon } from 'lucide-react';
 
 /** Customer and order facts in the drawer's label/value table. */
-export function CustomerPanel({ order, canManage, onEditCustomer, customFields, t }: {
+export function CustomerPanel({ order, canManage, onEditCustomer, onViewMessages, onSendMessage, customFields, t }: {
   order: Order;
   canManage: boolean;
   onEditCustomer?: () => void;
+  onViewMessages?: () => void;
+  onSendMessage?: () => void;
   customFields: CustomFieldAnswer[];
   t: (k: string) => string;
 }) {
@@ -33,11 +36,22 @@ export function CustomerPanel({ order, canManage, onEditCustomer, customFields, 
         {order.customer_phone && <ContextRow label={t('phone')}><a className={styles.factLink} href={`tel:${dialable}`} dir="ltr">{order.customer_phone}</a></ContextRow>}
         {order.customer_email && <ContextRow label={t('email')}><a className={styles.factLink} href={`mailto:${order.customer_email}`}>{order.customer_email}</a></ContextRow>}
         <ContextRow label={t('orderDate')}><span dir="auto">{Number.isNaN(created.getTime()) ? '—' : created.toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></ContextRow>
+        {order.dining_option && <ContextRow label={t('posDiningEdit')}>{order.dining_option_label || t(order.dining_option === 'dine_in' ? 'dineIn' : order.dining_option === 'collect' ? 'posDiningCollect' : order.dining_option)}</ContextRow>}
         <ContextRow label={t('source')}>{localizeSource(order.order_source, t)}</ContextRow>
         {order.table_number && <ContextRow label="Table">{order.table_number}</ContextRow>}
         {customFields.map(f => <ContextRow key={f.id} label={f.label}>{f.value}</ContextRow>)}
       </div>
       <CustomerHistoryStrip restaurantId={order.restaurant_id} phone={order.customer_phone} t={t} />
+      {onSendMessage && <button type="button" onClick={onSendMessage} className="mt-3 flex min-h-11 w-full items-center gap-2 border-t border-[var(--line)] py-3 text-start text-fs-sm font-medium focus-visible:outline-none focus-visible:shadow-ring">
+        <MessageCircleIcon aria-hidden className="size-4 shrink-0" />
+        <span className="flex-1">{t('wcSendMessage')}</span>
+        <ChevronRightIcon aria-hidden className="size-4 shrink-0 rtl:rotate-180" />
+      </button>}
+      {onViewMessages && <button type="button" onClick={onViewMessages} className="mt-3 flex min-h-11 w-full items-center gap-2 border-t border-[var(--line)] py-3 text-start text-fs-sm font-medium focus-visible:outline-none focus-visible:shadow-ring">
+        <MessageCircleIcon aria-hidden className="size-4 shrink-0 text-[var(--fg-muted)]" />
+        <span className="flex-1">{t('orderMessagesTitle')}</span>
+        <ChevronRightIcon aria-hidden className="size-4 shrink-0 text-[var(--fg-subtle)] rtl:rotate-180" />
+      </button>}
     </section>
   );
 }

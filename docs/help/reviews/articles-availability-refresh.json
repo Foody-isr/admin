@@ -1,0 +1,10 @@
+{
+  "files": [
+    {
+      "path": "src/components/menu/ItemAvailabilityPopover.tsx",
+      "sha256": "e9703710216732765a963b2d66e998f8f2ce074679a94ca31aadf48fc5122aaf",
+      "disposition": "no-user-impact",
+      "reason": "The closed popover now uses the refreshed library item rather than keeping a second status snapshot. This restores the existing documented availability contract after list refresh; choices, Apply writes, permissions, quantities, error recovery and the user procedure are unchanged."
+    }
+  ]
+}

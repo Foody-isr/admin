@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildDeliveryEtaLabel, buildDeliveryEtaMessage, deliveryEtaWindow, deliveryRoutingError, isOpenDeliveryRoute } from '@/lib/delivery-planning';
+import { deliveryMatchesRouteDate, formatDeliveryDuration, buildDeliveryEtaLabel, buildDeliveryEtaMessage, deliveryEtaWindow, deliveryRoutingError, deliveryRouteWarning, deliveryLocationWarning, isOpenDeliveryRoute } from '@/lib/delivery-planning';
 import type { DeliveryRoute } from '@/lib/delivery';
 
 test('completed, skipped and empty routes do not remain operational plans', () => {
@@ -24,6 +24,14 @@ test('deliveryEtaWindow anchors cumulative ETA to the planned departure', () => 
   assert.equal(window.startAt.toISOString(), '2026-08-27T18:55:00.000Z');
   assert.equal(window.endAt.toISOString(), '2026-08-27T19:10:00.000Z');
   assert.ok(window.day);
+});
+
+test('arrival estimates stay hidden until a changed route is recalculated', () => {
+  assert.equal(deliveryEtaWindow(
+    { planned_departure_at: '2026-08-27T18:00:00.000Z', needs_recalculation: true },
+    { eta_seconds: 3600 },
+    'fr',
+  ), null);
 });
 
 test('deliveryEtaWindow prefers the actual start and rejects missing anchors', () => {
@@ -79,5 +87,36 @@ test('routing failures have localized, bounded feedback', () => {
   assert.equal(deliveryRoutingError(new Error('location service quota exceeded'), key => key), 'deliveryRoutingQuota');
   assert.equal(deliveryRoutingError(new Error('routing service unavailable'), key => key), 'deliveryRoutingUnavailable');
   assert.equal(deliveryRoutingError(new Error('some deliveries could not be routed'), key => key), 'deliveryRoutingInfeasible');
+  assert.equal(deliveryRoutingError(new Error('address not located'), key => key), 'deliveryAddressUnresolved');
   assert.equal(deliveryRoutingError(new Error('unknown error'), key => key), null);
+});
+
+test('a provider quota is not described as an invalid address or a stale sequence', () => {
+  const route = { needs_recalculation: true, routing_error: 'location service quota exceeded' as const };
+  assert.equal(deliveryRouteWarning(route, key => key), 'deliveryRoutingQuota');
+  assert.equal(deliveryLocationWarning(route, key => key), 'deliveryLocationPending');
+  assert.equal(deliveryLocationWarning({}, key => key), 'addressNeedsAttention');
+  assert.equal(deliveryRouteWarning({ needs_recalculation: true }, key => key), 'deliveryRouteNeedsRecalculation');
+});
+
+
+test('scheduled deliveries are limited to the selected civil date', () => {
+  assert.equal(deliveryMatchesRouteDate({ scheduled_for: '2026-10-23T00:00:00Z' }, '2026-10-16T15:30'), false);
+  assert.equal(deliveryMatchesRouteDate({ scheduled_for: '2026-10-23T00:00:00Z' }, '2026-10-23'), true);
+  assert.equal(deliveryMatchesRouteDate({}, '2026-10-23'), true);
+  assert.equal(deliveryRoutingError(new Error('delivery date differs from route date'), key => key), 'deliveryRouteDateMismatch');
+});
+
+test('duration formatting distinguishes a measured zero and preserves hours', () => {
+  const t = (key: string) => key === 'unitHour' ? 'h' : 'min';
+  assert.equal(formatDeliveryDuration(0, t), '0 min');
+  assert.equal(formatDeliveryDuration(1980, t), '33 min');
+  assert.equal(formatDeliveryDuration(9633 * 60, t), '160h 33min');
+});
+
+test('configured customer range starts at arrival and lasts exactly 90 minutes', () => {
+  const window = deliveryEtaWindow({ planned_departure_at: '2026-10-19T05:00:00Z', customer_window_minutes: 90 }, { eta_seconds: 1835 }, 'fr');
+  assert.equal(window?.startAt.toISOString(), '2026-10-19T05:30:00.000Z');
+  assert.equal(window?.endAt.toISOString(), '2026-10-19T07:00:00.000Z');
+  assert.equal(deliveryEtaWindow({ planned_departure_at: '2026-10-19T05:00:00Z', customer_window_minutes: 90 }, { eta_seconds: 0, needs_geocode: true }, 'fr'), null);
 });

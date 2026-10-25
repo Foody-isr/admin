@@ -6,7 +6,21 @@ import { createFixture } from "./fixtures.mjs";
 const base = createFixture();
 const headerChoices = ["1", "batch", "scheduled-pickup"].includes(process.env.FOODY_HEADER_CHOICES);
 const restaurantHeader = process.env.FOODY_RESTAURANT_HEADER === "1" || headerChoices;
-const menuAppearance = (process.env.FOODY_MENU_APPEARANCE === "1" || process.env.FOODY_MENU_STYLES === "1" || restaurantHeader)
+const crispyMenu = process.env.FOODY_CRISPY_MENU === "1";
+const menuTabs = process.env.FOODY_MENU_TABS === "1" ? [
+  { id: 1, name: "BASSARI", groups: [
+    { id: 11, name: "Sandwichs", translations: { name: { he: "כריכים" } }, items: [{ id: 101, name: "Burger démo", price: 38, is_active: true, is_available: true }] },
+    { id: 12, name: "Accompagnements", translations: { name: { he: "תוספות" } }, items: [{ id: 102, name: "Frites démo", price: 12, is_active: true, is_available: true }] },
+  ] },
+  { id: 2, name: "HALAVI", groups: [
+    { id: 21, name: "Pizzas", translations: { name: { he: "פיצות" } }, items: [{ id: 201, name: "Pizza démo", price: 48, is_active: true, is_available: true }] },
+    { id: 22, name: "Desserts", translations: { name: { he: "קינוחים" } }, items: [{ id: 202, name: "Glace démo", price: 18, is_active: true, availability_state: "sold_out" }] },
+  ] },
+] : null;
+if (menuTabs) base.menus.splice(0, base.menus.length, ...menuTabs.map(menu => ({
+  ...menu, restaurant_id: 1, is_active: true, web_enabled: true, pos_enabled: true,
+})));
+const menuAppearance = crispyMenu ? JSON.parse(readFileSync(new URL("./fixtures/crispy-menu-appearance.json", import.meta.url), "utf8")) : (process.env.FOODY_MENU_APPEARANCE === "1" || process.env.FOODY_MENU_STYLES === "1" || restaurantHeader)
   ? JSON.parse(readFileSync(new URL("./fixtures/mamie-menu-appearance.json", import.meta.url), "utf8"))
   : null;
 const date = "2026-10-04T12:00:00Z";
@@ -199,10 +213,10 @@ const restaurant = () => ({
   slug: "atelier-foody",
   description: "Fresh ingredients. Made with care.",
   logo_url: "",
-  cover_url: process.env.FOODY_THEME_REGRESSION === "1" ? "" : image,
+  cover_url: crispyMenu || process.env.FOODY_THEME_REGRESSION === "1" ? "" : image,
   default_locale: "en",
   catering_enabled: false,
-  ...(menuAppearance ? {name: "MAMIE — aperçu local"} : {}),
+  ...(menuAppearance ? {name: crispyMenu ? "Crispy Delivery" : "MAMIE — aperçu local", ...(crispyMenu ? {default_locale: "fr"} : {})} : {}),
   ...(restaurantHeader ? {
     name:"MAMIE", default_locale:"fr", timezone:"Asia/Jerusalem", pickup_enabled:false, delivery_enabled:true,
     scheduling_enabled:false, batch_fulfillment_enabled:true, minimum_order_delivery:450,
@@ -295,6 +309,21 @@ http
       /^\/api\/v1\/public\/restaurants\/(1|atelier-foody)$/.test(path)
     )
       result = { json: { restaurant: restaurant() } };
+    else if (path === "/api/v1/public/receipts/receipt-demo")
+      result = { json: {
+        restaurant: { id: 1, name: restaurant().name, address: "12 Rue Exemple", phone: "+972 50 000 0000", logo_url: "" },
+        order: { id: 1234, receipt_token: "receipt-demo", customer_name: "Client exemple", customer_phone: "050****000",
+          order_type: "delivery", order_source: "website_order", order_status: "out_for_delivery", payment_status: "unpaid",
+          total_amount: 108, created_at: "2026-10-16T12:20:00Z", custom_fields: { building_code: "EXEMPLE" } },
+        items: [
+          { id: 1, name: "Plat du jour", quantity: 2, unit_price: 25, total: 50, selected_variant_name: "Grand", modifiers: [{ name: "Sauce", action: "add", price_delta: 2 }] },
+          { id: 2, name: "Accompagnement", quantity: 1, unit_price: 5, total: 5, combo_group: "sample-combo", combo_name: "Formule découverte", combo_price: 30 },
+          { id: 3, name: "Boisson", quantity: 1, unit_price: 0, total: 0, combo_group: "sample-combo", combo_name: "Formule découverte", combo_price: 30 },
+          { id: 4, name: "Dessert offert", quantity: 1, unit_price: 0, total: 0, adjustment_kind: "comp", modifiers: [{ name: "Crème", action: "add", price_delta: 5 }] },
+          { id: 5, name: "Article annulé", quantity: 1, unit_price: 90, total: 90, adjustment_kind: "void" },
+          { id: 6, name: "Salade aux légumes de saison et accompagnement de la maison", quantity: 1, unit_price: 23, total: 23, notes: "Sans oignons" },
+        ],
+      } };
     else if (path.endsWith("/website-pages"))
       result = { json: { pages: publicPages() } };
     else if (path.includes("/website-pages/")) {
@@ -308,7 +337,7 @@ http
       result = {
         json: {
           ...(featuredRegression ? {popular_item_ids: [4,2,1,3,5,6]} : {}),
-          menus: menuAppearance?.menus ?? [
+          menus: menuTabs ?? menuAppearance?.menus ?? [
             {
               id: 1,
               name: "Our menu",

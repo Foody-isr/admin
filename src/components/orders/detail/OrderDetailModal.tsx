@@ -6,11 +6,9 @@ import { useEffect, useState } from 'react';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { groupOrder } from '@/lib/orders/group-order';
 import { deriveOrderCapabilities, type PrimaryAction } from '@/lib/orders/order-actions';
-import { WhatsAppRecapDialog } from '@/components/orders/WhatsAppRecapDialog';
-import { WhatsAppDeliveryReminderDialog } from '@/components/orders/WhatsAppDeliveryReminderDialog';
+import { OrderWhatsAppComposer } from '@/components/orders/OrderWhatsAppComposer';
+import type { WhatsAppMessageKind, WhatsAppChannel } from '@/lib/orders/whatsapp-composer';
 import type { AcceptOrderResult, CheckoutConfig, Order } from '@/lib/api';
-import { isDeliveryReminderDue } from '@/lib/orders/delivery-reminder';
-import { pickWorkflow, useOrderWorkflows } from '@/lib/orders/use-order-workflows';
 
 import { OrderDetailShell } from './OrderDetailShell';
 import { OrderDetailHead, OrderDetailSummary, OrderDetailLoadingHead } from './OrderDetailHead';
@@ -19,6 +17,7 @@ import { OrderOverflowMenu } from './menus/OrderOverflowMenu';
 import { WorkflowStepper } from './spine/WorkflowStepper';
 import styles from './order-detail.module.css';
 import { ActivityTimeline } from './spine/ActivityTimeline';
+import { DeliverySlotAssignment } from '@/components/orders/DeliverySlotAssignment';
 import { ScheduledBanner } from './spine/ScheduledCallout';
 import { CancellationCallout } from './spine/CancellationCallout';
 import { useOrderAudit } from '@/lib/orders/use-order-audit';
@@ -92,16 +91,12 @@ export function OrderDetailModal({
   const { t, direction } = useI18n();
   const { symbol: currencySign } = useCurrency();
 
-  // WhatsApp order-confirmation recap ("Envoyer au client → Confirmation").
-  const [recapOpen, setRecapOpen] = useState(false);
-  const [deliveryReminderOpen, setDeliveryReminderOpen] = useState(false);
+  const [message, setMessage] = useState<{ kind: WhatsAppMessageKind; channel: WhatsAppChannel } | null>(null);
   const [referenceView, setReferenceView] = useState<OrderReferenceView | null>(null);
-  const workflows = useOrderWorkflows(order?.restaurant_id);
   useEffect(() => {
-    setRecapOpen(false);
-    setDeliveryReminderOpen(false);
+    setMessage(null);
     setReferenceView(null);
-  }, [order?.id]);
+  }, [order?.restaurant_id, order?.id]);
 
   // Reference fetches live above their drawers so the closed menu and dock can
   // show counts and warnings without mounting the full content.
@@ -138,13 +133,6 @@ export function OrderDetailModal({
       onDelete: !!onDelete,
     },
   );
-  const workflow = pickWorkflow(workflows, order.order_type);
-  const showDeliveryReminder =
-    !!workflow?.delivery_reminder_enabled &&
-    isDeliveryReminderDue(order) &&
-    !caps.isCancelled &&
-    !caps.isTerminal;
-
   // Category groups, combo groups and reconciled totals all come from the
   // shared groupOrder() — the same math the WhatsApp recap uses, so customer
   // communication and this operational view agree about what was ordered.
@@ -172,9 +160,9 @@ export function OrderDetailModal({
   };
 
   const handlePrimary = async (action: PrimaryAction) => {
+    if (caps.awaitingWeights || isLoading) return;
     if (action === 'accept') {
-      const result = await onAccept();
-      if (result?.follow_up.whatsapp_recap) setRecapOpen(true);
+      await onAccept();
       return;
     }
     PRIMARY_HANDLER[action]();
@@ -218,6 +206,7 @@ export function OrderDetailModal({
                 activityPending={audit.status === 'loading'}
                 activityFailed={audit.status === 'error'}
                 onViewActivity={() => setReferenceView('activity')}
+                onViewMessages={() => setReferenceView('messages')}
                 invoiceCount={invoiceCount}
                 onViewInvoice={invoiceCount > 0 ? () => setReferenceView('invoice') : undefined}
                 canCorrect={caps.canCorrectStatus && !!onOverride}
@@ -236,11 +225,12 @@ export function OrderDetailModal({
                 onToggleForceProduction={onToggleForceProduction}
                 onCancel={onReject}
                 onDelete={onDelete}
+                onSatisfaction={canManage && !!order.customer_phone && ((order.order_type === 'delivery' && order.status === 'delivered') || (order.order_type === 'pickup' && ['picked_up', 'received', 'served'].includes(order.status))) ? () => setMessage({ kind: 'satisfaction', channel: 'business' }) : undefined}
                 disabled={isLoading}
               >{utilities}</OrderOverflowMenu>
             )}
-            onSendConfirmation={() => setRecapOpen(true)}
-            onSendDeliveryReminder={showDeliveryReminder ? () => setDeliveryReminderOpen(true) : undefined}
+            onSendConfirmation={() => setMessage({ kind: 'order_recap', channel: 'business' })}
+            onSendReceipt={() => setMessage({ kind: 'receipt', channel: 'app' })}
             onConfirmWeights={onConfirmWeights}
             onTakePayment={onTakePayment}
             onCloseOrder={onCloseOrder}
@@ -252,6 +242,8 @@ export function OrderDetailModal({
           <>
             {/* Alerts head the ticket, and TicketItems opens with its own
                 settlement banners, so the whole alarm stack stays contiguous. */}
+            {!canManage && order.delivery_slot_pending && <p role="status" className="mb-4 text-fs-sm">{t('deliverySlotPending')}</p>}
+            {canManage && caps.canEditOrder && order.order_type === 'delivery' && order.delivery_schedule && <DeliverySlotAssignment key={`${order.id}/${order.scheduled_pickup_window_start ?? "pending"}`} order={order} onSaved={onClose} />}
             {caps.isScheduled && order.scheduled_for && (
               <div className="mb-[var(--s-3)]">
                 <ScheduledBanner
@@ -287,6 +279,8 @@ export function OrderDetailModal({
                 canManage={canManage}
                 onEditCustomer={onEditCustomer}
                 customFields={customFields.customer}
+                onViewMessages={() => setReferenceView('messages')}
+                onSendMessage={canManage ? () => setMessage({ kind: 'order_recap', channel: 'business' }) : undefined}
                 t={t}
               />
               <DeliveryPanel order={order} customFields={customFields.address} t={t} />
@@ -331,22 +325,19 @@ export function OrderDetailModal({
         direction={direction}
       />
 
-      <WhatsAppRecapDialog
-        open={recapOpen}
-        onOpenChange={setRecapOpen}
-        order={order}
+      {message && <OrderWhatsAppComposer
+        key={`${order.restaurant_id}:${order.id}:${message.kind}:${message.channel}`}
+        open
+        onOpenChange={open => { if (!open) setMessage(null); }}
+        orders={[order]}
         restaurantId={order.restaurant_id}
         restaurantName={restaurantName}
         restaurantDefaultLocale={restaurantDefaultLocale}
         checkoutConfig={checkoutConfig}
-      />
-      <WhatsAppDeliveryReminderDialog
-        open={deliveryReminderOpen}
-        onOpenChange={setDeliveryReminderOpen}
-        order={order}
-        restaurantName={restaurantName}
-        restaurantDefaultLocale={restaurantDefaultLocale}
-      />
+        initialKind={message.kind}
+        initialChannel={message.channel}
+        onViewHistory={() => setReferenceView('messages')}
+      />}
     </>
   );
 }

@@ -50,6 +50,8 @@ export interface OrderHandlerAvailability {
 export interface OrderCapabilities {
   /** The dominant next-step action, or null when the order is terminal. */
   primary: PrimaryAction | null;
+  /** A card hold must be settled by confirming weights before advancing. */
+  awaitingWeights: boolean;
   isCancelled: boolean;
   isScheduled: boolean;
   isTerminal: boolean;
@@ -127,6 +129,7 @@ export function deriveOrderCapabilities(
   // read as a bug.
   const canCloseOrder =
     !isCancelled &&
+    !isHeld &&
     !isTerminal &&
     order.payment_status === 'paid' &&
     (order.balance_due ?? 0) <= 0.01;
@@ -135,7 +138,7 @@ export function deriveOrderCapabilities(
   // Manual status correction is offered on any live or completed order, so a
   // terminal order marked served/delivered by mistake can be walked back.
   // Excluded for cancelled and not-yet-started orders, which keep their flows.
-  const canCorrectStatus = !!perms.canOverride && !isCancelled && !isScheduled;
+  const canCorrectStatus = !!perms.canOverride && !isCancelled && !isScheduled && !isHeld;
 
   // Manual payment correction is for cash/manual orders only. Provider-settled
   // orders moved real money and must be refunded, never data-corrected. The
@@ -173,6 +176,7 @@ export function deriveOrderCapabilities(
 
   return {
     primary: primaryFor(order),
+    awaitingWeights: isHeld,
     isCancelled,
     isScheduled,
     isTerminal,

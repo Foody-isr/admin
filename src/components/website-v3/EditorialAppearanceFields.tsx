@@ -14,6 +14,7 @@ export function EditorialAppearanceFields({
   const { t } = useI18n();
   const scrolling = section.section_type === "scrolling_text";
   const animated = section.section_type === "animated_text";
+  const text = section.section_type === "text";
   const select = (
     key: string,
     label: string,
@@ -78,35 +79,44 @@ export function EditorialAppearanceFields({
         )
       ) : (
         <>
-          {select(
-            "text_alignment",
-            "editorAlignment",
-            ["left", "center", "right"],
-            "editorAlign_",
-            "left",
-          )}
-          {select(
-            "image_fit",
-            "editorMediaFit",
-            ["cover", "contain"],
-            "editorFit_",
-            "cover",
-          )}
-          {select(
-            "image_position",
-            "editorImagePosition",
-            ["top", "center", "bottom"],
-            "editorPosition_",
-            "center",
-          )}
+          {!text &&
+            select(
+              "text_alignment",
+              "editorAlignment",
+              ["left", "center", "right"],
+              "editorAlign_",
+              "left",
+            )}
+          {!text &&
+            select(
+              "image_fit",
+              "editorMediaFit",
+              ["cover", "contain"],
+              "editorFit_",
+              "cover",
+            )}
+          {!text &&
+            select(
+              "image_position",
+              "editorImagePosition",
+              ["top", "center", "bottom"],
+              "editorPosition_",
+              "center",
+            )}
           <InspectorField label={t("editorSectionHeight")}>
             <select
               className={controlClass}
-              value={String(section.settings.height ?? "medium")}
+              data-field-id="section.settings.height"
+              value={String(
+                section.settings.height ?? (text ? "auto" : "medium"),
+              )}
               onChange={(event) =>
                 onChange(["settings", "height"], event.target.value)
               }
             >
+              {text && (
+                <option value="auto">{t("editorSectionSizeAuto")}</option>
+              )}
               {["compact", "medium", "tall", "full"].map((value, index) => (
                 <option value={value} key={value}>
                   {["S", "M", "L", "XL"][index]}
@@ -114,12 +124,38 @@ export function EditorialAppearanceFields({
               ))}
             </select>
           </InspectorField>
-          <ToggleField
-            fieldId="section.settings.image_only"
-            label={t("editorImageOnly")}
-            checked={section.settings.image_only === true}
-            onChange={(value) => onChange(["settings", "image_only"], value)}
-          />
+          {text ? (
+            <InspectorField
+              label={t("editorSectionWidth")}
+              hint={t("editorSectionWidthHint")}
+            >
+              <select
+                className={controlClass}
+                data-field-id="section.settings.width"
+                value={String(section.settings.width ?? "auto")}
+                onChange={(event) =>
+                  onChange(["settings", "width"], event.target.value)
+                }
+              >
+                {["auto", "narrow", "medium", "wide", "full"].map((value) => (
+                  <option value={value} key={value}>
+                    {t(
+                      value === "auto"
+                        ? "editorSectionSizeAuto"
+                        : `editorSectionWidth_${value}`,
+                    )}
+                  </option>
+                ))}
+              </select>
+            </InspectorField>
+          ) : (
+            <ToggleField
+              fieldId="section.settings.image_only"
+              label={t("editorImageOnly")}
+              checked={section.settings.image_only === true}
+              onChange={(value) => onChange(["settings", "image_only"], value)}
+            />
+          )}
         </>
       )}
     </>

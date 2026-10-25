@@ -85,7 +85,7 @@ test("standalone video exposes upload and URL controls without cover playback se
   assert.match(empty, /accept="video\/mp4,video\/webm"/);
   assert.match(empty, /up to 50 MB/);
   assert.equal((empty.match(/data-field-id="section\.content\.video_url"/g) ?? []).length, 1);
-  assert.doesNotMatch(empty, /Cover video|muted|looped/);
+  assert.doesNotMatch(empty, /Cover video|The video will be muted and looped/);
 
   const configured = renderSection({
     section_type: "video",
@@ -96,6 +96,19 @@ test("standalone video exposes upload and URL controls without cover playback se
   assert.match(configured, /Replace/);
   assert.match(configured, /Delete/);
   assert.doesNotMatch(configured, / loop=""| muted=""/);
+});
+
+test("video playback and spacing settings are editable from content and appearance", () => {
+  for (const sectionPanel of ["content", "appearance"] as const) {
+    const markup = renderSection({ section_type: "video", layout: "full_width", settings: { video_autoplay: true, video_controls: false, video_loop: true, video_muted: false, video_height: "m", padding: "none" } }, sectionPanel);
+    for (const key of ["video_autoplay", "video_controls", "video_loop", "video_muted", "video_height", "padding"]) {
+      assert.match(markup, new RegExp(`data-field-id="section\\.settings\\.${key}"`));
+    }
+    assert.match(markup, /Automatic playback starts muted/);
+    assert.match(markup, /value="none" selected=""/);
+    assert.match(markup, /value="m" selected=""/);
+    for (const size of ["XS", "S", "M", "L"]) assert.match(markup, new RegExp(`>${size}</option>`));
+  }
 });
 
 test("feature cards content exposes every card field and add action", () => {
@@ -295,6 +308,25 @@ test("text and image exposes the twelve Square layouts and reproducible full-wid
   assert.match(content, /Add group/);
 });
 
+test("text exposes geometry without image controls and retains historical defaults", () => {
+  const markup = renderSection({ section_type: "text" }, "appearance");
+  for (const key of ["padding", "height", "width"]) {
+    assert.match(markup, new RegExp(`data-field-id="section.settings.${key}"`));
+  }
+  assert.match(markup, /Section spacing/);
+  assert.match(markup, /Section height/);
+  assert.match(markup, /Section width/);
+  assert.match(markup, /value="auto" selected=""/);
+  assert.match(markup, /value="normal" selected=""/);
+  assert.doesNotMatch(markup, /section.settings.(image_fit|image_position|image_only)/);
+  const authored = renderSection({ section_type: "text", layout: "split", settings: {
+    padding: "none", height: "tall", width: "full",
+  } }, "appearance");
+  for (const value of ["none", "tall", "full"]) {
+    assert.match(authored, new RegExp(`value="${value}" selected=""`));
+  }
+});
+
 test("scrolling text has motion controls and a correct layout name", () => {
   const markup = renderSection(
     {
@@ -307,6 +339,25 @@ test("scrolling text has motion controls and a correct layout name", () => {
   assert.doesNotMatch(markup, /Image à droite/);
   assert.match(markup, /Scrolling speed/);
   assert.match(markup, /Scrolling direction/);
+});
+
+test("text/image backgrounds are local, optional and independently resettable", () => {
+  const inherited = renderSection({ section_type: "text_and_image" }, "appearance");
+  assert.match(inherited, /Text background/);
+  assert.match(inherited, /Image background/);
+  assert.match(inherited, /Section style/);
+  const custom = renderSection({ section_type: "text_and_image", settings: {
+    color_style: "style-6", text_bg_color: "#ffffff", image_bg_color: "#fff8ed",
+  } }, "appearance");
+  assert.match(custom, /section\.settings\.text_bg_color/);
+  assert.match(custom, /section\.settings\.image_bg_color/);
+  assert.match(custom, /value="#ffffff"/);
+  assert.match(custom, /value="#fff8ed"/);
+  assert.match(custom, /Text background — Reset to automatic/);
+  assert.match(custom, /Image background — Reset to automatic/);
+  for (const section_type of ["scrolling_text", "animated_text", "hero_banner"]) {
+    assert.doesNotMatch(renderSection({ section_type }, "appearance"), /section\.settings\.(text|image)_bg_color/);
+  }
 });
 
 test("new scrolling sections expose the same large display typography as the theme", () => {

@@ -12,6 +12,8 @@ import Link from 'next/link';
 import * as Popover from '@radix-ui/react-popover';
 import { Box, ChevronDown } from 'lucide-react';
 import {
+  getSalesStock,
+  type SaleStockRow,
   listAvailabilityRules,
   previewItemAvailability,
   updateMenuItem,
@@ -29,6 +31,8 @@ import {
   preparationSummary,
   type ItemPreparationDraft,
 } from '@/lib/item-preparation';
+import { ProductSalesStock } from '@/components/menu/publication/ProductSalesStock';
+import { StockHistory } from '@/components/menu/publication/StockHistory';
 import { AvailabilityCapacityCard } from './AvailabilityCapacityCard';
 import { ItemSettingsDialog } from './ItemSettingsDialog';
 import { ItemPreparationDialog } from './ItemPreparationDialog';
@@ -152,6 +156,9 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
     const [attempt, setAttempt] = useState(0);
+    const [seriesRow,setSeriesRow]=useState<SaleStockRow|null>(null);
+    const [seriesDate,setSeriesDate]=useState('');
+    const [historyOpen,setHistoryOpen]=useState(false);
     const [preview, setPreview] = useState<AvailabilityPreview | null>(null);
     const [previewFailed, setPreviewFailed] = useState(false);
     const loadPreview = useCallback(async () => {
@@ -167,9 +174,9 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
       let alive = true;
       setLoading(true);
       setLoadError(false);
-      listAvailabilityRules(rid)
-        .then((value) => {
-          if (alive) setRules(value);
+      Promise.all([listAvailabilityRules(rid),getSalesStock(rid,'',itemId)])
+        .then(([value,overview]) => {
+          if (alive) { setRules(value);setSeriesRow(overview.rows[0]??null);setSeriesDate(overview.series_key); }
         })
         .catch(() => {
           if (alive) setLoadError(true);
@@ -195,7 +202,9 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
         preparation_schedule: preparation.schedule,
         immediate_sale_mode: preparation.saleMode,
       };
-      if (!stock.tracked)
+      if (seriesRow?.managed) {
+        await updateMenuItem(rid,itemId,{availability_rule_id:stock.ruleId,preparation_lead_time_minutes:preparation.leadMinutes,preparation_schedule:preparation.schedule,immediate_sale_mode:preparation.saleMode});
+      } else if (!stock.tracked)
         await updateMenuItem(rid, itemId, {
           ...fields,
           stock_quantity: null,
@@ -250,6 +259,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
       itemId,
       sizeSet,
       sizes,
+      seriesRow,
       loadPreview,
       onSaved,
     ]);
@@ -366,6 +376,10 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
       );
     return (
       <div className="item-fulfillment-settings">
+        {seriesRow?.managed ? <><ProductSalesStock rid={rid} date={seriesDate} row={seriesRow} onUpdate={setSeriesRow}/>
+        <label className="block text-sm space-y-2">{t('availabilityManageRules')}<select className="input" disabled={!canEdit} value={stock.ruleId} onChange={e=>setStock(prev=>({...prev,ruleId:Number(e.target.value)}))}><option value={0}>{t('none')}</option>{rules.map(rule=><option key={rule.id} value={rule.id}>{rule.name}</option>)}</select></label></> : <>
+        <button type="button" className="item-settings-link" onClick={()=>setHistoryOpen(!historyOpen)}>{t('saleStockHistory')}</button>
+        {historyOpen&&<StockHistory rid={rid} itemId={itemId}/>}
         <div className="item-stock-actions">
           <Popover.Root open={actionsOpen} onOpenChange={setActionsOpen}>
             <Popover.Trigger asChild>
@@ -501,6 +515,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
             </tr>
           </tbody>
         </table>
+        </>}
         <section className="item-execution-section">
           <h3>
             <span>

@@ -9,7 +9,7 @@ import styles from '../order-detail.module.css';
 import {
   MoreHorizontalIcon, RotateCcwIcon, BanknoteIcon, CreditCardIcon,
   ClipboardListIcon, XIcon, Trash2Icon, HistoryIcon, FileTextIcon,
-  AlertTriangleIcon,
+  AlertTriangleIcon, MessageCircleIcon,
 } from 'lucide-react';
 import {
   Button,
@@ -25,10 +25,10 @@ import { useI18n } from '@/lib/i18n';
 /** Single toolbar menu for utilities, references and permitted management actions. */
 export function OrderOverflowMenu({
   activityCount, activityPending, activityFailed, onViewActivity,
-  invoiceCount, onViewInvoice,
+  invoiceCount, onViewInvoice, onViewMessages,
   canCorrect, canCorrectPayment, canCorrectPaymentMethod, canReactivate, canForceProduction, forceProductionActive,
   forceProductionRevives, canCancel, canDelete, onCorrect, onCorrectPayment, onCorrectPaymentMethod,
-  onReactivate, onToggleForceProduction, onCancel, onDelete, disabled, children,
+  onReactivate, onToggleForceProduction, onCancel, onDelete, onSatisfaction, disabled, children,
 }: {
   children?: ReactNode;
   activityCount?: number;
@@ -37,6 +37,7 @@ export function OrderOverflowMenu({
   onViewActivity?: () => void;
   invoiceCount?: number;
   onViewInvoice?: () => void;
+  onViewMessages?: () => void;
   canCorrect?: boolean;
   canCorrectPayment?: boolean;
   canCorrectPaymentMethod?: boolean;
@@ -54,6 +55,7 @@ export function OrderOverflowMenu({
   onToggleForceProduction?: () => void;
   onCancel: () => void;
   onDelete?: () => void;
+  onSatisfaction?: () => void;
   disabled?: boolean;
 }) {
   const { t } = useI18n();
@@ -65,7 +67,7 @@ export function OrderOverflowMenu({
     (canReactivate && !!onReactivate);
   const hasProduction = canForceProduction && !!onToggleForceProduction;
   const hasDanger = canCancel || (canDelete && !!onDelete);
-  const hasReferences = !!onViewActivity || (!!invoiceCount && !!onViewInvoice);
+  const hasReferences = !!onViewMessages || !!onViewActivity || (!!invoiceCount && !!onViewInvoice);
   const hasActions = hasManagement || hasProduction || hasDanger;
 
   return (
@@ -83,8 +85,10 @@ export function OrderOverflowMenu({
       </MenuTrigger>
       <MenuContent side="bottom" align="end" className="order-detail-menu max-h-[calc(100dvh-100px)] overflow-y-auto">
         {children}
+        {onSatisfaction && <MenuItem onSelect={onSatisfaction}><FileTextIcon />{t('waSatisfactionSend')}</MenuItem>}
         {children && <MenuSeparator />}
         {hasReferences && <MenuLabel>{t('details')}</MenuLabel>}
+        {onViewMessages && <MenuItem onSelect={onViewMessages}><MessageCircleIcon />{t('orderMessagesTitle')}</MenuItem>}
         {onViewActivity && (
           <MenuItem onSelect={onViewActivity}>
             <HistoryIcon />

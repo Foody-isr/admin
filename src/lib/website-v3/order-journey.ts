@@ -1,4 +1,4 @@
-export type OrderJourneyScreen = "cart" | "checkout" | "confirmation";
+export type OrderJourneyScreen = "cart" | "checkout" | "confirmation" | "receipt";
 export type OrderJourneyColorStyle = "default" | `style-${1 | 2 | 3 | 4 | 5 | 6}`;
 export type OrderJourneyColors = Partial<Record<OrderJourneyScreen, OrderJourneyColorStyle>>;
 
@@ -7,7 +7,7 @@ export function normalizeOrderJourneyColors(value: unknown): OrderJourneyColors 
   const source = value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown> : {};
   const result: OrderJourneyColors = {};
-  for (const screen of ["cart", "checkout", "confirmation"] as const) {
+  for (const screen of ["cart", "checkout", "confirmation", "receipt"] as const) {
     const id = source[screen];
     if (typeof id === "string" && /^(default|style-[1-6])$/.test(id)) {
       result[screen] = id as OrderJourneyColorStyle;

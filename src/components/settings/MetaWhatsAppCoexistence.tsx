@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Badge, Button, Field, Input, Section } from '@/components/ds';
+import { ChevronDown, MessageCircle, RefreshCw } from 'lucide-react';
+import { Badge, Button, Field, Input } from '@/components/ds';
 import { ApiError, beginMetaWhatsAppSignup, completeMetaWhatsAppSignup, getMetaWhatsAppStatus, resumeMetaWhatsAppSignup, type MetaWhatsAppStatus } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { loadMetaSdk } from '@/lib/meta-sdk';
@@ -10,7 +11,7 @@ import { CoexistenceAttempt, coexistenceCode, parseCoexistenceEvent } from '@/li
 import { MetaWhatsAppTemplates } from './MetaWhatsAppTemplates';
 
 /** Pilot onboarding for a restaurant retaining its existing WhatsApp Business app. */
-export function MetaWhatsAppCoexistence({ rid, canEdit, disabled = false, onLockChange }: { rid: number; canEdit: boolean; disabled?: boolean; onLockChange?: (locked: boolean) => void }) {
+export function MetaWhatsAppCoexistence({ rid, canEdit, disabled = false, onLockChange, onAvailabilityChange }: { rid: number; canEdit: boolean; disabled?: boolean; onLockChange?: (locked: boolean) => void; onAvailabilityChange?: (configured: boolean) => void }) {
   const { t } = useI18n();
   const [status, setStatus] = useState<MetaWhatsAppStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,6 +26,8 @@ export function MetaWhatsAppCoexistence({ rid, canEdit, disabled = false, onLock
   const copy = useRef(t); copy.current = t;
   const request = useRef(0);
   const permitted = useRef(canEdit); permitted.current = canEdit;
+
+  useEffect(() => { if (status) onAvailabilityChange?.(status.configured); }, [status, onAvailabilityChange]);
 
   useEffect(() => { onLockChange?.(phase !== 'idle' || templatesLocked); return () => onLockChange?.(false); }, [phase, templatesLocked, onLockChange]);
 
@@ -145,31 +148,44 @@ export function MetaWhatsAppCoexistence({ rid, canEdit, disabled = false, onLock
   const canBegin = !connection || connection.status === 'reconnect_required';
   const locked = disabled || phase !== 'idle' || templatesLocked;
 
-  return <Section title={t('waCoexTitle')} role="region" aria-label={t('waCoexTitle')}>
-    <div className="space-y-4">
-      <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('waCoexIntro')}</p>
-      <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm leading-6 text-[var(--summary-fg)]">{t(connection?.notifications_enabled ? 'waCoexActiveHint' : 'waCoexPilotHint')}</p>
-      {error && <p role="alert" className="text-sm text-[var(--danger-500)]">{error}</p>}
-      {loading ? <p role="status">{t('loading')}</p> : <>
-        {!status?.configured && <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('waCoexNotConfigured')}</p>}
-        {connection && <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-3"><bdi dir="ltr">{connection.phone_number}</bdi><Badge tone={connection.status === 'ready' ? 'success' : 'neutral'}>{t(labels[connection.status] || 'waCoexActionRequired')}</Badge></div>
-          <p className="text-sm text-[var(--fg-muted)]">{t('waCoexAccount')}: <bdi dir="ltr">{connection.waba_id}</bdi></p>
-          {connection.status === 'syncing' && <p role="status" className="text-sm">{t('waCoexSyncHint')} {connection.history_progress}%</p>}
-          {connection.status === 'action_required' && <p role="alert" className="text-sm leading-6">{t('waCoexUnknownHint')}</p>}
-          {connection.status === 'reconnect_required' && <p role="alert" className="text-sm leading-6">{t('waCoexReconnectHint')}</p>}
-          {canEdit && status?.configured && connection.status === 'onboarding' && <Button variant="secondary" disabled={locked} onClick={() => void resume()}>{t('waCoexResume')}</Button>}
-        </div>}
-        {canEdit && status?.configured && canBegin && <div className="space-y-3">
+  if (status && !status.configured && !connection) return null;
+  return <>
+    <section className="wa-section" role="region" aria-label={t('waWorkspaceNumber')}>
+      <div className="wa-heading"><h2>{t('waWorkspaceNumber')}</h2></div>
+      {error && <p role="alert" className="mb-4 text-sm text-[var(--danger-500)]">{error}</p>}
+      {loading ? <p role="status" className="wa-muted">{t('loading')}</p> : <>
+        {!status?.configured && <p className="wa-muted">{t('waCoexNotConfigured')}</p>}
+        <div className="wa-channel">
+          <span className="wa-icon"><MessageCircle aria-hidden="true" /></span>
+          <div className="wa-channel-copy">
+            <div className="wa-channel-title">
+              {connection ? <><bdi dir="ltr">{connection.phone_number}</bdi><Badge tone={connection.status === 'ready' ? 'success' : 'neutral'}>{t(connection.status === 'ready' ? 'waWorkspaceReady' : labels[connection.status] || 'waCoexActionRequired')}</Badge></> : <span>WhatsApp Business</span>}
+            </div>
+            <p className="wa-muted">{t(connection ? 'waWorkspaceKeepApp' : 'waWorkspaceConnect')}</p>
+          </div>
+          {connection && <Button variant="secondary" disabled={locked} onClick={() => { setError(''); void refresh(); }}><RefreshCw aria-hidden="true" />{t('refresh')}</Button>}
+        </div>
+        {connection?.status === 'syncing' && <div className="wa-sync" role="status"><progress aria-label={t('waWorkspaceSync')} max={100} value={connection.history_progress} /><span className="wa-muted">{t('waWorkspaceSync')} · {connection.history_progress}%</span></div>}
+        {connection?.status === 'action_required' && <p role="alert" className="wa-feedback">{t('waCoexUnknownHint')}</p>}
+        {connection?.status === 'reconnect_required' && <p role="alert" className="wa-feedback">{t('waCoexReconnectHint')}</p>}
+        {canEdit && status?.configured && connection?.status === 'onboarding' && <div className="wa-actions"><Button variant="secondary" disabled={locked} onClick={() => void resume()}>{t('waCoexResume')}</Button></div>}
+        {canEdit && status?.configured && canBegin && <div className="mt-5 max-w-lg space-y-3">
           <Field label={t('waPhone')} hint={t('waCoexPhoneHint')}><Input type="tel" dir="ltr" autoComplete="tel" aria-label={t('waCoexExistingNumber')} disabled={locked} value={phone} onChange={event => setPhone(event.target.value)} placeholder="+972500000000" /></Field>
           {phase === 'idle' && <Button disabled={disabled || !normalizeWhatsAppPhone(phone)} onClick={() => void prepare()}>{t('waCoexPrepare')}</Button>}
           {phase === 'prepared' && <Button disabled={disabled} onClick={launch}>{t('waCoexOpenMeta')}</Button>}
-          {phase === 'authorizing' && <p role="status" className="text-sm leading-6">{t('waCoexWaiting')}</p>}
+          {phase === 'authorizing' && <p role="status" className="wa-muted">{t('waCoexWaiting')}</p>}
           {phase === 'preparing' || phase === 'saving' ? <p role="status">{t('waConnecting')}</p> : phase !== 'idle' && <Button variant="ghost" onClick={cancel}>{t('cancel')}</Button>}
         </div>}
-        <Button variant="secondary" disabled={locked} onClick={() => { setError(''); void refresh(); }}>{t('refresh')}</Button>
-        {connection && status?.configured && connection.status !== 'reconnect_required' && <MetaWhatsAppTemplates key={`${rid}-${connection.phone_number_id}`} rid={rid} status={status} canEdit={canEdit} disabled={disabled || phase !== 'idle'} onChanged={setStatus} onLockChange={setTemplatesLocked} />}
+        <details className="wa-details wa-technical">
+          <summary>{t('waWorkspaceDetails')}<ChevronDown aria-hidden="true" /></summary>
+          <div className="wa-details-body space-y-2 wa-muted">
+            {connection && <p>{t('waCoexAccount')}: <bdi dir="ltr">{connection.waba_id}</bdi></p>}
+            <p>{t(connection?.notifications_enabled ? 'waCoexActiveHint' : 'waCoexPilotHint')}</p>
+          </div>
+        </details>
+        {!connection && <Button variant="ghost" size="sm" disabled={locked} onClick={() => { setError(''); void refresh(); }}>{t('refresh')}</Button>}
       </>}
-    </div>
-  </Section>;
+    </section>
+    {connection && status?.configured && connection.status !== 'reconnect_required' && <MetaWhatsAppTemplates key={`${rid}-${connection.phone_number_id}`} rid={rid} status={status} canEdit={canEdit} disabled={disabled || phase !== 'idle'} onChanged={setStatus} onLockChange={setTemplatesLocked} />}
+  </>;
 }

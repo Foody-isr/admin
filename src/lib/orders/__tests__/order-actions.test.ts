@@ -200,6 +200,26 @@ test("confirm weights needs a held settlement AND a handler", () => {
 
 // ─── Permission gates ────────────────────────────────────────────────────────
 
+test("a held order cannot advance, close or override status until weighing settles", () => {
+  for (const status of ["pending_review", "accepted", "in_kitchen", "ready", "ready_for_delivery", "out_for_delivery"]) {
+    for (const payment_status of ["authorized", "paid"] as const) {
+      const order = makeOrder({ status, payment_status, settlement_status: "held" });
+      const held = deriveOrderCapabilities(order, OWNER, ALL_HANDLERS);
+      assert.ok(held.primary, "keep the next action visible");
+      assert.equal(held.awaitingWeights, true);
+      assert.equal(held.canCloseOrder, false);
+      assert.equal(held.canCorrectStatus, false);
+      assert.equal(held.canConfirmWeights, true);
+      assert.equal(held.canCancelOrder, true);
+      assert.equal(deriveOrderCapabilities(order, OWNER).awaitingWeights, true, "blocked even without a weighing handler");
+      const captured = deriveOrderCapabilities({ ...order, settlement_status: "captured", payment_status: "paid" }, OWNER, ALL_HANDLERS);
+      assert.equal(captured.awaitingWeights, false);
+      assert.equal(captured.primary, held.primary);
+      assert.equal(captured.canConfirmWeights, false);
+    }
+  }
+});
+
 test("correction actions require the override permission", () => {
   const order = makeOrder({ status: "in_kitchen", payment_status: "paid", payment_method: "cash" } as Partial<Order>);
   const withOverride = deriveOrderCapabilities(order, OWNER, ALL_HANDLERS);

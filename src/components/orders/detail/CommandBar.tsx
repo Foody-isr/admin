@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { EditIcon, ScaleIcon, CreditCardIcon, CheckCircle2Icon, MessageCircleIcon } from 'lucide-react';
+import { EditIcon, ScaleIcon, CreditCardIcon, CheckCircle2Icon } from 'lucide-react';
 import { Button, MenuItem, MenuLabel, MenuSeparator } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import type { Order } from '@/lib/api';
@@ -17,7 +17,7 @@ export interface CommandBarProps {
   onEdit: () => void;
   actions: (utilities: ReactNode) => ReactNode;
   onSendConfirmation: () => void;
-  onSendDeliveryReminder?: () => void;
+  onSendReceipt: () => void;
   onConfirmWeights?: () => void;
   onTakePayment: () => void;
   onCloseOrder: () => void;
@@ -27,7 +27,7 @@ export interface CommandBarProps {
 /** Toolbar action group, preserving Foody capability gates and callbacks. */
 export function CommandBar({
   order, caps, canManage, isLoading,
-  onEdit, actions, onSendConfirmation, onSendDeliveryReminder, onConfirmWeights, onTakePayment, onCloseOrder,
+  onEdit, actions, onSendConfirmation, onSendReceipt, onConfirmWeights, onTakePayment, onCloseOrder,
   onPrimary,
 }: CommandBarProps) {
   const { t } = useI18n();
@@ -45,20 +45,19 @@ export function CommandBar({
 
   const utilities = <>
     {canManage && caps.canEditOrder && <MenuItem onSelect={onEdit}><EditIcon />{t('edit')}</MenuItem>}
-    {canManage && onSendDeliveryReminder && <MenuItem disabled={isLoading} onSelect={onSendDeliveryReminder}><MessageCircleIcon />{t('sendDeliveryReminder')}</MenuItem>}
     {canManage && caps.canConfirmWeights && onConfirmWeights && <MenuItem disabled={isLoading} onSelect={onConfirmWeights}><ScaleIcon />{t('confirmWeights')}</MenuItem>}
     {canManage && caps.canTakePayment && <MenuItem disabled={isLoading} onSelect={onTakePayment}><CreditCardIcon />{t('takePayment')}</MenuItem>}
     {canManage && caps.canCloseOrder && <MenuItem disabled={isLoading} onSelect={onCloseOrder}><CheckCircle2Icon />{t('closeOrder')}</MenuItem>}
     <MenuSeparator />
     <MenuLabel>{t('sendToCustomer')}</MenuLabel>
-    <SendToCustomerItems order={order} onSendConfirmation={onSendConfirmation} />
+    <SendToCustomerItems order={order} canManage={canManage} onSendConfirmation={onSendConfirmation} onSendReceipt={onSendReceipt} />
   </>;
   return <>
     {actions(utilities)}
     {canManage && caps.primary && (
       <Button variant="primary" size="md" className={styles.primaryButton}
-        onClick={() => onPrimary(caps.primary!)} disabled={isLoading}>
-        {PRIMARY_LABEL[caps.primary]}
+        onClick={() => onPrimary(caps.primary!)} disabled={isLoading || caps.awaitingWeights}>
+        {caps.awaitingWeights ? t('weightsPending') : PRIMARY_LABEL[caps.primary]}
       </Button>
     )}
   </>;

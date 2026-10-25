@@ -1,0 +1,15 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "e3a60d2225ced75a3f54b1ecc5ad5a2c6232e38ef6ce21f609e48696c4afe72e",
+      "baseSha256": "acdcd525a19aeb17ce7a6e70846aee23177e68d7516c4d914e0c9b546007361b",
+      "features": [
+        "google-account-setup",
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This diff changes only courier delivery confirmation and selected-stop wording. Existing order entry, fulfillment settings, payment actions, Google setup and other classified workflows retain their behavior; courier procedures are updated in all three languages."
+    }
+  ]
+}

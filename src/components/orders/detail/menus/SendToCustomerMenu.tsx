@@ -1,16 +1,11 @@
 'use client';
 
-// Send the customer their order without downloading and re-uploading anything:
-// the full confirmation recap, WhatsApp and email device deep-links pre-filled
-// with a short summary plus a link to the hosted receipt page, and a copy-link
-// shortcut. No backend call — the receipt link is built from receipt_token.
-//
-// Built on ds/Menu so it portals above the sticky command bar and provides
-// keyboard navigation and focus management.
+// WhatsApp entries use the shared review composer. Email and copy-link keep
+// their existing receipt-sharing helpers and keyboard-accessible menu behavior.
 
 import { useState } from 'react';
 import {
-  ClipboardListIcon, MessageCircleIcon,
+  MessageCircleIcon,
   MailIcon, LinkIcon, CheckIcon,
 } from 'lucide-react';
 import { MenuItem, MenuSeparator } from '@/components/ds';
@@ -19,7 +14,6 @@ import type { Order } from '@/lib/api';
 import {
   receiptShareUrl,
   buildShareMessage,
-  buildWhatsAppUrl,
   buildMailtoUrl,
 } from '@/lib/receipt-share';
 
@@ -27,10 +21,14 @@ import {
 export function SendToCustomerItems({
   order,
   onSendConfirmation,
+  onSendReceipt,
+  canManage,
 }: {
   order: Order;
   /** Opens the WhatsApp order-confirmation preview (full recap, not just the receipt link). */
   onSendConfirmation: () => void;
+  onSendReceipt: () => void;
+  canManage: boolean;
 }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
@@ -44,7 +42,6 @@ export function SendToCustomerItems({
     url,
   });
   const subject = t('receiptEmailSubject').replace('{id}', String(order.id));
-  const waUrl = buildWhatsAppUrl(order.customer_phone, body);
   const mailUrl = buildMailtoUrl(order.customer_email, subject, body);
 
   const copyLink = async () => {
@@ -60,22 +57,15 @@ export function SendToCustomerItems({
 
   return (
     <>
-        {/* The full order recap (type, items, slot, totals, payment) is the
-            message staff actually want to send. The receipt link below stays as
-            the short "here is your receipt" share. */}
-        <MenuItem onSelect={onSendConfirmation}>
-          <ClipboardListIcon />
-          {t('sendOrderConfirmation') || 'Confirmation de commande'}
-        </MenuItem>
-        <MenuSeparator />
-        {waUrl && (
-          <MenuItem asChild>
-            <a href={waUrl} target="_blank" rel="noopener noreferrer">
-              <MessageCircleIcon />
-              {t('sendReceiptWhatsApp') || 'Envoyer par WhatsApp'}
-            </a>
+        {canManage && <>
+          <MenuItem onSelect={onSendConfirmation}>
+            <MessageCircleIcon />{t('wcSendMessage')}
           </MenuItem>
-        )}
+          <MenuItem onSelect={onSendReceipt} disabled={!url}>
+            <MessageCircleIcon />{t('sendReceiptWhatsApp')}
+          </MenuItem>
+          <MenuSeparator />
+        </>}
         <MenuItem asChild>
           <a href={mailUrl}>
             <MailIcon />

@@ -1,0 +1,56 @@
+.whatsapp-settings { max-width: 1120px; margin-inline: auto; padding-bottom: 48px; }
+.whatsapp-settings .wa-section { padding-block: 28px; border-bottom: 1px solid var(--line); }
+.whatsapp-settings .wa-section:first-of-type { padding-top: 8px; }
+.wa-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.wa-heading h2 { font-size: 20px; line-height: 1.4; font-weight: 600; }
+.wa-muted { color: var(--fg-muted); font-size: 14px; line-height: 1.6; max-width: 68ch; }
+.wa-channel { display: flex; align-items: center; gap: 16px; }
+.wa-icon { display: grid; place-items: center; width: 48px; height: 48px; flex-shrink: 0; border-radius: 12px; background: var(--surface-2); color: var(--fg); }
+.wa-icon svg { width: 22px; height: 22px; }
+.wa-channel-copy { flex: 1; min-width: 0; }
+.wa-channel-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 17px; font-weight: 600; }
+.wa-channel-copy .wa-muted { margin-top: 4px; }
+.wa-sync { margin-top: 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.wa-sync progress { width: 120px; height: 4px; accent-color: var(--fg); }
+.wa-details { border-top: 1px solid var(--line); }
+.wa-details > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 16px; cursor: pointer; padding-block: 20px; font-size: 15px; font-weight: 600; }
+.wa-details > summary::-webkit-details-marker { display: none; }
+.wa-details > summary svg { width: 18px; height: 18px; flex-shrink: 0; transition: transform .15s ease; }
+.wa-details[open] > summary svg { transform: rotate(180deg); }
+.wa-details > summary:focus-visible { outline: 2px solid var(--fg); outline-offset: 4px; border-radius: 4px; }
+.wa-details-body { padding-bottom: 24px; }
+.wa-details-body > [role=region] { border: 0; margin-bottom: 0; border-radius: 0; }
+.wa-details-body > [role=region] > div { padding-inline: 0; }
+.wa-technical { margin-top: 16px; border: 0; }
+.wa-technical > summary { padding-block: 8px; justify-content: flex-start; font-size: 13px; color: var(--fg-muted); }
+.wa-template-list { border-top: 1px solid var(--line); }
+.wa-template-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 18px; padding-block: 22px; border-bottom: 1px solid var(--line); }
+.wa-template-row .wa-icon { width: 44px; height: 44px; border-radius: 10px; }
+.wa-template-row h3 { font-weight: 600; font-size: 16px; line-height: 1.5; }
+.wa-template-row .wa-muted { margin-top: 4px; }
+.wa-template-value { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; font-size: 13px; color: var(--fg-muted); overflow-wrap: anywhere; }
+.wa-template-value bdi { max-width: 100%; }
+.wa-notification-state { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 14px; margin-bottom: 8px; }
+.wa-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fg-subtle); flex-shrink: 0; }
+.wa-dot[data-active=true] { background: var(--success-500); }
+.wa-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding-top: 20px; }
+.wa-feedback { margin-top: 14px; font-size: 14px; line-height: 1.6; max-width: 70ch; }
+.wa-catalogue { margin-top: 22px; }
+.wa-catalogue-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 12px; border-top: 1px solid var(--line); font-size: 14px; }
+.wa-catalogue-row bdi { overflow-wrap: anywhere; min-width: 0; }
+.wa-editor .wa-editor-section { padding-block: 22px; border-bottom: 1px solid var(--line); }
+.wa-editor .wa-editor-section:first-child { padding-top: 0; }
+.wa-editor .wa-editor-section h3 { font-weight: 600; font-size: 15px; margin-bottom: 8px; }
+.wa-editor .wa-preview { white-space: pre-wrap; overflow-wrap: anywhere; padding: 20px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); line-height: 1.7; font-size: 14px; }
+.wa-editor textarea { min-height: 190px; }
+@media (max-width: 640px) {
+  .whatsapp-settings .wa-section { padding-block: 22px; }
+  .wa-heading { align-items: flex-start; }
+  .wa-channel { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 12px; }
+  .wa-channel > button { grid-column: 2; justify-self: start; }
+  .wa-template-row { grid-template-columns: 36px minmax(0, 1fr); gap: 12px; padding-block: 20px; }
+  .wa-template-row .wa-icon { width: 36px; height: 36px; }
+  .wa-template-row > button { grid-column: 2; justify-self: start; }
+  .wa-actions > button:first-child { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .wa-details > summary svg { transition: none; } }

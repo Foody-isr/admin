@@ -9,8 +9,9 @@ import type { OrderNotesState } from '@/lib/orders/use-order-notes';
 import { ActivityTimeline } from '../spine/ActivityTimeline';
 import { InvoiceSection } from './InvoicePanel';
 import { OrderNotesSection } from './NotesPanel';
+import { OrderMessageHistory } from './OrderMessageHistory';
 
-export type OrderReferenceView = 'activity' | 'invoice' | 'notes';
+export type OrderReferenceView = 'activity' | 'invoice' | 'notes' | 'messages';
 
 function FailedMark({ label }: { label: string }) {
   return (
@@ -81,7 +82,7 @@ export function OrderReferenceDrawer({
   t: (key: string) => string;
   direction: 'ltr' | 'rtl';
 }) {
-  const title = view === 'invoice'
+  const title = view === 'messages' ? t('orderMessagesTitle') : view === 'invoice'
     ? t('invoiceHeading') || 'Facture'
     : view === 'notes'
       ? t('orderNotesHeading') || 'Notes internes'
@@ -96,6 +97,7 @@ export function OrderReferenceDrawer({
       width={480}
       className="order-detail-surface max-w-[100vw] sm:max-w-[95vw]"
     >
+      {view === 'messages' && <OrderMessageHistory key={`${order.restaurant_id}:${order.id}`} restaurantId={order.restaurant_id} orderId={order.id} />}
       {view === 'activity' && (
         <ActivityTimeline
           events={activityEvents}

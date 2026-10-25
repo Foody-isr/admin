@@ -26,7 +26,7 @@ export function isSizeOrderable(o: ItemSizeOption): boolean {
  *  selected_variant_id, mirroring the guest apps' size pickers; the first
  *  option is the default a guest picker auto-selects. */
 export function itemSizeOptions(item: MenuItem): ItemSizeOption[] {
-  const optionSet = (item.option_sets ?? [])[0];
+  const optionSet = (item.option_sets ?? []).find(set => set.selection_role !== "identity");
   const opts = (optionSet?.options ?? []).filter((o) => o.is_active && !o.is_combo_only);
   if (opts.length > 0) {
     return opts.map((o) => ({
@@ -42,5 +42,15 @@ export function itemSizeOptions(item: MenuItem): ItemSizeOption[] {
 
 /** Label of the size group shown above the size radio list. */
 export function itemSizeGroupLabel(item: MenuItem): string | undefined {
-  return item.option_sets?.[0]?.name || item.variant_groups?.[0]?.title || undefined;
+  return item.option_sets?.find(set => set.selection_role !== "identity")?.name || item.variant_groups?.[0]?.title || undefined;
+}
+
+/** Required descriptive variant positions for the selected price-bearing format. */
+export function itemOptionPositions(item: MenuItem, formatId?: number) {
+  return (item.option_sets ?? []).filter(set => set.selection_role === 'identity').flatMap(set => {
+    const config = set.selection_config;
+    const count = config?.source ? config.choices.find(choice => choice.id === formatId)?.count ?? 0 : 1;
+    const repeated = config?.choices.some(choice => choice.count > 1);
+    return Array.from({ length: count }, (_, index) => ({ key: `${set.id}@${index + 1}`, set, index: index + 1, label: `${set.name}${repeated ? ` ${index + 1}` : ''}` }));
+  });
 }

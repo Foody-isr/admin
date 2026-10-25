@@ -1,0 +1,21 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "7ecfef6d935d361a60033c0e2dd495287d98a6e963e941a52d6f884c9b8bec2e",
+      "disposition": "no-user-impact",
+      "reason": "The entire diff against origin/develop adds only optional TypeScript declarations for the documented POS customer-information flag and its settings capability, and extends the OpenTicket order_type union with dine_in. No runtime requests, payment payload construction, permissions or provider behavior change in this shared type file. The actual settings UI and named tableless dine-in behavior are documented in all three POS behavior and order-type guides."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "0b71fbd3236222dd481275617a37bfab54c9b60d409a6ec2af8af4fe24bb4552",
+      "baseSha256": "e3a60d2225ced75a3f54b1ecc5ad5a2c6232e38ef6ce21f609e48696c4afe72e",
+      "features": [
+        "google-account-setup",
+        "delivery-dispatch"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed POS dictionary changes cover fulfillment cards and optional customer information, Modes list/profile actions and explicit draft saving, all-order tracking, and post-send new-sale navigation. No Google-account or delivery-dispatch labels, identity, consent or locale-resolution behavior change. The updated POS behavior and service-mode guides cover the changed controls in FR/HE/EN; this exception is scoped only to unchanged Google and delivery workflows."
+    }
+  ]
+}

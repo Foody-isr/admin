@@ -68,12 +68,14 @@ export function ToggleField({
   label,
   description,
   checked,
+  disabled,
   onChange,
 }: {
   fieldId: string;
   label: string;
   description?: string;
   checked: boolean;
+  disabled?: boolean;
   onChange: (checked: boolean) => void;
 }) {
   return (
@@ -91,6 +93,7 @@ export function ToggleField({
       <BooleanInput
         data-field-id={fieldId}
         checked={checked}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
       />
     </label>

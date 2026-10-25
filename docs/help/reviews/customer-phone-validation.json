@@ -1,0 +1,28 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "715c99ca9bf8d1b05da8e617d786b30899f003c34090e4afeb524cd2f3e8b919",
+      "baseSha256": "7ecfef6d935d361a60033c0e2dd495287d98a6e963e941a52d6f884c9b8bec2e",
+      "features": [
+        "payments-how-payments-work",
+        "pos-payments"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed against current develop: this diff only validates or normalizes customer phones, adds scoped phone-correction controls/routes, or regenerates their public help corpus. Existing staff, payment configuration, delivery settings, WhatsApp connection and support-panel procedures in the same files are unchanged. Phone procedures are updated in customers-profiles, guest-ordering, guest-catering and guest-account-tracking."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "3479f7ff44abfc8c29a3104a343c537d962da270946a662e9c1bfb3e21cc26ee",
+      "baseSha256": "95c1eb8b268821003211e779a8e0dc902a62c60299156cdc41a487cac2849dd5",
+      "features": [
+        "delivery-dispatch",
+        "google-account-setup",
+        "pos-behavior",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed against current develop: this diff only validates or normalizes customer phones, adds scoped phone-correction controls/routes, or regenerates their public help corpus. Existing staff, payment configuration, delivery settings, WhatsApp connection and support-panel procedures in the same files are unchanged. Phone procedures are updated in customers-profiles, guest-ordering, guest-catering and guest-account-tracking."
+    }
+  ]
+}

@@ -15,6 +15,7 @@ import { Button } from '@/components/ds';
 import { Money } from '../primitives/Money';
 import styles from '../order-detail.module.css';
 import { CashTag } from '@/components/orders/CashTag';
+import { PaymentAdjustments } from '@/components/orders/PaymentAdjustments';
 import { initOrderPaymentLink, collectOrderBalance, type Order } from '@/lib/api';
 import { formatMoney } from '@/lib/format-money';
 import { useCurrency } from '@/lib/i18n';
@@ -125,7 +126,7 @@ export function MoneyPanel({
     }
   };
 
-  const digits = (order.customer_phone || '').replace(/\D/g, '');
+  const digits = (order.customer_whatsapp_phone ?? order.customer_phone ?? '').replace(/\D/g, '');
   const payLinkWhatsApp = payLink
     ? `https://wa.me/${digits}?text=${encodeURIComponent(`${t('paymentLinkHint')} ${payLink}`)}`
     : '';
@@ -222,6 +223,7 @@ export function MoneyPanel({
           </div>
 
           <h3 id={`order-${order.id}-payment-summary`}>{t('permDomain_payments')}</h3>
+          <PaymentAdjustments key={`${order.restaurant_id}:${order.id}`} order={order} />
           <div className={styles.paymentHead}>
             <div className={styles.paymentMethod}>
               {settledPaymentMethod(order).toLowerCase() === 'cash' ? (

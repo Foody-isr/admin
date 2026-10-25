@@ -140,7 +140,7 @@ test("the page surface keeps the order preview on the landing bootstrap", () => 
 // The one thing that, if it regresses, silently kills the whole feature: the
 // checkout surface must point the iframe at the checkout route, carrying the
 // page slug so foodyweb can resolve that page's appearance overrides.
-for (const screen of [undefined, "cart", "checkout", "confirmation"] as const) test(`the ${screen ?? "default checkout"} preview carries its page and fulfillment mode`, () => {
+for (const screen of [undefined, "cart", "checkout", "confirmation", "receipt"] as const) test(`the ${screen ?? "default checkout"} preview carries its page and fulfillment mode`, () => {
   const orderType = screen ? "pickup" : "delivery";
   Object.assign(globalThis, { React });
   const state = {
@@ -174,6 +174,7 @@ for (const screen of [undefined, "cart", "checkout", "confirmation"] as const) t
       device: "desktop",
       surface: "checkout" as const,
       journeyScreen: screen,
+      journeyLocale: "he",
       journeyOrderType: screen ? "pickup" : undefined,
       onSurfaceChange: () => undefined,
       revision: 2,
@@ -191,9 +192,9 @@ for (const screen of [undefined, "cart", "checkout", "confirmation"] as const) t
     }),
   );
 
-  const path = screen === "confirmation" ? "confirmation/preview" : screen ?? "checkout";
-  assert.ok(markup.includes(`/order/${path}?restaurantId=moulin-doree&amp;orderType=${orderType}&amp;preview=1&amp;pageSlug=commander`));
-  assert.ok(markup.includes(screen === "cart" ? "Aperçu du panier" : screen === "confirmation" ? "Aperçu de la confirmation" : "Aperçu du checkout"));
+  const path = screen === "confirmation" || screen === "receipt" ? `${screen}/preview` : screen ?? "checkout";
+  assert.ok(markup.includes(`/order/${path}?restaurantId=moulin-doree&amp;orderType=${orderType}${screen === "receipt" ? "&amp;lang=he" : ""}&amp;preview=1&amp;pageSlug=commander`));
+  assert.ok(markup.includes(screen === "cart" ? "Aperçu du panier" : screen === "confirmation" ? "Aperçu de la confirmation" : screen === "receipt" ? "Aperçu du reçu" : "Aperçu du checkout"));
   assert.doesNotMatch(markup, /Ajouter un composant/);
 });
 

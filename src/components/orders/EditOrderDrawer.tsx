@@ -7,9 +7,8 @@
 // The server re-resolves prices, recomputes the total, and broadcasts
 // `order.updated`, which refreshes the board.
 //
-// Scope: regular items are fully editable; combos (multi-line meal deals) can be
-// removed as a whole but not edited here — editing a combo's contents means
-// recreating it from a new order.
+// Scope: regular items and combo compositions can be edited. A combo can also
+// be removed as a whole. Recomposition preserves its original base price.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Minus, Trash2, Search, Pencil } from 'lucide-react';
@@ -50,6 +49,7 @@ interface EditModifier {
 }
 
 interface EditLine {
+  optionSelections?: import("@/lib/api").OptionSelection[];
   adjustment?: OrderItem['adjustment'];
   uid: string;
   /** Set for lines that already exist on the order; undefined for newly added. */
@@ -74,7 +74,7 @@ interface EditLine {
 // look "simple", so staff quick-adds created size-less lines the production
 // sheet could not weigh.
 function isSimpleItem(it: MenuItem): boolean {
-  const hasVariants = itemSizeOptions(it).length > 0;
+  const hasVariants = itemSizeOptions(it).length > 0 || it.option_sets?.some(set => set.selection_role === "identity");
   const hasDirectMods = (it.modifiers ?? []).some((m) => m.is_active);
   const hasSetMods = (it.modifier_sets ?? []).some((s) => (s.modifiers ?? []).some((m) => m.is_active));
   return !hasVariants && !hasDirectMods && !hasSetMods;
@@ -92,6 +92,7 @@ function lineToInput(line: EditLine): CreateOrderItemInput {
     menu_item_id: line.menuItemId,
     quantity: line.quantity,
     selected_variant_id: line.selectedVariantId,
+    option_selections: line.optionSelections,
     notes: line.notes || undefined,
     // The server replaces modifiers wholesale, so we resend the full set. Only
     // modifiers that map back to a menu modifier id can be re-resolved.
@@ -109,7 +110,8 @@ function orderItemToLine(item: OrderItem): EditLine {
     orderItemId: item.id,
     menuItemId: item.menu_item_id,
     name: item.name,
-    variantName: item.selected_variant_name || undefined,
+    optionSelections: item.option_selections,
+    variantName: [item.selected_variant_name, ...(item.option_selections ?? []).map(option => `${option.group_name}: ${option.name}`)].filter(Boolean).join(" · ") || undefined,
     selectedVariantId: item.selected_variant_id,
     unitPrice: item.adjustment ? 0 : item.selected_variant_price || item.price,
     quantity: item.quantity,
@@ -123,7 +125,8 @@ function newLineToEditLine(nl: NewOrderLine): EditLine {
     uid: nl.uid,
     menuItemId: nl.item.id,
     name: nl.item.name,
-    variantName: nl.selectedVariantName,
+    optionSelections: nl.optionSelections,
+    variantName: [nl.selectedVariantName, ...(nl.optionSelections ?? []).map(option => `${option.group_name}: ${option.name}`)].filter(Boolean).join(" · ") || undefined,
     selectedVariantId: nl.selectedVariantId,
     unitPrice: lineUnitPrice(nl),
     quantity: nl.quantity,
@@ -169,6 +172,7 @@ function comboItemsToSelections(items: OrderItem[], comboMenuItem: MenuItem): Co
     optionId: it.selected_variant_id ?? null,
     quantity: it.quantity,
     priceDelta: it.price,
+    isSubstitution: it.combo_substitution,
   }));
 }
 
@@ -480,7 +484,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     const staged = comboEdits[combo.group];
     const initial = staged ? staged.selections : comboItemsToSelections(combo.items, comboMenuItem);
     comboEditNonce.current += 1;
-    setEditingCombo({ group: combo.group, combo: comboMenuItem, initial, key: `${combo.group}#${comboEditNonce.current}` });
+    setEditingCombo({ group: combo.group, combo: { ...comboMenuItem, price: combo.items[0]?.combo_price ?? comboMenuItem.price }, initial, key: `${combo.group}#${comboEditNonce.current}` });
   }
 
   // Stage a re-composed combo from the picker. The display price keeps the
@@ -490,7 +494,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     if (!editingCombo) return;
     const group = editingCombo.group;
     const selections = nl.comboSelections ?? [];
-    const base = combos.find((c) => c.group === group)?.price ?? nl.item.price;
+    const base = combos.find((c) => c.group === group)?.items[0]?.combo_price ?? nl.item.price;
     const upcharge = selections.reduce((s, sel) => s + (sel.priceDelta || 0) * sel.quantity, 0);
     setComboEdits((prev) => ({
       ...prev,
@@ -607,6 +611,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
             menu_item_id: s.menuItemId,
             option_id: s.optionId ?? undefined,
             quantity: s.quantity,
+            is_substitution: s.isSubstitution || undefined,
           })),
           serie_date: order.scheduled_for ? order.scheduled_for.slice(0, 10) : undefined,
         });

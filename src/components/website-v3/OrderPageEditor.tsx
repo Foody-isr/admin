@@ -6,6 +6,8 @@ import { ColorStylePicker, openSiteColors, type SiteColorEditTarget } from "./Co
 import {
   selectOrderColorStyle,
   previousItemPresentation,
+  compactOrderPresentation,
+  woltOrderPresentation,
 } from "@/lib/website-v3/order-design";
 
 import { NumberInput } from "@/components/ui/NumberInput";
@@ -51,7 +53,9 @@ export function OrderPageEditor({
   const value = record(page.appearance_overrides.website_order);
   const set = (key: string, next: unknown) =>
     onChange(["appearance_overrides", "website_order", key], next);
-  const editMenuColors = (menuGroup: SiteColorEditTarget["menuGroup"]) => (
+  const editMenuColors = (menuGroup: SiteColorEditTarget["menuGroup"]) => value.color_preset === "wolt" ? (
+    <p>{t("editorOrderWoltColorsHint")}</p>
+  ) : (
     <button type="button" className="sqe-button sqe-button--outline"
       onClick={() => openSiteColors({ styleId: String(value.color_style ?? "default"), menuGroup })}>
       {t("editorEditMenuColors")}
@@ -222,23 +226,33 @@ export function OrderPageEditor({
         <h3>{t("editorCustomize")}</h3>
         <details open>
           <summary>{t("editorLayoutColor")}</summary>
+          <button type="button" className="sqe-button sqe-button--outline"
+            onClick={() => onChange(["appearance_overrides", "website_order"], woltOrderPresentation(value))}>
+            {t("editorOrderApplyWolt")}
+          </button>
+          <p>{t("editorOrderWoltHint")}</p>
           <label>{t("editorLayout")}</label>
           <div className="sqe-order-layouts">
-            {["list", "grid", "cards", "text", "single"].map((layout) => (
+            {["list", "grid", "cards", "text", "single", "rows"].map((layout) => (
               <button
+                type="button"
                 key={layout}
                 aria-label={t(`editorOrderLayout_${layout}`)}
                 aria-pressed={(value.layout ?? "list") === layout}
-                onClick={() => set("layout", layout)}
+                onClick={() => layout === "rows" && value.layout !== "rows"
+                  ? onChange(["appearance_overrides", "website_order"], compactOrderPresentation(value))
+                  : set("layout", layout)}
               >
                 <span data-layout={layout}>
                   {Array.from({ length: 6 }, (_, i) => (
                     <i key={i} />
                   ))}
                 </span>
+                <small>{t(`editorOrderLayout_${layout}`)}</small>
               </button>
             ))}
           </div>
+          <p>{t("editorOrderCompactHint")}</p>
           {select("columns", "editorDesktopColumns", "2", [
             ["1", "1"],
             ["2", "2"],
@@ -249,7 +263,15 @@ export function OrderPageEditor({
             ["standard", "editorOrderWidthStandard"],
             ["wide", "editorOrderWidthWide"],
           ])}
-          <ColorStylePicker
+          {value.color_preset === "wolt" ? (
+            <div className="sqe-order-preset-colors">
+              <strong>{t("editorOrderWoltPalette")}</strong>
+              <div aria-hidden="true">{["#000000", "#222222", "#ffffff", "#aaaaaa", "#009fca"].map(color => <i key={color} style={{ background: color }} />)}</div>
+              <button type="button" className="sqe-button sqe-button--outline" onClick={() => set("color_preset", "site")}>
+                {t("editorOrderUseSiteColors")}
+              </button>
+            </div>
+          ) : <ColorStylePicker
             menuGroup="list"
             value={String(value.color_style ?? "default")}
             onChange={(id) =>
@@ -258,8 +280,8 @@ export function OrderPageEditor({
                 selectOrderColorStyle(value, id),
               )
             }
-          />
-          <p>{t("editorOneMenuColorStyle")}</p>
+          />}
+          <p>{t(value.color_preset === "wolt" ? "editorOrderWoltColorsHint" : "editorOneMenuColorStyle")}</p>
           {select("background_kind", "editorBackground", "style", [
             ["style", "editorOrderColorStyle"],
             ["image", "editorField_image_url"],
@@ -315,6 +337,13 @@ export function OrderPageEditor({
           {select("card_border", "editorBorder", "none", [
             ["none", "editorNone"],
             ["line", "editorOrderBorderLine"],
+            ["separator", "editorOrderBorderSeparator"],
+          ])}
+          {spacing("item_spacing", "editorOrderItemSpacing", value.card_style === "filled" ? 16 : 32, 80)}
+          {value.layout === "rows" && spacing("row_padding", "editorOrderRowPadding", 16, 48)}
+          {select("price_placement", "editorOrderPricePlacement", value.card_style === "filled" ? "bottom" : "after_description", [
+            ["after_description", "editorOrderPriceAfterDescription"],
+            ["bottom", "editorOrderPriceBottom"],
           ])}
           {select("card_radius", "editorShape", "square", [
             ["square", "editorShapeSquare"],
@@ -325,9 +354,23 @@ export function OrderPageEditor({
         <details>
           <summary>{t("editorItemImages")}</summary>
           {toggle("show_images", "editorItemImages")}
+          {(value.layout ?? "list") !== "grid" && value.layout !== "cards" && <>
+            {select("image_position", "editorOrderImagePosition", "auto", [
+              ["auto", "editorOrderInherited"],
+              ["left", "editorAlign_left"],
+              ["right", "editorAlign_right"],
+            ])}
+            {select("image_size", "editorOrderImageSize", "default", [
+              ["default", "editorOrderInherited"],
+              ["small", "editorSizeSmall"],
+              ["medium", "editorSizeMedium"],
+              ["large", "editorSizeLarge"],
+            ])}
+          </>}
           {select("image_ratio", "editorImageRatio", "square", [
             ["square", "editorShapeSquare"],
             ["landscape", "editorLandscape"],
+            ["wide", "editorOrderImageWide"],
             ["portrait", "editorPortrait"],
           ])}
           {select("image_fit", "editorImageFit", "cover", [
@@ -360,7 +403,15 @@ export function OrderPageEditor({
           {editMenuColors("cards")}
         </details>
         {toggle("show_badges", "editorBadges")}
-        {toggle("show_descriptions", "editorItemDescriptions", false)}
+        <details>
+          <summary>{t("editorItemDescriptions")}</summary>
+          {toggle("show_descriptions", "editorItemDescriptions", false)}
+          {typography("item_description", "itemDescription")}
+          {select("description_lines", "editorOrderDescriptionLines", "default", [
+            ["default", "editorOrderInherited"], ["1", "1"], ["2", "2"], ["3", "3"],
+            ["all", "editorOrderDescriptionAll"],
+          ])}
+        </details>
         {toggle("show_portions", "editorOrderPortions")}
         <details onToggle={(event) => onPreviewItem(event.currentTarget.open)}>
           <summary>{t("editorItemView")}</summary>

@@ -9,7 +9,9 @@ import type { DraftStatePayload } from "../types";
 const compatible = {
   protocol: "foody.website-v3",
   editor_catalog: 2,
-  animated_text: true, component_animations: 1,
+  text_image_backgrounds: 1,
+  text_section_dimensions: 1,
+  animated_text: true, component_animations: 1, video_playback: 1, video_height: 1, receipt_editor: 1, order_list_styles: 1, order_wolt_preset: 1,
   version: 1,
   page_types: ["landing", "content", "order", "catering"],
   surfaces: ["page", "checkout", "branches"],
@@ -25,6 +27,20 @@ test("accepts the exact Website V3 storefront contract", async () => {
     async () => Response.json(compatible),
   );
   assert.deepEqual(result, compatible);
+});
+
+test("rejects renderers that cannot apply text section dimensions", async () => {
+  for (const text_section_dimensions of [undefined, 0, 2]) {
+    await assert.rejects(requireWebsiteV3RuntimeCapabilities("https://example.test", async () =>
+      Response.json({ ...compatible, text_section_dimensions })), /site public n’est pas compatible/);
+  }
+});
+
+test("rejects renderers that cannot show independent text/image backgrounds", async () => {
+  for (const text_image_backgrounds of [undefined, 0, 2]) {
+    await assert.rejects(requireWebsiteV3RuntimeCapabilities("https://example.test", async () =>
+      Response.json({ ...compatible, text_image_backgrounds })), /site public n’est pas compatible/);
+  }
 });
 
 test("rejects a legacy storefront before the editor can create an unusable draft", async () => {
@@ -142,4 +158,27 @@ test("rejects a storefront that cannot render animated text", async () => {
 
 test("rejects renderers that cannot show component animations", async () => {
   await assert.rejects(requireWebsiteV3RuntimeCapabilities("https://app.foody-pos.co.il", async () => Response.json({...compatible, component_animations: undefined})), /site public n’est pas compatible/);
+});
+
+test("rejects renderers that cannot apply video playback settings", async () => {
+  await assert.rejects(requireWebsiteV3RuntimeCapabilities("https://app.foody-pos.co.il", async () => Response.json({...compatible, video_playback: undefined})), /site public n’est pas compatible/);
+});
+
+test("rejects renderers that cannot apply video height settings", async () => {
+  await assert.rejects(requireWebsiteV3RuntimeCapabilities("https://app.foody-pos.co.il", async () => Response.json({...compatible, video_height: undefined})), /site public n’est pas compatible/);
+});
+
+test("rejects renderers that cannot show compact menu styles", async () => {
+  for (const order_list_styles of [undefined, 0, 2])
+    await assert.rejects(requireWebsiteV3RuntimeCapabilities("https://example.test", async () =>
+      Response.json({ ...compatible, order_list_styles })), /site public n’est pas compatible/);
+});
+
+test("rejects runtimes without the local Wolt palette", async () => {
+  await assert.rejects(requireWebsiteV3RuntimeCapabilities("https://store.example", async () => Response.json({ ...compatible, order_wolt_preset: undefined })), /site public n’est pas compatible/);
+});
+
+test("rejects renderers that cannot preview and publish receipts", async () => {
+  await assert.rejects(requireWebsiteV3RuntimeCapabilities("https://example.test", async () =>
+    Response.json({ ...compatible, receipt_editor: undefined })), /site public n’est pas compatible/);
 });

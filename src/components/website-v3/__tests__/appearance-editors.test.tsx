@@ -52,7 +52,7 @@ test("order menu reuses shared styles instead of competing local colors and reta
   assert.doesNotMatch(markup, /categoryBarSticky\./);
 });
 
-test("category headings have a visible toggle; menu headings follow the number of menus", () => {
+test("category headings have a visible toggle independent of menu tabs", () => {
   const markup = render(React.createElement(OrderPageEditor, {
     restaurantId: 24,
     page: { type: "order", slug: "order", title: "Order", sort_order: 0,
@@ -99,6 +99,8 @@ test("desktop category style is visible and keeps explicit choices independent o
     const beforeDetails = content.slice(0, content.indexOf("<details"));
     assert.match(beforeDetails, /Category menu style \(desktop\)/);
     assert.match(beforeDetails, /Mobile keeps its full-width underlined tabs/);
+    assert.match(beforeDetails, /groups within the selected menu/);
+    assert.match(beforeDetails, /Menus have separate tabs/);
     assert.match(beforeDetails, /value="underline"/);
     assert.match(beforeDetails, new RegExp(`value="${shape ?? "pill"}" selected=""`));
   }
@@ -412,7 +414,7 @@ test("Restaurant is a layout in the shared header editor with no local color con
 
 test("journey colours reuse six global styles and an explicit menu-inheritance choice", () => {
   const noop = () => undefined;
-  const markup = render(<OrderJourneyEditor restaurantId={24} colorStyle="style-2"
+  const markup = render(<OrderJourneyEditor receiptLocale="fr" onReceiptLocaleChange={noop} restaurantId={24} colorStyle="style-2"
     colors={{cart: "style-5"}} onColorsChange={noop} screen="cart" onScreenChange={noop}
     orderType="pickup" onOrderTypeChange={noop} value={null} onChange={noop}
     placesAvailable={false} onEditCartButton={noop} />);
@@ -457,4 +459,13 @@ test("information layout choices stay visible with either ordering permission st
     assert.match(markup, /Opening and pre-order status/);
     assert.doesNotMatch(markup, /automatically shows/);
   }
+});
+
+
+test("site colors expose separate menu and category text fields", () => {
+  const markup = render(<SiteColorsEditor palette={{}} target={{styleId: "style-1", menuGroup: "categories"}} onChange={() => undefined} />);
+  assert.match(markup, /data-color-role="menu.menu_text"/);
+  assert.match(markup, /aria-label="Menu text"/);
+  assert.match(markup, /data-color-role="menu.category_text"/);
+  assert.match(markup, /aria-label="Category text"/);
 });

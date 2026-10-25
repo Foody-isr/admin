@@ -223,9 +223,9 @@ function NewItemEditor() {
   // Price single-source-of-truth — see the edit page for rationale. When an
   // article has meaningful sizes, the Details base-price field hides and the
   // first size's price becomes the saved base price.
-  const meaningfulVariants = itemType !== 'combo' && hasMeaningfulVariants(variantGroups);
+  const meaningfulVariants = itemType !== 'combo' && hasMeaningfulVariants(variantGroups.filter(group => group.selectionRole !== 'identity'));
   const firstVariantPrice = useMemo(() => {
-    for (const g of variantGroups) {
+    for (const g of variantGroups.filter(group => group.selectionRole !== "identity")) {
       for (const r of g.rows) {
         if (r.name.trim() && !r.isComboOnly) return r.price;
       }

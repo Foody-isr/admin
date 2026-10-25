@@ -21,14 +21,50 @@ import {
 } from '@simplewebauthn/browser';
 import { normalizeRichExtraction } from './menu-import/normalize-extraction';
 
-import { RUNTIME_API_URL } from './runtime-origins';
+import { RUNTIME_API_URL, RUNTIME_WEB_URL } from './runtime-origins';
+import { boundedSupportHistory } from './help/context';
+
+/** A documentation source verified by the public support service. */
+export interface SupportSource { id: string; title: string; url: string; lang: 'en' | 'fr' | 'he'; updatedAt: string }
+/** A completed documentation-only conversation turn. */
+export interface SupportTurn { role: 'user' | 'assistant'; content: string }
+/** The public support response carries no restaurant or account data. */
+export interface SupportAnswer { answer: string; sources: SupportSource[] }
+
+/** Asks the public assistant without forwarding JWTs, cookies, restaurant IDs or referrers. */
+export async function askSupportAssistant(message: string, lang: string, history: SupportTurn[], topic: string, signal: AbortSignal): Promise<SupportAnswer> {
+  const response = await fetch(`${RUNTIME_API_URL}/api/v1/public/support/chat`, {
+    method: 'POST', credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store', signal,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, lang, history: boundedSupportHistory(history), topic }),
+  });
+  if (!response.ok) throw new Error(response.status === 429 ? 'supportLimit' : 'supportUnavailable');
+  const result = await response.json() as SupportAnswer;
+  if (typeof result.answer !== 'string' || !result.answer.trim() || !Array.isArray(result.sources)
+    || result.sources.some(source => !source || typeof source.title !== 'string' || typeof source.id !== 'string'
+      || !/^\/(en|fr|he)\/help\/[a-z0-9-]+\/[a-z0-9-]+$/.test(source.url))) throw new Error('supportUnavailable');
+  return result;
+}
 
 export const API_URL = RUNTIME_API_URL;
 
+/** Detects this browser's IP on the guest host without forwarding staff credentials. */
+export async function getOrderingTestCurrentIP(): Promise<string> {
+  const response = await fetch(`${RUNTIME_WEB_URL}/api/ordering-test-ip`, {
+    cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer',
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!response.ok) throw new Error('orderingTestAccessCurrentIPError');
+  const data: unknown = await response.json();
+  const ip = data && typeof data === 'object' && 'ip' in data ? data.ip : undefined;
+  if (typeof ip !== 'string' || ip.length > 45 || !/^[\da-f:.]+$/i.test(ip)) throw new Error('orderingTestAccessCurrentIPError');
+  return ip;
+}
+
 /** Credential-free basemap configuration for the active restaurant. */
-export async function getDeliveryMapConfig(restaurantId: number): Promise<{ provider: 'geoapify' | 'openstreetmap'; tile_url: string }> {
-  const config = await apiFetch<{ provider: 'geoapify' | 'openstreetmap'; tile_url: string }>(`/api/v1/public/delivery/map-config?restaurant_id=${restaurantId}`, restaurantId);
-  if (!['geoapify', 'openstreetmap'].includes(config.provider) || typeof config.tile_url !== 'string') throw new Error('Map configuration unavailable');
+export async function getDeliveryMapConfig(restaurantId: number): Promise<{ provider: 'google' | 'geoapify' | 'openstreetmap'; tile_url: string }> {
+  const config = await apiFetch<{ provider: 'google' | 'geoapify' | 'openstreetmap'; tile_url: string }>(`/api/v1/public/delivery/map-config?restaurant_id=${restaurantId}&capabilities=google-tiles-v1`, restaurantId);
+  if (!['google', 'geoapify', 'openstreetmap'].includes(config.provider) || typeof config.tile_url !== 'string') throw new Error('Map configuration unavailable');
   return config;
 }
 const TOKEN_KEY = 'foody_restaurant_token';
@@ -45,7 +81,7 @@ export type OrderStatus =
   | 'pending_review' | 'accepted' | 'in_kitchen' | 'ready'
   | 'served' | 'received' | 'picked_up' | 'delivered' | 'rejected' | 'scheduled'
   | 'ready_for_pickup' | 'ready_for_delivery' | 'out_for_delivery' | 'cancelled' | 'refunded';
-export type PaymentStatus = 'unpaid' | 'pending' | 'partially_paid' | 'paid' | 'refunded';
+export type PaymentStatus = 'unpaid' | 'pending' | 'authorized' | 'partially_paid' | 'paid' | 'refunded';
 
 /** Payment methods staff can record by hand. Mirrors the server's
  *  `manualPaymentMethods` allow-list, which rejects anything else — provider
@@ -187,7 +223,7 @@ export interface TicketGroup {
 }
 /** A named open bill, independent of individual kitchen batches. */
 export interface OpenTicket {
- id: string; restaurant_id: number; group_id: string | null; name: string; order_type: 'pickup' | 'delivery';
+ id: string; restaurant_id: number; group_id: string | null; name: string; order_type: 'dine_in' | 'pickup' | 'delivery';
  closed_at: string | null; created_at: string; updated_at: string;
 }
 
@@ -202,9 +238,15 @@ export interface POSMode {
  tile_size: 'tall' | 'wide'; sort_cart: FullServiceSettings['sort_cart'];
 }
 /** Staff fulfillment prompts are independent from guest checkout. */
+export interface POSFulfillmentMethod {
+ id: string; name: string; order_type: 'dine_in' | 'pickup' | 'delivery';
+ /** Offer customer details after whole-order fulfillment selection; absent preserves legacy behavior. */
+ show_customer_information?: boolean;
+}
 export interface POSFulfillment {
- prompt: 'never' | 'start' | 'checkout'; default: 'dine_in' | 'pickup' | 'delivery';
- enabled: ('dine_in' | 'pickup' | 'delivery')[];
+ methods?: POSFulfillmentMethod[];
+ prompt: 'never' | 'start' | 'checkout'; default: string;
+ enabled: string[];
 }
 /** Restaurant POS policy, independent of online/QR checkout payment requirements. */
 export interface FullServiceSettings {
@@ -227,6 +269,8 @@ export interface FullServiceSettings {
 }
 
 export interface RestaurantSettings {
+  pos_custom_dining_supported?: boolean;
+  pos_fulfillment_customer_information_supported?: boolean;
  full_service?: FullServiceSettings;
   /** Require the configured calendar for guest pickup and delivery. */
   preorders_only?: boolean;
@@ -252,6 +296,9 @@ export interface RestaurantSettings {
   scheduling_min_days_ahead?: number;
   /** Precise default preparation promise. Supersedes the legacy day field. */
   scheduling_lead_time_minutes?: number;
+  scheduling_preparation_time_basis?: 'elapsed' | 'opening_hours' | 'custom_start';
+  scheduling_preparation_start_time?: string;
+  scheduling_preparation_splittable?: boolean;
   scheduling_max_days_ahead?: number;
   scheduling_slot_duration_minutes?: number;
   scheduling_require_prepayment?: boolean;
@@ -272,8 +319,12 @@ export interface RestaurantSettings {
   // blocked, overriding opening hours and both pre-order modes. Send
   // orders_paused_until as an RFC3339 string, or "" to clear it (pause until
   // manually reopened).
+  /** Staff-only temporary exception; IPs are never included in public responses. */
+  ordering_test_access?: { enabled: boolean; allowed_ips: string[]; expires_at: string | null };
+  ordering_test_access_available?: boolean;
   orders_paused?: boolean;
   orders_paused_until?: string | null;
+  calendar_closures?: { start_date: string; end_date: string; services: ('pickup' | 'delivery' | 'dine_in')[] }[];
   floor_plan_color_indicators: boolean;
   table_in_service_color: string;
   table_yellow_after_minutes: number;
@@ -316,6 +367,8 @@ export interface RestaurantSettings {
   batch_cutoff_time?: string; // "HH:MM"
   // When the next batch's ordering window opens. Defaults match cutoff
   // (zero-gap) on legacy data; set explicitly to introduce a switchover gap.
+  /** Manual intake retains delivery days and uses the explicit ordering pause. */
+  batch_ordering_mode?: 'calendar' | 'manual';
   batch_order_open_day?: number; // 0=Sun..6=Sat
   batch_order_open_time?: string; // "HH:MM"
   batch_fulfillment_days?: BatchFulfillmentDay[];
@@ -368,6 +421,7 @@ export interface Location {
 }
 
 export interface Menu {
+  publication_enabled?: boolean;
   id: number;
   restaurant_id: number;
   name: string;
@@ -463,7 +517,16 @@ export interface MenuCategory {
   availability_rule_id?: number | null;
 }
 
+/** Text requested from a guest when this catalog choice is selected. */
+export interface CustomerNoteConfig {
+  enabled: boolean;
+  label: string;
+  placeholder: string;
+  required: boolean;
+}
+
 export interface MenuItemModifier {
+  customer_note?: CustomerNoteConfig | null;
   id: number;
   menu_item_id?: number;
   modifier_set_id?: number;
@@ -487,7 +550,16 @@ export interface MenuItemModifier {
   translations?: TranslationMap;
 }
 
+/** Item-specific visibility and repetition of a shared modifier group. */
+export interface ModifierSelectionConfig {
+  source: '' | 'option' | 'modifier';
+  source_id: number;
+  choices: { id: number; count: number }[];
+  presentation: 'auto' | 'list' | 'characters';
+}
+
 export interface ModifierSet {
+  selection_config?: ModifierSelectionConfig | null;
   id: number;
   restaurant_id: number;
   name: string;
@@ -723,6 +795,7 @@ export interface MenuItem {
    *  each option (see `OptionSetOption.stock_remaining`); "measure" = a g/ml
    *  budget. Empty when predefined stock isn't used. */
   stock_mode?: string;
+  stock_revision?: number;
   /** Display unit for weight/volume-based predefined stock ("g"/"kg"/"ml"/"l"),
    *  empty for portion counts. In "measure" mode the value is stored in the base
    *  unit (g or ml) and this only drives how it's shown/entered. In "per_variant"
@@ -754,6 +827,7 @@ export interface MenuItem {
 }
 
 export interface ModifierSetItemOverrideRow {
+  selection_config?: ModifierSelectionConfig | null;
   modifier_set_id: number;
   menu_item_id: number;
   min_selections_override?: number | null;
@@ -762,6 +836,7 @@ export interface ModifierSetItemOverrideRow {
 }
 
 export interface ModifierSetItemOverridesInput {
+  selection_config?: ModifierSelectionConfig | null;
   min_selections?: number | null;
   max_selections?: number | null;
   is_required?: boolean | null;
@@ -776,11 +851,22 @@ export interface OrderItemModifier {
   price_delta: number;
 }
 
+export interface OptionSelection {
+  option_set_id: number; option_id: number; selection_index: number;
+  group_name?: string; name?: string; note?: string;
+}
+
 export interface OrderItem {
+  option_selections?: OptionSelection[];
+  /** Preparation override; empty/absent inherits the order method. */
+  dining_option?: string;
+  dining_option_label?: string;
+  dining_option_version?: number;
   /** Immutable financial/production adjustment; original price snapshots remain. */
   adjustment?: { kind: 'comp' | 'void'; reason: string; at: string } | null;
   /** Numbered table seat; absent/null means shared by the table. */
   seat_number?: number | null;
+  seat_numbers?: number[];
   id: number;
   menu_item_id: number;
   name: string;
@@ -809,6 +895,7 @@ export interface OrderItem {
   /** Which combo step this pick came from. Snapshotted at order time; nil on
    *  pre-feature rows (re-derived when editing a combo's composition). */
   combo_step_id?: number;
+  combo_substitution?: boolean;
   combo_name?: string;
   combo_price?: number;
   // Snapshot of the item's category at order time. NULL on older/fake rows
@@ -821,6 +908,15 @@ export interface OrderItem {
 }
 
 export interface Order {
+	/** Selected contact from staff read metadata; never part of the persisted order. */
+	customer_whatsapp_phone?: string;
+  dining_option?: string;
+  dining_option_label?: string;
+  dining_option_is_default?: boolean;
+  pos_discount_rules?: POSDiscountSelection[];
+  delivery_zone_id?: number;
+  delivery_schedule?: DeliverySchedule;
+  delivery_slot_pending?: boolean;
   check_id?: string | null;
   course_name?: string;
   kitchen_held?: boolean;
@@ -918,12 +1014,17 @@ export interface StaffMember {
   full_name: string;
   email: string;
   phone: string;
+  address?: string;
+  courier_final_address?: string;
+  courier_final_same_as_address?: boolean;
+  courier_default_end_address?: string;
   role: Role;
   role_id?: number;
   role_name?: string;
   is_default_courier?: boolean;
   invite_status?: 'pending' | 'expired' | 'active' | 'not_invited';
   pos_pin_configured?: boolean;
+  pos_pin_required?: boolean;
   table_assignment_eligible: boolean;
   unrestricted_table_access: boolean;
   last_login_at?: string;
@@ -1357,10 +1458,28 @@ export interface CheckoutFormConfig {
   fields: CheckoutFieldConfig[];
 }
 
+/** Owner-controlled digital receipt content; omitted flags inherit the defaults. */
+export type ReceiptConfig = {
+  title?: Record<string, string>;
+  message?: Record<string, string>;
+  layout?: "comfortable" | "compact";
+  show_logo?: boolean;
+  show_address?: boolean;
+  show_phone?: boolean;
+  show_status?: boolean;
+  show_customer_info?: boolean;
+  show_print?: boolean;
+  show_share?: boolean;
+  show_order_history?: boolean;
+  show_new_order?: boolean;
+};
+
 export interface CheckoutConfig {
+  offer_sign_in?: boolean;
   delivery?: CheckoutFormConfig | null;
   pickup?: CheckoutFormConfig | null;
   confirmation?: ConfirmationConfig | null;
+  receipt?: ReceiptConfig | null;
   // When true, the guest order page's fulfilment chip is read-only (no
   // "Modifier" affordance) and the customer picks pickup/delivery only at
   // checkout. Mirrors foodyserver CheckoutConfig.LockOrderType.
@@ -2248,6 +2367,49 @@ export class ApiError extends Error {
   }
 }
 
+export interface PaymentAdjustment {
+  id: string;
+  payment_id: number;
+  kind: 'refund' | 'void';
+  amount_minor: number;
+  currency: string;
+  reason: string;
+  state: 'processing' | 'unknown' | 'succeeded' | 'declined';
+  provider_transaction_id?: string;
+  actor_user_id: number;
+  created_at: string;
+}
+
+export interface PaymentAdjustmentSummary {
+  supported: boolean;
+  blocked_reason?: string;
+  currency: string;
+  paid_minor: number;
+  refunded_minor: number;
+  remaining_minor: number;
+  can_void: boolean;
+  can_refund: boolean;
+  settlement_state?: 'unsettled' | 'settled';
+  operations: PaymentAdjustment[];
+}
+
+/** Read-only provider verification and staff money-movement history. */
+export function getOrderPaymentAdjustments(rid: number, oid: number): Promise<PaymentAdjustmentSummary> {
+  return apiFetch(`/api/v1/orders/${oid}/payment/adjustments`, rid);
+}
+
+/** Retain request_id on uncertain responses; never submit a replacement command. */
+export function createOrderPaymentAdjustment(rid: number, oid: number, input: {
+  request_id: string; kind: 'refund' | 'void'; amount_minor: number; reason: string;
+}): Promise<PaymentAdjustment> {
+  return apiFetch(`/api/v1/orders/${oid}/payment/adjustments`, rid, { method: 'POST', body: JSON.stringify(input) });
+}
+
+/** Reconciliation only: this endpoint never resends a provider money request. */
+export function refreshOrderPaymentAdjustment(rid: number, oid: number, id: string): Promise<PaymentAdjustment> {
+  return apiFetch(`/api/v1/orders/${oid}/payment/adjustments/${encodeURIComponent(id)}/refresh`, rid, { method: 'POST' });
+}
+
 export async function apiFetch<T>(
   path: string,
   restaurantId?: number,
@@ -2297,6 +2459,12 @@ export async function apiFetch<T>(
 export type WorkflowStageKind = 'received' | 'in_progress' | 'ready' | 'out_for_delivery' | 'completed';
 export type WorkflowOrderType = 'pickup' | 'dine_in' | 'delivery';
 
+/** Approved Meta template and timing attached to one workflow stage. */
+export interface WorkflowWhatsAppTemplate {
+ attachment?: WhatsAppAttachment;
+ name: string; language: string; kind: MetaTemplateKind | ''; timing: 'stage' | 'day_before' | ''; send_time: string;
+}
+
 export interface WorkflowStage {
   id?: number;
   name: string;
@@ -2308,6 +2476,7 @@ export interface WorkflowStage {
   trigger_courier_delivered: boolean;
   notify_customer: boolean;
   customer_message?: string;
+  whatsapp_template?: WorkflowWhatsAppTemplate;
 }
 
 export interface OrderWorkflow {
@@ -2506,6 +2675,8 @@ export interface ValidateInviteResponse {
   // Discriminates the setup flow: 'owner_onboarding' (full wizard) vs 'staff_setup'
   // (password + profile only). Older servers may omit this.
   kind?: 'owner_onboarding' | 'staff_setup';
+  // Computed from current restaurant permissions, including existing invites.
+  pos_pin_required?: boolean;
   user: { email: string; full_name: string; phone: string };
   restaurant?: {
     id: number;
@@ -3172,6 +3343,7 @@ export interface BatchCycleSummary {
 export interface BatchFulfillmentConfigResponse {
   enabled: boolean;
   ordering_open: boolean;
+  ordering_mode?: 'calendar' | 'manual';
   current_batch_open_at: string;  // ISO 8601 datetime
   current_batch_cutoff: string;   // ISO 8601 datetime
   cutoff_day_name: string;
@@ -3210,6 +3382,7 @@ export async function getStaffBatchFulfillmentConfig(
 
 /** Draft batch config the operator is editing, sent to the preview endpoint. */
 export interface BatchPreviewInput {
+  batch_ordering_mode?: 'calendar' | 'manual';
   batch_order_open_day: number;
   batch_order_open_time: string;
   batch_cutoff_day: number;
@@ -3232,6 +3405,36 @@ export async function previewBatchFulfillment(
     restaurantId,
     { method: 'POST', body: JSON.stringify(input) }
   );
+}
+
+/** Scheduling values currently displayed in the restaurant editor. */
+export interface PreparationPreviewInput {
+  scheduling_lead_time_minutes: number;
+  scheduling_preparation_time_basis: 'elapsed' | 'opening_hours' | 'custom_start';
+  scheduling_preparation_start_time: string;
+  scheduling_preparation_splittable: boolean;
+  scheduling_max_days_ahead: number;
+  scheduling_slot_duration_minutes: number;
+  scheduling_available_hours: NonNullable<RestaurantSettings['scheduling_available_hours']>;
+  opening_hours_config?: OpeningHoursConfig;
+  pickup_enabled: boolean;
+  delivery_enabled: boolean;
+}
+
+/** Actual restaurant-local results from the production preparation resolver. */
+export interface PreparationPreviewResponse {
+  ordered_at: string;
+  timezone: string;
+  lead_time_minutes: number;
+  preparation_time_basis: PreparationPreviewInput['scheduling_preparation_time_basis'];
+  preparation_start_time: string;
+  preparation_splittable: boolean;
+  services: { order_type: 'pickup' | 'delivery'; enabled: boolean; first_slot: { date: string; start: string; end: string } | null; service_hours: DayHours | null; hours_defaulted: boolean }[];
+}
+
+/** Previews draft scheduling settings without saving or placing an order. */
+export function previewPreparation(restaurantId: number, input: PreparationPreviewInput): Promise<PreparationPreviewResponse> {
+  return apiFetch<PreparationPreviewResponse>(`/api/v1/restaurants/${restaurantId}/preparation-preview`, restaurantId, { method: 'POST', body: JSON.stringify(input) });
 }
 
 // ─── Menu translations backfill ──────────────────────────────────────────────
@@ -3956,6 +4159,7 @@ export async function uploadGroupImage(restaurantId: number, groupId: number, fi
 // ─── Modifiers ────────────────────────────────────────────────────────────────
 
 export interface ModifierInput {
+  customer_note?: CustomerNoteConfig | null;
   menu_item_id: number;
   name: string;
   action: 'add' | 'remove';
@@ -3996,6 +4200,7 @@ export async function deleteModifier(restaurantId: number, id: number): Promise<
 // ─── Modifier Sets ────────────────────────────────────────────────────────────
 
 export interface ModifierInSetInput {
+  customer_note?: CustomerNoteConfig | null;
   name: string;
   kitchen_name?: string;
   action?: 'add' | 'remove';
@@ -4137,6 +4342,7 @@ export async function migrateLegacyModifiers(restaurantId: number): Promise<{ se
 // ─── Option Sets (reusable variant groups — Square "Item Options") ───────────
 
 export interface OptionSetOption {
+  customer_note?: CustomerNoteConfig | null;
   id: number;
   option_set_id: number;
   name: string;
@@ -4163,6 +4369,8 @@ export interface OptionSetOption {
 }
 
 export interface OptionSet {
+  selection_role?: "price" | "identity";
+  selection_config?: ModifierSelectionConfig | null;
   id: number;
   restaurant_id: number;
   name: string;
@@ -4174,6 +4382,7 @@ export interface OptionSet {
 }
 
 export interface OptionInSetInput {
+  customer_note?: CustomerNoteConfig | null;
   name: string;
   price: number;
   online_price?: number | null;
@@ -4342,6 +4551,8 @@ export interface VariantSyncInput {
 }
 
 export interface VariantGroupSyncInput {
+  selection_role?: "price" | "identity";
+  selection_config?: ModifierSelectionConfig | null;
   option_set_id?: number | null;
   name: string;
   sort_order: number;
@@ -4644,10 +4855,10 @@ export async function listOrders(restaurantId: number, params?: ListOrdersParams
 }
 
 export async function getOrder(restaurantId: number, orderId: number): Promise<Order> {
-  const data = await apiFetch<{ order: Order }>(
+  const data = await apiFetch<{ order: Order; customer_contact?: { whatsapp_phone: string } }>(
     `/api/v1/orders/${orderId}?restaurant_id=${restaurantId}`, restaurantId
   );
-  return data.order;
+  return data.customer_contact ? { ...data.order, customer_whatsapp_phone: data.customer_contact.whatsapp_phone } : data.order;
 }
 
 export interface AcceptOrderResult {
@@ -4969,7 +5180,10 @@ export interface CreateOrderModifierInput {
 /** One line on a manually-built order. Price is recomputed server-side from the
  *  menu item, selected variant, and modifiers — the client value is ignored. */
 export interface CreateOrderItemInput {
+  option_selections?: OptionSelection[];
+  dining_option?: string;
   seat_number?: number | null;
+  seat_numbers?: number[];
   menu_item_id: number;
   quantity: number;
   selected_variant_id?: number;
@@ -4979,6 +5193,8 @@ export interface CreateOrderItemInput {
 
 /** One picked sub-item within a combo on a manually-built order. */
 export interface CreateOrderComboSelectionInput {
+  /** Staff-authorized component exception, included without an upcharge. */
+  is_substitution?: boolean;
   step_id: number;
   menu_item_id: number;
   option_id?: number;
@@ -4989,7 +5205,9 @@ export interface CreateOrderComboSelectionInput {
 /** One combo (meal-deal) on a manually-built order. The server validates the
  *  step picks (min/max, availability) and computes the price. */
 export interface CreateOrderComboInput {
+  dining_option?: string;
   seat_number?: number | null;
+  seat_numbers?: number[];
   combo_item_id: number;
   selections: CreateOrderComboSelectionInput[];
   notes?: string;
@@ -5098,6 +5316,7 @@ export async function removeOrderItem(
  *  order's scheduled date, else today). */
 export interface ReplaceComboInput {
   seat_number?: number | null;
+  seat_numbers?: number[];
   combo_item_id: number;
   selections: CreateOrderComboSelectionInput[];
   serie_date?: string; // "YYYY-MM-DD"
@@ -5535,6 +5754,8 @@ export interface OrderSerie {
   date: string; // YYYY-MM-DD
   order_count: number;
   revenue: number; // paid revenue only, matches the dashboard KPIs
+  /** Default service date of the current weekly batch, in restaurant time. */
+  is_current?: boolean;
 }
 
 export async function fetchOrderSeries(restaurantId: number): Promise<OrderSerie[]> {
@@ -5847,6 +6068,24 @@ export async function updateStaffRole(
     `/api/v1/restaurants/${restaurantId}/staff/${userId}/role`, restaurantId,
     { method: 'PUT', body: JSON.stringify(update) }
   );
+}
+
+/** Restaurant-owned contact details; login credentials and roles are edited separately. */
+export interface StaffContactProfile {
+  full_name: string;
+  phone: string;
+  address: string;
+  courier_final_address?: string;
+  courier_final_same_as_address?: boolean;
+}
+
+/** Saves staff contacts and courier defaults for future routes in the active restaurant. */
+export async function updateStaffProfile(restaurantId: number, userId: number, input: StaffContactProfile): Promise<StaffContactProfile> {
+  const data = await apiFetch<{ profile: StaffContactProfile }>(
+    `/api/v1/restaurants/${restaurantId}/staff/${userId}/profile`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) },
+  );
+  return data.profile;
 }
 
 export async function removeStaff(restaurantId: number, userId: number): Promise<void> {
@@ -7100,6 +7339,7 @@ export async function updateSpokeConfig(
 // ─── Trusted Customers ──────────────────────────────────────────────────────
 
 export interface TrustedCustomer {
+	phones?: string[];
   id: number;
   restaurant_id: number;
   phone: string;
@@ -7109,10 +7349,11 @@ export interface TrustedCustomer {
 }
 
 export async function listTrustedCustomers(restaurantId: number): Promise<TrustedCustomer[]> {
-  const data = await apiFetch<{ trusted_customers: TrustedCustomer[] }>(
+  const data = await apiFetch<{ trusted_customers: TrustedCustomer[]; phones_by_customer?: Record<string, string[]> }>(
     `/api/v1/restaurants/${restaurantId}/customers/trusted`, restaurantId
   );
-  return data.trusted_customers ?? [];
+  return (data.trusted_customers ?? []).map(customer => data.phones_by_customer?.[customer.phone.replace(/\D/g, '').slice(-9)]
+    ? { ...customer, phones: data.phones_by_customer[customer.phone.replace(/\D/g, '').slice(-9)] } : customer);
 }
 
 export async function addTrustedCustomer(
@@ -7145,6 +7386,8 @@ export interface CustomerDeliverySeed {
 }
 
 export interface CustomerProfile {
+	phones?: { phone: string; is_whatsapp: boolean }[];
+	whatsapp_phone?: string;
   account_id: number | null;
   has_account: boolean;
   name: string;
@@ -7161,6 +7404,7 @@ export interface CustomerProfile {
 }
 
 export interface CustomerProfileInput {
+	phones?: { phone: string; original_phone?: string; is_whatsapp: boolean }[];
   name: string;
   address: string;
   city: string;
@@ -7192,6 +7436,13 @@ export async function updateCustomerProfile(
     { method: 'PUT', body: JSON.stringify(input) }
   );
   return data.profile;
+}
+
+/** Correct saved customer contacts atomically within the active restaurant. */
+export async function correctCustomerPhones(restaurantId: number, corrections: {phone: string; replacement: string}[]): Promise<void> {
+  await apiFetch(`/api/v1/restaurants/${restaurantId}/customers/phones`, restaurantId, {
+    method: 'PUT', body: JSON.stringify({corrections}),
+  });
 }
 
 // ─── Recherche et fusion de clients ──────────────────────────────────────────
@@ -9159,6 +9410,7 @@ export async function disconnectWhatsApp(restaurantId: number): Promise<void> {
 
 /** Direct Meta coexistence pilot. Credentials remain exclusively on the API. */
 export interface MetaWhatsAppConnection {
+ message_attachments?: Partial<Record<MetaTemplateKind,WhatsAppAttachment>>;
   waba_id: string;
   phone_number_id: string;
   phone_number: string;
@@ -9178,6 +9430,12 @@ export interface MetaWhatsAppConnection {
   order_status_language?: string;
   receipt_name?: string;
   receipt_language?: string;
+  satisfaction_name?: string;
+  satisfaction_language?: string;
+  satisfaction_mode?: MetaSatisfactionSettings['mode'];
+  satisfaction_delay_hours?: number;
+  satisfaction_sunday_time?: string;
+  satisfaction_since?: string | null;
 }
 export interface MetaWhatsAppStatus {
   configured: boolean;
@@ -9197,7 +9455,7 @@ export function beginMetaWhatsAppSignup(restaurantId: number, phone: string): Pr
   return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/signup`, restaurantId, { method: 'POST', body: JSON.stringify({ phone_number: phone }) });
 }
 /** Exchange a code server-side and verify the selected number before requesting synchronization. */
-export function completeMetaWhatsAppSignup(restaurantId: number, input: { state: string; code: string; waba_id: string; phone_number_id?: string }): Promise<MetaWhatsAppStatus> {
+export function completeMetaWhatsAppSignup(restaurantId: number, input: { state: string; code: string; waba_id?: string; phone_number_id?: string }): Promise<MetaWhatsAppStatus> {
   return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/connect`, restaurantId, { method: 'POST', body: JSON.stringify(input) });
 }
 /** Resume persisted setup without replaying an uncertain one-shot synchronization. */
@@ -9205,11 +9463,12 @@ export function resumeMetaWhatsAppSignup(restaurantId: number): Promise<MetaWhat
   return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/resume`, restaurantId, { method: 'POST' });
 }
 
-export type MetaTemplateKind = 'order_recap' | 'delivery_reminder' | 'order_status' | 'receipt';
-export interface MetaTemplateRef { name: string; language: string }
+export type MetaTemplateKind = 'order_recap' | 'delivery_reminder' | 'order_status' | 'receipt' | 'satisfaction';
+export interface WhatsAppAttachment { source: '' | 'none' | 'fixed' | 'receipt' | 'meta'; asset_id: string }
+export interface MetaTemplateRef { name: string; language: string; attachment?: WhatsAppAttachment }
 export interface MetaWhatsAppTemplate extends MetaTemplateRef {
-  id: string; status: string; category: string; parameter_format?: string;
-  components: { type: string; text?: string }[];
+  id: string; status: string; category: string; parameter_format?: string; image_available?: boolean;
+  components: { type: string; text?: string; format?: string }[];
 }
 /** Lists the restaurant's native Meta templates, including pending and rejected entries. */
 export function getMetaWhatsAppTemplates(restaurantId: number): Promise<{ templates: MetaWhatsAppTemplate[] }> {
@@ -9220,8 +9479,61 @@ export function createMetaWhatsAppTemplate(restaurantId: number, input: MetaTemp
   return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/templates`, restaurantId, { method: 'POST', body: JSON.stringify(input) });
 }
 /** Explicitly selects Meta notifications after live template checks, or restores existing Twilio routing. */
-export function configureMetaWhatsAppNotifications(restaurantId: number, input: { enabled: boolean; templates?: Record<MetaTemplateKind, MetaTemplateRef> }): Promise<MetaWhatsAppStatus> {
+export function configureMetaWhatsAppNotifications(restaurantId: number, input: { enabled: boolean; templates?: Record<Exclude<MetaTemplateKind, 'satisfaction'>, MetaTemplateRef> }): Promise<MetaWhatsAppStatus> {
   return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/notifications`, restaurantId, { method: 'PUT', body: JSON.stringify(input) });
+}
+
+export interface MetaSatisfactionSettings {
+  mode: 'disabled' | 'manual' | 'sunday' | 'delay';
+  template: MetaTemplateRef;
+  delay_hours: number;
+  sunday_time: string;
+}
+/** Saves the restaurant's reviewed post-fulfillment policy without activating the provider. */
+export function configureMetaSatisfaction(restaurantId: number, input: MetaSatisfactionSettings): Promise<MetaWhatsAppStatus> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/satisfaction`, restaurantId, { method: 'PUT', body: JSON.stringify(input) });
+}
+/** Deletes one unused native Meta language variant after user confirmation. */
+export function deleteMetaWhatsAppTemplate(restaurantId: number, templateId: string): Promise<{ deleted: boolean }> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/meta/templates/${encodeURIComponent(templateId)}`, restaurantId, { method: 'DELETE' });
+}
+
+/** A private, immutable file belonging to the active restaurant. */
+export interface WhatsAppMedia { id: string; filename: string; mime_type: string; format: 'IMAGE' | 'DOCUMENT'; size: number; created_at: string }
+/** List attachment metadata without public file URLs. */
+export function getWhatsAppMedia(rid: number): Promise<{ media: WhatsAppMedia[] }> {
+ return apiFetch(`/api/v1/restaurants/${rid}/whatsapp/meta/media`,rid);
+}
+/** Remove only a file unused by saved notifications and pending sends. */
+export function deleteWhatsAppMedia(rid: number,id: string): Promise<{deleted: boolean}> {
+ return apiFetch(`/api/v1/restaurants/${rid}/whatsapp/meta/media/${encodeURIComponent(id)}`,rid,{method:'DELETE'});
+}
+async function privateMetaFileRequest(rid: number,path: string,options?: RequestInit,retried=false): Promise<Response> {
+ const token=getToken();
+ const response=await fetch(`${API_URL}/api/v1/restaurants/${rid}/whatsapp/meta/${path}`,{...options,cache:'no-store',headers:{...(token?{Authorization:`Bearer ${token}`} : {}),'X-Restaurant-ID':String(rid)}});
+ if(response.status===401 && typeof window!=='undefined') {
+  if(!retried && await refreshToken())return privateMetaFileRequest(rid,path,options,true);
+  logout();window.location.href='/login';return new Promise<never>(()=>{});
+ }
+ if(!response.ok){const error=await response.json().catch(()=>({}));throw new ApiError(error.error || 'wa_meta_media_invalid',response.status);}
+ return response;
+}
+/** Store an image/PDF privately; no WhatsApp message is sent. */
+export async function uploadWhatsAppMedia(rid: number,file: File): Promise<WhatsAppMedia> {
+ const body=new FormData();body.append('file',file);
+ return (await privateMetaFileRequest(rid,'media',{method:'POST',body})).json();
+}
+/** Read one private file as a short-lived browser blob, without credentials in URLs. */
+export async function getWhatsAppMediaFile(rid: number,id: string): Promise<Blob> {
+ return (await privateMetaFileRequest(rid,`media/${encodeURIComponent(id)}`)).blob();
+}
+/** Read the approved image from the active restaurant's Meta template through the authenticated API. */
+export async function getMetaWhatsAppTemplateImage(rid: number,id: string): Promise<Blob> {
+ return (await privateMetaFileRequest(rid,`templates/${encodeURIComponent(id)}/image`)).blob();
+}
+/** Preview the current order's PDF without sending it to WhatsApp. */
+export async function getWhatsAppReceiptFile(rid: number,orderId: number,language: string): Promise<Blob> {
+ return (await privateMetaFileRequest(rid,`orders/${orderId}/receipt.pdf?language=${encodeURIComponent(language)}`)).blob();
 }
 
 // ─── Social reels (Instagram/TikTok Stories page) ────────────────────────────
@@ -9464,9 +9776,17 @@ export async function confirmMenuItemImage(
 
 // --- Delivery Zones ---
 
-export type DeliveryZoneType = 'polygon' | 'radius' | 'cities';
+export type DeliveryZoneType = 'polygon' | 'radius' | 'cities' | 'departments';
+
+export interface DeliverySchedule {
+  mode: 'customer' | 'automatic' | 'restaurant';
+  windows: { days: number[]; start: string; end: string }[];
+  offer_pickup: boolean;
+}
 
 export interface DeliveryZone {
+  departments?: string[];
+  schedule?: DeliverySchedule | null;
   id: number;
   restaurant_id: number;
   name: string;
@@ -9489,6 +9809,8 @@ export interface DeliveryZone {
 }
 
 export interface DeliveryZoneInput {
+  departments?: string[];
+  schedule?: DeliverySchedule | null;
   name: string;
   type: DeliveryZoneType;
   is_active?: boolean;
@@ -10677,8 +10999,11 @@ export function getAddressAutocompleteConfig(restaurantId: number) {
 
 /** Exact approved, server-derived order message reviewed before a Twilio dispatch. */
 export interface OrderWhatsAppPreview {
+  send_blocked_reason?: 'not_due' | 'already_attempted';
+  previous_status?: OrderWhatsAppPreview['status'];
+ attachment?: { source: 'fixed' | 'receipt' | 'meta'; asset_id?: string; template_id?: string; filename: string; mime_type: string; format: 'IMAGE' | 'DOCUMENT' };
   id: string;
-  kind: 'order_recap' | 'delivery_reminder';
+  kind: 'order_recap' | 'delivery_reminder' | 'satisfaction';
   status: 'ready' | 'sending' | 'accepted' | 'unknown' | 'sent' | 'delivered' | 'read' | 'failed';
   language: string;
   provider?: 'twilio' | 'meta';
@@ -10688,9 +11013,9 @@ export interface OrderWhatsAppPreview {
 }
 
 /** Prepares a message using the active restaurant's saved order and configured template. */
-export async function previewOrderWhatsApp(restaurantId: number, orderId: number, kind: OrderWhatsAppPreview['kind']): Promise<OrderWhatsAppPreview> {
+export async function previewOrderWhatsApp(restaurantId: number, orderId: number, kind: OrderWhatsAppPreview['kind'], signal?: AbortSignal): Promise<OrderWhatsAppPreview> {
   return apiFetch<OrderWhatsAppPreview>(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/preview`, restaurantId, {
-    method: 'POST', body: JSON.stringify({ kind }),
+    method: 'POST', body: JSON.stringify({ kind }), signal,
   });
 }
 
@@ -10705,3 +11030,195 @@ export async function sendOrderWhatsApp(restaurantId: number, orderId: number, p
 export function getOrderWhatsAppStatus(restaurantId: number, orderId: number, messageId: string): Promise<{ id: string; status: OrderWhatsAppPreview['status']; provider: 'twilio' | 'meta'; failure_code?: number; updated_at: string }> {
   return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/messages/${encodeURIComponent(messageId)}`, restaurantId);
 }
+
+/** Recorded dispatch evidence. No historical message body or send time is inferred from the current order. */
+export interface OrderWhatsAppHistoryEntry {
+ attachment_source?: string; attachment_format?: string; attachment_filename?: string;
+  id: string;
+  kind: string;
+  provider: 'twilio' | 'meta';
+  status: Exclude<OrderWhatsAppPreview['status'], 'ready'>;
+  failure_code?: number;
+  updated_at: string;
+  status_at?: string;
+}
+
+/** Stage notification stopped before contacting WhatsApp. It has no provider delivery evidence. */
+export interface BlockedOrderWhatsAppAutomation {
+  id: number;
+  kind: string;
+  template_name: string;
+  updated_at: string;
+}
+
+/** Reads one page of tracked attempts without contacting the provider or sending a message. */
+export async function getOrderWhatsAppHistory(restaurantId: number, orderId: number, before?: string): Promise<{ messages: OrderWhatsAppHistoryEntry[]; next_cursor: string; blocked_automations: BlockedOrderWhatsAppAutomation[]; blocked_automations_total: number }> {
+  const data = await apiFetch<{ messages: OrderWhatsAppHistoryEntry[]; next_cursor: string; blocked_automations?: BlockedOrderWhatsAppAutomation[]; blocked_automations_total?: number }>(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/messages${before ? `?before=${encodeURIComponent(before)}` : ''}`, restaurantId);
+  if (!Array.isArray(data?.messages) || typeof data.next_cursor !== 'string') throw new Error('Incomplete message history');
+  if (data.blocked_automations !== undefined && !Array.isArray(data.blocked_automations)) throw new Error('Incomplete blocked automation history');
+  if (data.blocked_automations_total !== undefined && (!Number.isSafeInteger(data.blocked_automations_total) || data.blocked_automations_total < 0)) throw new Error('Incomplete blocked automation count');
+  // Older APIs omit the additive blocked snapshot during a rolling release.
+  return { ...data, blocked_automations: data.blocked_automations ?? [], blocked_automations_total: data.blocked_automations_total ?? data.blocked_automations?.length ?? 0 };
+}
+
+
+/** A private agenda entry; closure dates include both their first and last day. */
+export interface RestaurantCalendarEvent {
+  id: string;
+  title: string;
+  kind: 'catering' | 'closure' | 'other';
+  start_date: string;
+  end_date: string;
+  all_day: boolean;
+  start_time: string;
+  end_time: string;
+  location: string;
+  notes: string;
+  closed_services: ('pickup' | 'delivery' | 'dine_in')[];
+  updated_at?: string;
+}
+
+export interface CalendarConflicts { orders: number; catering: number }
+
+/** Loads the restaurant's private calendar in its effective timezone. */
+export async function getRestaurantCalendar(restaurantId: number): Promise<{ events: RestaurantCalendarEvent[]; timezone: string; week_start_day?: number }> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/calendar`, restaurantId);
+}
+
+/** Saves one event; updates carry its last acknowledged version. */
+export async function saveRestaurantCalendarEvent(restaurantId: number, event: RestaurantCalendarEvent): Promise<RestaurantCalendarEvent> {
+  const editing = !!event.updated_at;
+  const result = await apiFetch<{ event: RestaurantCalendarEvent }>(`/api/v1/restaurants/${restaurantId}/calendar${editing ? `/${encodeURIComponent(event.id)}` : ''}`, restaurantId, { method: editing ? 'PUT' : 'POST', body: JSON.stringify(event) });
+  return result.event;
+}
+
+/** Removes the matching version without cancelling any orders or catering events. */
+export async function deleteRestaurantCalendarEvent(restaurantId: number, event: RestaurantCalendarEvent): Promise<void> {
+  await apiFetch(`/api/v1/restaurants/${restaurantId}/calendar/${encodeURIComponent(event.id)}`, restaurantId, { method: 'DELETE', body: JSON.stringify({ updated_at: event.updated_at }) });
+}
+
+/** Counts commitments overlapping a proposed full-day closure. */
+export async function getCalendarConflicts(restaurantId: number, event: RestaurantCalendarEvent): Promise<CalendarConflicts> {
+  return apiFetch(`/api/v1/restaurants/${restaurantId}/calendar/conflicts`, restaurantId, { method: 'POST', body: JSON.stringify(event) });
+}
+
+export type DeliveryProviderPreference = 'auto' | 'google' | 'geoapify';
+export interface FoodyMapsOffer {
+  version: number;
+  status: 'planned';
+  currency: 'ILS';
+  monthly_price: number;
+  per_establishment: boolean;
+  excluding_tax: boolean;
+  optimization_credits: number;
+  single_stop_credits: number;
+  fleet_stop_credits: number;
+  map_tiles: number;
+  geocoding_requests: number;
+  route_requests: number;
+  automatic_billing: false;
+}
+export interface GeoapifyUsageStatus {
+  configured: boolean;
+  tracking_available: boolean;
+  daily_limit: number;
+  requests_per_second: number;
+  day: string;
+  month: string;
+  next_period_at: string;
+  tracked_since?: string;
+  credits_today: number;
+  credits_month: number;
+  counters: { sku: string; requests: number; credits: number }[];
+}
+export interface DeliveryProviderStatus {
+  preference: DeliveryProviderPreference;
+  active_provider: 'google' | 'geoapify';
+  reason: '' | 'manual' | 'quota' | 'unconfigured' | 'unavailable';
+  google: {
+    available: boolean;
+    month: string;
+    resets_at: string;
+    counters: { sku: string; used: number; limit: number; available: boolean }[];
+  };
+  geoapify?: GeoapifyUsageStatus;
+  foody_offer?: FoodyMapsOffer;
+}
+/** Read this restaurant's map usage and the shared platform's availability. */
+export function getDeliveryProviderStatus(restaurantId: number): Promise<DeliveryProviderStatus> {
+  return apiFetch(`/api/v1/delivery/providers?restaurant_id=${restaurantId}`, restaurantId);
+}
+/** Save the provider preference; every Google request still respects the hard cap. */
+export function updateDeliveryProviderPreference(restaurantId: number, preference: DeliveryProviderPreference): Promise<DeliveryProviderStatus> {
+  return apiFetch(`/api/v1/delivery/providers?restaurant_id=${restaurantId}`, restaurantId, { method: 'PUT', body: JSON.stringify({ preference }) });
+}
+/** Fetch mandatory Google attribution for the visible map bounds. */
+export function getDeliveryMapAttribution(restaurantId: number, bounds: { north: number; south: number; east: number; west: number; zoom: number }): Promise<{ copyright: string }> {
+  const query = new URLSearchParams({ restaurant_id: String(restaurantId), ...Object.fromEntries(Object.entries(bounds).map(([key, value]) => [key, String(value)])) });
+  return apiFetch(`/api/v1/public/delivery/map-viewport?${query}`, restaurantId);
+}
+
+/** Staff-selected reductions, separate from customer coupon codes. */
+export interface POSDiscountDefinition {
+  id: string; name: string; type: 'fixed' | 'percent'; variable: boolean;
+  value: number; active: boolean; version: number;
+}
+/** Frozen check reduction displayed on saved kitchen batches. */
+export interface POSDiscountSelection {
+  id: string; name: string; type: 'fixed' | 'percent'; value: number; version: number;
+}
+/** Lists only the active restaurant's staff reduction catalogue. */
+export async function listPOSDiscounts(rid: number): Promise<POSDiscountDefinition[]> {
+  const result = await apiFetch<{ discounts: POSDiscountDefinition[] }>(`/api/v1/orders/pos-discounts?restaurant_id=${rid}`, rid);
+  return result.discounts;
+}
+/** Creates or edits a revision; identical uncertain retries do not duplicate it. */
+export async function savePOSDiscount(rid: number, value: POSDiscountDefinition): Promise<POSDiscountDefinition> {
+  const { id, ...input } = value;
+  const result = await apiFetch<{ discount: POSDiscountDefinition }>(`/api/v1/orders/pos-discounts/${encodeURIComponent(id)}?restaurant_id=${rid}`, rid, { method: 'PUT', body: JSON.stringify(input) });
+  const saved = result.discount;
+  if (saved.id !== id || saved.name !== value.name.trim() || saved.type !== value.type || saved.variable !== value.variable || saved.value !== value.value || saved.active !== value.active || saved.version < value.version) throw new Error('Unconfirmed staff discount');
+  return saved;
+}
+
+// Carte drafts are private, revisioned and scoped to a canonical batch date.
+export interface SaleStockLimit {
+ menu_item_id: number; mode: '' | 'count' | 'measure' | 'per_variant'; unit: string;
+ override: AvailabilityOverride; quantity: number | null; options?: Record<number, number | null>;
+ expected_revision: number; reason?: string;
+}
+export interface SaleStockCounter { id: number; option_id: number; initial_quantity: number | null; committed: number }
+export interface SaleStockSeries { id: number; menu_item_id: number; series_key: string; mode: SaleStockLimit['mode']; unit: string; override: AvailabilityOverride; revision: number; counters: SaleStockCounter[] }
+export interface SaleStockRow { item: MenuItem; managed: boolean; config: SaleStockSeries | null; previous: SaleStockSeries | null; sizes: OptionSetOption[]; availability: {availability_state: string; buildable_count: number | null} }
+export interface SaleStockOverview {series_key: string; rows: SaleStockRow[]}
+export interface SaleStockEvent {id: number; menu_item_id: number; item_name: string; option_name: string; series_key: string; kind: string; before_quantity: number | null; after_quantity: number | null; delta: number; actor_id: number; actor_name: string; order_id?: number; reason: string; created_at: string; previous_mode?: string; mode?: string; previous_override?: string; override?: string}
+export interface CarteDraftGroup {
+ key: string; id: number; parent_key?: string; name: string; image_url: string;
+ pos_enabled: boolean; web_enabled: boolean; is_hidden: boolean; follows_menu_hours: boolean;
+ hours: GroupAvailabilityHour[]; translations?: TranslationMap;
+ banner_focal_x: number; banner_focal_y: number; banner_design?: BannerDesign | null; item_ids: number[];
+}
+export interface CarteDocument { name: string; description: string; pos_enabled: boolean; web_enabled: boolean; follows_restaurant_hours: boolean; hours: MenuAvailabilityHour[]; groups: CarteDraftGroup[]; stocks: SaleStockLimit[] }
+export interface CarteDraftState {menu_id: number; series_key: string; revision: number; base_revision: number; base_fingerprint: string; published_revision: number; has_draft: boolean; updated_at?: string; published_at?: string; updated_by_id: number; is_weekly_rotating: boolean; payload: CarteDocument}
+export interface CarteDraftInput {revision: number; base_revision: number; base_fingerprint: string; payload: CarteDocument}
+const cartePath = (id: number, date: string, suffix: string) => `/api/v1/menu/menus/${id}/${suffix}?serie_date=${encodeURIComponent(date)}`;
+export const getCarteDraft = (rid: number,id: number,date: string) => apiFetch<CarteDraftState>(cartePath(id,date,'draft'),rid);
+export const saveCarteDraft = (rid: number,id: number,date: string,input: CarteDraftInput) => apiFetch<CarteDraftState>(cartePath(id,date,'draft'),rid,{method:'PUT',body:JSON.stringify(input)});
+export const publishCarteDraft = (rid: number,id: number,date: string,revision: number) => apiFetch<CarteDraftState>(cartePath(id,date,'publish'),rid,{method:'POST',body:JSON.stringify({revision})});
+export const discardCarteDraft = (rid: number,id: number,date: string,revision: number) => apiFetch<CarteDraftState>(cartePath(id,date,'draft/discard'),rid,{method:'POST',body:JSON.stringify({revision})});
+export const previewCarteDraft = (rid: number,id: number,date: string,payload: CarteDocument) => apiFetch<{menu: Menu; private_preview: true}>(cartePath(id,date,'draft/preview'),rid,{method:'POST',body:JSON.stringify(payload)});
+export const getSalesStock = (rid: number,date = '',itemId?: number) => apiFetch<SaleStockOverview>(`/api/v1/menu/sales-stock?serie_date=${encodeURIComponent(date)}${itemId ? `&item_id=${itemId}` : ''}`,rid);
+export const getSalesStockHistory = (rid: number,filter: {itemId?: number; date?: string; before?: number; kind?: string}) => {
+ const query = new URLSearchParams();if(filter.itemId)query.set('item_id',String(filter.itemId));if(filter.date)query.set('serie_date',filter.date);if(filter.before)query.set('before_id',String(filter.before));if(filter.kind)query.set('kind',filter.kind);
+ return apiFetch<{events: SaleStockEvent[];next_cursor: number}>(`/api/v1/menu/sales-stock/history?${query}`,rid);
+};
+export const setSalesStock = (rid: number,date: string,input: SaleStockLimit) => apiFetch<SaleStockSeries>(`/api/v1/menu/items/${input.menu_item_id}/sales-stock?serie_date=${encodeURIComponent(date)}`,rid,{method:'PUT',body:JSON.stringify(input)});
+export const setSalesStockAvailability = (rid: number,date: string,itemId: number,override: AvailabilityOverride) => apiFetch<void>(`/api/v1/menu/items/${itemId}/sales-stock/availability?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify({override})});
+
+/** Sets remaining quantities; committed orders are preserved by the API transaction. */
+export const restockSalesStock = (rid: number,date: string,input: SaleStockLimit) => apiFetch<{revision: number}>(`/api/v1/menu/items/${input.menu_item_id}/sales-stock/restock?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify(input)});
+
+/** Monthly tenant allowances supplement independent provider-wide protection. */
+export interface ExternalApiCounter { id: string; provider: string; unit: string; default_limit: number; used: number; requests: number; limit: number; remaining: number; status: 'available' | 'warning' | 'exhausted' }
+export interface ExternalApiUsage { restaurant_id: number; revision: number; month: string; resets_at: string; tracked_since: string; counters: ExternalApiCounter[] }
+export const getExternalApiUsage = (rid: number) => apiFetch<ExternalApiUsage>(`/api/v1/restaurants/${rid}/api-usage`, rid);

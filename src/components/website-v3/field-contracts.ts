@@ -227,6 +227,17 @@ function contract(
 }
 
 const FIELD_TEST_VALUES: Record<string, TestValue> = {
+  "checkout.offer_sign_in": false,
+  "section.settings.text_bg_color": "#ffffff",
+  "section.settings.image_bg_color": "#fff8ed",
+  "section.settings.video_height": "m",
+  "section.settings.video_controls": false,
+  "section.settings.video_autoplay": true,
+  "section.settings.video_loop": true,
+  "section.settings.video_muted": true,
+  "section.settings.padding": "none",
+  "section.settings.height": "tall",
+  "section.settings.width": "wide",
   "page.appearance_overrides.website_order.modal_cover_url": "https://example.com/modal.jpg",
   "section.settings.motion.parallax_target": "text",
   "section.settings.motion.mobile_parallax": "up",
@@ -447,7 +458,10 @@ function editorFor(
   isAction: boolean,
   pageTypes: FieldContract["pageTypes"] = ALL_PAGES,
 ): FieldEditorContract {
+  if (id === "checkout.offer_sign_in") return { kind: "field", scope: "page", pageTitle: "Brunch Order", sectionLabel: "Parcours de commande", publicSlug: "brunch-order", surface: "checkout", commit: "change" };
+  if (id === "section.settings.width") return { kind: "field", scope: "section", sectionPanel: "appearance", pageTitle: "About", sectionLabel: "Text", publicSlug: "about", commit: "change" };
   const action = isAction ? "action" : "field";
+  if (id.startsWith("section.settings.video_") || id === "section.settings.padding") return { kind: action, scope: "section", sectionPanel: "content", pageTitle: "About", sectionLabel: "Video", publicSlug: "about", commit: "change", prerequisite: id.endsWith("video_muted") ? { id: "section.settings.video_autoplay", value: false } : undefined };
   if (id.startsWith("section.settings.motion.")) return { kind: action, scope: "section", sectionPanel: "appearance", pageTitle: "About", sectionLabel: "Text and image", publicSlug: "about", commit: "change", prerequisite: id.endsWith(".enabled") ? undefined : { id: "section.settings.motion.enabled", value: true } };
   if (id.startsWith("section.settings.carousel_")) return { kind: action, scope: "section", sectionPanel: "appearance", pageTitle: "Home", sectionLabel: "Testimonials", publicSlug: "", commit: "change" };
 
@@ -630,6 +644,7 @@ function expectedFor(id: string, value: TestValue): string {
 }
 
 export const FIELD_CONTRACTS: readonly FieldContract[] = [
+  contract({ id: "checkout.offer_sign_in", scope: "site", statePath: ["config", "checkout_config", "offer_sign_in"], pageTypes: ["order"] }),
   page("page.appearance_overrides.website_order.modal_cover_url", ["appearance_overrides", "website_order", "modal_cover_url"], ".website-fulfillment-cover", "attribute", ["order"]),
   site("site.tagline", ["tagline"], "[data-website-v3-page]", "text"),
   site("site.navbar_style", ["navbar_style"], "nav", "style"),
@@ -925,6 +940,14 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.content.cta_link", ["content", "cta_link"], "[data-website-section] a", "value"),
   section("section.content.image_url", ["content", "image_url"], "[data-website-section] img", "value"),
   section("section.content.video_url", ["content", "video_url"], "[data-website-section] video", "value"),
+  section("section.settings.video_controls", ["settings", "video_controls"], "[data-website-section] video", "value"),
+  section("section.settings.video_height", ["settings", "video_height"], "[data-website-section] video", "style"),
+  section("section.settings.video_autoplay", ["settings", "video_autoplay"], "[data-website-section] video", "value"),
+  section("section.settings.video_loop", ["settings", "video_loop"], "[data-website-section] video", "value"),
+  section("section.settings.video_muted", ["settings", "video_muted"], "[data-website-section] video", "value"),
+  section("section.settings.padding", ["settings", "padding"], "[data-website-section]", "style"),
+  section("section.settings.height", ["settings", "height"], "[data-website-section]", "style"),
+  section("section.settings.width", ["settings", "width"], "text", "style"),
   section("section.content.custom_text", ["content", "custom_text"], "[data-footer-text]", "text"),
   section("section.content.show_address", ["content", "show_address"], "[data-contact-address]", "visible"),
   section("section.content.show_phone", ["content", "show_phone"], "[data-contact-phone]", "visible"),
@@ -964,6 +987,8 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.settings.bg_image", ["settings", "bg_image"], "[data-website-section]", "style"),
   section("section.settings.bg_overlay", ["settings", "bg_overlay"], "[data-website-section]", "visible"),
   section("section.settings.image_only", ["settings", "image_only"], "text_and_image", "visible"),
+  section("section.settings.text_bg_color", ["settings", "text_bg_color"], "text_and_image", "color"),
+  section("section.settings.image_bg_color", ["settings", "image_bg_color"], "text_and_image", "color"),
   section("section.settings.word_animation", ["settings", "word_animation"], "[data-website-section]", "style"),
   section("section.settings.resize_width", ["settings", "resize_width"], "[data-website-section]", "style"),
   section("section.settings.carousel_autoplay", ["settings", "carousel_autoplay"], "[data-website-section]", "style"),

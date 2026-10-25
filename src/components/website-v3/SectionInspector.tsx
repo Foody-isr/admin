@@ -1,7 +1,9 @@
 "use client";
 import { EditorialAppearanceFields } from "./EditorialAppearanceFields";
 import { EditorialLayoutPreview } from "./EditorialLayoutPreview";
+import { VideoSettingsFields } from "./VideoSettingsFields";
 import { ColorStylePicker } from "./ColorStylePicker";
+import { TextImageBackgroundFields } from "./TextImageBackgroundFields";
 
 import { useI18n } from "@/lib/i18n";
 import {
@@ -172,6 +174,7 @@ export function SectionInspector({
           </div>
           {section.section_type !== "order_discovery" ? (
             <>
+              {section.section_type === "video" && <VideoSettingsFields section={section} onChange={onChange} showLayout={false} />}
               {section.section_type === "hero_banner" && (
                 <>
                   <div
@@ -244,7 +247,7 @@ export function SectionInspector({
                   </div>
                 </>
               )}
-              {["text_and_image", "scrolling_text", "animated_text"].includes(
+              {["text", "text_and_image", "scrolling_text", "animated_text"].includes(
                 section.section_type,
               ) && (
                 <EditorialAppearanceFields
@@ -280,6 +283,9 @@ export function SectionInspector({
                   />
                 </>
               ) : null}
+              {section.section_type === "text_and_image" && (
+                <TextImageBackgroundFields section={section} onChange={onChange} />
+              )}
               <ImageUploadField
                 restaurantId={restaurantId}
                 label={t("editorBackgroundMedia")}

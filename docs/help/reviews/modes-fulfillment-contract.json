@@ -1,0 +1,22 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "95c1eb8b268821003211e779a8e0dc902a62c60299156cdc41a487cac2849dd5",
+      "baseSha256": "8af168fdd5d679c57f763e5701c941cfee610acd7e3cd41b648ca8c560f1c75a",
+      "features": [
+        "google-account-setup",
+        "delivery-dispatch",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only POS fulfillment and Modes keys are added or changed in this isolated candidate. Google, courier and WhatsApp dictionary values and flows are retained byte-for-byte from develop; the separate POS behavior and service-mode guides document the changed controls in FR/HE/EN."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "7ecfef6d935d361a60033c0e2dd495287d98a6e963e941a52d6f884c9b8bec2e",
+      "disposition": "no-user-impact",
+      "reason": "The isolated delta adds optional TypeScript declarations for the existing customer-information setting/capability and allows dine_in in the OpenTicket union. It changes no runtime request, authorization, payment construction or provider flow. The consuming POS settings controls are documented in the fulfillment and service-mode guides."
+    }
+  ]
+}

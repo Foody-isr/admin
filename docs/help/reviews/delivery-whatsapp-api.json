@@ -1,0 +1,10 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "44db00b7a69d231d2d33b12fd3de7c5ea0011d5ece7c44664158de2590ed772d",
+      "disposition": "no-user-impact",
+      "reason": "This shared helper adds optional WhatsApp preview response typing and an optional AbortSignal. Existing callers, payloads, tenant/auth handling and payment API behavior are unchanged. It renders no controls; the visible reminder behavior is documented through the Delivery drawer and order-message guides."
+    }
+  ]
+}

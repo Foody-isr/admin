@@ -5,7 +5,7 @@ export const STAGE_KINDS: WorkflowStageKind[] = ['received', 'in_progress', 'rea
 export const TRIGGERS = ['trigger_payment_confirmed', 'trigger_production_done', 'trigger_courier_assigned', 'trigger_courier_delivered'] as const;
 export const ACTIONS = ['accept_sends_to_kitchen', 'accept_adds_to_production', 'accept_prompts_whatsapp', 'delivery_reminder_enabled'] as const;
 export type WorkflowDraft = { stages: WorkflowStage[]; actions: WorkflowGuidedActions };
-export type WorkflowIssue = { index: number; field: 'name' | 'kind' | typeof TRIGGERS[number]; key: string };
+export type WorkflowIssue = { index: number; field: 'name' | 'kind' | 'whatsapp_template' | typeof TRIGGERS[number]; key: string };
 
 /** Create an empty draft without inventing persisted stages. */
 export function emptyWorkflow(): WorkflowDraft {
@@ -18,6 +18,9 @@ export function readWorkflow(value: OrderWorkflow, expectedType?: WorkflowOrderT
   const ids = new Set<number>();
   for (const stage of value.stages) {
     if (!stage || typeof stage.name !== 'string' || !STAGE_KINDS.includes(stage.kind) || [...TRIGGERS, 'notify_customer'].some(key => typeof stage[key as keyof WorkflowStage] !== 'boolean') || (stage.color != null && typeof stage.color !== 'string') || (stage.customer_message != null && typeof stage.customer_message !== 'string')) throw new Error('Incomplete stage');
+    const ref = stage.whatsapp_template;
+    if (ref?.attachment && (!['','none','fixed','receipt'].includes(ref.attachment.source) || typeof ref.attachment.asset_id!=='string'))throw new Error('Incomplete WhatsApp attachment');
+    if (ref != null && (!ref || ['name', 'language', 'kind', 'timing', 'send_time'].some(key => typeof ref[key as keyof typeof ref] !== 'string'))) throw new Error('Incomplete WhatsApp template');
     if (stage.id != null && (!Number.isSafeInteger(stage.id) || stage.id <= 0 || ids.has(stage.id))) throw new Error('Invalid stage identity');
     if (stage.id != null) ids.add(stage.id);
   }
@@ -37,6 +40,7 @@ export function workflowSignature(draft: WorkflowDraft, semantic = false): strin
       name: semantic ? stage.name.trim() : stage.name,
       kind: stage.kind, color: stage.color ?? '', customer_message: stage.customer_message ?? '',
       notify_customer: stage.notify_customer,
+      whatsapp_template: { name: stage.whatsapp_template?.name ?? '', language: stage.whatsapp_template?.language ?? '', kind: stage.whatsapp_template?.kind ?? '', timing: stage.whatsapp_template?.timing ?? '', send_time: stage.whatsapp_template?.send_time ?? '',attachment:{source:stage.whatsapp_template?.attachment?.source || 'none',asset_id:stage.whatsapp_template?.attachment?.asset_id ?? ''} },
       ...Object.fromEntries(TRIGGERS.map(key => [key, stage[key]])),
     })),
     actions: ACTIONS.map(key => draft.actions[key]),
@@ -54,6 +58,8 @@ export function validateWorkflow(draft: WorkflowDraft, type: WorkflowOrderType):
     const rank = STAGE_KINDS.indexOf(stage.kind);
     if (rank < previousRank || rank < 0 || (stage.kind === 'out_for_delivery' && type !== 'delivery')) return { index, field: 'kind', key: 'wfOrderRequired' };
     previousRank = rank;
+    const ref = stage.whatsapp_template;
+    if (ref && [ref.name,ref.language,ref.kind,ref.timing,ref.send_time,ref.attachment?.asset_id,ref.attachment?.source==='fixed' || ref.attachment?.source==='receipt'].some(Boolean) && ((ref.attachment?.source==='fixed' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref.attachment.asset_id)) || (!!ref.attachment?.asset_id && ref.attachment.source!=='fixed') || !ref.name || !ref.language || !['order_status', 'order_recap', 'delivery_reminder', 'receipt', 'satisfaction'].includes(ref.kind) || !['stage', 'day_before'].includes(ref.timing) || (ref.kind === 'delivery_reminder' && type !== 'delivery') || (ref.kind === 'satisfaction' && (stage.kind !== 'completed' || type === 'dine_in')) || (ref.timing === 'day_before' && (ref.kind !== 'delivery_reminder' || !/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(ref.send_time))) || (ref.timing === 'stage' && ref.send_time !== ''))) return { index, field: 'whatsapp_template', key: 'wfWhatsAppInvalid' };
     for (const key of TRIGGERS) {
       if (!stage[key]) continue;
       if (seen.has(key)) return { index, field: key, key: 'wfUniqueTrigger' };
