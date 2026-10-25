@@ -7,7 +7,7 @@ import { Check, CheckCheck, Copy, ExternalLink, FileText, MessageCircle, Refresh
 import { Button, ConfirmDialog, Drawer } from '@/components/ds';
 import { ChoiceRow } from '@/components/ds/Selection';
 import {
-  ApiError, getOrder, getOrderWhatsAppStatus, getWhatsAppMediaFile, getWhatsAppReceiptFile,
+  ApiError, getOrder, getOrderWhatsAppStatus, getWhatsAppMediaFile, getMetaWhatsAppTemplateImage, getWhatsAppReceiptFile,
   listMessageTemplates, previewOrderWhatsApp, sendOrderWhatsApp,
   type CheckoutConfig, type MessageTemplate, type Order,
 } from '@/lib/api';
@@ -18,6 +18,7 @@ import { buildWhatsAppUrl, receiptShareUrl } from '@/lib/receipt-share';
 import { buildOrderRecap, RECAP_LOCALES, resolveRecapLocale, type RecapLocale } from '@/lib/orders/whatsapp-recap';
 import { buildDeliveryReminder } from '@/lib/orders/delivery-reminder';
 import { canSendWhatsApp, receiptWhatsAppMessage, scopeWhatsAppOrders, whatsappPhone, type WhatsAppChannel, type WhatsAppMessageKind, type WhatsAppRecipient } from '@/lib/orders/whatsapp-composer';
+import { WhatsAppImagePreview } from '@/components/settings/WhatsAppTemplatePreview';
 import styles from './order-whatsapp.module.css';
 
 interface Props {
@@ -236,7 +237,7 @@ export function OrderWhatsAppComposer(props: Props) {
     const version = generation.current, attachment = preview.attachment;
     setBusy(true); setError('');
     try {
-      const blob = attachment.source === 'receipt' ? await getWhatsAppReceiptFile(restaurantId, active.order.id, preview.language) : await getWhatsAppMediaFile(restaurantId, attachment.asset_id ?? '');
+      const blob = attachment.source === 'meta' ? await getMetaWhatsAppTemplateImage(restaurantId, attachment.template_id ?? '') : attachment.source === 'receipt' ? await getWhatsAppReceiptFile(restaurantId, active.order.id, preview.language) : await getWhatsAppMediaFile(restaurantId, attachment.asset_id ?? '');
       if (generation.current !== version) { tab.close(); return; }
       const url = URL.createObjectURL(blob); tab.location.replace(url); setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch { tab.close(); if (generation.current === version) setError(t('waAttachmentPreviewFailed')); }
@@ -315,6 +316,7 @@ export function OrderWhatsAppComposer(props: Props) {
             </div>
             {channel === 'business' && preview && <p className={styles.sender}>{t('waOrderFrom')}: <bdi dir="ltr">{preview.from}</bdi><span>{t(preview.provider === 'meta' ? 'waOrderProviderMeta' : 'waOrderProviderTwilio')}</span></p>}
             <div className={styles.conversation}>
+              {channel === 'business' && preview?.attachment?.format === 'IMAGE' && <WhatsAppImagePreview key={preview.id} rid={restaurantId} templateId={preview.attachment.source === 'meta' ? preview.attachment.template_id : undefined} assetId={preview.attachment.asset_id} />}
               <textarea aria-label={t('waOrderExactPreview')} readOnly={channel === 'business'} disabled={busy || active.state !== 'ready'} value={message} dir={messageLanguage?.startsWith('he') ? 'rtl' : 'ltr'} rows={12}
                 onChange={event => { const value = event.target.value; setCopied(false); setDrafts(old => ({ ...old, [active.order.id]: { ...old[active.order.id], message: value, edited: true } })); }} />
               {preview?.attachment && channel === 'business' && <Button variant="secondary" disabled={busy} onClick={() => void previewAttachment()}><FileText />{preview.attachment.filename}</Button>}

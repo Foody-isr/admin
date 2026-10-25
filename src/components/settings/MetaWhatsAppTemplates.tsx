@@ -7,9 +7,10 @@ import { Badge, Button, ConfirmDialog, Drawer, Field, Input } from '@/components
 import { configureMetaWhatsAppNotifications, createMetaWhatsAppTemplate, getMetaWhatsAppStatus, getMetaWhatsAppTemplates, deleteMetaWhatsAppTemplate, type MetaTemplateKind, type MetaTemplateRef, type MetaWhatsAppStatus, type MetaWhatsAppTemplate, type WhatsAppAttachment } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { orderNotificationTemplate } from '@/lib/orders/twilio-templates';
+import { WhatsAppTemplatePreview } from '@/components/settings/WhatsAppTemplatePreview';
 import { WhatsAppAttachmentPicker } from './WhatsAppAttachmentPicker';
 import { MetaWhatsAppSatisfaction } from './MetaWhatsAppSatisfaction';
-import { compatibleMetaTemplate, validMetaTemplateBody, metaTemplateHeader, validWhatsAppAttachment } from '@/lib/whatsapp-meta-templates';
+import { compatibleMetaTemplate, validMetaTemplateBody, defaultWhatsAppAttachment, metaTemplateHeader, validWhatsAppAttachment } from '@/lib/whatsapp-meta-templates';
 
 type BaseKind = Exclude<MetaTemplateKind, 'satisfaction'>;
 const kinds: BaseKind[] = ['order_recap', 'delivery_reminder', 'order_status', 'receipt'];
@@ -136,7 +137,7 @@ export function MetaWhatsAppTemplates({ rid, status, canEdit, disabled, onChange
         <p className="wa-muted">{t(`waWorkspaceTrigger_${kind}`)}</p>{kind === 'order_status' && <Link href={`/${rid}/settings/orders/workflow`} className="mt-2 inline-block text-sm font-medium underline underline-offset-4">{t('wfWhatsAppWorkflowLink')}</Link>}
         <div className="wa-template-value">{template ? <><bdi>{template.name}</bdi><Badge tone={compatibleMetaTemplate(kind, template) ? 'success' : 'neutral'}>{stateLabel(template)}</Badge></> : <span>{selected[kind] || t('waWorkspaceUnassigned')}</span>}</div>
       </div>
-      <Button variant="secondary" disabled={disabled || busy || loading || loadFailed || uncertain} onClick={() => setEditor(kind)} aria-label={`${t(canEdit ? 'waWorkspaceConfigure' : 'waWorkspaceView')} · ${t(labels[kind])}`}>{t(canEdit ? 'waWorkspaceConfigure' : 'waWorkspaceView')}</Button>
+      <Button variant="secondary" disabled={disabled || busy || loading || loadFailed || uncertain} onClick={() => { setEditor(kind); void refresh(); }} aria-label={`${t(canEdit ? 'waWorkspaceConfigure' : 'waWorkspaceView')} · ${t(labels[kind])}`}>{t(canEdit ? 'waWorkspaceConfigure' : 'waWorkspaceView')}</Button>
     </div>;
   };
 
@@ -170,16 +171,16 @@ export function MetaWhatsAppTemplates({ rid, status, canEdit, disabled, onChange
       {editor && <>
         <section className="wa-editor-section"><h3>{t('waWorkspaceTrigger')}</h3><p className="wa-muted">{t(`waWorkspaceTrigger_${editor}`)}</p></section>
         <section className="wa-editor-section space-y-4">
-          <Field label={t('waWorkspaceSelect')}><select className={selectClass} aria-label={t(labels[editor])} value={selected[editor]} disabled={locked || loading || loadFailed || uncertain} onChange={event => { setSelected(old => ({ ...old, [editor]: event.target.value }));setAttachments(old=>({...old,[editor]:{source:metaTemplateHeader(templates.find(row=>key(row)===event.target.value))?'fixed':'none',asset_id:''}})); setDirty(true); }}>
+          <Field label={t('waWorkspaceSelect')}><select className={selectClass} aria-label={t(labels[editor])} value={selected[editor]} disabled={locked || loading || loadFailed || uncertain} onChange={event => { setSelected(old => ({ ...old, [editor]: event.target.value }));setAttachments(old=>({...old,[editor]:defaultWhatsAppAttachment(templates.find(row=>key(row)===event.target.value))})); setDirty(true); }}>
             <option value="">{t('waMetaNoTemplate')}</option>
             {!!selected[editor] && !templates.some(item => key(item) === selected[editor]) && <option value={selected[editor]} disabled>{selected[editor]}</option>}
             {templates.map(item => <option key={`${item.id}-${key(item)}`} value={key(item)} disabled={!compatibleMetaTemplate(editor, item)}>{item.name} · {item.language} · {stateLabel(item)}</option>)}
           </select></Field>
-          {selectedTemplate && metaTemplateHeader(selectedTemplate) && <WhatsAppAttachmentPicker key={`${rid}:${editor}:${selectedTemplate.id}`} rid={rid} format={metaTemplateHeader(selectedTemplate) as 'IMAGE'|'DOCUMENT'} value={attachments[editor]} disabled={disabled || busy || !canEdit || uncertain} onBusyChange={setAttachmentBusy} onChange={attachment=>{setAttachments(old=>({...old,[editor]:attachment}));setDirty(true)}}/>}
+          {selectedTemplate && metaTemplateHeader(selectedTemplate) && <WhatsAppAttachmentPicker key={`${rid}:${editor}:${selectedTemplate.id}`} rid={rid} template={selectedTemplate} format={metaTemplateHeader(selectedTemplate) as 'IMAGE'|'DOCUMENT'} value={attachments[editor]} disabled={disabled || busy || !canEdit || uncertain} onBusyChange={setAttachmentBusy} onChange={attachment=>{setAttachments(old=>({...old,[editor]:attachment}));setDirty(true)}}/>}
           {canEdit && <p className="wa-muted">{t('waWorkspaceEditorHint')}</p>}
           <Button variant="ghost" disabled={locked || loading || loadFailed} onClick={() => openCreation(editor)}><Plus aria-hidden="true" />{t('waWorkspaceCreateFor')}</Button>
         </section>
-        <section className="wa-editor-section"><h3>{t('waWorkspacePreview')}</h3>{selectedTemplate ? <p dir={selectedTemplate.language.startsWith('he') ? 'rtl' : 'ltr'} className="wa-preview">{selectedTemplate.components.find(component => component.type === 'BODY')?.text}</p> : <p className="wa-muted">{t('waWorkspaceNoPreview')}</p>}</section>
+        <section className="wa-editor-section"><h3>{t('waWorkspacePreview')}</h3>{loading ? <p role="status" className="wa-muted">{t('loading')}</p> : selectedTemplate ? <WhatsAppTemplatePreview rid={rid} template={selectedTemplate} attachment={attachments[editor]} /> : <p className="wa-muted">{t('waWorkspaceNoPreview')}</p>}</section>
         <details className="wa-details"><summary>{t('waWorkspaceVariables')}<ChevronDown aria-hidden="true" /></summary><p className="wa-muted pb-5">{t(`${labels[editor]}Hint`)}</p></details>
       </>}
     </Drawer>
