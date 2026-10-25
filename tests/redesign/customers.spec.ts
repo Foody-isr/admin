@@ -50,7 +50,7 @@ async function installCustomers(page:Page,options:{locale?:string;theme?:string;
   }
   const result=fixture.response(request.url(),method,body,restaurant);return send(result.json??{},result.status??200);
  });
- await page.route('**/*',route=>['localhost','127.0.0.1'].includes(new URL(route.request().url()).hostname)?route.fallback():route.abort());
+ await page.route('**/*',route=>{const url=new URL(route.request().url());return ['localhost','127.0.0.1'].includes(url.hostname)||url.pathname.startsWith('/api/v1/')?route.fallback():route.abort();});
  return {customers,trusted,profiles,writes,reads,faults,fixture,setTotal:(value:number)=>{total=value;}};
 }
 const editor=(page:Page)=>page.getByRole('dialog',{name:'Modifier le client',exact:true});

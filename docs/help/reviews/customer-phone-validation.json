@@ -9,12 +9,12 @@
         "pos-payments"
       ],
       "disposition": "no-user-impact",
-      "reason": "Reviewed the diff: only customer phone input validation, canonical phone request values, customer phone correction routes/controls or their generated three-language help corpus change. Other classified staff, payment configuration, delivery settings, WhatsApp connection and support-panel procedures are unchanged. The changed procedures are documented under customers-profiles, guest-ordering and guest-catering."
+      "reason": "Reviewed against current develop: this diff only validates or normalizes customer phones, adds scoped phone-correction controls/routes, or regenerates their public help corpus. Existing staff, payment configuration, delivery settings, WhatsApp connection and support-panel procedures in the same files are unchanged. Phone procedures are updated in customers-profiles, guest-ordering, guest-catering and guest-account-tracking."
     },
     {
       "path": "src/lib/i18n.tsx",
-      "sha256": "6fedfe5ba2e72c52c0e26edda6f5eeb197be727caeb7a3fe9a10c54b8e841a28",
-      "baseSha256": "0b71fbd3236222dd481275617a37bfab54c9b60d409a6ec2af8af4fe24bb4552",
+      "sha256": "3479f7ff44abfc8c29a3104a343c537d962da270946a662e9c1bfb3e21cc26ee",
+      "baseSha256": "95c1eb8b268821003211e779a8e0dc902a62c60299156cdc41a487cac2849dd5",
       "features": [
         "delivery-dispatch",
         "google-account-setup",
@@ -22,7 +22,7 @@
         "whatsapp"
       ],
       "disposition": "no-user-impact",
-      "reason": "Reviewed the diff: only customer phone input validation, canonical phone request values, customer phone correction routes/controls or their generated three-language help corpus change. Other classified staff, payment configuration, delivery settings, WhatsApp connection and support-panel procedures are unchanged. The changed procedures are documented under customers-profiles, guest-ordering and guest-catering."
+      "reason": "Reviewed against current develop: this diff only validates or normalizes customer phones, adds scoped phone-correction controls/routes, or regenerates their public help corpus. Existing staff, payment configuration, delivery settings, WhatsApp connection and support-panel procedures in the same files are unchanged. Phone procedures are updated in customers-profiles, guest-ordering, guest-catering and guest-account-tracking."
     }
   ]
 }
