@@ -7,7 +7,7 @@ async function install(page: Page, lostResponse = false, meta = false, completed
   Object.assign(fixture.orders[0], { ...(completed ? { status: 'delivered', received_at: new Date().toISOString(), completed_at: new Date().toISOString() } : {}), order_type: 'delivery', customer_phone: '+972500000000', courier_name: 'Livreur démo', courier_phone: '+972500000001', scheduled_for: new Date(Date.now() + 86400000).toISOString(), scheduled_pickup_window_start: '10:45', scheduled_pickup_window_end: '12:15' });
   const writes: Array<{ path: string; body: unknown; restaurant?: string }> = [];
   if (options.pending) fixture.orders[0].status = 'pending_review';
-  const control = { status: 'ready', kind: 'order_recap', history: [] as OrderWhatsAppHistoryEntry[], blocked: [] as BlockedOrderWhatsAppAutomation[], blockedTotal: 0, historyError: false, nextCursor: '', older: [] as OrderWhatsAppHistoryEntry[], reads: [] as string[] };
+  const control = { status: 'ready', kind: 'order_recap', history: [] as OrderWhatsAppHistoryEntry[], blocked: [] as BlockedOrderWhatsAppAutomation[], blockedTotal: 0, historyError: false, unavailable: new Set<number>(), notDue: new Set<number>(), changed: new Set<number>(), nextCursor: '', older: [] as OrderWhatsAppHistoryEntry[], reads: [] as string[] };
   await page.addInitScript(locale => {
     localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Équipe démo', role: 'owner' }));
@@ -17,6 +17,7 @@ async function install(page: Page, lostResponse = false, meta = false, completed
   await page.route('**/*', route => ['localhost', '127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
   await page.route('**/api/v1/**', async route => {
     const req = route.request(), path = new URL(req.url()).pathname, body = req.postDataJSON() ?? {}, restaurant = req.headers()['x-restaurant-id'];
+    if (path.endsWith('/message-templates')) return route.fulfill({ json: { templates: [] } });
     if (path === '/api/v1/order-workflows') return route.fulfill({ json: { workflows: [{ id: 1, order_type: 'delivery', template_source: 'simple', delivery_reminder_enabled: true, stages: [] }] } });
     if (path === '/api/v1/orders/1048/accept') {
       writes.push({ path, body, restaurant });
@@ -30,9 +31,12 @@ async function install(page: Page, lostResponse = false, meta = false, completed
       }
       if (req.method() === 'GET') return route.fulfill({ json: { id: '11111111-1111-4111-8111-111111111111', status: control.status, provider: meta ? 'meta' : 'twilio' } });
       writes.push({ path, body, restaurant });
+      const orderId = Number(path.split('/').at(-2));
+      if (path.endsWith('/send') && control.changed.has(orderId)) return route.fulfill({ status: 409, json: { error: 'whatsapp_preview_changed', details: { status: 'changed' } } });
+      if (path.endsWith('/preview') && control.unavailable.has(orderId)) return route.fulfill({ status: 422, json: { error: 'whatsapp_preview_unavailable' } });
       if (path.endsWith('/preview')) {
         control.kind = body.kind;
-        return route.fulfill({ json: { id: '11111111-1111-4111-8111-111111111111', provider: meta ? 'meta' : 'twilio', kind: body.kind, status: control.status, language: 'fr', message: body.kind === 'delivery_reminder' ? 'Bonjour client démo, livraison demain de 10:45 à 12:15. Livreur démo au +972500000001.' : 'Confirmation approuvée de votre commande. Détail complet dans le reçu.', recipient: '+972500000000', from: '+972500000002' } });
+        return route.fulfill({ json: { id: '11111111-1111-4111-8111-111111111111', provider: meta ? 'meta' : 'twilio', kind: body.kind, status: control.status, ...(control.notDue.has(orderId) ? { send_blocked_reason: 'not_due' } : {}), language: 'fr', message: body.kind === 'delivery_reminder' ? 'Bonjour client démo, livraison demain de 10:45 à 12:15. Livreur démo au +972500000001.' : 'Confirmation approuvée de votre commande. Détail complet dans le reçu.', recipient: '+972500000000', from: '+972500000002' } });
       }
       control.status = 'accepted';
       return lostResponse ? route.fulfill({ status: 503, json: { error: 'synthetic lost response' } }) : route.fulfill({ json: { status: 'accepted' } });
@@ -41,86 +45,78 @@ async function install(page: Page, lostResponse = false, meta = false, completed
     if (response.json && 'order' in response.json && response.json.order) response.json.order = { ...response.json.order, restaurant_id: Number(restaurant) || 1 };
     return route.fulfill({ status: response.status ?? 200, json: response.json ?? {} });
   });
-  return { writes, control };
+  return { writes, control, fixture };
 }
 
 async function confirmation(page: Page, restaurant = 1) {
   await page.goto(`/${restaurant}/orders/1048`);
-  await page.getByRole('button', { name: 'Actions', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Envoyer la confirmation', exact: true }).click();
-  return page.getByRole('region', { name: 'Message WhatsApp automatique', exact: true });
+  await page.getByRole('button', { name: 'Envoyer un message WhatsApp', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'Message WhatsApp', exact: true });
+  await expect(drawer.getByRole('textbox')).toBeVisible();
+  return drawer;
 }
 
-test('review exact Twilio content and send only the scoped preview identity', async ({ page }, info) => {
+test('reviews exact Twilio content and sends only the scoped preview identity', async ({ page }, info) => {
   const state = await install(page);
   await page.setViewportSize({ width: 375, height: 1000 });
-  const region = await confirmation(page, 2);
-  await region.getByRole('button', { name: 'Préparer le message', exact: true }).click();
-  await expect(region.getByRole('textbox')).toHaveAttribute('readonly', '');
-  await expect(region.getByRole('textbox')).toHaveValue('Confirmation approuvée de votre commande. Détail complet dans le reçu.');
-  await expect(page.getByRole('button', { name: 'Ouvrir WhatsApp', exact: true })).toBeVisible();
-  await page.screenshot({ path: info.outputPath('order-twilio-review-fr.png') });
+  const drawer = await confirmation(page, 2);
+  await expect(drawer.getByRole('textbox')).toHaveAttribute('readonly', '');
+  await expect(drawer.getByRole('textbox')).toHaveValue('Confirmation approuvée de votre commande. Détail complet dans le reçu.');
+  await page.screenshot({ path: info.outputPath('order-whatsapp-review-fr.png'), fullPage: true, animations: 'disabled' });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await region.getByRole('button', { name: 'Confirmer l’envoi', exact: true }).click();
-  await expect(region.getByRole('status')).toContainText('Accepté par Twilio');
-  await expect(region.getByRole('button', { name: 'Confirmer l’envoi', exact: true })).toHaveCount(0);
+  await drawer.getByRole('button', { name: 'Envoyer le message', exact: true }).click();
+  await expect(drawer).toContainText('Twilio a accepté');
+  await expect(drawer.getByRole('button', { name: 'Envoyer 0 messages', exact: true })).toBeDisabled();
   expect(state.writes).toEqual([
     { path: '/api/v1/restaurants/2/whatsapp/orders/1048/preview', body: { kind: 'order_recap' }, restaurant: '2' },
     { path: '/api/v1/restaurants/2/whatsapp/orders/1048/send', body: { preview_id: '11111111-1111-4111-8111-111111111111' }, restaurant: '2' },
   ]);
 });
 
-test('lost send response refreshes evidence without retransmission', async ({ page }) => {
+test('lost response refreshes the original dispatch without retransmission or a new preview', async ({ page }) => {
   const state = await install(page, true);
-  const region = await confirmation(page);
-  await region.getByRole('button', { name: 'Préparer le message', exact: true }).click();
-  await region.getByRole('button', { name: 'Confirmer l’envoi', exact: true }).click();
-  await expect(region.getByRole('alert')).toContainText('n’est pas confirmé');
-  await expect(region.getByRole('button', { name: 'Confirmer l’envoi', exact: true })).toHaveCount(0);
-  await region.getByRole('button', { name: 'Vérifier l’aperçu et le résultat', exact: true }).click();
-  await expect(region.getByRole('status')).toContainText('Accepté par Twilio');
+  const drawer = await confirmation(page);
+  await drawer.getByRole('button', { name: 'Envoyer le message', exact: true }).click();
+  await expect(drawer).toContainText('L’envoi n’est pas confirmé');
+  await drawer.getByRole('button', { name: 'Actualiser', exact: true }).click();
+  await expect(drawer).toContainText('Twilio a accepté');
   expect(state.writes.filter(w => w.path.endsWith('/send'))).toHaveLength(1);
+  expect(state.writes.filter(w => w.path.endsWith('/preview'))).toHaveLength(1);
 });
 
-test('delivery action prepares its dedicated courier reminder', async ({ page }) => {
+test('choosing delivery prepares the dedicated courier reminder without sending', async ({ page }) => {
   const state = await install(page);
-  await page.goto('/1/orders/1048');
-  await page.getByRole('button', { name: 'Actions', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Envoyer les infos de livraison', exact: true }).click();
-  const region = page.getByRole('region', { name: 'Message WhatsApp automatique', exact: true });
-  await expect(region).toContainText('préparez et envoyez le rappel la veille de la livraison');
-  await region.getByRole('button', { name: 'Préparer le message', exact: true }).click();
-  await expect(region.getByRole('textbox')).toHaveValue(/Livreur démo/);
-  expect(state.writes[0].body).toEqual({ kind: 'delivery_reminder' });
+  const drawer = await confirmation(page);
+  await drawer.getByRole('radio', { name: 'Rappel de livraison', exact: true }).check();
+  await expect(drawer.getByRole('textbox')).toHaveValue(/Livreur démo/);
+  expect(state.writes.at(-1)?.body).toEqual({ kind: 'delivery_reminder' });
   expect(state.writes.filter(w => w.path.endsWith('/send'))).toHaveLength(0);
 });
 
-test('Meta delivery evidence is refreshed without another send', async ({ page }) => {
-  const state = await install(page, false, true); const region = await confirmation(page);
-  await region.getByRole('button', { name: 'Préparer le message', exact: true }).click();
-  await expect(region).toContainText('Envoi via Meta direct');
-  await region.getByRole('button', { name: 'Confirmer l’envoi', exact: true }).click();
-  await expect(region.getByRole('status')).toContainText('Accepté par Meta. La réception n’est pas encore confirmée');
+test('Meta evidence refreshes without another send', async ({ page }, info) => {
+  const state = await install(page, false, true);
+  const drawer = await confirmation(page);
+  await expect(drawer).toContainText('Envoi via Meta direct');
+  await page.screenshot({ path: info.outputPath('order-whatsapp-desktop-fr.png'), animations: 'disabled' });
+  await drawer.getByRole('button', { name: 'Envoyer le message', exact: true }).click();
+  await expect(drawer).toContainText('Meta a accepté');
   state.control.status = 'delivered';
-  await region.getByRole('button', { name: 'Actualiser le suivi de livraison', exact: true }).click();
-  await expect(region.getByRole('status')).toContainText('Livré sur le WhatsApp du destinataire');
+  await drawer.getByRole('button', { name: 'Actualiser', exact: true }).click();
+  await expect(drawer).toContainText('Livré sur le WhatsApp du destinataire');
   state.control.status = 'read';
-  await region.getByRole('button', { name: 'Actualiser le suivi de livraison', exact: true }).click();
-  await expect(region.getByRole('status')).toContainText('Marqué comme lu');
+  await drawer.getByRole('button', { name: 'Actualiser', exact: true }).click();
+  await expect(drawer).toContainText('Marqué comme lu');
   expect(state.writes.filter(row => row.path.endsWith('/send'))).toHaveLength(1);
 });
 
-
-test('completed order exposes satisfaction review and sends only a scoped preview', async ({ page }) => {
+test('completed order exposes satisfaction in the same composer', async ({ page }) => {
   const state = await install(page, false, true, true);
-  await page.goto('/2/orders/1048');
-  await page.getByRole('button', { name: 'Actions', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Envoyer le message de satisfaction', exact: true }).click();
-  const region = page.getByRole('region', { name: 'Satisfaction après commande', exact: true });
-  await region.getByRole('button', { name: 'Préparer le message', exact: true }).click();
-  expect(state.writes[0]).toEqual({ path: '/api/v1/restaurants/2/whatsapp/orders/1048/preview', body: { kind: 'satisfaction' }, restaurant: '2' });
-  await region.getByRole('button', { name: 'Confirmer l’envoi', exact: true }).click();
-  await expect(region.getByRole('status')).toContainText('Accepté par Meta');
+  const drawer = await confirmation(page, 2);
+  await drawer.getByRole('radio', { name: 'Satisfaction après commande', exact: true }).check();
+  await expect.poll(() => state.writes.at(-1)?.body).toEqual({ kind: 'satisfaction' });
+  await expect(drawer.getByRole('button', { name: 'Envoyer le message' })).toBeEnabled();
+  await drawer.getByRole('button', { name: 'Envoyer le message' }).click();
+  await expect(drawer).toContainText('Meta a accepté');
   expect(state.writes.filter(write => write.path.endsWith('/send'))).toHaveLength(1);
 });
 
@@ -134,16 +130,12 @@ async function history(page: Page, restaurant = 1, title = 'Messages au client')
   return page.getByRole('dialog', { name: title, exact: true });
 }
 
-test('acceptance does not open manual WhatsApp even when the server suggests a recap', async ({ page }) => {
+test('acceptance does not open the composer even when the server suggests a recap', async ({ page }) => {
   const state = await install(page, false, false, false, { pending: true });
   await page.goto('/1/orders/1048');
   await page.getByRole('button', { name: 'Accepter', exact: true }).click();
   await expect.poll(() => state.writes.filter(row => row.path.endsWith('/accept')).length).toBe(1);
-  await expect(page.getByRole('button', { name: 'Accepter', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Ouvrir WhatsApp', exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Actions', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Envoyer la confirmation', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Ouvrir WhatsApp', exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Message WhatsApp', exact: true })).toHaveCount(0);
   expect(state.writes.filter(row => row.path.includes('/whatsapp/'))).toHaveLength(0);
 });
 
@@ -268,4 +260,130 @@ test('blocked history works on mobile RTL for read-only staff and refresh replac
   await drawer.getByRole('button', { name: 'רענון הודעות' }).click();
   await expect(drawer.getByText('לא נשלחה', { exact: true })).toHaveCount(0);
   expect(state.writes).toHaveLength(0);
+});
+
+
+test('bulk selection reviews each order and sends only ready recipients after confirmation', async ({ page }, info) => {
+  const state = await install(page, false, true);
+  state.control.unavailable.add(1049);
+  state.control.notDue.add(1050);
+  await page.goto('/1/orders/all');
+  for (const id of [1048, 1049, 1050]) await page.getByRole('checkbox', { name: `Sélectionner la commande n°${id}`, exact: true }).check();
+  await page.getByRole('button', { name: 'Envoyer un message WhatsApp', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'Message WhatsApp', exact: true });
+  await expect(drawer.getByRole('button', { name: 'Envoyer le message', exact: true })).toBeEnabled();
+  await expect(drawer).toContainText('Prêts : 1/3');
+  await page.screenshot({ path: info.outputPath('order-whatsapp-bulk-fr.png'), animations: 'disabled' });
+  expect(state.writes.filter(row => row.path.endsWith('/send'))).toHaveLength(0);
+  await drawer.getByRole('button', { name: 'Envoyer le message', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Envoyer le message', exact: true }).click();
+  await expect(drawer).toContainText('Acceptés : 1');
+  expect(state.writes.filter(row => row.path.endsWith('/send')).map(row => row.path)).toEqual(['/api/v1/restaurants/1/whatsapp/orders/1048/send']);
+});
+
+test('changed order stops the remaining bulk queue and requires another review', async ({ page }) => {
+  const state = await install(page, false, true);
+  state.control.changed.add(1049);
+  await page.goto('/1/orders/all');
+  for (const id of [1048, 1049, 1050]) await page.getByRole('checkbox', { name: `Sélectionner la commande n°${id}`, exact: true }).check();
+  await page.getByRole('button', { name: 'Envoyer un message WhatsApp', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'Message WhatsApp', exact: true });
+  await expect(drawer).toContainText('Prêts : 3/3');
+  await drawer.getByRole('button', { name: 'Envoyer 3 messages', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Envoyer 3 messages', exact: true }).click();
+  await expect(drawer.getByRole('alert')).toContainText('Les envois restants sont arrêtés');
+  expect(state.writes.filter(row => row.path.endsWith('/send')).map(row => row.path)).toEqual(['/api/v1/restaurants/1/whatsapp/orders/1048/send', '/api/v1/restaurants/1/whatsapp/orders/1049/send']);
+  await expect(drawer.getByRole('button', { name: 'Envoyer le message' })).toBeDisabled();
+});
+
+test('app drafts require explicit discard and never call the Business send API', async ({ page }) => {
+  const state = await install(page, false, true);
+  const drawer = await confirmation(page);
+  await drawer.getByRole('radio', { name: 'Application WhatsApp', exact: true }).check();
+  await expect(drawer.getByRole('textbox')).not.toHaveAttribute('readonly', '');
+  await drawer.getByRole('textbox').fill('Un mot personnel pour le client démo.');
+  await drawer.getByRole('radio', { name: 'WhatsApp Business', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Annuler', exact: true }).click();
+  await expect(drawer.getByRole('textbox')).toHaveValue('Un mot personnel pour le client démo.');
+  await drawer.getByRole('button', { name: 'Fermer', exact: true }).click();
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Annuler', exact: true }).click();
+  await page.evaluate(() => {
+    window.open = () => ({ opener: null, location: { replace(url: string) { (window as unknown as { appHandoff: string }).appHandoff = url; } } }) as unknown as Window;
+  });
+  await drawer.getByRole('button', { name: 'Ouvrir WhatsApp', exact: true }).click();
+  await expect(drawer).toContainText('Conversation ouverte');
+  const handoff = await page.evaluate(() => (window as unknown as { appHandoff: string }).appHandoff);
+  expect(new URL(handoff).pathname).toBe('/972500000000');
+  expect(new URL(handoff).searchParams.get('text')).toBe('Un mot personnel pour le client démo.');
+  expect(state.writes.filter(row => row.path.endsWith('/send'))).toHaveLength(0);
+});
+
+test('Hebrew composer fits mobile and uses native message selection', async ({ page }, info) => {
+  await install(page, false, true, false, { locale: 'he' });
+  await page.setViewportSize({ width: 375, height: 900 });
+  await page.goto('/1/orders/1048');
+  await page.getByRole('button', { name: 'שליחת הודעת WhatsApp', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'הודעת WhatsApp', exact: true });
+  await expect(drawer.getByRole('textbox')).toBeVisible();
+  await expect(drawer.getByRole('combobox', { name: 'הודעה', exact: true })).toBeVisible();
+  await expect(drawer.getByRole('button', { name: 'שליחת הודעה', exact: true })).toBeInViewport({ ratio: 1 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('order-whatsapp-mobile-he.png'), animations: 'disabled' });
+});
+
+test('orders.view cannot compose or select recipients', async ({ page }) => {
+  const state = await install(page, false, true, false, { readOnly: true });
+  await page.goto('/1/orders/1048');
+  await expect(page.getByRole('button', { name: 'Messages au client', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Envoyer un message WhatsApp', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Actions', exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: 'Envoyer un message WhatsApp', exact: true })).toHaveCount(0);
+  expect(state.writes).toHaveLength(0);
+});
+
+
+test('app drafts stay with their own recipient in a bulk review', async ({ page }) => {
+  const state = await install(page, false, true);
+  state.fixture.orders[1].customer_phone = '+972500000003';
+  await page.goto('/1/orders/all');
+  for (const id of [1048, 1049]) await page.getByRole('checkbox', { name: `Sélectionner la commande n°${id}`, exact: true }).check();
+  await page.getByRole('button', { name: 'Envoyer un message WhatsApp', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'Message WhatsApp', exact: true });
+  await expect(drawer).toContainText('Prêts : 2/2');
+  await drawer.getByRole('radio', { name: 'Application WhatsApp', exact: true }).check();
+  await expect(drawer.getByRole('textbox')).toBeEditable();
+  await drawer.getByRole('textbox').fill('Message pour la première commande.');
+  const recipients = drawer.getByRole('group', { name: 'Destinataires', exact: true });
+  await recipients.getByRole('button', { name: /#1049/ }).click();
+  await expect(drawer.getByRole('textbox')).not.toHaveValue('Message pour la première commande.');
+  await drawer.getByRole('textbox').fill('Message pour la deuxième commande.');
+  await recipients.getByRole('button', { name: /#1048/ }).click();
+  await expect(drawer.getByRole('textbox')).toHaveValue('Message pour la première commande.');
+  expect(state.writes.filter(row => row.path.endsWith('/send'))).toHaveLength(0);
+});
+
+test('an uncertain dispatch is retained across message-type changes', async ({ page }) => {
+  const state = await install(page, true, true);
+  const drawer = await confirmation(page);
+  await drawer.getByRole('button', { name: 'Envoyer le message', exact: true }).click();
+  await expect(drawer).toContainText('L’envoi n’est pas confirmé');
+  await drawer.getByRole('radio', { name: 'Rappel de livraison', exact: true }).check();
+  await expect(drawer.getByRole('textbox')).toHaveValue(/Livreur démo/);
+  await drawer.getByRole('radio', { name: 'Confirmation de commande', exact: true }).check();
+  await expect(drawer).toContainText('Meta a accepté');
+  expect(state.writes.filter(row => row.path.endsWith('/preview') && (row.body as { kind: string }).kind === 'order_recap')).toHaveLength(1);
+  expect(state.writes.filter(row => row.path.endsWith('/send'))).toHaveLength(1);
+});
+
+
+test('English dark composer keeps message and send action accessible', async ({ page }, info) => {
+  await install(page, false, true, false, { locale: 'en' });
+  await page.goto('/1/orders/1048');
+  await page.evaluate(() => { document.documentElement.classList.add('dark'); document.documentElement.dataset.theme = 'dark'; });
+  await page.getByRole('button', { name: 'Send a WhatsApp message', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'WhatsApp message', exact: true });
+  await expect(drawer.getByRole('textbox')).toHaveAttribute('readonly', '');
+  await expect(drawer.getByRole('button', { name: 'Send message', exact: true })).toBeInViewport({ ratio: 1 });
+  await page.screenshot({ path: info.outputPath('order-whatsapp-dark-en.png'), animations: 'disabled' });
 });

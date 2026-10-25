@@ -25,7 +25,22 @@ export function validFulfillment(value: POSFulfillment): boolean {
   const methods = fulfillmentCatalog(value);
   const ids = new Set(methods.map(method => method.id));
   const names = methods.filter(method => method.name).map(method => method.name.trim().toLowerCase());
-  return methods.length > 0 && methods.length <= 10 && ids.size === methods.length &&
-    methods.every(method => (presets.some(preset=>preset.id===method.id) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(method.id) && method.id!=='00000000-0000-0000-0000-000000000000') && ['dine_in', 'pickup', 'delivery'].includes(method.order_type) && method.name === method.name.trim() && Array.from(method.name).length <= 80 && !/[\u0000-\u001f\u007f]/.test(method.name) && (presets.some(preset => preset.id === method.id) || !!method.name)) &&
-    new Set(names).size === names.length && value.enabled.length > 0 && new Set(value.enabled).size === value.enabled.length && value.enabled.every(id => ids.has(id)) && value.default === value.enabled[0];
+  const active = methods.filter(method => value.enabled.includes(method.id));
+  return ['never', 'start', 'checkout'].includes(value.prompt) && methods.length > 0 && methods.length <= 10 && ids.size === methods.length &&
+    methods.every(method => (presets.some(preset=>preset.id===method.id) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(method.id) && method.id!=='00000000-0000-0000-0000-000000000000') && ['dine_in', 'pickup', 'delivery'].includes(method.order_type) && method.name === method.name.trim() && Array.from(method.name).length <= 80 && !/[\u0000-\u001f\u007f-\u009f]/.test(method.name) && (presets.some(preset => preset.id === method.id) || !!method.name)) &&
+    methods.every(method => method.show_customer_information === undefined || typeof method.show_customer_information === 'boolean') &&
+    new Set(names).size === names.length && value.enabled.length > 0 && new Set(value.enabled).size === value.enabled.length && value.enabled.every(id => ids.has(id)) && value.default === value.enabled[0] &&
+    active.every((method, index) => method.id === value.enabled[index]);
+}
+
+/** Require every submitted fulfillment field to survive persistence, including additive fields from newer APIs. */
+export function fulfillmentSaveConfirmed(expected: POSFulfillment | undefined, actual: POSFulfillment | undefined): boolean {
+  if (expected === undefined) return true;
+  const includes = (sent: unknown, saved: unknown): boolean => {
+    if (sent === undefined) return true;
+    if (Array.isArray(sent)) return Array.isArray(saved) && sent.length === saved.length && sent.every((value, index) => includes(value, saved[index]));
+    if (sent !== null && typeof sent === 'object') return saved !== null && typeof saved === 'object' && !Array.isArray(saved) && Object.entries(sent).every(([key, value]) => includes(value, (saved as Record<string, unknown>)[key]));
+    return sent === saved;
+  };
+  return includes(expected, actual);
 }

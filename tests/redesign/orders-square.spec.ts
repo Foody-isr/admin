@@ -32,6 +32,47 @@ test('malformed order links show the existing 404 without loading the list', asy
   expect(queries).toHaveLength(0);
 });
 
+for (const width of [1440, 375]) test(`dine-in without a table stays visible in order scopes and details: ${width}`, async ({ page }) => {
+  const { fixture, queries } = await install(page);
+  await page.setViewportSize({ width, height: 900 });
+  // This is a saved kitchen batch belonging to a named POS check, not an empty
+  // OpenTicket container. It keeps its real type without inventing a table.
+  Object.assign(fixture.orders[0], {
+    customer_name: 'Visiteur sur place', order_type: 'dine_in', order_source: 'manual',
+    table_number: '', table_code: '', session_id: null,
+    check_id: '9f1d71b8-5a52-4c5c-a496-8e4d9f94d208',
+    status: 'in_kitchen', payment_status: 'paid',
+  });
+  await page.goto('/1/orders/all');
+  const row = page.locator('tbody tr').filter({ hasText: 'Visiteur sur place' });
+  const tabs = page.getByRole('tablist');
+  await expect(tabs.getByRole('tab', { name: 'Actives', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(row).toBeVisible();
+  await expect(row).toContainText('Sur place');
+
+  await tabs.getByRole('tab', { name: 'Tous', exact: true }).click();
+  await expect.poll(() => queries.at(-1)?.searchParams.has('status')).toBe(false);
+  await expect(row).toBeVisible();
+  await page.locator('[data-list-toolbar]').getByRole('button', { name: /^Type / }).click();
+  await page.getByRole('menuitemradio', { name: 'Sur place', exact: true }).click();
+  await expect.poll(() => queries.at(-1)?.searchParams.get('type')).toBe('dine_in');
+  await expect(row).toBeVisible();
+  await expect(page.locator('tbody tr')).toHaveCount(3);
+
+  await row.click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: 'Détails (Sur place)', exact: true })).toBeVisible();
+  await expect(dialog.locator('.order-detail-fact').filter({ hasText: /^Table/ })).toHaveCount(0);
+  await expect(dialog).not.toContainText('À emporter');
+  await page.keyboard.press('Escape');
+  await tabs.getByRole('tab', { name: 'Actives', exact: true }).click();
+  await expect.poll(() => queries.at(-1)?.searchParams.get('status')).toContain('in_kitchen');
+  await expect(row).toBeVisible();
+  expect(queries.every(url => url.searchParams.get('restaurant_id') === '1')).toBe(true);
+  expect(fixture.writes).toEqual([]);
+});
+
 test('typed search filters rows and ignores an older unfiltered response', async ({ page }) => {
   const { queries } = await install(page);
   let release!: () => void;
