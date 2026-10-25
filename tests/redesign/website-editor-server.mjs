@@ -7,6 +7,19 @@ const base = createFixture();
 const headerChoices = ["1", "batch", "scheduled-pickup"].includes(process.env.FOODY_HEADER_CHOICES);
 const restaurantHeader = process.env.FOODY_RESTAURANT_HEADER === "1" || headerChoices;
 const crispyMenu = process.env.FOODY_CRISPY_MENU === "1";
+const menuTabs = process.env.FOODY_MENU_TABS === "1" ? [
+  { id: 1, name: "BASSARI", groups: [
+    { id: 11, name: "Sandwichs", translations: { name: { he: "כריכים" } }, items: [{ id: 101, name: "Burger démo", price: 38, is_active: true, is_available: true }] },
+    { id: 12, name: "Accompagnements", translations: { name: { he: "תוספות" } }, items: [{ id: 102, name: "Frites démo", price: 12, is_active: true, is_available: true }] },
+  ] },
+  { id: 2, name: "HALAVI", groups: [
+    { id: 21, name: "Pizzas", translations: { name: { he: "פיצות" } }, items: [{ id: 201, name: "Pizza démo", price: 48, is_active: true, is_available: true }] },
+    { id: 22, name: "Desserts", translations: { name: { he: "קינוחים" } }, items: [{ id: 202, name: "Glace démo", price: 18, is_active: true, availability_state: "sold_out" }] },
+  ] },
+] : null;
+if (menuTabs) base.menus.splice(0, base.menus.length, ...menuTabs.map(menu => ({
+  ...menu, restaurant_id: 1, is_active: true, web_enabled: true, pos_enabled: true,
+})));
 const menuAppearance = crispyMenu ? JSON.parse(readFileSync(new URL("./fixtures/crispy-menu-appearance.json", import.meta.url), "utf8")) : (process.env.FOODY_MENU_APPEARANCE === "1" || process.env.FOODY_MENU_STYLES === "1" || restaurantHeader)
   ? JSON.parse(readFileSync(new URL("./fixtures/mamie-menu-appearance.json", import.meta.url), "utf8"))
   : null;
@@ -324,7 +337,7 @@ http
       result = {
         json: {
           ...(featuredRegression ? {popular_item_ids: [4,2,1,3,5,6]} : {}),
-          menus: menuAppearance?.menus ?? [
+          menus: menuTabs ?? menuAppearance?.menus ?? [
             {
               id: 1,
               name: "Our menu",
