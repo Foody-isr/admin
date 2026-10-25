@@ -460,3 +460,12 @@ test("information layout choices stay visible with either ordering permission st
     assert.doesNotMatch(markup, /automatically shows/);
   }
 });
+
+
+test("site colors expose separate menu and category text fields", () => {
+  const markup = render(<SiteColorsEditor palette={{}} target={{styleId: "style-1", menuGroup: "categories"}} onChange={() => undefined} />);
+  assert.match(markup, /data-color-role="menu.menu_text"/);
+  assert.match(markup, /aria-label="Menu text"/);
+  assert.match(markup, /data-color-role="menu.category_text"/);
+  assert.match(markup, /aria-label="Category text"/);
+});
