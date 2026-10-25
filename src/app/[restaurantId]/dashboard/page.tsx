@@ -232,7 +232,7 @@ export default function DashboardPage() {
   const modeLabel = t(`dashboardMode_${revenueMode}`);
   const dateControl =
     <DateRangePicker value={dateRange} onChange={onPickRange} weekStartDay={wsd} workdays={workdays} restaurantId={rid} align="right"
-      basis={basis} onBasisChange={onChangeBasis} series={serieList} triggerClassName="dashboard-filter"
+      basis={basis} onBasisChange={onChangeBasis} series={serieList} defaultToCurrentSerie={ready} triggerClassName="dashboard-filter"
       triggerContent={<><span>{serieMode ? t('dateBasisSerieShort') : t('date')}</span><strong>{shortDate(dateRange.from)}{!singleDay && ` – ${shortDate(dateRange.to)}`}</strong><ChevronDown size={16} /></>} />;
   const filterControls = <>
     {!upcomingSerie && <Menu><MenuTrigger asChild><button type="button" className="dashboard-filter" aria-label={`${t('comparison')}: ${comparisonLabel}`}><strong>{comparisonLabel}</strong><ChevronDown size={14} /></button></MenuTrigger>
