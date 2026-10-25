@@ -1461,3 +1461,11 @@ keep their existing roles. Automatic menu text uses the style paragraph color
 when readable against the bar, otherwise contrasting neutral ink. Explicit text
 colors remain authoritative. Each role survives draft, preview and publication
 and can be reset independently. The Wolt preset retains its dedicated palette.
+
+Weekly batch rollover: `GET /orders/series` includes current configured service
+dates even with zero orders and marks the default with optional `is_current`.
+The operational batch advances after its last service day in restaurant time.
+Home and Orders in Series mode start on that date and refresh it independently
+of new orders, while keeping history selected on the open page and explicit
+payment-attention links. Ordering windows and carte publication keep their own
+rules; no migration is required. Deploy API before Admin.

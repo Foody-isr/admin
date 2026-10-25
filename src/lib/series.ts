@@ -12,22 +12,35 @@ export interface SerieRange {
 
 export type SeriePreset = 'last' | 'last3' | 'month' | 'all';
 
-/** Loads a restaurant's séries (newest first) once per restaurant. */
+/** Loads and refreshes the restaurant's séries so empty weekly batches roll over. */
 export function useOrderSeries(restaurantId: number): OrderSerie[] {
-  const [series, setSeries] = useState<OrderSerie[]>([]);
+  const [state, setState] = useState<{ restaurantId: number; series: OrderSerie[] }>({ restaurantId, series: [] });
   useEffect(() => {
     if (!restaurantId) return;
     let active = true;
-    fetchOrderSeries(restaurantId)
-      .then((list) => {
-        if (active) setSeries(list);
-      })
-      .catch(() => {});
+    let pending = false;
+    const refresh = () => {
+      if (pending || document.visibilityState === 'hidden') return;
+      pending = true;
+      fetchOrderSeries(restaurantId)
+        .then((series) => {
+          if (active) setState({ restaurantId, series });
+        })
+        .catch(() => {})
+        .finally(() => { pending = false; });
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 60_000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
     return () => {
       active = false;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
     };
   }, [restaurantId]);
-  return series;
+  return state.restaurantId === restaurantId ? state.series : [];
 }
 
 /** Resolves a preset to a série range against the série list (newest first).

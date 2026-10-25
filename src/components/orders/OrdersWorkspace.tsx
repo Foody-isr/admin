@@ -826,7 +826,8 @@ export default function OrdersWorkspace() {
             triggerClassName={`list-filter-button ${styles.dateFilter}`}
             triggerContent={<span dir="ltr" title={t(dateField === 'created' ? 'orderDate' : 'dateBasisSerieOption')}>{[dateRange.from, dateRange.to].map(date => `${date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })} ${date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`).join(' - ')}</span>}
             weekStartDay={weekStartDay} workdays={workdays}
-            restaurantId={rid} basis={dateField} onBasisChange={changeDateField} series={serieList} />
+            restaurantId={rid} basis={dateField} onBasisChange={changeDateField} series={serieList}
+            defaultToCurrentSerie={filtersReady && !paymentAttentionScope} />
           <ListChoiceFilter label={t('type')} options={typeOptions} value={typeFilter} onChange={value => { setTypeFilter(value); setPage(0); }} />
           <div className={styles.secondaryFilters}>
             <ListChoiceFilter label={t('paymentStatus')} options={[{ value: '', label: t('all') }, ...paymentOptions]} value={paymentFilter} onChange={value => { setPaymentFilter(value); setPage(0); }} />

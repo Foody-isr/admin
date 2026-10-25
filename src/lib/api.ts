@@ -5750,6 +5750,8 @@ export interface OrderSerie {
   date: string; // YYYY-MM-DD
   order_count: number;
   revenue: number; // paid revenue only, matches the dashboard KPIs
+  /** Default service date of the current weekly batch, in restaurant time. */
+  is_current?: boolean;
 }
 
 export async function fetchOrderSeries(restaurantId: number): Promise<OrderSerie[]> {
