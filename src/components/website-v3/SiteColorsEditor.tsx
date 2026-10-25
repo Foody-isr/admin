@@ -36,6 +36,7 @@ const menuGroups = [
     label: "editorCategoryMenu",
     roles: [
       "bar_background",
+      "menu_text",
       "category_text",
       "pill_background",
       "active_background",

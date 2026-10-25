@@ -1452,3 +1452,12 @@ hides the carte tabs. Switching cartes clears menu search and keeps the cart.
 The Admin interactive preview and public storefront share the same renderer.
 Synthetic browser regression: `FOODY_MENU_TABS=1 npx playwright test -c
 playwright.website-editor.config.ts menu-tabs.spec.ts` from foodyadmin.
+
+Menu-tab text and category navigation text have separate shared menu color roles:
+`menu_text` and `category_text`. **Site design → Colors → Customize menu colors →
+Category menu** exposes **Menu text** independently of **Category text**. The
+former colors carte tabs and their underline; category links, search and icons
+keep their existing roles. Automatic menu text uses the style paragraph color
+when readable against the bar, otherwise contrasting neutral ink. Explicit text
+colors remain authoritative. Each role survives draft, preview and publication
+and can be reset independently. The Wolt preset retains its dedicated palette.

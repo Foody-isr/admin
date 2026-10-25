@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "4b3d79a98f959f51a957ae15c7b154751d6507b4",
-  "documentationRevision": "2a0402fe8a79da67ab27839d88b5ade8f74b5e4792a793efdc5aaef96a24a736",
+  "documentationRef": "cfc1095e5ae4592b5b567987ad3d5c1265676f8b",
+  "documentationRevision": "d4531902e56e31dd04bb4663188e3887387fd2dbe27b580df4bb3419b86ac545",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -487,15 +487,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/customize-your-site.mdx",
-          "sha256": "bea2d9f6ac1fdecb8b62196b0a5aa073b7c92f5704f79dc1a2656635f71b0b42"
+          "sha256": "8edaf85b63da0e0d4ad07f03ffe828cf5a93c61bc2bb7a4ed1b4b10ec9b9c12e"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/customize-your-site.mdx",
-          "sha256": "5a012cda8fdb3b3d055edfd76f08af41e7480cd1ea07ece4caeadb8881a44340"
+          "sha256": "9f76305d2459673f77d90eaee05dd688bae229adfa5ed5b50d2cf660dbc7d710"
         },
         "he": {
           "path": "src/content/help/he/website-qr/customize-your-site.mdx",
-          "sha256": "eca82d541bffdd207efece4b5230ebb22cec12fe692ee42d4039f5d41edda8e1"
+          "sha256": "72208c85c78eb7f482e21e615cd7805af8fd3b8fb3a111967340b93100000542"
         }
       }
     },
@@ -943,15 +943,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/design-and-branding.mdx",
-          "sha256": "4da47ce5d987bf7824d1d988d061a73842596d476a9f1c352c431ab09938bba1"
+          "sha256": "00a5447a24723edec148f100b60b1359f3cc31a3a1e2fdbf94d7fb3f8422ab69"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/design-and-branding.mdx",
-          "sha256": "962cdf84da4e5d090fa158eb54b8c5f2d494e194b3e84e8292c4e384f5c5596e"
+          "sha256": "a65159d9f62e704d0c6c21b9c0eec487d69c6efd34cf30818e0c02881cb9da7e"
         },
         "he": {
           "path": "src/content/help/he/website-qr/design-and-branding.mdx",
-          "sha256": "d7d6467d694b0f2be80f56410e80ba38903877ac24e4888d236c96661ea4f0e3"
+          "sha256": "f4272ac0f304174218611863ad7d068db4a7f2c1329e0422c7f0a9508419a365"
         }
       }
     },
@@ -1000,15 +1000,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/order-page.mdx",
-          "sha256": "1778af44898a344c0da4c62f85a86cc9b21428d8c90c5dbb600ff4631e3b5093"
+          "sha256": "62da48c0d6e0e14a3f69c648852e835f4cb9d87ec67959ff604f8f539b483575"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/order-page.mdx",
-          "sha256": "48a99a5011b86d4ed072049732278cc52007c56147f9143d94036e0cd6813132"
+          "sha256": "7e436f74e8b62377975bd54c2859987340923c837c15eb6f846550fa3bc69179"
         },
         "he": {
           "path": "src/content/help/he/website-qr/order-page.mdx",
-          "sha256": "f232f35bdd0acfda9a8a76f65ef9efe65e4ea5c7bf0fa332d2595253b4209d4d"
+          "sha256": "98a830dc1dc1ff7e272c178640cb4b0f1899c481834f2e40aee5f93627e40baa"
         }
       }
     },
@@ -6005,10 +6005,11 @@
       ]
     },
     "src/components/website-v3/SiteColorsEditor.tsx": {
-      "sha256": "b53a7312c4752609570aa1ce52d2b78576aee8dc0ab8d289250bec553143a3dd",
+      "sha256": "8d0468edf1f8681b5e919a3f34ea2f31e2b730777b016f1f211a6e3371a61aa2",
       "features": [
         "website-qr-customize-your-site",
-        "website-design"
+        "website-design",
+        "website-order-design"
       ]
     },
     "src/components/website-v3/SiteDesign.tsx": {
@@ -6322,7 +6323,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "182f7a8096cb8ef8990e4fcbd8602b798623c6b76213a564482e909c4512ce98",
+      "sha256": "0331452727d0706c49840bca26d91db2db8c7c52fd0a9a9f7c64afd9ae7c19f5",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -7175,9 +7176,10 @@
       ]
     },
     "src/lib/website-v3/site-colors.ts": {
-      "sha256": "a56249f9f26e264b3c4345ed5eda9498e6df36e16c2c4be623209a005cd648c3",
+      "sha256": "98069e33b9ec54825f77720054e9c61443c8dfc0c5be6e80e6be054a158bbe92",
       "features": [
         "website-qr-customize-your-site",
+        "website-order-design",
         "shared-runtime"
       ]
     },
@@ -21488,7 +21490,8 @@
       "line": 1,
       "features": [
         "website-qr-customize-your-site",
-        "website-design"
+        "website-design",
+        "website-order-design"
       ],
       "labels": [
         "editorAddColor",

@@ -12,6 +12,7 @@ export const SITE_MENU_COLOR_ROLES = [
   "background",
   "heading",
   "bar_background",
+  "menu_text",
   "category_text",
   "pill_background",
   "active_background",
@@ -212,6 +213,8 @@ export function resolveSiteMenuColors(style: SiteColorStyle): SiteMenuColors {
     background,
     heading: menu.heading ?? style.title,
     bar_background: bar,
+    menu_text: menu.menu_text ??
+      (colorContrast(style.paragraph, bar) >= 3 ? style.paragraph : siteContrastInk(bar)),
     category_text:
       menu.category_text ??
       style.paragraph,

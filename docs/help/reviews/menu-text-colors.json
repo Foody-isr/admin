@@ -1,0 +1,30 @@
+{
+  "files": [
+    {
+      "path": "src/lib/website-v3/site-colors.ts",
+      "sha256": "98069e33b9ec54825f77720054e9c61443c8dfc0c5be6e80e6be054a158bbe92",
+      "baseSha256": "a56249f9f26e264b3c4345ed5eda9498e6df36e16c2c4be623209a005cd648c3",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed diff only adds the menu_text color role, its editor field and three translated labels. The website color guides document the field. Library menu management, customer profiles, delivery, Google, POS, WhatsApp and shared runtime behavior and procedures remain unchanged."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "0331452727d0706c49840bca26d91db2db8c7c52fd0a9a9f7c64afd9ae7c19f5",
+      "baseSha256": "182f7a8096cb8ef8990e4fcbd8602b798623c6b76213a564482e909c4512ce98",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-dispatch",
+        "google-account-setup",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed diff only adds the menu_text color role, its editor field and three translated labels. The website color guides document the field. Library menu management, customer profiles, delivery, Google, POS, WhatsApp and shared runtime behavior and procedures remain unchanged."
+    }
+  ]
+}
