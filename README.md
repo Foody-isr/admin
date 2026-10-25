@@ -1438,5 +1438,5 @@ No schema migration or environment change. Local regression:
 `npx playwright test -c playwright.redesign.config.ts order-whatsapp.spec.ts orders-detail-square.spec.ts orders-square.spec.ts`
 and `npx tsx --test src/lib/orders/__tests__/whatsapp-composer.test.ts`.
 Design decisions: `docs/foodyadmin-redesign/unified-whatsapp-composer.md`.
-Help contracts remain pinned to WORKSPACE for local review until an immutable
-Landing documentation commit is explicitly authorized before CI/publication.
+Help contracts pin the reviewed immutable Landing documentation commit before
+PR readiness and coordinated publication.

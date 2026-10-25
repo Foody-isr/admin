@@ -7,7 +7,7 @@ const route = (id: number, status: DeliveryRoute['status'] = 'draft'): DeliveryR
 
 async function install(page: Page, options: { active?: boolean; missing?: boolean; mismatch?: boolean; locale?: string } = {}) {
   const fixture = createFixture();
-  const state = { routes: [route(1, options.active ? 'active' : 'draft'), route(2)], requests: [] as string[], writes: [] as { path: string; rid?: string; body: any }[], failDelivered: false, failNavigation: false, errors: [] as string[] };
+  const state = { routes: [route(1, options.active ? 'active' : 'draft'), route(2)], requests: [] as string[], writes: [] as { path: string; rid?: string; body: any }[], failDelivered: false, failDeliveredStatus: 400, failNavigation: false, errors: [] as string[] };
   if (options.missing) Object.assign(state.routes[0].stops[0], { lat: null, lng: null, needs_geocode: true });
   page.on('pageerror', error => state.errors.push(error.message));
   await page.addInitScript(({ locale }) => {
@@ -34,7 +34,7 @@ async function install(page: Page, options: { active?: boolean; missing?: boolea
       state.writes.push({ path, rid, body });
       const selected = state.routes.find(route => route.id === Number(path.split('/')[5]))!;
       if (path.endsWith('/delivered')) {
-        if (state.failDelivered) return intercepted.fulfill({ status: 400, json: { error: 'delivery operation failed' } });
+        if (state.failDelivered) return intercepted.fulfill({ status: state.failDeliveredStatus, json: { error: 'delivery operation failed' } });
         const item = selected.stops.find(stop => stop.id === Number(path.split('/')[7]))!;
         item.status = 'delivered';
         if (selected.stops.every(stop => stop.status === 'delivered' || stop.status === 'skipped')) selected.status = 'completed';
@@ -54,6 +54,76 @@ async function install(page: Page, options: { active?: boolean; missing?: boolea
 }
 const run = (page: Page, id = 1) => page.locator(`[data-route-id="${id}"]`);
 const card = (page: Page, id = 1) => page.locator(`[data-stop-id="${id}"]`);
+
+for (const locale of ['fr', 'he']) {
+  test(`fixed delivery action follows the selected timeline stop (${locale})`, async ({ page }) => {
+    const state = await install(page, { active: true, locale });
+    state.routes[0].stops[1].address = 'Destination sélectionnée 2';
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/1/orders/deliveries');
+    await card(page, 2).locator('button[aria-expanded]').click();
+    const dock = run(page).getByTestId('courier-action-dock');
+    await expect(dock).toContainText(locale === 'he' ? 'העצירה הנבחרת 02' : 'Arrêt sélectionné 02');
+    await expect(dock).toContainText('Destination sélectionnée 2');
+    await dock.getByRole('button', { name: locale === 'he' ? 'סמן נמסר' : 'Marquer livrée', exact: true }).click();
+    await expect.poll(() => state.routes[0].stops[1].status).toBe('delivered');
+    expect(state.routes[0].stops[0].status).toBe('pending');
+    expect(state.writes.map(write => write.path)).toEqual(['/api/v1/delivery/routes/1/stops/2/delivered']);
+    expect(state.errors).toEqual([]);
+  });
+}
+
+test('fixed navigation and delivery actions follow the selected map pin', async ({ page }) => {
+  const state = await install(page, { active: true }); useDemoRoute(state); await demoTiles(page);
+  await page.goto('/1/orders/deliveries');
+  await run(page).getByTitle('4: Avenue des Oliviers 4', { exact: true }).click();
+  const dock = run(page).getByTestId('courier-action-dock');
+  await expect(dock).toContainText('Arrêt sélectionné 04');
+  await expect(dock).toContainText('Avenue des Oliviers 4');
+  await dock.getByRole('button', { name: 'Choisir une application de navigation' }).click();
+  const destination = new URL((await page.getByRole('menuitem', { name: 'Waze' }).getAttribute('href'))!);
+  const selected = state.routes[0].stops[3];
+  expect(destination.searchParams.get('ll')).toBe(`${selected.lat},${selected.lng}`);
+  await page.keyboard.press('Escape');
+  await dock.getByRole('button', { name: 'Marquer livrée', exact: true }).click();
+  await expect.poll(() => state.routes[0].stops[3].status).toBe('delivered');
+  expect(state.routes[0].stops[0].status).toBe('pending');
+  expect(state.writes.map(write => write.path)).toEqual(['/api/v1/delivery/routes/1/stops/4/delivered']);
+});
+
+test('selecting a finished stop disables completion without targeting a different order', async ({ page }) => {
+  const state = await install(page, { active: true }); state.routes[0].stops[0].status = 'delivered';
+  await page.goto('/1/orders/deliveries');
+  await card(page, 1).locator('button[aria-expanded]').click();
+  const dock = run(page).getByTestId('courier-action-dock');
+  await expect(dock).toContainText('Arrêt sélectionné 01');
+  await expect(dock.getByRole('button', { name: 'Marquer livrée', exact: true })).toBeDisabled();
+  expect(state.routes[0].stops[1].status).toBe('pending');
+  expect(state.writes).toEqual([]);
+});
+
+test('an obsolete route response preserves the selected stop and does not complete another order', async ({ page }) => {
+  const state = await install(page, { active: true }); state.failDelivered = true; state.failDeliveredStatus = 409;
+  await page.goto('/1/orders/deliveries');
+  await card(page, 2).locator('button[aria-expanded]').click();
+  await run(page).getByTestId('courier-action-dock').getByRole('button', { name: 'Marquer livrée', exact: true }).click();
+  await expect(run(page).getByText('Impossible de marquer cette commande comme livrée. Réessayez.')).toBeVisible();
+  expect(state.routes[0].stops.every(stop => stop.status === 'pending')).toBe(true);
+  expect(state.writes.map(write => write.path)).toEqual(['/api/v1/delivery/routes/1/stops/2/delivered']);
+});
+
+for (const paymentMethod of ['cash', 'credit_card', 'verifone', undefined]) {
+  test(`courier shows the order amount only for cash: ${paymentMethod ?? 'unknown'}`, async ({ page }) => {
+    const state = await install(page);
+    Object.assign(state.routes[0].stops[0], { total_amount: 987, payment_method: paymentMethod });
+    await page.goto('/1/orders/deliveries');
+    await expect(card(page)).toBeVisible();
+    const amount = card(page).getByText(/987/);
+    if (paymentMethod === 'cash') await expect(amount).toBeVisible();
+    else await expect(amount).toHaveCount(0);
+    expect(state.errors).toEqual([]);
+  });
+}
 
 test('courier selects any assigned route and can call before departure', async ({ page }) => {
   const state = await install(page); await page.goto('/1/orders/deliveries');

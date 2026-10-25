@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "WORKSPACE",
-  "documentationRevision": "35fcf7e0edc12983677b73ae82f19e1b1c847c326a19f03b7ce2f72e09893dd9",
+  "documentationRef": "39b0321fbb195aaa9034c263186b941d4fa80939",
+  "documentationRevision": "cda07b6e3e45c5c178f78217c9a8db6efbab976ae3deb7e6f919d782f710cbc2",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -107,15 +107,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/customers/managing-customers.mdx",
-          "sha256": "1d843b7a4392b9026e895d357cb80eb75471d99f84d28cb046c6af78fa69bffc"
+          "sha256": "803e8f355d12842304258e952bad57cf6fbd178a50a4984cf7fa41adac00febe"
         },
         "fr": {
           "path": "src/content/help/fr/customers/managing-customers.mdx",
-          "sha256": "349387686450e27549ac6aaec05ca151d09735f01d024269bf16fc10ef72f665"
+          "sha256": "c1c816b7fd5467f92129ef1d303fc962b0418ad35928f212c7c0a7a03829c2f7"
         },
         "he": {
           "path": "src/content/help/he/customers/managing-customers.mdx",
-          "sha256": "f2e517f9626f64872455c711c78a0090513aa883bd9a20ddc2b324b07df1fa03"
+          "sha256": "66b0d506b0ee9592c6e4fbfd31df132c5482fb23219495b158dfb53440cec628"
         }
       }
     },
@@ -430,15 +430,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/managing-orders.mdx",
-          "sha256": "e7ece1b52bc992a665a6e9f59a00aaa2884f68ef74062d32eb2421f9c6904257"
+          "sha256": "4f9a17aa622cbbc8adfd183d6d57fe9ece92f50f996c55aa31563d8cd7c34ced"
         },
         "fr": {
           "path": "src/content/help/fr/orders/managing-orders.mdx",
-          "sha256": "0a282fe6503a4560e79ad2e126ba8e4f3305f343438a2dba4f89ddd22aa8a80d"
+          "sha256": "faa5d3a599a04eb4218d50bdf7a06d7c35edb4d80e047512af62838c934f9faa"
         },
         "he": {
           "path": "src/content/help/he/orders/managing-orders.mdx",
-          "sha256": "481c45f3611fc5fa9908af7ce6370d75fe4df0f8b3805684060acab87151a64d"
+          "sha256": "d3da50407a06c1b179947eb99d652666eed2c25e830570631ea67df337817511"
         }
       }
     },
@@ -525,15 +525,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/order-types.mdx",
-          "sha256": "228c3b757b24c5b8ba82a2ef882fbe0182014bf1f07130c23fcbcc0978864d38"
+          "sha256": "9adad93200fccea5ca574604b580e99c3333295d2ef74ebe588f2ab2f0c30992"
         },
         "fr": {
           "path": "src/content/help/fr/orders/order-types.mdx",
-          "sha256": "e612bc2b54b98f459e7938e461f2894c0324bfd7edc560f296bc8e1a62c98996"
+          "sha256": "41b76d517de452f49dbccf69047fc39cfd599da10f99e24028b5968304881cd6"
         },
         "he": {
           "path": "src/content/help/he/orders/order-types.mdx",
-          "sha256": "98ea34538918570aa66b0bc5c3c72182c9f75d17e96d2a5acd9d912f73d8b542"
+          "sha256": "7fe8dccef7c3c0dd165d89c5a3d7f17f84cb70fc1635623436103d8700ec8c81"
         }
       }
     },
@@ -563,15 +563,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/service-mode.mdx",
-          "sha256": "e69db2910abaa9ae895be4f61c0684199c82bb92c38843548be6a6d5bdc168ed"
+          "sha256": "4adef940157630a08ba331919a6e73d0871730e6d0720a68a2605eb9e91cd12b"
         },
         "fr": {
           "path": "src/content/help/fr/settings/service-mode.mdx",
-          "sha256": "3e7b74feb3f0197a5b8ec98529598a620053fa0ab7a200e687b4b6b313f137ea"
+          "sha256": "919c5131a6d116bb971a2621250a3d8f012075fed687965d3ab14b1f718269c5"
         },
         "he": {
           "path": "src/content/help/he/settings/service-mode.mdx",
-          "sha256": "e81516f65a034fb23c464919c67e0da0d1f5c3c769cfb22ad4ccc13817b0343b"
+          "sha256": "5fa4ac1ad02e1c35e0453cdf30f29f89c83847cad0163b1d59157b9071ebc652"
         }
       }
     },
@@ -620,7 +620,7 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/order-details.mdx",
-          "sha256": "fab2bffffc8af4a8ab780581daab9fea65baf82347b172eab923599dce5d6c19"
+          "sha256": "7f396e3d774c552c68eb4cb24bcc1dc5edd11c09e7f6aac7fc012ea6e8926b5c"
         },
         "fr": {
           "path": "src/content/help/fr/orders/order-details.mdx",
@@ -628,7 +628,7 @@
         },
         "he": {
           "path": "src/content/help/he/orders/order-details.mdx",
-          "sha256": "988e13167eacd188b86245d3e398469cde93792962ab61463c42de2277df3e8c"
+          "sha256": "3679c1bc4f101354f7cdb38b2eba5642dcd2bf77b525700f223bc22b73d86197"
         }
       }
     },
@@ -715,15 +715,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "2dca984cd6eaa9911bf2c494abea0c423084a672e5bfca7649f0a0613cc7a867"
+          "sha256": "a5f882afc8cb80b4e33a0fa57f37d06bf3ef7817014f822e3b2efde8bc888ac2"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "1dde7d529ebf13a742b6b4e8c26c84f7da2e761f638ea263af962fc9b6219b37"
+          "sha256": "7ac896bda769aa61d1c97b5a07f60194145be2197d087b9ea1b2495f7ce882f9"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "0a901da15780fd0e281cd61d2956938334b9133c1b95bc1a66fe984623094299"
+          "sha256": "bd6bcc639b3aab0a708885f81a91bf44e2a59a1b934f340126f24404b3efbcc2"
         }
       }
     },
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/courier-workspace.mdx",
-          "sha256": "fdd36d005936fefa1a1d7bb33de51167f6a53589b7c4b68c87d4f3a5d8279749"
+          "sha256": "2eff25905d9db548ac771440c07b20f3cdfbb1c1edb3d2e5da63ae973d032ebb"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/courier-workspace.mdx",
-          "sha256": "fcf36d0bf76e082d158b0dcd05e0e3043fccda79066f139f00abeb439a9de4e1"
+          "sha256": "03ae792cab1898d343b6441aa0e7adcaab91f1b42b75161181d23d1d6256c9e8"
         },
         "he": {
           "path": "src/content/help/he/delivery/courier-workspace.mdx",
-          "sha256": "b65128a7f89c7679a7089dabdf84a0fbb33f23f500f500c1d0e330f76f42edb6"
+          "sha256": "f4900bcbe5f84f88a79a026d71885de684464a160ec2b4c122aa99660540b695"
         }
       }
     },
@@ -1076,15 +1076,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/fulfillment-and-ordering.mdx",
-          "sha256": "5e6d39dd9459a45ca3a5ef2ca406ef0b2450cb40eb3a7381a2be51314ec27343"
+          "sha256": "3fc22647953e1f7c5d7fb2f9d1b51c756b05ec06dfe33c044d0791c77a213984"
         },
         "fr": {
           "path": "src/content/help/fr/settings/fulfillment-and-ordering.mdx",
-          "sha256": "2e95c2657482b119afafef64cbe290a695d88a773f96f93af7bcc3d36488ad1b"
+          "sha256": "3bd2ae3ccd257a2cbb128a0c86ef00f4c7cc692fc2e86bd4f2c7d9d016fc978a"
         },
         "he": {
           "path": "src/content/help/he/settings/fulfillment-and-ordering.mdx",
-          "sha256": "d1eec89b1088eaa516733b7084460b2dcc103fc929edb1c1de42f9391660fa50"
+          "sha256": "42d9af2c38cf68c4cc317e74355de18766ae2cafe60c945f25a7be4ce9ff7c4d"
         }
       }
     },
@@ -1095,15 +1095,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/pos-behavior.mdx",
-          "sha256": "aa62431c64047d53f949dc2b148eb26131a48b8f44cdc10e42070336ae554251"
+          "sha256": "e1e8df92b0fc5eba47071c75fbd15aa098add1e9303d5351dca669cb577cc6d4"
         },
         "fr": {
           "path": "src/content/help/fr/settings/pos-behavior.mdx",
-          "sha256": "b530a0014c86ba92064f8e5671f41f90824aff5ebce04c401650e9e9452be764"
+          "sha256": "1dee5140ad15e7c0258745ca7354dad8256791cef3f07b73777de930a2b499d6"
         },
         "he": {
           "path": "src/content/help/he/settings/pos-behavior.mdx",
-          "sha256": "35671aefd0827bc5bf0f73aa12dc73736010e2cc330f83cc66a9ff97acd5d357"
+          "sha256": "7c814cf33d1fac950cf9eae9452839b77756fe783ab4c78a6f233710289f42f1"
         }
       }
     },
@@ -1551,15 +1551,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "56f7d6999d2353cd817b01a0138f16f57f73218fc07d0cd73e7af85a85dd9543"
+          "sha256": "ff694496fdc4d3b67d9238537e2d08f89e8beb7f2625ad6815c41dbace109103"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "5c104386c01e594eb1759b38a526e323c826f6d4a1d953b9f6d37af5d42c0390"
+          "sha256": "f006778a65e2de62de5c986a760c7a588b6a259143cba8c2932b8ce2df4e32cc"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "2e8ab65962c4c4eed9668334237d4cfc8486f2661fc9ca738be36cf03dadef72"
+          "sha256": "0c9843e7b62648c34630f3bb727d1cd241ef2b6941795d5909ea9ef41d9b814d"
         }
       }
     },
@@ -1608,15 +1608,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/catering-request.mdx",
-          "sha256": "db0f71e02cd72dbf40fc638a1894ffe444b0d53edcb33bb3a126372f3f558c05"
+          "sha256": "de0a006747c7fc971a6f7a50bff9400f0ed11df075517474c93e147023e93c79"
         },
         "fr": {
           "path": "src/content/help/fr/guest/catering-request.mdx",
-          "sha256": "6a1fa37c182e9c33ecdc7881db5b5001aba62e6e3cf7f6f40d65ddd4bfbba83d"
+          "sha256": "83e82f0c9f6fa7b2c159f23a7d3bf0d4cf60a03074bd03e2966e721147203af9"
         },
         "he": {
           "path": "src/content/help/he/guest/catering-request.mdx",
-          "sha256": "7b1b197d83328d3a16f12797802e0b9a1f8ab2905adf256537894059c3be7e06"
+          "sha256": "7a81d412148bd31fabbd1f99353119c41b4ba3645812e76c4ffe00f1868df098"
         }
       }
     },
@@ -1798,15 +1798,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/shared-runtime.md",
-          "sha256": "f5d59f279de83bf1f4c30158ce7ff06306f6af7c36f320b70eedcd3de0b03347"
+          "sha256": "dce1e4195e224d0a56dd093c5f0b83a68e6101954fd521a5b40da81c8efb0400"
         },
         "fr": {
           "path": "docs/help/internal/fr/shared-runtime.md",
-          "sha256": "40c075242361696f21aa2d32fadadd5cf340e40a1b09e354416ced5ee7d141e6"
+          "sha256": "62ea98edb9851b1a9e12f1e85ba0d0abfd6b00f65d000bea0b998f0803b80c1f"
         },
         "he": {
           "path": "docs/help/internal/he/shared-runtime.md",
-          "sha256": "e93ccb3ac4887b199c6506b844b3f08bfb5034f3ba46bd4ab36e3d92acfe5eda"
+          "sha256": "ab8fde4eee86518937e6233143ea05bebda9d1efa5239bdf8d021b9adbf4f820"
         }
       }
     },
@@ -2046,7 +2046,7 @@
       ]
     },
     "src/app/[restaurantId]/customers/page.tsx": {
-      "sha256": "61bbb3dcb1f40a0855879fcf1d46b6ce7d1eaef1dc198fb0824f7fb5fa738cd9",
+      "sha256": "92bfdf93626656e322167561c70b46ca831242ec735beada99ff49f48c2c0c3c",
       "features": [
         "customers-profiles"
       ]
@@ -3745,12 +3745,6 @@
         "customers-profiles"
       ]
     },
-    "src/components/customers/CustomerPhoneCorrectionModal.tsx": {
-      "sha256": "e9b89ce4e04d811f6a071887ba11c9dfdde4c76b747bcf1c664ca60ff59e5a8e",
-      "features": [
-        "customers-profiles"
-      ]
-    },
     "src/components/data-table/ColumnPicker.tsx": {
       "sha256": "b37c9aed6f99bc336e8733619f45e5caa05607c07a34d46a8c7b768923a3a234",
       "features": [
@@ -3802,7 +3796,7 @@
       ]
     },
     "src/components/delivery/CourierItineraryView.tsx": {
-      "sha256": "699d747992c87b9108c51a8df83c250e69eb985706edad082321b556f6ed8120",
+      "sha256": "debe828763e6049c4d960e7f64a05007b9e6db4c5ee378a6c924d6ae131192fd",
       "features": [
         "delivery-dispatch",
         "courier"
@@ -6112,9 +6106,8 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "715c99ca9bf8d1b05da8e617d786b30899f003c34090e4afeb524cd2f3e8b919",
+      "sha256": "7ecfef6d935d361a60033c0e2dd495287d98a6e963e941a52d6f884c9b8bec2e",
       "features": [
-        "customers-profiles",
         "payments-how-payments-work",
         "pos-payments",
         "shared-runtime"
@@ -6187,13 +6180,6 @@
         "shared-runtime"
       ]
     },
-    "src/lib/customer-phone.ts": {
-      "sha256": "a795040ea21bc7db7fc3f1460b33de5ce1e8232185a0a36640431bd08f661cf6",
-      "features": [
-        "customers-profiles",
-        "shared-runtime"
-      ]
-    },
     "src/lib/dashboard-comparison.ts": {
       "sha256": "835dace94cd6006fc0dbc57d9efa4c276be9c97fbcd8ff30689bb1face090b67",
       "features": [
@@ -6242,7 +6228,7 @@
       ]
     },
     "src/lib/delivery.ts": {
-      "sha256": "d1ec9889c8c4c32554504f277f1573fbdc01e889a9c1595502187990d6f5d12f",
+      "sha256": "9b7e09c802172fbf9c763dac662ae17da0f2ae6b3b22622bb0c91e47357123e7",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -6298,9 +6284,8 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "6fedfe5ba2e72c52c0e26edda6f5eeb197be727caeb7a3fe9a10c54b8e841a28",
+      "sha256": "95c1eb8b268821003211e779a8e0dc902a62c60299156cdc41a487cac2849dd5",
       "features": [
-        "customers-profiles",
         "delivery-dispatch",
         "google-account-setup",
         "pos-behavior",
@@ -8128,13 +8113,9 @@
         "addCustomer",
         "address",
         "canPayCash",
-        "correctCustomerPhone",
-        "correctCustomerPhones",
-        "correctCustomerPhonesSelected",
         "customerLoadFailed",
         "customers",
         "editCustomer",
-        "invalidPhoneBadge",
         "lastOrder",
         "listClearSelection",
         "loading",
@@ -15163,7 +15144,6 @@
         "courierDeliveryProgress",
         "courierEstimatedFinish",
         "courierFinishCurrentRoute",
-        "courierNextStop",
         "courierRefineRoute",
         "courierResizePanel",
         "courierRouteMap",
@@ -15173,6 +15153,7 @@
         "courierSearchStops",
         "courierSelectRoute",
         "courierSelectStop",
+        "courierSelectedStop",
         "courierStartAction",
         "courierStopOptions",
         "deliveryExpectedArrival",
@@ -19781,6 +19762,143 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/settings/POSSettingsWorkspace.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/settings/POSSettingsWorkspace.tsx",
+      "line": 1,
+      "features": [
+        "order-types",
+        "pos-service-modes",
+        "pos-behavior"
+      ],
+      "labels": [
+        "actions",
+        "apply",
+        "back",
+        "cancel",
+        "close",
+        "delete",
+        "discardChanges",
+        "discardUnsavedChanges",
+        "edit",
+        "fullServiceAutoProgression",
+        "fullServiceCoursing",
+        "fullServiceInvalid",
+        "fullServiceSeating",
+        "fullServiceSort",
+        "loading",
+        "manage",
+        "name",
+        "next",
+        "orderType",
+        "posAddCourse",
+        "posAddMode",
+        "posAfterAddingItem",
+        "posAllowHoldFire",
+        "posAllowHoldFireHint",
+        "posAssignedCategories",
+        "posAssignedDevices",
+        "posCheckout",
+        "posCollapseSent",
+        "posCollapseSentHint",
+        "posContinueButton",
+        "posContinueButtonHint",
+        "posCourseOrderHint",
+        "posCoursingHint",
+        "posDefault",
+        "posDeleteCourse",
+        "posDeleteMode",
+        "posDeleteModeHint",
+        "posDeviceAssignmentHint",
+        "posDiningAdd",
+        "posDiningAlwaysTracked",
+        "posDiningAlwaysTrackedHint",
+        "posDiningApplyHint",
+        "posDiningCustomerHint",
+        "posDiningCustomerScreen",
+        "posDiningCustomerUnavailable",
+        "posDiningCustomize",
+        "posDiningDisplayHint",
+        "posDiningDisplayText",
+        "posDiningFirstDefault",
+        "posDiningKeepOne",
+        "posDiningLocation",
+        "posDiningRemove",
+        "posDiningTypeHint",
+        "posDiningUnavailable",
+        "posDiningWorkflow",
+        "posExpandSent",
+        "posExpandSentHint",
+        "posFulfillment",
+        "posFulfillmentIntro",
+        "posFulfillmentLocation",
+        "posFulfillmentMethods",
+        "posFulfillmentPrompt",
+        "posFulfillmentTitle",
+        "posFullServiceMode",
+        "posGeneralChecks",
+        "posImmediateHint",
+        "posImmediateSend",
+        "posItemDetail",
+        "posItemDetailHint",
+        "posManageAddon",
+        "posManageGroupsHint",
+        "posManageItemDetails",
+        "posManageLocation",
+        "posModeCreatedDate",
+        "posModeDateUnavailable",
+        "posModeNoAssignedDevices",
+        "posModeNotFound",
+        "posModeResultsPerPage",
+        "posModeSharedHint",
+        "posModeSummaryHint",
+        "posModeUnavailableDevice",
+        "posModes",
+        "posMoveDown",
+        "posMoveUp",
+        "posNoDevices",
+        "posNoModes",
+        "posOpenChecks",
+        "posOpenChecksHome",
+        "posOpenChecksHomeHint",
+        "posOpenStatusNotice",
+        "posPredefinedTickets",
+        "posPrintFiredHeld",
+        "posPrintFiredHeldHint",
+        "posPrintFiredOnly",
+        "posPrintFiredOnlyHint",
+        "posPrintedCourseTickets",
+        "posProgressionHint",
+        "posRenameMode",
+        "posReorder",
+        "posRestaurantDefaults",
+        "posSearchModes",
+        "posSentItemsSection",
+        "posServicesIntro",
+        "posTicketGroups",
+        "posTileSize",
+        "posTileSizeHint",
+        "posUnassignedDevices",
+        "posUseOnMode",
+        "previous",
+        "retry",
+        "save",
+        "search",
+        "selectAll",
+        "settings",
+        "tableSettingsLoadFailed",
+        "view"
+      ],
+      "actions": [
+        "close",
+        "closeMethod",
+        "openCategoryPicker",
+        "openDevices",
+        "remove",
+        "save"
+      ]
+    },
+    {
       "id": "foodyadmin:src/components/settings/PersonalWhatsAppForm.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/settings/PersonalWhatsAppForm.tsx",
@@ -23631,7 +23749,6 @@
       "source": "src/lib/api.ts",
       "line": 1,
       "features": [
-        "customers-profiles",
         "payments-how-payments-work",
         "pos-payments",
         "shared-runtime"
@@ -24529,163 +24646,6 @@
       "labels": [],
       "actions": [
         "removeProcessingGuard"
-      ]
-    },
-    {
-      "id": "foodyadmin:src/components/settings/POSSettingsWorkspace.tsx:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/components/settings/POSSettingsWorkspace.tsx",
-      "line": 1,
-      "features": [
-        "order-types",
-        "pos-service-modes",
-        "pos-behavior"
-      ],
-      "labels": [
-        "actions",
-        "apply",
-        "back",
-        "cancel",
-        "close",
-        "delete",
-        "discardChanges",
-        "discardUnsavedChanges",
-        "edit",
-        "fullServiceAutoProgression",
-        "fullServiceCoursing",
-        "fullServiceInvalid",
-        "fullServiceSeating",
-        "fullServiceSort",
-        "loading",
-        "manage",
-        "name",
-        "next",
-        "orderType",
-        "posAddCourse",
-        "posAddMode",
-        "posAfterAddingItem",
-        "posAllowHoldFire",
-        "posAllowHoldFireHint",
-        "posAssignedCategories",
-        "posAssignedDevices",
-        "posCheckout",
-        "posCollapseSent",
-        "posCollapseSentHint",
-        "posContinueButton",
-        "posContinueButtonHint",
-        "posCourseOrderHint",
-        "posCoursingHint",
-        "posDefault",
-        "posDeleteCourse",
-        "posDeleteMode",
-        "posDeleteModeHint",
-        "posDeviceAssignmentHint",
-        "posDiningAdd",
-        "posDiningAlwaysTracked",
-        "posDiningAlwaysTrackedHint",
-        "posDiningApplyHint",
-        "posDiningCustomerHint",
-        "posDiningCustomerScreen",
-        "posDiningCustomerUnavailable",
-        "posDiningCustomize",
-        "posDiningDisplayHint",
-        "posDiningDisplayText",
-        "posDiningFirstDefault",
-        "posDiningKeepOne",
-        "posDiningLocation",
-        "posDiningRemove",
-        "posDiningTypeHint",
-        "posDiningUnavailable",
-        "posDiningWorkflow",
-        "posExpandSent",
-        "posExpandSentHint",
-        "posFulfillment",
-        "posFulfillmentIntro",
-        "posFulfillmentLocation",
-        "posFulfillmentMethods",
-        "posFulfillmentPrompt",
-        "posFulfillmentTitle",
-        "posFullServiceMode",
-        "posGeneralChecks",
-        "posImmediateHint",
-        "posImmediateSend",
-        "posItemDetail",
-        "posItemDetailHint",
-        "posManageAddon",
-        "posManageGroupsHint",
-        "posManageItemDetails",
-        "posManageLocation",
-        "posModeCreatedDate",
-        "posModeDateUnavailable",
-        "posModeNoAssignedDevices",
-        "posModeNotFound",
-        "posModeResultsPerPage",
-        "posModeSharedHint",
-        "posModeSummaryHint",
-        "posModeUnavailableDevice",
-        "posModes",
-        "posMoveDown",
-        "posMoveUp",
-        "posNoDevices",
-        "posNoModes",
-        "posOpenChecks",
-        "posOpenChecksHome",
-        "posOpenChecksHomeHint",
-        "posOpenStatusNotice",
-        "posPredefinedTickets",
-        "posPrintFiredHeld",
-        "posPrintFiredHeldHint",
-        "posPrintFiredOnly",
-        "posPrintFiredOnlyHint",
-        "posPrintedCourseTickets",
-        "posProgressionHint",
-        "posRenameMode",
-        "posReorder",
-        "posRestaurantDefaults",
-        "posSearchModes",
-        "posSentItemsSection",
-        "posServicesIntro",
-        "posTicketGroups",
-        "posTileSize",
-        "posTileSizeHint",
-        "posUnassignedDevices",
-        "posUseOnMode",
-        "previous",
-        "retry",
-        "save",
-        "search",
-        "selectAll",
-        "settings",
-        "tableSettingsLoadFailed",
-        "view"
-      ],
-      "actions": [
-        "close",
-        "closeMethod",
-        "openCategoryPicker",
-        "openDevices",
-        "remove",
-        "save"
-      ]
-    },
-    {
-      "id": "foodyadmin:src/components/customers/CustomerPhoneCorrectionModal.tsx:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/components/customers/CustomerPhoneCorrectionModal.tsx",
-      "line": 1,
-      "features": [
-        "customers-profiles"
-      ],
-      "labels": [
-        "correctCustomerPhones",
-        "customerPhoneAfter",
-        "customerPhoneBefore",
-        "customerPhoneConflict",
-        "customerPhoneCorrectionHint",
-        "phoneNumber"
-      ],
-      "actions": [
-        "save"
       ]
     }
   ]
