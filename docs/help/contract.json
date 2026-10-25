@@ -3,7 +3,7 @@
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
   "documentationRef": "WORKSPACE",
-  "documentationRevision": "52600cc6e33b02550861d38795534a3bffce664ff745fffbba60c90961db17c6",
+  "documentationRevision": "2a0402fe8a79da67ab27839d88b5ade8f74b5e4792a793efdc5aaef96a24a736",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -12,15 +12,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/first-login.mdx",
-          "sha256": "7b88acb12cc23ac52132a07dc787ba859032755c02b51ca8dc130ed00238fb50"
+          "sha256": "1ad2133213a5f7a0e9cd4aeabe024f5ac2423385fb9d9faba61dee1dd65dd74d"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/first-login.mdx",
-          "sha256": "debdfac9855dcd7d16ab2d68d4c4ee7bee5ad116ff424da86c02e48e873b23c2"
+          "sha256": "9644084638b54ca75e78f2c064bce66ffc945d37da01056c74f0ac60655e9a5f"
         },
         "he": {
           "path": "src/content/help/he/getting-started/first-login.mdx",
-          "sha256": "6cdf4627a7b950da2c71ec2579c6dc99c0dec75d0952aa1b661af9c6594c317f"
+          "sha256": "67dde5a5a9e5c981d2ef0b70ef2028018e082b8d6d6799fe2dbbda63dc3c28e0"
         }
       }
     },
@@ -88,15 +88,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/staff/devices-and-shifts.mdx",
-          "sha256": "666ee2ea068d4c7b5e0a5160c8654d4f531a1bae17ce70f43bd85406eee560b4"
+          "sha256": "96992cf990be25c10a13d80f26cbf8f8b3e6a598eefbec4c88451c44110b3a4d"
         },
         "fr": {
           "path": "src/content/help/fr/staff/devices-and-shifts.mdx",
-          "sha256": "e519125f3933720498572cd543c5ad7736500f78b453fa06a301323aab20ed1d"
+          "sha256": "1d7e5ba5089a7b045b79278ff327732261f83685564bb6e65833f4c6e1dadbc5"
         },
         "he": {
           "path": "src/content/help/he/staff/devices-and-shifts.mdx",
-          "sha256": "70fea18ddde8c62fd1b4471fa8447b6298f652c5cbf7ff893dbcb25008c60789"
+          "sha256": "d7fb268be38fad3aab2df31795410227bf17338303178a1f198d95bcc5e75fe9"
         }
       }
     },
@@ -107,15 +107,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/customers/managing-customers.mdx",
-          "sha256": "1d843b7a4392b9026e895d357cb80eb75471d99f84d28cb046c6af78fa69bffc"
+          "sha256": "ba06782d62d16d6d42a3c660ffbba2337c56a99e28b69f2498d0541a87564e41"
         },
         "fr": {
           "path": "src/content/help/fr/customers/managing-customers.mdx",
-          "sha256": "349387686450e27549ac6aaec05ca151d09735f01d024269bf16fc10ef72f665"
+          "sha256": "e880537d9ffdcaa5c842f6c091e9da411358de0258a88bf74d489873428dedad"
         },
         "he": {
           "path": "src/content/help/he/customers/managing-customers.mdx",
-          "sha256": "f2e517f9626f64872455c711c78a0090513aa883bd9a20ddc2b324b07df1fa03"
+          "sha256": "a5dd274127b35eeb684fa7af75df3a24e5d48776848d756f3a00bf171e71ad2f"
         }
       }
     },
@@ -164,15 +164,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/analytics/dashboard.mdx",
-          "sha256": "247c0378157af70eaa19233752138d234f59988074b6807ada179f297cd1944c"
+          "sha256": "970b603c7c2b52d068b9984038d1d38c149a8cbdb8f2d4ed4c4390e18ca0fac6"
         },
         "fr": {
           "path": "src/content/help/fr/analytics/dashboard.mdx",
-          "sha256": "154027995c21fe2cc9f37fbfd0350e32b59cc2502867a97e164842ee581d7f2e"
+          "sha256": "410132e0b52a512bc243a22608242b8576543f43476770c2b10a55fbe21828d4"
         },
         "he": {
           "path": "src/content/help/he/analytics/dashboard.mdx",
-          "sha256": "a165afe3d7a9b1f8ebe08246b6cd5f0b9b59b81d2795ad0669431bed2a352b63"
+          "sha256": "fadaa14914bfa84c00c4470de1fc99ddcf0a3f2d0dcb05dbd4e1faddcbe9c41d"
         }
       }
     },
@@ -392,15 +392,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/menus-and-groups.mdx",
-          "sha256": "815b98b23ccbcd677ac3da3cd000d8119b6b51fb36344cfe31e5fcff6decb1c6"
+          "sha256": "098d80c720362d09e3fe37aeaab4df2b414291a466b6e4c3ce928859cfe821e7"
         },
         "fr": {
           "path": "src/content/help/fr/menu/menus-and-groups.mdx",
-          "sha256": "b053261d7e3909bad05ff5d9671b1bcff80417e9c076faeaed70e5b3c44d25d6"
+          "sha256": "ec89fa1881eb3080dcde3d0ecc7e4bf0d07e99ceb579e467a7164072a352ed8c"
         },
         "he": {
           "path": "src/content/help/he/menu/menus-and-groups.mdx",
-          "sha256": "04efb90ca24d84876abe9011d76bdc644fa919f646dc40d192ce88ed3d651eb9"
+          "sha256": "4e5848ebffe62fea2b4fc05985ada85552bc0758ea085ddd53d765f80a22697f"
         }
       }
     },
@@ -430,15 +430,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/managing-orders.mdx",
-          "sha256": "0a00eda09b9313a476b9af76286ed09914dbd910b7b0e8570d9a67385b6822eb"
+          "sha256": "00a0fca45bc9e386275d2a3cf90a94e477f5fb26c835a6c48a4c323e96f64a0e"
         },
         "fr": {
           "path": "src/content/help/fr/orders/managing-orders.mdx",
-          "sha256": "5e6a2e72c910f81a4d3cb9492e1c81f81cf98277af6ad9f439ec393c695d45de"
+          "sha256": "ac66b0e5d7a896a6c4217905f01595cacb645a2a11a630d603d9b2c617b2043b"
         },
         "he": {
           "path": "src/content/help/he/orders/managing-orders.mdx",
-          "sha256": "8eb576a20700db8288993fd8fb4c8e0408f94aebaf85dd3d86425498594ba277"
+          "sha256": "317dfacebca14eec25a1c180a93e234087ed16f27373650e02610be51ba22b35"
         }
       }
     },
@@ -620,15 +620,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/order-details.mdx",
-          "sha256": "844a7158f50bf2f2f5cab3a44938cec98ef85f0ab80418a7939b6aec997abf7e"
+          "sha256": "73effb0b3adb7290a8638d42ebf9dfe419648807abbaabb776e3a4c0dfe84f1c"
         },
         "fr": {
           "path": "src/content/help/fr/orders/order-details.mdx",
-          "sha256": "e289225495235e4e1aabf73cda59f778e930851f88f2364c72c6b1ebea9058c1"
+          "sha256": "13aa5dd6b0fd3038490040d7e366adfb5d948fecf84a2502c6e155de152f9a3f"
         },
         "he": {
           "path": "src/content/help/he/orders/order-details.mdx",
-          "sha256": "94e25a4d198cd6e2043e88853e0a3c367bbd2731801ddba6cc05d72bca92940f"
+          "sha256": "cf291d01a6ea83266255832039aa808d645d3231eae9f4fc2cc6ef090a90d912"
         }
       }
     },
@@ -1000,15 +1000,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/order-page.mdx",
-          "sha256": "1528b7f9bd40a7b7d8165068214a3f613adf2791c501ec46ac758652f5fd5b2f"
+          "sha256": "1778af44898a344c0da4c62f85a86cc9b21428d8c90c5dbb600ff4631e3b5093"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/order-page.mdx",
-          "sha256": "014cae93f6efa0d8a197437d93dd05f75663003bb39e5040bd0c8ec78d04bc51"
+          "sha256": "48a99a5011b86d4ed072049732278cc52007c56147f9143d94036e0cd6813132"
         },
         "he": {
           "path": "src/content/help/he/website-qr/order-page.mdx",
-          "sha256": "c87b99bca684070e30ab6ca77f462f9358bf2f3f46da641f12376e38693d7e29"
+          "sha256": "f232f35bdd0acfda9a8a76f65ef9efe65e4ea5c7bf0fa332d2595253b4209d4d"
         }
       }
     },
@@ -1266,15 +1266,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/discount-comp-void.mdx",
-          "sha256": "4dbad95ade7df65d6684454c5f2b4b6b45cc2332c3a88c10041310a3eea4f3b2"
+          "sha256": "3484ce6c95bff8a7a204e4ead90f98e9e344969065184f6029c1e40f613bdc08"
         },
         "fr": {
           "path": "src/content/help/fr/orders/discount-comp-void.mdx",
-          "sha256": "97a6a2cbe64759859fde001f36707c8de9cd9c38024cb0178e4b664d18563e88"
+          "sha256": "aad1d14e4174c02b919057398c269c468de76e9665ed1edbfa55a96b924531f6"
         },
         "he": {
           "path": "src/content/help/he/orders/discount-comp-void.mdx",
-          "sha256": "d73779bfb8a6fa69ec719daf0199095f7cdecdc999058a67eafffdb170f134e4"
+          "sha256": "85ffe054ffc451dc364914c3f29bf55f6762a2d702c3455569eb2cfe40db08d9"
         }
       }
     },
@@ -1285,15 +1285,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/pos-checkout.mdx",
-          "sha256": "098186afdc94077199a3e03ab2f0cdb2b576f1ea8cabf777d2b0a885de6d7db6"
+          "sha256": "11f7345f86421fd2d8663750bdf8bc0eb12ce2bf48f959ca8bf3924933580355"
         },
         "fr": {
           "path": "src/content/help/fr/payments/pos-checkout.mdx",
-          "sha256": "94ab41ee7212787fb14d57ee354132585457f2451160087ab8fab325a4ee4dd9"
+          "sha256": "6a313791fd08e9e5112959c46fb00448c741f991bbc211c950155f88fae2c455"
         },
         "he": {
           "path": "src/content/help/he/payments/pos-checkout.mdx",
-          "sha256": "285b2c0da84eef120f59e8515ae1a4ba76a32793c94da45da1e0bdb5c5d01cbd"
+          "sha256": "9d642b19b2f2ea07a33c7fb4da61e95ceaecdc79ef67557dc33e1a6804160351"
         }
       }
     },
@@ -1304,15 +1304,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/pos-workspace.mdx",
-          "sha256": "2928145057a336fc34ac3375c09972f77f4cf323bc6ff8b7fa403a943320fe66"
+          "sha256": "86245584884323896380bbe63d32b44da6609b6e944dd0bf438935eb13262137"
         },
         "fr": {
           "path": "src/content/help/fr/settings/pos-workspace.mdx",
-          "sha256": "3ea218478c17b98f7617dd408a707f4dfe9fda7c3430eadff7c60881b34eee2a"
+          "sha256": "683439ed300a8ba12dc4d53c3e08130474545c13b7e7376c8f17b98306303116"
         },
         "he": {
           "path": "src/content/help/he/settings/pos-workspace.mdx",
-          "sha256": "196dcbdaf088b843f0d84cc95e107b9f6ce0e521ee428435d223122e6953f011"
+          "sha256": "a71701eba01a98fdbf2e09f3f8898688729cacbb156e5b666e92211f881fb4da"
         }
       }
     },
@@ -1494,15 +1494,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/communications/whatsapp.mdx",
-          "sha256": "2561bffc0dadc95dd88f2395e058375f79c89dc518542af156c3b5ec26235b62"
+          "sha256": "f8c2ee695843f93b8c92b2391460339a57829dce1402a455ad7d3e01326b5626"
         },
         "fr": {
           "path": "src/content/help/fr/communications/whatsapp.mdx",
-          "sha256": "74f3014edd569c517267a8bc81ce8d95ba7063100d0a8ba53f3afd26863b8dd7"
+          "sha256": "60460d65ab73244a1d717bb96a34049a9324d0ef9143f14880bee4d3bc70cb63"
         },
         "he": {
           "path": "src/content/help/he/communications/whatsapp.mdx",
-          "sha256": "1be737f971d52a62172b883c770ac620f7c7b3091eec357a627f5f4b602deb8e"
+          "sha256": "4e71c38c5304b922f5f9d7838bebf1184b291f0ff1427a5bc0075aa08b73b72f"
         }
       }
     },
@@ -1551,15 +1551,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "56f7d6999d2353cd817b01a0138f16f57f73218fc07d0cd73e7af85a85dd9543"
+          "sha256": "eb64a824459884bb07e57b83eaf7f9d30fdee3e48c6e723286c7e15fe582bcd2"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "5c104386c01e594eb1759b38a526e323c826f6d4a1d953b9f6d37af5d42c0390"
+          "sha256": "23a45baa81b59f612db6c71f042fcdf6d28b2e08e4b9302f839dd61bb29e9354"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "2e8ab65962c4c4eed9668334237d4cfc8486f2661fc9ca738be36cf03dadef72"
+          "sha256": "823d423e022cc4e2f550353bb0d7272d3a96175e451744138fe553bd6c908071"
         }
       }
     },
@@ -1570,15 +1570,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/tracking-and-account.mdx",
-          "sha256": "810a0ce4a4d0fec4746a494d07d0f27a0b9e6381f3b5735a3f5ee5b73984b9f7"
+          "sha256": "db05327d17e0c548797f98e99f8326cf4272a39d08d16ae8b240e85f65a75278"
         },
         "fr": {
           "path": "src/content/help/fr/guest/tracking-and-account.mdx",
-          "sha256": "fe71f6588159420b2f772e0598432c74218239ee768cbbe66000284108080687"
+          "sha256": "35d998e12e3780a5da7842a2d41410750b57e91526130f2ecb0e8fb10d7a5e6e"
         },
         "he": {
           "path": "src/content/help/he/guest/tracking-and-account.mdx",
-          "sha256": "4bf1bf46ef1161374e1975811fadfdaf28f3f1b0964a2568c7031a46674a85f6"
+          "sha256": "1f7e6700af70182193583307d8f1717fe7ab93aafd1ec2eb6c8e49b9c03dca2f"
         }
       }
     },
@@ -1608,15 +1608,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/catering-request.mdx",
-          "sha256": "db0f71e02cd72dbf40fc638a1894ffe444b0d53edcb33bb3a126372f3f558c05"
+          "sha256": "7a49b8a3c00794e2b7489ee7430ab1325442bf43da995eefe8cc5668c4e95e2c"
         },
         "fr": {
           "path": "src/content/help/fr/guest/catering-request.mdx",
-          "sha256": "6a1fa37c182e9c33ecdc7881db5b5001aba62e6e3cf7f6f40d65ddd4bfbba83d"
+          "sha256": "9a4ac7ab9021c57562167a51846d4ae91b097d694e07ec7c8f96a0c8d467313c"
         },
         "he": {
           "path": "src/content/help/he/guest/catering-request.mdx",
-          "sha256": "7b1b197d83328d3a16f12797802e0b9a1f8ab2905adf256537894059c3be7e06"
+          "sha256": "bc9da791700811a664a26608738fcdf685b0218cb83bb31b66201340bfbd30fa"
         }
       }
     },
@@ -1798,15 +1798,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/shared-runtime.md",
-          "sha256": "dce1e4195e224d0a56dd093c5f0b83a68e6101954fd521a5b40da81c8efb0400"
+          "sha256": "f0db26675dfea4cc923ffa0196b3bde94f7db15dd18e9d0c42948788f811994e"
         },
         "fr": {
           "path": "docs/help/internal/fr/shared-runtime.md",
-          "sha256": "62ea98edb9851b1a9e12f1e85ba0d0abfd6b00f65d000bea0b998f0803b80c1f"
+          "sha256": "509f6dec3461321ed6bc379eea539e76789ba4dfef8d19d68a7d602b017c235c"
         },
         "he": {
           "path": "docs/help/internal/he/shared-runtime.md",
-          "sha256": "ab8fde4eee86518937e6233143ea05bebda9d1efa5239bdf8d021b9adbf4f820"
+          "sha256": "1c10a687aed618ed952fd4d1649def9a93713ab0a3f5b7c88425cdd624ae9255"
         }
       }
     },
@@ -2046,7 +2046,7 @@
       ]
     },
     "src/app/[restaurantId]/customers/page.tsx": {
-      "sha256": "61bbb3dcb1f40a0855879fcf1d46b6ce7d1eaef1dc198fb0824f7fb5fa738cd9",
+      "sha256": "fb277d0585962939c3abac331b626991cf35a51f9c4fb6b909517c375525a045",
       "features": [
         "customers-profiles"
       ]
@@ -3740,13 +3740,19 @@
       ]
     },
     "src/components/customers/CustomerForms.tsx": {
-      "sha256": "6375340d6d54922e786230231aa910a933f166ae6fa494cf27c134137a90f7a7",
+      "sha256": "723f3f5398f3fa8d390d1a04e7adae4a5fbc4a80d689bcbd952341a882f3176d",
       "features": [
         "customers-profiles"
       ]
     },
     "src/components/customers/CustomerPhoneCorrectionModal.tsx": {
       "sha256": "e9b89ce4e04d811f6a071887ba11c9dfdde4c76b747bcf1c664ca60ff59e5a8e",
+      "features": [
+        "customers-profiles"
+      ]
+    },
+    "src/components/customers/CustomerPhoneFields.tsx": {
+      "sha256": "663b1e2871f2bfb0ce1b556bd9c136056e86a85805eb8b031546e6505110626f",
       "features": [
         "customers-profiles"
       ]
@@ -4941,7 +4947,7 @@
       ]
     },
     "src/components/orders/OrderWhatsAppComposer.tsx": {
-      "sha256": "70a1bf4ac5fdfe61ecedf5eac4978b469340e4c2f407735a0bf76e713712827f",
+      "sha256": "b2da0b70a9cc3c2dc3cf6d4a64d8da9e6a05f7212b62b8c138b210a0e0025dda",
       "features": [
         "orders-managing-orders",
         "order-detail",
@@ -5070,14 +5076,14 @@
       ]
     },
     "src/components/orders/detail/context/InvoicePanel.tsx": {
-      "sha256": "0aca0e52791f6f62b7d305d41054959d2324816e2b568f5266a93fed601d5ca3",
+      "sha256": "6d24ece73de04b99e30b8f170bc557c6766302e5880c46eb9dd14cb1dc853b50",
       "features": [
         "orders-managing-orders",
         "order-detail"
       ]
     },
     "src/components/orders/detail/context/MoneyPanel.tsx": {
-      "sha256": "cc685cb7def8698ce9e85615207958cafbc5686db5dd14f98fefdf89dbbd58ff",
+      "sha256": "f552e13529a5e13504ff5850008f29268f61fa29096c8d0c21c8396891bbe228",
       "features": [
         "orders-managing-orders",
         "order-detail"
@@ -6130,7 +6136,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "8e4adf3628558720d5120ca4967202da3b059409d013f1674d1c5d658116ef4e",
+      "sha256": "9da2fad72abf162cbb82ef9375d085a38b7ba9a56358b5609c12a532d830f06b",
       "features": [
         "customers-profiles",
         "payments-how-payments-work",
@@ -6316,12 +6322,13 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "0aefec0804c151239dd5c4442e0a43727e478e1849c291e5a25d03cc0c66a5aa",
+      "sha256": "182f7a8096cb8ef8990e4fcbd8602b798623c6b76213a564482e909c4512ce98",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
         "delivery-dispatch",
         "google-account-setup",
+        "website-order-design",
         "pos-behavior",
         "whatsapp",
         "shared-runtime"
@@ -8147,8 +8154,6 @@
         "addCustomer",
         "address",
         "canPayCash",
-        "correctCustomerPhone",
-        "correctCustomerPhones",
         "correctCustomerPhonesSelected",
         "customerLoadFailed",
         "customers",
@@ -15062,17 +15067,14 @@
         "allowCashPayment",
         "allowCashPaymentDesc",
         "cancel",
-        "customerDetachHint",
         "customerLoadFailed",
         "customerPartiallySaved",
         "customerSavedRefresh",
         "deliveryDetails",
-        "detachNumber",
         "discardChanges",
         "discardUnsavedChanges",
         "editCustomer",
         "loading",
-        "mergeCustomersNumbers",
         "nameOptional",
         "notesOptional",
         "phoneNumber",
@@ -15082,7 +15084,9 @@
       "actions": [
         "close",
         "load",
-        "save"
+        "save",
+        "saved",
+        "savedPhone"
       ]
     },
     {
@@ -15104,6 +15108,26 @@
       "actions": [
         "save"
       ]
+    },
+    {
+      "id": "foodyadmin:src/components/customers/CustomerPhoneFields.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/customers/CustomerPhoneFields.tsx",
+      "line": 1,
+      "features": [
+        "customers-profiles"
+      ],
+      "labels": [
+        "addCustomerPhone",
+        "customerContactPhones",
+        "customerPhoneAfter",
+        "customerPhoneDuplicate",
+        "customerRemovePhoneHint",
+        "customerUseForWhatsApp",
+        "customerWhatsAppPhoneHint",
+        "removeCustomerPhone"
+      ],
+      "actions": []
     },
     {
       "id": "foodyadmin:src/components/data-table/ColumnPicker.tsx:ui-controls:1",
@@ -17944,6 +17968,89 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/menu/publication/CarteEditor.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/menu/publication/CarteEditor.tsx",
+      "line": 1,
+      "features": [
+        "menu-menus-and-groups"
+      ],
+      "labels": [
+        "add",
+        "cancel",
+        "carteAddGroup",
+        "carteAddGroupCard",
+        "carteAddItems",
+        "carteBack",
+        "carteConflict",
+        "carteConflictHint",
+        "carteDeleteGroupHint",
+        "carteDeleteGroupTitle",
+        "carteDiscardDraft",
+        "carteDiscardHint",
+        "carteDiscardTitle",
+        "carteDraftHint",
+        "carteEmpty",
+        "carteGroupImage",
+        "carteGroupSettings",
+        "carteHelp",
+        "carteHidden",
+        "carteLiveStatus",
+        "carteLocalChangesHint",
+        "carteMenuActions",
+        "carteParentGroup",
+        "cartePosAndWeb",
+        "cartePosChannel",
+        "cartePosLayoutShort",
+        "cartePreview",
+        "cartePreviewHint",
+        "cartePreviewStocksHint",
+        "cartePrivatePreview",
+        "cartePublish",
+        "cartePublishReview",
+        "cartePublishTitle",
+        "cartePublished",
+        "carteReload",
+        "carteSaveAndLeave",
+        "carteSaveDraft",
+        "carteSaved",
+        "carteSavedAt",
+        "carteSettings",
+        "carteSharedLibraryHint",
+        "carteUnsaved",
+        "carteUnsavedHint",
+        "carteUnsavedTitle",
+        "carteUntitled",
+        "carteWebChannel",
+        "close",
+        "delete",
+        "description",
+        "editPosLayout",
+        "loading",
+        "menus",
+        "name",
+        "none",
+        "saleStockClose",
+        "saleStockHistory",
+        "saleStockHistoryHint",
+        "saleStockOpen",
+        "saleStockPrepare",
+        "saleStockTitle",
+        "saving"
+      ],
+      "actions": [
+        "accept",
+        "created",
+        "discard",
+        "openStock",
+        "publish",
+        "published",
+        "save",
+        "saved",
+        "updateGroup"
+      ]
+    },
+    {
       "id": "foodyadmin:src/components/menu/publication/CarteGroups.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/menu/publication/CarteGroups.tsx",
@@ -17989,6 +18096,51 @@
       "actions": [
         "open",
         "update"
+      ]
+    },
+    {
+      "id": "foodyadmin:src/components/menu/publication/CarteItemPicker.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/menu/publication/CarteItemPicker.tsx",
+      "line": 1,
+      "features": [
+        "menu-menus-and-groups"
+      ],
+      "labels": [
+        "all",
+        "apply",
+        "carteChooseHint",
+        "cartePickerAllStock",
+        "cartePickerCategoriesError",
+        "cartePickerClear",
+        "cartePickerClearFilters",
+        "cartePickerCreate",
+        "cartePickerFilters",
+        "cartePickerItems",
+        "cartePickerLowStock",
+        "cartePickerMenu",
+        "cartePickerSelected",
+        "cartePickerSoldOut",
+        "cartePickerTitle",
+        "cartePickerVariants",
+        "carteTargetGroup",
+        "carteUntitled",
+        "category",
+        "close",
+        "done",
+        "filterBy",
+        "items",
+        "loading",
+        "noResults",
+        "pointOfSale",
+        "retry",
+        "saleStockError",
+        "search",
+        "searchCategories",
+        "stock"
+      ],
+      "actions": [
+        "openFilter"
       ]
     },
     {
@@ -24654,134 +24806,6 @@
       "actions": [
         "removeProcessingGuard"
       ]
-    },
-    {
-      "id": "foodyadmin:src/components/menu/publication/CarteEditor.tsx:ui-controls:1",
-      "source": "src/components/menu/publication/CarteEditor.tsx",
-      "features": [
-        "menu-menus-and-groups"
-      ],
-      "kind": "ui-controls",
-      "labels": [
-        "add",
-        "cancel",
-        "carteAddGroup",
-        "carteAddGroupCard",
-        "carteAddItems",
-        "carteBack",
-        "carteConflict",
-        "carteConflictHint",
-        "carteDeleteGroupHint",
-        "carteDeleteGroupTitle",
-        "carteDiscardDraft",
-        "carteDiscardHint",
-        "carteDiscardTitle",
-        "carteDraftHint",
-        "carteEmpty",
-        "carteGroupImage",
-        "carteGroupSettings",
-        "carteHelp",
-        "carteHidden",
-        "carteLiveStatus",
-        "carteLocalChangesHint",
-        "carteMenuActions",
-        "carteParentGroup",
-        "cartePosAndWeb",
-        "cartePosChannel",
-        "cartePosLayoutShort",
-        "cartePreview",
-        "cartePreviewHint",
-        "cartePreviewStocksHint",
-        "cartePrivatePreview",
-        "cartePublish",
-        "cartePublishReview",
-        "cartePublishTitle",
-        "cartePublished",
-        "carteReload",
-        "carteSaveAndLeave",
-        "carteSaveDraft",
-        "carteSaved",
-        "carteSavedAt",
-        "carteSettings",
-        "carteSharedLibraryHint",
-        "carteUnsaved",
-        "carteUnsavedHint",
-        "carteUnsavedTitle",
-        "carteUntitled",
-        "carteWebChannel",
-        "close",
-        "delete",
-        "description",
-        "editPosLayout",
-        "loading",
-        "menus",
-        "name",
-        "none",
-        "saleStockClose",
-        "saleStockHistory",
-        "saleStockHistoryHint",
-        "saleStockOpen",
-        "saleStockPrepare",
-        "saleStockTitle",
-        "saving"
-      ],
-      "actions": [
-        "accept",
-        "created",
-        "discard",
-        "openStock",
-        "publish",
-        "published",
-        "save",
-        "saved",
-        "updateGroup"
-      ],
-      "line": 1
-    },
-    {
-      "id": "foodyadmin:src/components/menu/publication/CarteItemPicker.tsx:ui-controls:1",
-      "source": "src/components/menu/publication/CarteItemPicker.tsx",
-      "features": [
-        "menu-menus-and-groups"
-      ],
-      "kind": "ui-controls",
-      "labels": [
-        "all",
-        "apply",
-        "carteChooseHint",
-        "cartePickerAllStock",
-        "cartePickerCategoriesError",
-        "cartePickerClear",
-        "cartePickerClearFilters",
-        "cartePickerCreate",
-        "cartePickerFilters",
-        "cartePickerItems",
-        "cartePickerLowStock",
-        "cartePickerMenu",
-        "cartePickerSelected",
-        "cartePickerSoldOut",
-        "cartePickerTitle",
-        "cartePickerVariants",
-        "carteTargetGroup",
-        "carteUntitled",
-        "category",
-        "close",
-        "done",
-        "filterBy",
-        "items",
-        "loading",
-        "noResults",
-        "pointOfSale",
-        "retry",
-        "saleStockError",
-        "search",
-        "searchCategories",
-        "stock"
-      ],
-      "actions": [
-        "openFilter"
-      ],
-      "line": 1
     }
   ]
 }

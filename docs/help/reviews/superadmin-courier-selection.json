@@ -8,21 +8,22 @@
         "orders-managing-orders"
       ],
       "disposition": "no-user-impact",
-      "reason": "The route adds only the explicit superadmin courier selector and reuses the existing courier itinerary. The general order list, order detail, fulfillment actions and order-management permissions remain unchanged; the courier and dispatch guides document the new behavior in all three languages."
+      "reason": "The route adds only the explicit superadmin courier selector and reuses the existing courier itinerary. The general order list, order detail, fulfillment actions and order-management permissions remain unchanged; courier and dispatch procedures describe the addition in all three languages."
     },
     {
       "path": "src/lib/i18n.tsx",
-      "sha256": "0aefec0804c151239dd5c4442e0a43727e478e1849c291e5a25d03cc0c66a5aa",
-      "baseSha256": "658be9c1258fe44dbb43e4b946d129115767132e64f78c6cc83d4f2cafa8761d",
+      "sha256": "e653a20a927321d3e8cd195feb472d04d0a3bec748f79c47115c71f51fd3bf5f",
+      "baseSha256": "024f743632f935af2995be97c4d5a675081a7c191275091c5809996d0f9e49c3",
       "features": [
         "customers-profiles",
         "google-account-setup",
         "pos-behavior",
         "whatsapp",
-        "shared-runtime"
+        "shared-runtime",
+        "menu-menus-and-groups"
       ],
       "disposition": "no-user-impact",
-      "reason": "The added strings concern only the courier selector, the separately reviewed POS editor headings and the concurrent carte item picker. No existing customer, Google setup, POS behavior or WhatsApp translation is changed, and runtime locale, currency and translation behavior is unchanged. Courier and dispatch procedures describe the selector in all three languages; other working-tree feature changes retain their separate reviews."
+      "reason": "The diff against develop adds only nine French, Hebrew and English strings for the superadmin courier selector and its empty state. Existing customer, menu, Google, POS and WhatsApp labels are unchanged, as are locale resolution, currency and shared translation behavior. Courier and dispatch procedures document the addition in all three languages."
     }
   ]
 }

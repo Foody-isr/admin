@@ -1,10 +1,10 @@
 {
-  "review": "The draft group picker now uses category filters and item photos. menu/menus-and-groups is updated in FR/HE/EN. Local WORKSPACE pin must be replaced with the reviewed Landing commit when commits are authorized.",
+  "review": "Category filters and item photos are documented in menu/menus-and-groups in French, Hebrew and English. This isolated change includes only the carte picker and its translated controls.",
   "files": [
     {
       "path": "src/lib/i18n.tsx",
-      "sha256": "0aefec0804c151239dd5c4442e0a43727e478e1849c291e5a25d03cc0c66a5aa",
-      "baseSha256": "658be9c1258fe44dbb43e4b946d129115767132e64f78c6cc83d4f2cafa8761d",
+      "sha256": "024f743632f935af2995be97c4d5a675081a7c191275091c5809996d0f9e49c3",
+      "baseSha256": "862c26fcb77926fd3f7bf4e2ccd2577504861992b7160098c9856f4fa0473595",
       "features": [
         "customers-profiles",
         "delivery-dispatch",
@@ -14,7 +14,7 @@
         "shared-runtime"
       ],
       "disposition": "no-user-impact",
-      "reason": "The reviewed diff adds only the carte item picker labels and the existing mode overview presentation labels. Category and stock filter procedures are documented in the updated menu guide in French, Hebrew and English. Existing customer, delivery, Google, WhatsApp, POS save controls and shared runtime behavior are unchanged; none of their procedures or permissions depends on these added picker labels."
+      "reason": "The exact diff adds only the 13 carte item picker translation keys in French, Hebrew and English. The changed category filter and photo workflow is covered by the updated menu guide. Existing customer, delivery, Google, WhatsApp, POS and shared runtime labels, permissions, operations and recovery procedures are unchanged."
     }
   ]
 }

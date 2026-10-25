@@ -1,3 +1,5 @@
+Customer phone numbers are edited in the existing Customers profile modal. Add up to ten contact numbers and select one WhatsApp recipient; the primary contact and login/OTP phone remain separate from that recipient. Profile and phone edits save atomically. Bulk corrections remain available in Actions after selecting at least two customers. Deploy API migration 276 before this interface.
+
 Staff → employee → Edit contact details explicitly saves restaurant-owned name,
 phone and home address without changing login credentials or another restaurant.
 Couriers also have a default final destination and a Same as home address choice.
@@ -1440,3 +1442,13 @@ and `npx tsx --test src/lib/orders/__tests__/whatsapp-composer.test.ts`.
 Design decisions: `docs/foodyadmin-redesign/unified-whatsapp-composer.md`.
 Help contracts pin the reviewed immutable Landing documentation commit before
 PR readiness and coordinated publication.
+
+## Website menu tabs and groups
+
+On Website V3 order pages, multiple visible cartes have separate underlined tabs.
+Only the selected carte renders its items and groups. Category-menu shapes and
+visibility control the groups within that carte; hiding category navigation never
+hides the carte tabs. Switching cartes clears menu search and keeps the cart.
+The Admin interactive preview and public storefront share the same renderer.
+Synthetic browser regression: `FOODY_MENU_TABS=1 npx playwright test -c
+playwright.website-editor.config.ts menu-tabs.spec.ts` from foodyadmin.

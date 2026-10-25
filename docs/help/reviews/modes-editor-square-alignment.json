@@ -1,12 +1,16 @@
 {
   "documentationRef": "e8025a7f64145bc16642794f0b115cec901a7a27",
-  "review": "Reviewed the published EN/FR/HE settings/service-mode and settings/pos-behavior procedures against the checkout overview, device picker, subsection navigation and explicit Save flows. This is presentation alignment, not the addition of Square-only modules. The guides do not prescribe the former position of the name or device controls. Their documented actions remain accurate; no article date, translation, screenshot or AI corpus change is necessary.",
+  "review": "Reviewed the EN/FR/HE settings/service-mode and settings/pos-behavior procedures against the final merged checkout overview and explicit Save flows. Routes and documented controls remain accurate. Published courier, carte navigation and customer-contact changes are retained unchanged; only three overview headings were added per language.",
   "files": [
     {
       "path": "src/components/settings/POSSettingsWorkspace.tsx",
       "sha256": "5b9f67cb5433be5bb8b25fceb02dd25c53575ed34714556e1335f404c0e84c64",
       "baseSha256": "80f78af82e713ad4d5f1c3810f15605b283feb2e8d8daede832068ded7262863",
-      "features": ["order-types", "pos-service-modes", "pos-behavior"],
+      "features": [
+        "order-types",
+        "pos-service-modes",
+        "pos-behavior"
+      ],
       "disposition": "no-user-impact",
       "reason": "The overview uses Paiement/Checkout, a General group and reordered existing links. Name, Assigned devices and Delete remain on the same page under Mode profile; Open checks remains in the desktop rail and is still reachable in the compact overview. The published procedures do not depend on the old placement. Routes, action labels, staged changes, permissions, discard protection, API writes and POS fulfillment behavior are unchanged. No unsupported Square setting is exposed."
     },
@@ -14,15 +18,26 @@
       "path": "src/components/settings/pos-settings.css",
       "sha256": "bf23ba646bb1d66658cde0fa632d5459671b9fbcaef6b3ceba5124f33f6cab13",
       "baseSha256": "784fb416ee3db8834faf0abd6215b5051a89da694da17fa48e15d42d4c5fefa3",
-      "features": ["pos-behavior"],
+      "features": [
+        "pos-behavior"
+      ],
       "disposition": "no-user-impact",
       "reason": "Only the mode editor presentation is aligned to the supplied reference: centered header, close glyph, selected rail color, heading alignment, gutters and row spacing. Dark theme, RTL, compact navigation and visible keyboard focus remain supported. No documented setting, permission, save operation or recovery procedure changes; the existing guides contain no affected editor screenshot."
     },
     {
       "path": "src/lib/i18n.tsx",
-      "sha256": "d492a4165f9ac118f4178f8e2591832c8d3c25adde59029aab479ff272bc0b23",
-      "baseSha256": "658be9c1258fe44dbb43e4b946d129115767132e64f78c6cc83d4f2cafa8761d",
-      "features": ["customers-profiles", "delivery-dispatch", "google-account-setup", "pos-behavior", "whatsapp", "shared-runtime"],
+      "sha256": "182f7a8096cb8ef8990e4fcbd8602b798623c6b76213a564482e909c4512ce98",
+      "baseSha256": "949d06c11879cf2a6c74492807b1bb30a36a7d8dd6dcdc2a9839fd30bed3bf5a",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime"
+      ],
       "disposition": "no-user-impact",
       "reason": "The exact diff adds three presentation keys in English, French and Hebrew: checkout overview title, shorter order-entry overview label and mode-profile group heading. Existing sidebar, subsection and action labels used by the published procedures remain unchanged. Customer, delivery, Google and WhatsApp strings and behavior are untouched. No merchant procedure or corpus translation needs to change."
     }

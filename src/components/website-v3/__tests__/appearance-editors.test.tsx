@@ -52,7 +52,7 @@ test("order menu reuses shared styles instead of competing local colors and reta
   assert.doesNotMatch(markup, /categoryBarSticky\./);
 });
 
-test("category headings have a visible toggle; menu headings follow the number of menus", () => {
+test("category headings have a visible toggle independent of menu tabs", () => {
   const markup = render(React.createElement(OrderPageEditor, {
     restaurantId: 24,
     page: { type: "order", slug: "order", title: "Order", sort_order: 0,
@@ -99,6 +99,8 @@ test("desktop category style is visible and keeps explicit choices independent o
     const beforeDetails = content.slice(0, content.indexOf("<details"));
     assert.match(beforeDetails, /Category menu style \(desktop\)/);
     assert.match(beforeDetails, /Mobile keeps its full-width underlined tabs/);
+    assert.match(beforeDetails, /groups within the selected menu/);
+    assert.match(beforeDetails, /Menus have separate tabs/);
     assert.match(beforeDetails, /value="underline"/);
     assert.match(beforeDetails, new RegExp(`value="${shape ?? "pill"}" selected=""`));
   }

@@ -1,0 +1,19 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "949d06c11879cf2a6c74492807b1bb30a36a7d8dd6dcdc2a9839fd30bed3bf5a",
+      "baseSha256": "e653a20a927321d3e8cd195feb472d04d0a3bec748f79c47115c71f51fd3bf5f",
+      "features": [
+        "customers-profiles",
+        "delivery-dispatch",
+        "google-account-setup",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the three translations of the desktop group-navigation hint change, explaining that cartes have separate tabs. Customer profiles, delivery, Google setup, POS settings, WhatsApp and shared runtime copy and behavior are unchanged. Menu and website ordering procedures are updated separately."
+    }
+  ]
+}
