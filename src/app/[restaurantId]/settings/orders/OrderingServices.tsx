@@ -29,9 +29,9 @@ export function invalidOrderingHours(current?: OpeningHoursConfig, baseline?: Op
 }
 
 /** Shows only the services and weekly hours used by the selected ordering policy. */
-export default function OrderingServices({ draft, patch, strict, batch, customSlots, timezone, disabled, invalid }: {
+export default function OrderingServices({ draft, patch, strict, batch, manual = false, customSlots, timezone, disabled, invalid }: {
   draft: OrderingServicesDraft; patch: (value: Partial<OrderingServicesDraft>) => void;
-  strict: boolean; batch: boolean; customSlots?: boolean; timezone: string; disabled: boolean; invalid?: string;
+  strict: boolean; batch: boolean; manual?: boolean; customSlots?: boolean; timezone: string; disabled: boolean; invalid?: string;
 }) {
   const { t } = useI18n();
   const [tab, setTab] = useState<Channel>('pickup');
@@ -47,7 +47,7 @@ export default function OrderingServices({ draft, patch, strict, batch, customSl
         checked={draft[`${channel}_enabled`]} disabled={disabled} onChange={value => patch({ [`${channel}_enabled`]: value })} />)}</div>
       {!active.length && <p className="mt-4 text-sm text-[var(--fg-muted)]">{t('availabilityNoClassicModes')}</p>}
     </Section>
-    {strict && batch ? <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm leading-6 text-[var(--summary-fg)]">{t('intakeBatchHoursOnly')}</p> : <Section title={t(strict ? 'intakeReceivingHours' : 'openingHours')} desc={t(customSlots ? 'intakeCustomSlotDays' : strict ? 'intakeReceivingHoursDesc' : batch ? 'intakeMixedHoursDesc' : 'openingHoursDesc')}>
+    {(strict || manual) && batch && !invalid ? <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm leading-6 text-[var(--summary-fg)]">{t(manual ? 'batchOpeningManualHint' : 'intakeBatchHoursOnly')}</p> : <Section title={t(strict ? 'intakeReceivingHours' : 'openingHours')} desc={t(customSlots ? 'intakeCustomSlotDays' : strict ? 'intakeReceivingHoursDesc' : batch ? 'intakeMixedHoursDesc' : 'openingHoursDesc')}>
       <p className="mb-4 text-sm text-[var(--fg-muted)]">{t('availabilityTimezoneHint')} <bdi>{timezone || t('availabilityTimezoneUnknown')}</bdi></p>
       {!active.length ? <p className="text-sm text-[var(--fg-muted)]">{t('noServiceEnabledHoursBanner')}</p> : <>
         <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label={t('openingHours')}>{active.map(channel => <Button key={channel} type="button" variant={channel === effectiveTab ? 'primary' : 'secondary'} aria-pressed={channel === effectiveTab} disabled={disabled} onClick={() => setTab(channel)}>{label(channel)}</Button>)}</div>

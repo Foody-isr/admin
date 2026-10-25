@@ -7,7 +7,7 @@ const cycle = (date = '2026-10-09') => ({ open_at: '2026-10-04T00:30:00+03:00', 
 async function install(page: Page, options: { locale?: string; permissions?: string[]; batch?: boolean } = {}) {
   const fixtureOptions = { empty: false, permissions: options.permissions }, fixture = createFixture(fixtureOptions);
   const control = {
-    settings: { preorders_only: false, pickup_enabled: true, delivery_enabled: true, dine_in_enabled: false, opening_hours_config: {}, orders_paused: false, rush_mode: false, scheduling_enabled: !options.batch, batch_fulfillment_enabled: !!options.batch, scheduling_lead_time_minutes: 90, scheduling_min_days_ahead: 1, scheduling_max_days_ahead: 7, scheduling_slot_duration_minutes: 30, scheduling_require_prepayment: false, batch_order_open_day: 0, batch_order_open_time: '00:30', batch_cutoff_day: 3, batch_cutoff_time: '22:00', batch_fulfillment_days: [{ day: 5, pickup_start: '10:00', pickup_end: '14:00', delivery_start: '14:00', delivery_end: '18:00' }], batch_require_prepayment: true, scheduling_available_hours: [{ start: '11:00', end: '14:00', days: [0,1] }], scheduling_cutoff_hour: 18 } as Record<string, any>,
+    settings: { preorders_only: false, pickup_enabled: true, delivery_enabled: true, dine_in_enabled: false, opening_hours_config: {}, orders_paused: false, rush_mode: false, scheduling_enabled: !options.batch, batch_fulfillment_enabled: !!options.batch, scheduling_lead_time_minutes: 90, scheduling_min_days_ahead: 1, scheduling_max_days_ahead: 7, scheduling_slot_duration_minutes: 30, scheduling_require_prepayment: false, batch_order_open_day: 0, batch_order_open_time: '00:30', batch_cutoff_day: 3, batch_cutoff_time: '22:00', batch_fulfillment_days: [{ day: 5, pickup_start: '10:00', pickup_end: '14:00', delivery_start: '14:00', delivery_end: '18:00' }], batch_require_prepayment: true, batch_ordering_mode: 'calendar', scheduling_available_hours: [{ start: '11:00', end: '14:00', days: [0,1] }], scheduling_cutoff_hour: 18 } as Record<string, any>,
     reads: 0, failRead: false, failSave: 0, gate: null as Promise<void> | null, previewFail: false, previewGate: null as Promise<void> | null, previewCompleted: 0, cycles: [cycle()],
   };
   const timingPreviews: any[] = [];
@@ -280,5 +280,72 @@ test('preparation preview discards a retired response, reports failure and retri
   await panel.getByRole('button', {name:'Réessayer',exact:true}).click();
   await expect(panel).toContainText('4 heures');
   await expect(panel).toContainText('Service désactivé');
+  expect(state.writes).toHaveLength(0);
+});
+
+
+test('manual opening is explicit, retains delivery settings and restores the calendar', async ({ page }, info) => {
+  const state = await install(page, { batch: true });
+  state.control.settings.orders_paused = true;
+  await page.goto('/2/settings/orders');
+  await page.getByRole('radio', { name: /^Ouverture manuelle/ }).click();
+  await expect(page.locator('#preorder-open-time')).toHaveCount(0);
+  await expect(page.locator('#preorder-0-delivery-start')).toHaveValue('14:00');
+  expect(state.writes).toHaveLength(0);
+  state.control.cycles = [{ ...cycle(), open_at: '', cutoff_at: '' }];
+  await expect.poll(() => state.previews.at(-1)?.body.batch_ordering_mode).toBe('manual');
+  await save(page).click();
+  await expect(notice(page)).toContainText('Enregistré');
+  expect(state.writes[0].body).toEqual({ batch_ordering_mode: 'manual' });
+  await expect(page.getByRole('combobox', { name: 'Reprise des commandes', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('switch', { name: 'Mettre en pause les commandes en ligne', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('radiogroup', { name: 'Ouverture des commandes', exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath('manual-opening-fr.png') });
+  await page.getByRole('radio', { name: /^Selon un calendrier/ }).click();
+  await expect(page.locator('#preorder-open-time')).toHaveValue('00:30');
+  await expect(page.locator('#preorder-cutoff-time')).toHaveValue('22:00');
+  state.control.cycles = [cycle()];
+  await save(page).click();
+  await expect(notice(page)).toContainText('Enregistré');
+  expect(state.writes[1].body).toEqual({ batch_ordering_mode: 'calendar' });
+  expect(state.control.settings.batch_fulfillment_days[0].day).toBe(5);
+});
+
+test('read-only users cannot change manual opening', async ({ page }) => {
+  const state = await install(page, { batch: true, permissions: ['settings.view'] });
+  await page.goto('/1/settings/orders');
+  await expect(page.getByRole('radio', { name: /^Ouverture manuelle/ })).toBeDisabled();
+  expect(state.writes).toHaveLength(0);
+});
+
+
+for (const locale of ['fr', 'he', 'en']) test(`manual opening localized and responsive ${locale}`, async ({ page }, info) => {
+  const state = await install(page, { batch: true, locale });
+  state.control.settings.batch_ordering_mode = 'manual';
+  state.control.settings.orders_paused = true;
+  state.control.cycles = [{ ...cycle(), open_at: '', cutoff_at: '' }];
+  await page.setViewportSize({ width: locale === 'fr' ? 375 : 1280, height: 1000 });
+  await page.goto('/1/settings/orders');
+  await expect(page.locator('#preorder-cutoff-time')).toHaveCount(0);
+  await page.getByRole('radiogroup', { name: locale === 'fr' ? 'Ouverture des commandes' : locale === 'he' ? 'פתיחת הזמנות' : 'Opening of orders', exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath(`manual-opening-${locale}.png`) });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const toggle = page.getByRole('switch', { name: locale === 'fr' ? 'Mettre en pause les commandes en ligne' : locale === 'he' ? 'השהיית הזמנות מקוונות' : 'Pause online orders', exact: true });
+  if (locale === 'fr') {
+    await toggle.click(); await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await toggle.click(); await expect(toggle).toHaveAttribute('aria-checked', 'true');
+    expect(state.writes.map(write => write.body)).toEqual([
+      { orders_paused: false, orders_paused_until: '', rush_mode: false },
+      { orders_paused: true, orders_paused_until: '', rush_mode: false },
+    ]);
+  }
+});
+
+test('older API leaves the new opening choice unavailable without mutating settings', async ({ page }) => {
+  const state = await install(page, { batch: true });
+  delete state.control.settings.batch_ordering_mode;
+  await page.goto('/1/settings/orders');
+  await expect(page.getByRole('radio', { name: /^Ouverture manuelle/ })).toBeDisabled();
+  await expect(page.getByText('Mettez à jour l’API avant de modifier le mode d’ouverture.')).toBeVisible();
   expect(state.writes).toHaveLength(0);
 });
