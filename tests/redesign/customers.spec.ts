@@ -13,7 +13,7 @@ async function installCustomers(page:Page,options:{locale?:string;theme?:string;
  if(options.empty){customers.length=0;trusted.length=0;groups=[];}
  const writes:{path:string;method:string;body:any;restaurant:number;query:string}[]=[];
  const reads:{path:string;restaurant:number;query:string}[]=[];
- const faults={list:0,profile:0,profileSave:0,trustedGet:0,trustedPost:0,trustedDelete:0,duplicates:0,dismissNth:0,merge:0,detach:0,refreshAfterCreate:0,refreshAfterMerge:0,refreshAfterDetach:0,writeDelay:0,searchDelay:0,profileDelay:0};
+ const faults={list:0,profile:0,profileSave:0,trustedGet:0,trustedPost:0,trustedDelete:0,duplicates:0,dismissNth:0,merge:0,detach:0,refreshAfterCreate:0,refreshAfterMerge:0,refreshAfterDetach:0,phoneSave:0,refreshAfterPhone:0,writeDelay:0,searchDelay:0,profileDelay:0};
  let dismisses=0;let total=customers.length;
  await page.addInitScript(({locale,theme})=>{localStorage.setItem('foody_restaurant_token','isolated-ui-fixture');localStorage.setItem('foody_restaurant_user',JSON.stringify({id:1,full_name:'Équipe démo',role:'owner',email:'demo@foody.test'}));localStorage.setItem('foody_restaurant_ids','[1,2]');localStorage.setItem('foody-admin-locale',locale);localStorage.setItem('foody_admin_theme',theme);},{locale:options.locale??'fr',theme:options.theme??'light'});
  await page.route('**/api/v1/**',async route=>{
@@ -32,6 +32,13 @@ async function installCustomers(page:Page,options:{locale?:string;theme?:string;
     if(consume('trustedPost'))return fail();const customer={id:100+writes.length,restaurant_id:restaurant,...body};trusted.push(customer);faults.list+=faults.refreshAfterCreate;faults.refreshAfterCreate=0;return send({trusted_customer:customer});
    }
    if(path.includes('/trusted/')){if(consume('trustedDelete'))return fail();const index=trusted.findIndex(customer=>customer.id===Number(path.split('/').at(-1)));if(index<0)return send({error:'Already deleted'},404);trusted.splice(index,1);return route.fulfill({status:204});}
+   if(path.endsWith('/phones')){
+    if(consume('phoneSave'))return send({error:'customer_phone_conflict'},409);
+    for(const correction of body.corrections){
+     const customer=customers.find(value=>value.customer_phone===correction.phone);if(customer)customer.customer_phone=correction.replacement;
+    }
+    faults.list+=faults.refreshAfterPhone;faults.refreshAfterPhone=0;return send({corrections:body.corrections});
+   }
    if(path.endsWith('/profile')){
     const phone=url.searchParams.get('phone')!;if(method==='GET'){if(faults.profileDelay)await new Promise(resolve=>setTimeout(resolve,faults.profileDelay));if(consume('profile'))return fail();return send({profile:profiles.get(phone)??{has_account:false,phone,name:'',address:'',city:'',floor:'',apt:'',entry_code:'',delivery_notes:''}});}
     if(consume('profileSave'))return fail();const profile={...profiles.get(phone)!,...body};profiles.set(phone,profile);return send({profile});
@@ -43,7 +50,7 @@ async function installCustomers(page:Page,options:{locale?:string;theme?:string;
   }
   const result=fixture.response(request.url(),method,body,restaurant);return send(result.json??{},result.status??200);
  });
- await page.route('**/*',route=>['localhost','127.0.0.1'].includes(new URL(route.request().url()).hostname)?route.fallback():route.abort());
+ await page.route('**/*',route=>{const url=new URL(route.request().url());return ['localhost','127.0.0.1'].includes(url.hostname)||url.pathname.startsWith('/api/v1/')?route.fallback():route.abort();});
  return {customers,trusted,profiles,writes,reads,faults,fixture,setTotal:(value:number)=>{total=value;}};
 }
 const editor=(page:Page)=>page.getByRole('dialog',{name:'Modifier le client',exact:true});
@@ -124,4 +131,41 @@ test('customers failed cash-list load never presents an editable unauthorised re
 
 test('customers closing a loading profile cannot populate the next profile with its response',async({page})=>{
  const state=await installCustomers(page);state.faults.profileDelay=700;await page.goto('/1/customers');await page.getByRole('button',{name:`Modifier le client · ${names[0]}`} ).click();await expect(editor(page).getByRole('textbox',{name:'Nom (optionnel)',exact:true})).toBeDisabled();await page.keyboard.press('Escape');await page.getByRole('button',{name:`Modifier le client · ${names[1]}`} ).click();await expect(editor(page).getByRole('textbox',{name:'Nom (optionnel)',exact:true})).toBeEnabled();await expect(editor(page).getByRole('textbox',{name:'Nom (optionnel)',exact:true})).toHaveValue(names[1]);await expect(editor(page).getByRole('checkbox',{name:'Autoriser le paiement en espèces',exact:true})).not.toBeChecked();expect(state.writes).toHaveLength(0);
+});
+
+
+test('customers phone correction validates before saving and preserves the draft on conflict',async({page})=>{
+ const state=await installCustomers(page);await page.goto('/1/customers');
+ await page.getByRole('button',{name:`Corriger les téléphones · ${names[0]}`,exact:true}).click();
+ const dialog=page.getByRole('dialog');
+ const phone=dialog.getByRole('textbox',{name:'Numéro de téléphone',exact:true});
+ await phone.fill('050');await dialog.getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(phone).toHaveAttribute('aria-invalid','true');expect(writesOf(state,'/phones')).toHaveLength(0);
+ await phone.fill('050-234-5678');await expect(dialog.getByRole('status')).toContainText('+972502345678');
+ state.faults.phoneSave=1;await dialog.getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(dialog.getByRole('alert')).toContainText('Aucune correction');await expect(phone).toHaveValue('050-234-5678');
+ await dialog.getByRole('button',{name:'Enregistrer',exact:true}).click();await expect(dialog).toHaveCount(0);
+ expect(writesOf(state,'/phones').at(-1)!.body).toEqual({corrections:[{phone:phones[0],replacement:'+972502345678'}]});
+ expect(writesOf(state,'/phones').at(-1)!.restaurant).toBe(1);
+});
+
+test('customers selected phone corrections save once even when refreshing the list fails',async({page})=>{
+ const state=await installCustomers(page);await page.goto('/1/customers');
+ await page.getByRole('checkbox',{name:`Sélectionner ${names[0]}`,exact:true}).check();
+ await page.getByRole('checkbox',{name:`Sélectionner ${names[1]}`,exact:true}).check();
+ await page.getByRole('button',{name:'Actions',exact:true}).click();
+ await page.getByRole('menuitem',{name:'Corriger les téléphones (2)',exact:true}).click();
+ const dialog=page.getByRole('dialog');
+ await dialog.getByRole('textbox',{name:'Numéro de téléphone',exact:true}).nth(0).fill('050-234-5678');
+ await dialog.getByRole('textbox',{name:'Numéro de téléphone',exact:true}).nth(1).fill('+33 6 12 34 56 78');
+ state.faults.refreshAfterPhone=1;await dialog.getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(dialog.getByRole('alert')).toBeVisible();await expect(dialog.getByRole('textbox').first()).toBeDisabled();
+ await dialog.getByRole('button',{name:'Réessayer',exact:true}).click();await expect(dialog).toHaveCount(0);
+ const writes=writesOf(state,'/phones');expect(writes).toHaveLength(1);expect(writes[0].body).toEqual({corrections:[{phone:phones[0],replacement:'+972502345678'},{phone:phones[1],replacement:'+33612345678'}]});
+});
+
+test('customers phone corrections are unavailable with view permission only',async({page})=>{
+ await installCustomers(page,{readOnly:true});await page.goto('/1/customers');
+ await expect(page.getByRole('table').getByText(phones[0],{exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:/Corriger/})).toHaveCount(0);
 });

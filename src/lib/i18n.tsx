@@ -120,6 +120,19 @@ export function i18nOr(t: (key: string) => string, key: string, fallback: string
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    correctCustomerPhones: "Correct phone numbers",
+    correctCustomerPhone: "Correct",
+    correctCustomerPhonesSelected: "Correct phones ({n})",
+    invalidPhoneBadge: "Invalid phone",
+    customerPhoneBefore: "Current number",
+    customerPhoneAfter: "Saved format",
+    customerPhoneCorrectionHint: "Review each number before saving. Israeli numbers use +972; international numbers retain their country code. All corrections save together, including order contacts and cash eligibility. This does not verify WhatsApp registration.",
+    customerPhoneFormatHint: "Enter an Israeli number or an international number starting with + and country code.",
+    invalidCustomerPhone: "Enter a valid phone number with its country code (for example +972502345678).",
+    customerPhoneConflict: "A number is already associated with another customer, duplicated in this selection, or has conflicting cash records. No corrections were saved. Review the records before retrying.",
+    customerPhoneNotFound: "A customer has changed or is no longer available. Refresh the list and try again.",
+    customerPhoneSaveFailed: "Could not confirm the corrections. Your input is retained. Refresh the list before retrying.",
+
     variantChoose: "Choose an option",
     variantRole: "Role of this group",
     variantPriceRole: "Determines the price",
@@ -9057,6 +9070,19 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
   he: {
+    correctCustomerPhones: "תיקון מספרי טלפון",
+    correctCustomerPhone: "תיקון",
+    correctCustomerPhonesSelected: "תיקון טלפונים ({n})",
+    invalidPhoneBadge: "מספר לא תקין",
+    customerPhoneBefore: "המספר הנוכחי",
+    customerPhoneAfter: "הפורמט לשמירה",
+    customerPhoneCorrectionHint: "בדקו כל מספר לפני השמירה. מספרים ישראליים מקבלים קידומת +972 ומספרים בינלאומיים שומרים על קידומת המדינה. כל התיקונים נשמרים יחד, כולל אנשי קשר בהזמנות והרשאות מזומן. הפעולה אינה מאמתת רישום ל-WhatsApp.",
+    customerPhoneFormatHint: "הזינו מספר ישראלי או מספר בינלאומי המתחיל ב-+ וקידומת מדינה.",
+    invalidCustomerPhone: "יש להזין מספר טלפון תקין עם קידומת מדינה (למשל ‎+972502345678).",
+    customerPhoneConflict: "מספר כבר משויך ללקוח אחר, מופיע פעמיים בבחירה או שיש לו הרשאות מזומן מתנגשות. לא נשמרו תיקונים. בדקו את הרשומות ונסו שוב.",
+    customerPhoneNotFound: "לקוח השתנה או אינו זמין עוד. רעננו את הרשימה ונסו שוב.",
+    customerPhoneSaveFailed: "לא ניתן לאשר את התיקונים. הקלט נשמר. רעננו את הרשימה לפני ניסיון נוסף.",
+
     variantChoose: "בחרו אפשרות",
     variantRole: "תפקיד הקבוצה",
     variantPriceRole: "קובעת את המחיר",
@@ -17985,6 +18011,19 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── French ──────────────────────────────────────────────────────────────
   fr: {
+    correctCustomerPhones: "Corriger les téléphones",
+    correctCustomerPhone: "Corriger",
+    correctCustomerPhonesSelected: "Corriger les téléphones ({n})",
+    invalidPhoneBadge: "Téléphone invalide",
+    customerPhoneBefore: "Numéro actuel",
+    customerPhoneAfter: "Format enregistré",
+    customerPhoneCorrectionHint: "Vérifiez chaque numéro avant d’enregistrer. Les numéros israéliens utilisent +972 ; les numéros étrangers conservent leur indicatif. Toutes les corrections sont enregistrées ensemble, y compris les contacts des commandes et l’autorisation des espèces. Cela ne vérifie pas l’inscription à WhatsApp.",
+    customerPhoneFormatHint: "Saisissez un numéro israélien ou un numéro international commençant par + et l’indicatif pays.",
+    invalidCustomerPhone: "Saisissez un numéro valide avec son indicatif pays (ex. +972502345678).",
+    customerPhoneConflict: "Un numéro appartient déjà à un autre client, est répété dans la sélection ou possède plusieurs autorisations d’espèces en conflit. Aucune correction enregistrée. Vérifiez les fiches avant de réessayer.",
+    customerPhoneNotFound: "Un client a changé ou n’est plus disponible. Actualisez la liste et réessayez.",
+    customerPhoneSaveFailed: "Impossible de confirmer les corrections. Votre saisie est conservée. Actualisez la liste avant de réessayer.",
+
     variantChoose: "Choisir une option",
     variantRole: "Rôle du groupe",
     variantPriceRole: "Détermine le prix",

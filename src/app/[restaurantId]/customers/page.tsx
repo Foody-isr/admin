@@ -13,6 +13,9 @@ import { MergeCustomersModal } from './MergeCustomersModal';
 import { DuplicateSuggestions } from './DuplicateSuggestions';
 import { CustomerAddModal, CustomerEditor, type CustomerEditorTarget } from '@/components/customers/CustomerForms';
 
+import { CustomerPhoneCorrectionModal } from '@/components/customers/CustomerPhoneCorrectionModal';
+import { normalizeCustomerPhone } from '@/lib/customer-phone';
+
 const PER_PAGE=25;
 // Keep the same canonical key used by the existing analytics/trusted-list join.
 function phoneKey(phone:string){let digits=phone.replace(/\D/g,'');if(digits.startsWith('972'))digits=digits.slice(3);if(digits.startsWith('0'))digits=digits.slice(1);return digits;}
@@ -25,6 +28,7 @@ function CustomerWorkspace({rid}:{rid:number}) {
  const {t,locale}=useI18n();const {hasAnyPermission}=usePermissions();const canManage=hasAnyPermission('customers.manage');
  const [data,setData]=useState<CustomerListResult|null>(null);const [trusted,setTrusted]=useState<TrustedCustomer[]>([]);
  const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [page,setPage]=useState(1);const [search,setSearch]=useState('');const [searchInput,setSearchInput]=useState('');
+ const [phoneRows,setPhoneRows]=useState<CustomerRow[]|null>(null);
  const [selected,setSelected]=useState<Set<string>>(new Set());const [mergeRows,setMergeRows]=useState<CustomerRow[]|null>(null);const [addOpen,setAddOpen]=useState(false);const [editRow,setEditRow]=useState<CustomerRow|null>(null);
  const request=useRef({value:0});
  const reload=useCallback(async()=>{
@@ -53,6 +57,7 @@ function CustomerWorkspace({rid}:{rid:number}) {
   <ListToolbar search={{ value: searchInput, onChange: setSearchInput, label: t('search') }}
     actions={<ActionsDropdown actions={[
       { label: t('refresh'), onClick: () => void reload().catch(() => {}) },
+      ...(canManage && selectedRows.length >= 1 && !loading && !error ? [{ label: t('correctCustomerPhonesSelected').replace('{n}',String(selectedRows.length)), onClick: () => setPhoneRows(selectedRows) }] : []),
       ...(canManage && selectedRows.length >= 2 && !loading && !error ? [{ label: t('mergeCustomersSelected').replace('{n}',String(selectedRows.length)), onClick: () => setMergeRows(selectedRows) }] : []),
       ...(selectedRows.length ? [{ label: t('listClearSelection'), onClick: () => setSelected(new Set()) }] : []),
     ]} />}
@@ -65,7 +70,7 @@ function CustomerWorkspace({rid}:{rid:number}) {
      const address=formatDeliveryAddress({address:row.address,city:row.city,floor:row.floor,apt:row.apt,entryCode:row.entryCode},t,{compact:true});const key=phoneKey(row.phone);
      return <DataTableRow key={key||index} index={index}>
       {canManage&&<DataTableCell data-mobile-select=""><label className="inline-flex min-h-11 min-w-11 items-center justify-center"><input type="checkbox" className="size-4 accent-[var(--action)]" aria-label={`${t('select')} ${row.name||row.phone}`} checked={selected.has(key)} onChange={()=>toggle(key)}/></label></DataTableCell>}
-      <DataTableCell mobilePrimary><div className="flex flex-wrap items-center gap-2">{canManage?<button type="button" className="min-h-11 text-start font-semibold text-[var(--action)] underline-offset-4 hover:underline" aria-label={`${t('editCustomer')} · ${row.name||row.phone}`} onClick={()=>setEditRow(row)}><bdi dir="ltr">{row.phone}</bdi></button>:<bdi dir="ltr" className="font-semibold">{row.phone}</bdi>}{(row.phones?.length??1)>1&&<Badge tone="neutral">{t('mergeCustomersNumbers').replace('{n}',String(row.phones!.length))}</Badge>}</div></DataTableCell>
+      <DataTableCell mobilePrimary><div className="flex flex-wrap items-center gap-2">{canManage?<button type="button" className="min-h-11 text-start font-semibold text-[var(--action)] underline-offset-4 hover:underline" aria-label={`${t('editCustomer')} · ${row.name||row.phone}`} onClick={()=>setEditRow(row)}><bdi dir="ltr">{row.phone}</bdi></button>:<bdi dir="ltr" className="font-semibold">{row.phone}</bdi>}{canManage&&<Button variant="ghost" aria-label={`${t('correctCustomerPhones')} · ${row.name||row.phone}`} onClick={()=>setPhoneRows([row])}>{t('correctCustomerPhone')}</Button>}{!normalizeCustomerPhone(row.phone)&&<Badge tone="warning">{t('invalidPhoneBadge')}</Badge>}{(row.phones?.length??1)>1&&<Badge tone="neutral">{t('mergeCustomersNumbers').replace('{n}',String(row.phones!.length))}</Badge>}</div></DataTableCell>
       <DataTableCell mobileLabel={t('name')}><span dir="auto" className="break-words">{row.name||'—'}</span></DataTableCell>
       <DataTableCell mobileLabel={t('address')}>{address?<div dir="auto" className="text-sm"><p>{address.line1}</p>{address.line2&&<p className="mt-1 text-[var(--fg-muted)]">{address.line2}</p>}</div>:'—'}</DataTableCell>
       <DataTableCell mobileLabel={t('orders')} className="tabular-nums">{row.orders}</DataTableCell><DataTableCell mobileLabel={t('lastOrder')}>{date(row.lastOrderAt)}</DataTableCell><DataTableCell mobileLabel={t('canPayCash')}><Badge tone={row.trusted?'success':'neutral'}>{t(row.trusted?'yes':'no')}</Badge></DataTableCell>
@@ -74,6 +79,7 @@ function CustomerWorkspace({rid}:{rid:number}) {
    </DataTable>
    <ListPagination page={page} totalPages={totalPages} pageSize={PER_PAGE} onPageChange={setPage} />
   </>}
+  {phoneRows&&<CustomerPhoneCorrectionModal restaurantId={rid} rows={phoneRows} onClose={()=>setPhoneRows(null)} onSaved={refreshAfterMerge}/>}
   {editRow&&<CustomerEditor key={editRow.phone} restaurantId={rid} row={editRow} onClose={()=>setEditRow(null)} onSaved={reload}/>}
   {addOpen&&<CustomerAddModal restaurantId={rid} onClose={()=>setAddOpen(false)} onSaved={reload}/>}
   {mergeRows&&<MergeCustomersModal restaurantId={rid} rows={mergeRows} onClose={()=>setMergeRows(null)} onMerged={refreshAfterMerge}/>}
