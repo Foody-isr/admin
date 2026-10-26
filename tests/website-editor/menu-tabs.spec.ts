@@ -35,7 +35,7 @@ test("menu tabs stay separate from group styling in preview and published deskto
   await page.goto("/1/website-v3");
   await expect(page.getByRole("button", { name: "Liste des articles", exact: true })).toBeVisible({ timeout: 60_000 });
   await page.getByRole("button", { name: "Liste des articles", exact: true }).click();
-  await expect(page.getByText("Les cartes ont leurs propres onglets.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Les cartes ont leurs propres onglets soulignés.", { exact: false })).toBeVisible();
   const preview = page.frameLocator("iframe");
   await expect(preview.getByRole("tab", { name: "BASSARI" })).toBeVisible({ timeout: 90_000 });
   await page.getByRole("button", { name: "Aperçu", exact: true }).click();

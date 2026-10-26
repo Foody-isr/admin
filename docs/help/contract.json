@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "cd68e2742c9faf119c7d57f1f40f72f3ec84689c",
-  "documentationRevision": "6902176ef30010dfd2457f3dfccf47a11f7774130c42dc73b7642fd1a12db643",
+  "documentationRef": "d1ff062c4784bca756772534b1edd7ddcb4f87dc",
+  "documentationRevision": "30fad753d9f328e81b324419d7c1d0a5a595ace0b143ad074b21eb6b67f68aba",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -487,15 +487,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/customize-your-site.mdx",
-          "sha256": "8edaf85b63da0e0d4ad07f03ffe828cf5a93c61bc2bb7a4ed1b4b10ec9b9c12e"
+          "sha256": "da1f829ec2c7ed0fa43e81f0428b0cc38c2252339739893df224e62a6d52b48e"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/customize-your-site.mdx",
-          "sha256": "9f76305d2459673f77d90eaee05dd688bae229adfa5ed5b50d2cf660dbc7d710"
+          "sha256": "c238299de78263338633186e4a4598c13a8ddc1e5d3f702c12311f4772f2db79"
         },
         "he": {
           "path": "src/content/help/he/website-qr/customize-your-site.mdx",
-          "sha256": "72208c85c78eb7f482e21e615cd7805af8fd3b8fb3a111967340b93100000542"
+          "sha256": "45d331b44da4ec969c6986e3a2e2788d672ab66dcd7a997159d95df780e49851"
         }
       }
     },
@@ -1000,15 +1000,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/order-page.mdx",
-          "sha256": "7ae5d2c6840acc996bab6d01607425eb5f10ce56206b5a4950265a5019a57242"
+          "sha256": "fb60483b4feddcd9dd193fec2d245aa7275e987d0d5a9f5b412c235959a816a1"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/order-page.mdx",
-          "sha256": "87083b4b4ee47a4480240f970309112fcd982f23e0aa974e3fec94e8348d050f"
+          "sha256": "3a6106493a5e60102415ad16a16822febbbc22c14de24c4a3ed6c3d0d25e1efa"
         },
         "he": {
           "path": "src/content/help/he/website-qr/order-page.mdx",
-          "sha256": "cad06862d9b58de9df0b6e843bfcdbaa2f203d17989e14f81c07071284602424"
+          "sha256": "60efcba19f21ec8cce2a6280a0ac0efcf1acfeed26cbde6b030485928428e28d"
         }
       }
     },
@@ -5938,7 +5938,7 @@
       ]
     },
     "src/components/website-v3/OrderPageEditor.tsx": {
-      "sha256": "a6d604909306ba95bc67c9ffcbbf9c77dfa2726d8a830d23f2985bf56c4fbe54",
+      "sha256": "0be348ce9ccaa987696796571193b97d00e88cb063ee91fbef78cb33f2a59460",
       "features": [
         "website-qr-customize-your-site",
         "website-order-design"
@@ -6325,7 +6325,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "a506b00b58c546ac41879a09945fa9520f432892c32188355497b2a3cdf13fd9",
+      "sha256": "0aab44371f0c81e1b449d11adc15ce72e934b03e33055c0259f59b005b57ad73",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -21313,7 +21313,7 @@
         "editorOrderApplyWolt",
         "editorOrderCardColorsHint",
         "editorOrderCategoryColorsHint",
-        "editorOrderCategoryStyleDesktopHint",
+        "editorOrderCategoryStyleHint",
         "editorOrderCompactHint",
         "editorOrderInherited",
         "editorOrderItemsHint",

@@ -86,7 +86,7 @@ test("sticky category control stays visible outside the collapsed category setti
   }
 });
 
-test("desktop category style is visible and keeps explicit choices independent of card styling", () => {
+test("responsive category style is visible and keeps explicit choices independent of card styling", () => {
   for (const shape of [undefined, "plain", "underline", "rounded", "pill"]) {
     const markup = render(React.createElement(OrderPageEditor, {
       restaurantId: 24,
@@ -97,10 +97,10 @@ test("desktop category style is visible and keeps explicit choices independent o
     }));
     const content = markup.slice(markup.indexOf("<h3>Content</h3>"));
     const beforeDetails = content.slice(0, content.indexOf("<details"));
-    assert.match(beforeDetails, /Category menu style \(desktop\)/);
-    assert.match(beforeDetails, /Mobile keeps its full-width underlined tabs/);
+    assert.match(beforeDetails, /Category menu style/);
+    assert.match(beforeDetails, /on desktop and mobile/);
     assert.match(beforeDetails, /groups within the selected menu/);
-    assert.match(beforeDetails, /Menus have separate tabs/);
+    assert.match(beforeDetails, /Menus have separate underlined tabs/);
     assert.match(beforeDetails, /value="underline"/);
     assert.match(beforeDetails, new RegExp(`value="${shape ?? "pill"}" selected=""`));
   }
