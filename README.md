@@ -1464,3 +1464,45 @@ hides the carte tabs. Switching cartes clears menu search and keeps the cart.
 The Admin interactive preview and public storefront share the same renderer.
 Synthetic browser regression: `FOODY_MENU_TABS=1 npx playwright test -c
 playwright.website-editor.config.ts menu-tabs.spec.ts` from foodyadmin.
+
+Menu-tab text and category navigation text have separate shared menu color roles:
+`menu_text` and `category_text`. **Site design → Colors → Customize menu colors →
+Category menu** exposes **Menu text** independently of **Category text**. The
+former colors carte tabs and their underline; category links, search and icons
+keep their existing roles. Automatic menu text uses the style paragraph color
+when readable against the bar, otherwise contrasting neutral ink. Explicit text
+colors remain authoritative. Each role survives draft, preview and publication
+and can be reset independently. The Wolt preset retains its dedicated palette.
+
+Weekly batch rollover: `GET /orders/series` includes current configured service
+dates even with zero orders and marks the default with optional `is_current`.
+The operational batch advances after its last service day in restaurant time.
+Home and Orders in Series mode start on that date and refresh it independently
+of new orders, while keeping history selected on the open page and explicit
+payment-attention links. Ordering windows and carte publication keep their own
+rules; no migration is required. Deploy API before Admin.
+
+## Manual weekly ordering
+
+Weekly batches accept `batch_ordering_mode: calendar | manual` (default calendar).
+Admin → Settings → Ordering & delivery → Orders & availability → Weekly batch
+offers Manual opening or According to a calendar. Save the policy, then explicitly
+open/pause using Pause online orders. Choosing manual preserves the effective pause
+and clears a scheduled reopening. Automatic intake times are retained for returning
+to calendar mode. Delivery days/windows, product rules, stock and existing orders
+are preserved. Manual orders use the operational current delivery series through
+its final service day in the restaurant timezone. Public batch timestamps are empty
+in manual mode; clients must not invent a reopening countdown. Active temporary
+test access must be disabled before public reopening. Deploy API migration
+`277_manual_batch_ordering.sql` before the clients and publish the reviewed guides
+with the feature.
+
+## Responsive category navigation
+
+Website V3 category-menu style applies to groups on desktop and mobile. Menu
+tabs remain separately underlined. Pill/rounded selections use their active
+background and text colors; underlined selections use the active text color.
+Long group headings wrap inside the page instead of widening the document.
+Synthetic Chromium/WebKit regression: from foodyadmin run
+`FOODY_MENU_TABS=1 FOODY_MENU_LAYOUT=1 npx playwright test -c
+playwright.website-editor.config.ts mobile-menu-layout.spec.ts`.

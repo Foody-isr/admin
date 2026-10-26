@@ -98,3 +98,18 @@ test('saving the ordering policy preserves an unfinished reopening draft', async
   await expect(reopen(page)).toHaveValue('2026-10-06T12:00');
   await expect(apply(page)).toBeEnabled();
 });
+
+
+test('active test access refusal explains how to reopen without claiming an uncertain save', async ({ page }) => {
+  const state = await install(page);
+  state.control.settings.orders_paused = true;
+  await page.goto('/1/settings/orders');
+  await page.route('**/restaurants/1/settings', async route => {
+    if (route.request().method() !== 'PUT') return route.fallback();
+    return route.fulfill({ status: 400, json: { error: 'could not update settings', details: 'ordering_test_access_disable_before_reopening' } });
+  });
+  await pause(page).click();
+  await expect(page.locator('main [role=alert]')).toContainText('Désactivez l’accès de test temporaire');
+  await expect(page.locator('main [role=alert] a')).toHaveAttribute('href', '/1/settings/orders/test-access');
+  await expect(pause(page)).toHaveAttribute('aria-checked', 'true');
+});

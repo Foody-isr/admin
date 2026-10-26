@@ -25,6 +25,18 @@ test('series selection falls back to the newest available series', () => {
   assert.equal(selected, '2026-09-11');
 });
 
+test('empty current batch wins over old orders and later preorders', () => {
+  assert.equal(preferredSerieDate([
+    { date: '2026-11-06' }, { date: '2026-10-30', is_current: true }, { date: '2026-10-23' },
+  ], new Date('2026-10-25T12:00:00')), '2026-10-30');
+});
+
+test('restaurant current batch takes precedence over browser-local today', () => {
+  assert.equal(preferredSerieDate([
+    { date: '2026-10-30', is_current: true }, { date: '2026-10-23' },
+  ], new Date('2026-10-23T23:30:00')), '2026-10-30');
+});
+
 test('date shortcut preferences keep canonical order and discard unknown values', () => {
   assert.deepEqual(
     normalizeDatePresetKeys(['drThisMonth', 'not-a-preset', 'series']),

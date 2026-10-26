@@ -56,7 +56,9 @@ interface DateRangePickerProps {
   onBasisChange?: (basis: DateBasis) => void;
   /** Fulfilment dates shown when the optional "Series" calendar mode is
    *  active. Dates must be ISO YYYY-MM-DD; newest-first is preferred. */
-  series?: Array<{ date: string }>;
+  series?: Array<{ date: string; is_current?: boolean }>;
+  /** Start on the operational batch and follow rollover while it stays selected. */
+  defaultToCurrentSerie?: boolean;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -89,14 +91,14 @@ function isoDay(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** Prefer today's fulfillment series when it exists; otherwise keep the
- * existing newest-series fallback used for historic or future-only calendars. */
+/** Prefer the restaurant's current batch, then today or the newest known date. */
 export function preferredSerieDate(
-  series: Array<{ date: string }>,
+  series: Array<{ date: string; is_current?: boolean }>,
   referenceDate: Date = new Date(),
 ): string | undefined {
   const today = isoDay(referenceDate);
-  return series.find((item) => item.date === today)?.date ?? series[0]?.date;
+  return series.find((item) => item.is_current)?.date
+    ?? series.find((item) => item.date === today)?.date ?? series[0]?.date;
 }
 
 function inRange(d: Date, from: Date, to: Date): boolean {
@@ -237,6 +239,7 @@ export default function DateRangePicker({
   basis,
   onBasisChange,
   series = [],
+  defaultToCurrentSerie = false,
 }: DateRangePickerProps) {
   const { t, locale, direction } = useI18n();
   const wsd = clampWeekStartDay(weekStartDay);
@@ -334,6 +337,20 @@ export default function DateRangePicker({
     ? `${t(serieMode ? 'dateBasisSerieShort' : 'dateBasisCreatedShort')} · ${rangeLabel}`
     : rangeLabel;
   const seriesDateSet = useMemo(() => new Set(series.map((item) => item.date)), [series]);
+  const currentSerie = series.find((item) => item.is_current)?.date;
+  const previousCurrentSerie = useRef<{ restaurantId?: number; date: string } | null>(null);
+
+  useEffect(() => {
+    if (!serieMode || !defaultToCurrentSerie || !currentSerie) return;
+    const previous = previousCurrentSerie.current;
+    if (previous && previous.restaurantId === restaurantId && previous.date === currentSerie) return;
+    previousCurrentSerie.current = { restaurantId, date: currentSerie };
+    // Keep an explicitly selected historical period while the page stays open.
+    if (previous && previous.restaurantId === restaurantId
+      && (isoDay(value.from) !== previous.date || isoDay(value.to) !== previous.date)) return;
+    const date = new Date(`${currentSerie}T00:00:00`);
+    onChange({ from: startOfDay(date), to: endOfDay(date) }, { literal: true });
+  }, [currentSerie, defaultToCurrentSerie, onChange, restaurantId, serieMode, value.from, value.to]);
 
   // Migrate legacy consumers that persisted the date basis separately from the
   // old série picker. A série selection must always start and end on real série

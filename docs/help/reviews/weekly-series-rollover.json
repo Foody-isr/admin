@@ -1,0 +1,36 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "5678c597bd369181a56cfa9f9df465bb5e2c85aa0ffe61503b3e246a38a18100",
+      "baseSha256": "9da2fad72abf162cbb82ef9375d085a38b7ba9a56358b5609c12a532d830f06b",
+      "features": [
+        "customers-profiles",
+        "payments-how-payments-work",
+        "pos-payments"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the optional current-series response marker is typed. Customer profiles, payment initiation, payment history and settlement behavior are unchanged."
+    },
+    {
+      "path": "src/components/DateRangePicker.tsx",
+      "sha256": "bb21d62825986787097602d9701dc75505602224934c2bd4de45a2eee5441959",
+      "baseSha256": "a8a54f960bda38fd1d9c7e1f89df2bd4645b57b07cc3474587b96eea021c2a06",
+      "features": [
+        "global-search"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the series calendar default and rollover tracking change. Global search lookup, navigation, permissions and results remain unchanged."
+    },
+    {
+      "path": "src/components/orders/OrdersWorkspace.tsx",
+      "sha256": "aa7459e72e7da120594a0cd9ba9b5e9394145f9b987d14e517082d6ffeb73416",
+      "baseSha256": "fb1171cf6c93e4124d04acecd80706647899375d2a0e7ae42e251bd5b50c6243",
+      "features": [
+        "order-detail"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The list calendar starts on the current batch. Opening, editing and closing an order detail still use its explicit ID and preserve the mounted workspace filters; detail actions and payloads are unchanged."
+    }
+  ]
+}
