@@ -269,6 +269,8 @@ export interface FullServiceSettings {
 }
 
 export interface RestaurantSettings {
+  /** Supports conflict-safe three-way saves of restaurant and assigned POS policies. */
+  pos_settings_merge_supported?: boolean;
   pos_custom_dining_supported?: boolean;
   pos_fulfillment_customer_information_supported?: boolean;
  full_service?: FullServiceSettings;
@@ -2944,7 +2946,10 @@ export async function getRestaurantSettings(id: number): Promise<RestaurantSetti
 }
 
 export async function updateRestaurantSettings(
-  id: number, input: Partial<RestaurantSettings>
+  id: number, input: Partial<RestaurantSettings> & {
+    /** Original unedited policy from GET, required for conflict-safe POS policy saves. */
+    full_service_base?: FullServiceSettings;
+  }
 ): Promise<RestaurantSettings> {
   const data = await apiFetch<{ settings: RestaurantSettings }>(
     `/api/v1/restaurants/${id}/settings`, id,

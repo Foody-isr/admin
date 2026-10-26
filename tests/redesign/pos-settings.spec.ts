@@ -4,7 +4,7 @@ import type { FullServiceSettings } from '../../src/lib/api';
 const modeId='4d3db2c3-b29a-4d8d-94f5-0a231d85bc22';
 const otherId='4d3db2c3-b29a-4d8d-94f5-0a231d85bc23';
 const deviceId='5d3db2c3-b29a-4d8d-94f5-0a231d85bc22';
-async function install(page:Page,locale='fr',theme='light',permissions?:string[],options:{supported?:boolean; customerInformationSupported?:boolean; savedCustomerInformationSupported?:boolean; restaurantIds?:number[]; initialPolicy?:Partial<FullServiceSettings>; beforeResponse?:(method:string)=>Promise<void>; savedPolicy?:(policy:FullServiceSettings)=>FullServiceSettings}={}) {
+async function install(page:Page,locale='fr',theme='light',permissions?:string[],options:{supported?:boolean; mergeSupported?:boolean; savedMergeSupported?:boolean; customerInformationSupported?:boolean; savedCustomerInformationSupported?:boolean; restaurantIds?:number[]; initialPolicy?:Partial<FullServiceSettings>; beforeResponse?:(method:string)=>Promise<void>; savedPolicy?:(policy:FullServiceSettings)=>FullServiceSettings}={}) {
  const fixtureOptions={library:true,permissions};
  const fixture=createFixture(fixtureOptions);
  let policy:FullServiceSettings={seating_mode:'optionalSeats',send_and_stay:false,coursing_enabled:true,courses:['Entrées','Plats principaux','Desserts'],show_held_on_kds:false,sort_cart:'course',comp_reasons:['Geste commercial'],void_reasons:['Erreur'],auto_progression:true,order_entry:{tile_size:'tall',return_to_menu:'home'},modes:[{id:modeId,name:'Service complet',device_ids:[],seating_mode:'requiredSeats',send_and_stay:true,coursing_enabled:true,auto_progression:true,tile_size:'wide',sort_cart:'seat'},{id:otherId,name:'Comptoir',device_ids:[deviceId],seating_mode:'disabled',send_and_stay:false,coursing_enabled:false,auto_progression:false,tile_size:'tall',sort_cart:'entry'}]};
@@ -17,11 +17,11 @@ async function install(page:Page,locale='fr',theme='light',permissions?:string[]
  await page.route('**/api/v1/**',async route=>{
   const r=route.request(),path=new URL(r.url()).pathname,body=r.postDataJSON()??{};
   if(path==='/api/v1/restaurants/1/settings'){
-   if(r.method()==='PUT'){expect(r.headers()['x-restaurant-id']).toBe('1');expect(Object.keys(body)).toEqual(['full_service']);policy=body.full_service;writes.push(structuredClone(policy));}
+   if(r.method()==='PUT'){expect(r.headers()['x-restaurant-id']).toBe('1');expect(Object.keys(body).sort()).toEqual(['full_service','full_service_base']);expect(body.full_service_base).toBeTruthy();policy=body.full_service;writes.push(structuredClone(policy));}
    const returned=r.method()==='PUT'&&options.savedPolicy?options.savedPolicy(structuredClone(policy)):structuredClone(policy);
    await options.beforeResponse?.(r.method());
    const customerSupported=r.method()==='PUT'?options.savedCustomerInformationSupported??options.customerInformationSupported:options.customerInformationSupported;
-   return route.fulfill({json:{settings:{full_service:returned,pos_custom_dining_supported:options.supported??true,...(customerSupported!==false?{pos_fulfillment_customer_information_supported:true}:{})}}});
+   return route.fulfill({json:{settings:{full_service:returned,pos_custom_dining_supported:options.supported??true,pos_settings_merge_supported:(r.method()==='PUT'?options.savedMergeSupported??options.mergeSupported:options.mergeSupported)??true,...(customerSupported!==false?{pos_fulfillment_customer_information_supported:true}:{})}}});
   }
   if(path==='/api/v1/restaurants/1/devices')return route.fulfill({json:{devices:[{id:deviceId,restaurant_id:1,kind:'tablet',display_name:'iPad Salle',system_name:'iPad',capabilities:[]}]}});
   if(path==='/api/v1/menu/item-categories')return route.fulfill({json:{categories:[{id:10,name:'Boissons'}]}});
@@ -46,6 +46,66 @@ test('mode assignment moves an actual device once and does not change restaurant
  await page.getByRole('button',{name:/Appareils attribués/}).click();await page.getByRole('checkbox',{name:'iPad Salle'}).check();await page.getByRole('button',{name:'Appliquer',exact:true}).last().click();
  expect(writes).toEqual([]);await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
  expect(writes[0].modes?.[0].device_ids).toEqual([deviceId]);expect(writes[0].modes?.[1].device_ids).toEqual([]);expect(writes[0].seating_mode).toBe('optionalSeats');
+});
+test('mode saves include the original policy snapshot and adopt concurrent POS changes to other fields',async({page})=>{
+ const requests:Record<string,FullServiceSettings>[]=[];
+ page.on('request',request=>{if(request.method()==='PUT'&&new URL(request.url()).pathname==='/api/v1/restaurants/1/settings')requests.push(request.postDataJSON());});
+ const writes=await install(page,'fr','light',undefined,{savedPolicy:policy=>({...policy,modes:policy.modes?.map(mode=>mode.id===modeId?{...mode,name:'Renamed from POS'}:{...mode,auto_progression:true})})});
+ await page.goto(`/1/settings/modes/${modeId}/courses`);
+ const coursing=page.getByRole('switch',{name:'Activer la gestion des services',exact:true});
+ await coursing.uncheck();await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page.locator('.pos-editor-head h2')).toHaveText('Renamed from POS');
+ await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true})).toBeDisabled();
+ expect(requests[0].full_service_base.modes?.[0]).toMatchObject({name:'Service complet',coursing_enabled:true});
+ expect(requests[0].full_service.modes?.[0].coursing_enabled).toBe(false);
+ await coursing.check();await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect.poll(()=>writes.length).toBe(2);
+ expect(requests[1].full_service_base.modes?.[0]).toMatchObject({name:'Renamed from POS',coursing_enabled:false});
+ expect(requests[1].full_service_base.modes?.[1].auto_progression).toBe(true);
+});
+
+test('a conflicting POS save keeps the draft and reload requires explicit discard confirmation',async({page})=>{
+ const writes=await install(page);
+ let attempts=0,changed=false;
+ let current:FullServiceSettings|undefined;
+ await page.route('**/api/v1/restaurants/1/settings',async route=>{
+  if(route.request().method()==='PUT'){
+   attempts++;const body=route.request().postDataJSON();current={...body.full_service_base,modes:body.full_service_base.modes.map((mode:Record<string,unknown>)=>mode.id===modeId?{...mode,name:'From iPad'}:mode)};changed=true;
+   return route.fulfill({status:409,json:{error:'POS settings changed; reload before saving',details:{code:'pos_settings_conflict'}}});
+  }
+  if(changed)return route.fulfill({json:{settings:{full_service:current,pos_settings_merge_supported:true,pos_custom_dining_supported:true,pos_fulfillment_customer_information_supported:true}}});
+  return route.fallback();
+ });
+ await page.goto(`/1/settings/modes/${modeId}`);
+ const name=page.getByRole('textbox',{name:'Nom',exact:true});
+ await name.fill('Local unsaved name');await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('ont changé sur un autre appareil');
+ await expect(name).toHaveValue('Local unsaved name');expect(attempts).toBe(1);expect(writes).toEqual([]);
+ await page.getByRole('button',{name:'Recharger les réglages enregistrés',exact:true}).click();
+ await expect(page.getByRole('alertdialog')).toBeVisible();
+ await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();
+ await expect(name).toHaveValue('Local unsaved name');expect(attempts).toBe(1);
+ await page.getByRole('button',{name:'Recharger les réglages enregistrés',exact:true}).click();
+ await page.getByRole('alertdialog').getByRole('button',{name:'Recharger les réglages enregistrés',exact:true}).click();
+ await expect(page.getByRole('textbox',{name:'Nom',exact:true})).toHaveValue('From iPad');
+ await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true})).toBeDisabled();expect(attempts).toBe(1);
+});
+
+test('a server without safe POS merging cannot receive an unsafe full-policy replacement',async({page})=>{
+ const writes=await install(page,'fr','light',undefined,{mergeSupported:false});await page.goto(`/1/settings/modes/${modeId}/courses`);
+ await page.getByRole('switch',{name:'Activer la gestion des services',exact:true}).uncheck();
+ await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('sauvegarde sécurisée');
+ await expect(page.getByRole('switch',{name:'Activer la gestion des services',exact:true})).not.toBeChecked();expect(writes).toEqual([]);
+});
+
+for(const lost of ['mode field','merge capability'] as const)test(`a save losing its ${lost} remains unconfirmed with its draft retained`,async({page})=>{
+ const writes=await install(page,'fr','light',undefined,lost==='mode field'?{savedPolicy:policy=>({...policy,modes:policy.modes?.map(mode=>mode.id===modeId?{...mode,coursing_enabled:true}:mode)})}:{savedMergeSupported:false});
+ await page.goto(`/1/settings/modes/${modeId}/courses`);
+ await page.getByRole('switch',{name:'Activer la gestion des services',exact:true}).uncheck();
+ await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('n’a pas confirmé');
+ await expect(page.getByRole('switch',{name:'Activer la gestion des services',exact:true})).not.toBeChecked();expect(writes).toHaveLength(1);
 });
 test.describe('Square mode editor alignment',()=>{
 test.use({deviceScaleFactor:2});
