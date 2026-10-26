@@ -1,0 +1,20 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "0aab44371f0c81e1b449d11adc15ce72e934b03e33055c0259f59b005b57ad73",
+      "baseSha256": "a506b00b58c546ac41879a09945fa9520f432892c32188355497b2a3cdf13fd9",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-dispatch",
+        "google-account-setup",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the responsive website category-menu instructions and labels change in French, Hebrew and English. The corresponding website guides are updated. Customer profiles, library menus, delivery, Google, POS, WhatsApp, guest ordering, catering and platform API controls, permissions and procedures classified on this shared file are unchanged."
+    }
+  ]
+}

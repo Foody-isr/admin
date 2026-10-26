@@ -301,13 +301,13 @@ export function OrderPageEditor({
         <h3>{t("editorContent")}</h3>
         {toggle("sticky_categories", "editorOrderStickyCategories")}
         <p>{t("editorOrderStickyCategoriesHint")}</p>
-        {select("category_shape", "editorOrderCategoryStyleDesktop", value.card_style === "filled" ? "pill" : "plain", [
+        {select("category_shape", "editorOrderCategoryStyle", value.card_style === "filled" ? "pill" : "plain", [
           ["plain", "editorOrderCategoryStylePlain"],
           ["underline", "editorOrderCategoryStyleUnderline"],
           ["rounded", "editorShapeRound"],
           ["pill", "editorOrderShapePill"],
         ])}
-        <p>{t("editorOrderCategoryStyleDesktopHint")}</p>
+        <p>{t("editorOrderCategoryStyleHint")}</p>
         <details>
           <summary>{t("editorCategoryMenu")}</summary>
           {toggle("show_categories", "editorCategoryMenu")}

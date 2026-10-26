@@ -1484,3 +1484,13 @@ in manual mode; clients must not invent a reopening countdown. Active temporary
 test access must be disabled before public reopening. Deploy API migration
 `277_manual_batch_ordering.sql` before the clients and publish the reviewed guides
 with the feature.
+
+## Responsive category navigation
+
+Website V3 category-menu style applies to groups on desktop and mobile. Menu
+tabs remain separately underlined. Pill/rounded selections use their active
+background and text colors; underlined selections use the active text color.
+Long group headings wrap inside the page instead of widening the document.
+Synthetic Chromium/WebKit regression: from foodyadmin run
+`FOODY_MENU_TABS=1 FOODY_MENU_LAYOUT=1 npx playwright test -c
+playwright.website-editor.config.ts mobile-menu-layout.spec.ts`.
