@@ -43,7 +43,7 @@ function Workspace({rid,view,modeId,section}:{rid:number;view:View;modeId:string
     {view==='adjustments'&&<Reasons policy={policy}/>}
    </fieldset>
   </form>}
-  {policy.error&&policy.draft&&<p role="alert" className="pos-error">{policy.error}</p>}
+  {policy.error&&policy.draft&&<PolicyError policy={policy}/>}
  </>;
  const save=<Button form="pos-settings-form" type="submit" disabled={!policy.editable||!policy.dirty||policy.saving}>{t(policy.saving?'saving':'save')}</Button>;
  return <>
@@ -54,7 +54,12 @@ function Workspace({rid,view,modeId,section}:{rid:number;view:View;modeId:string
    {view!=='fulfillment'&&view!=='modes'&&<header className="pos-settings-header"><h1>{title}</h1>{save}</header>}{content}
   </div>}
   <ConfirmDialog open={policy.leaving!==null} onOpenChange={open=>{if(!open)policy.setLeaving(null);}} title={t('discardUnsavedChanges')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={policy.discard}/>
+  <ConfirmDialog open={policy.reloadConfirmation} onOpenChange={policy.setReloadConfirmation} title={t('discardUnsavedChanges')} description={t('posSettingsReloadHint')} confirmLabel={t('posSettingsReload')} cancelLabel={t('cancel')} onConfirm={policy.confirmReload}/>
  </>;
+}
+function PolicyError({policy}:{policy:Policy}) {
+ const {t}=useI18n();
+ return <div><p role="alert" className="pos-error">{policy.error}</p><Button type="button" variant="secondary" disabled={policy.saving} onClick={policy.reload}>{t('posSettingsReload')}</Button></div>;
 }
 function SettingSection({title,children,hint}:{title:string;children:ReactNode;hint?:string}) {
  return <section className="pos-setting-section"><h2>{title}</h2>{hint&&<p className="pos-setting-hint">{hint}</p>}{children}</section>;
@@ -153,7 +158,7 @@ function Fulfillment({policy,rid}:{policy:Policy;rid:number}) {
      </div>)}
      <Button type="button" variant="secondary" disabled={methods.length>=10} onClick={()=>add(true)}><Plus/>{t('posDiningAdd')}</Button>
     </SettingSection>
-   </fieldset>{policy.error&&<p role="alert" className="pos-error">{policy.error}</p>}</main>
+   </fieldset>{policy.error&&<PolicyError policy={policy}/>}</main>
   </Dialog.Content></Dialog.Portal></Dialog.Root>
   <Dialog.Root open={editing!==null} onOpenChange={next=>{if(!next)closeMethod();}}><Dialog.Portal><Dialog.Overlay className="pos-fulfillment-overlay"/><Dialog.Content {...methodFocus} aria-describedby={undefined} className="pos-settings pos-fulfillment-editor pos-fulfillment-method-editor" data-scrolled={methodScrolled}>
    <header className="pos-editor-head"><Button type="button" variant="secondary" icon aria-label={t('close')} disabled={policy.saving} onClick={closeMethod}><X/></Button><Dialog.Title className={methodScrolled?'':'sr-only'}>{methodTitle}</Dialog.Title><div className="pos-method-head-actions">{editing&&methods.some(m=>m.id===editing.id)&&<Button type="button" variant="secondary" className="pos-method-delete" disabled={!policy.editable||policy.saving} onClick={()=>setRemoveMethod(true)}>{t('delete')}</Button>}<Button type="button" disabled={!policy.editable||policy.saving} onClick={()=>void apply()}>{t(policy.saving?'saving':'save')}</Button></div></header><main onScroll={event=>setMethodScrolled(event.currentTarget.scrollTop>36)}>
@@ -170,7 +175,7 @@ function Fulfillment({policy,rid}:{policy:Policy;rid:number}) {
     {methodError&&<p role="alert" className="pos-error">{methodError}</p>}
    </fieldset>}
    {fromLocation&&<p className="pos-setting-hint">{t('posDiningApplyHint')}</p>}
-   {policy.error&&<p role="alert" className="pos-error">{policy.error}</p>}
+   {policy.error&&<PolicyError policy={policy}/>}
    </main></Dialog.Content></Dialog.Portal></Dialog.Root>
   <ConfirmDialog open={discardMethod} onOpenChange={setDiscardMethod} title={t('discardUnsavedChanges')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={()=>{setDiscardMethod(false);setEditing(null);}}/>
   <ConfirmDialog open={removeMethod} onOpenChange={setRemoveMethod} title={t('posDiningRemove')} confirmLabel={t('delete')} cancelLabel={t('cancel')} onConfirm={()=>void remove()}/>

@@ -29,12 +29,14 @@ async function install(page: Page, options: { locale?: string; theme?: string; p
     if (path === '/api/v1/restaurants/1/devices') return route.fulfill({ json: { devices: [] } });
     if (path === '/api/v1/restaurants/1/settings') {
       if (request.method() === 'PUT') {
+        expect(Object.keys(body).sort()).toEqual(['full_service', 'full_service_base']);
+        expect(body.full_service_base).toEqual(service);
         service = body.full_service;
         serviceWrites.push({ restaurant: request.headers()['x-restaurant-id'], value: structuredClone(service) });
       }
       const result = fixture.response(request.url(), 'GET', {}, 1);
       const data = result.json as { settings?: Record<string, unknown> } | undefined;
-      return route.fulfill({ json: { settings: { ...data?.settings, full_service: service } } });
+      return route.fulfill({ json: { settings: { ...data?.settings, full_service: service, pos_settings_merge_supported: true } } });
     }
     const result = fixture.response(request.url(), request.method(), body, 1);
     await route.fulfill({ status: result.status ?? 200, json: result.json ?? {} });

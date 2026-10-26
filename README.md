@@ -959,10 +959,38 @@ Admin and POS consume the same persisted policy; kitchen progress remains separa
 from payments, table occupancy and inventory. Comp/void reasons are configuration
 only until the corresponding operational actions are implemented. Additive
 mode/fulfillment/menu/printing policies reuse `full_service` JSONB and need no new
-migration. POS reloads settings explicitly; changing Admin does not push a live
-mode update. Fired/held printing currently adds held context to fired tickets;
+migration. The matching POS reloads settings on foreground resume, sale navigation
+and actions, with foreground polling; changes are deferred during sending or
+payment. This is refresh synchronization, not an instantaneous WebSocket push.
+Fired/held printing currently adds held context to fired tickets;
 standalone held-only printing remains unsupported. Custom dining labels are now
 implemented in the newer follow-up below.
+
+Shared POS policy saves now require the API capability
+`pos_settings_merge_supported`. Admin sends the unchanged original policy as
+`full_service_base` alongside its edited `full_service`; the API merges edited
+fields and modes by stable ID without replacing another device's unrelated
+changes. A conflict keeps the draft visible instead of retrying a mutation.
+**Reload saved settings** asks before discarding unsaved input and then displays
+the current shared policy. Missing support or an unconfirmed save remains an
+explicit error. Deploy the matching API before this Admin version; there is no
+new migration or environment variable.
+Incomplete policy reads never expose editable invented defaults. A save response
+must retain the canonical core and complete explicit check behavior before its
+edited fields can be confirmed; omitted/null inherited behavior is not expanded.
+
+Table status colours and yellow/red elapsed-time thresholds remain restaurant-wide,
+independent of checkout mode or fulfillment method. Their save confirms every
+submitted value against the complete API response (hexadecimal colour case may
+normalize). An omitted or rolled-back value retains the unsaved draft and shows
+the existing save error rather than claiming success. Hidden, historical and
+reversed thresholds keep their existing semantics and are not rewritten by a
+mode, course or fulfillment edit.
+Order processing likewise confirms each changed service mode, preparation time,
+prepayment requirement and kitchen-dispatch override before clearing the draft.
+An HTTP 200 response with a missing or old changed value is not confirmation;
+the existing error retains the input for review and deliberate retry. This does
+not collect a payment or change provider, deposit or settlement behavior.
 
 Isolated checks: `npx playwright test -c playwright.redesign.config.ts pos-settings.spec.ts item-checkout.spec.ts`.
 
