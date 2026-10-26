@@ -959,10 +959,22 @@ Admin and POS consume the same persisted policy; kitchen progress remains separa
 from payments, table occupancy and inventory. Comp/void reasons are configuration
 only until the corresponding operational actions are implemented. Additive
 mode/fulfillment/menu/printing policies reuse `full_service` JSONB and need no new
-migration. POS reloads settings explicitly; changing Admin does not push a live
-mode update. Fired/held printing currently adds held context to fired tickets;
+migration. The matching POS reloads settings on foreground resume, sale navigation
+and actions, with foreground polling; changes are deferred during sending or
+payment. This is refresh synchronization, not an instantaneous WebSocket push.
+Fired/held printing currently adds held context to fired tickets;
 standalone held-only printing remains unsupported. Custom dining labels are now
 implemented in the newer follow-up below.
+
+Shared POS policy saves now require the API capability
+`pos_settings_merge_supported`. Admin sends the unchanged original policy as
+`full_service_base` alongside its edited `full_service`; the API merges edited
+fields and modes by stable ID without replacing another device's unrelated
+changes. A conflict keeps the draft visible instead of retrying a mutation.
+**Reload saved settings** asks before discarding unsaved input and then displays
+the current shared policy. Missing support or an unconfirmed save remains an
+explicit error. Deploy the matching API before this Admin version; there is no
+new migration or environment variable.
 
 Isolated checks: `npx playwright test -c playwright.redesign.config.ts pos-settings.spec.ts item-checkout.spec.ts`.
 

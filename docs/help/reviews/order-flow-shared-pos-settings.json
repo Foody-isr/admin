@@ -1,0 +1,36 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "0a9ad0d26db73f3f98a6312b4c6ce05dbb6d2ec20976914d55f674f91edcbcbe",
+      "baseSha256": "9da2fad72abf162cbb82ef9375d085a38b7ba9a56358b5609c12a532d830f06b",
+      "features": ["customers-profiles", "payments-how-payments-work"],
+      "disposition": "no-user-impact",
+      "reason": "Compared with the current HEAD contract, the diff only adds the POS policy merge capability and full_service_base request type. Customer profile and payment endpoints, inputs, controls and recovery are unchanged; POS settings behavior is documented separately in FR/HE/EN."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "0a9ad0d26db73f3f98a6312b4c6ce05dbb6d2ec20976914d55f674f91edcbcbe",
+      "baseSha256": "7a530fd07d105d6b3357bf5da8ace96f3bf53e84fe2f4615250c29d15fe9c52d",
+      "features": ["customers-profiles", "payments-how-payments-work"],
+      "disposition": "no-user-impact",
+      "reason": "The origin/develop comparison contains POS merge request/capability types and batch calendar type differences, not customer-profile or payment procedures. These two classified features retain their endpoints, inputs, controls and recovery. This scope does not exempt POS policy, batch behavior or any other feature."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "86edc629e18a26e44b9d5791e1f02fd6665ec8c38099d57978ec363b014d0dd5",
+      "baseSha256": "182f7a8096cb8ef8990e4fcbd8602b798623c6b76213a564482e909c4512ce98",
+      "features": ["customers-profiles", "menu-menus-and-groups", "delivery-dispatch", "google-account-setup", "whatsapp"],
+      "disposition": "no-user-impact",
+      "reason": "Compared with HEAD, only five shared POS-policy save/reload error keys are added in each language. Customer contacts, catalog menu/group navigation, courier dispatch, Google connection and WhatsApp controls and instructions are unchanged. Shared POS save and recovery procedures have actual FR/HE/EN updates and are not exempted."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "86edc629e18a26e44b9d5791e1f02fd6665ec8c38099d57978ec363b014d0dd5",
+      "baseSha256": "a506b00b58c546ac41879a09945fa9520f432892c32188355497b2a3cdf13fd9",
+      "features": ["customers-profiles", "menu-menus-and-groups", "delivery-dispatch", "google-account-setup", "whatsapp"],
+      "disposition": "no-user-impact",
+      "reason": "The origin/develop diff is restricted to batch-order opening labels, a website-menu color label and the five POS-policy save/reload messages. It changes no customer-contact, catalog menu/group, dispatch, Google-account or WhatsApp translation. This exact scoped review exempts only those unchanged procedures; changed POS, batch and website behavior is not covered."
+    }
+  ]
+}
