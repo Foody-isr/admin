@@ -2,7 +2,7 @@
   "files": [
     {
       "path": "src/components/settings/POSSettingsWorkspace.tsx",
-      "sha256": "ed8d34ce8d25bae50de1f15bdfcdc1c900363caf826e23a566d49452df40d52e",
+      "sha256": "9f543e3c5148fa19bb404d8b454a8eb2f363ef9a17c47684f496939de309b93f",
       "baseSha256": "3b54464fcc3eb81c40caf652544a84351a855c0381e31190fac9a4127fe56d99",
       "features": [
         "order-types",

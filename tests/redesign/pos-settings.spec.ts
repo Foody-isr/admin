@@ -256,6 +256,20 @@ test('a pending mode deletion locks undo and dismissal until its one save is con
  await page.keyboard.press('Escape');await expect(page).toHaveURL(`/1/settings/modes/${modeId}/open-checks`);await expect(page.locator('.pos-editor-head button').last()).toBeDisabled();
  release();await expect(page).toHaveURL('/1/settings/modes');expect(writes).toHaveLength(1);
 });
+test('confirmed mode deletion keeps its title and loading state while the list navigation is slow',async({page})=>{
+ const writes=await install(page);let releaseList:()=>void=()=>{},heldList=0;
+ const listReady=new Promise<void>(resolve=>{releaseList=resolve;});
+ await page.route('**/1/settings/modes?*',async route=>{if(route.request().headers().rsc==='1'){heldList++;await listReady;}await route.continue();});
+ await page.goto(`/1/settings/modes/${modeId}`);await page.getByRole('textbox',{name:'Nom',exact:true}).fill('Slow navigation QA');await stageEditorModeDeletion(page);
+ await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ try{
+  await expect.poll(()=>heldList).toBe(1);await expect(page.getByRole('status')).toContainText('Chargement');
+  await expect(page.locator('.pos-editor-head h2')).toHaveText('Slow navigation QA');await expect(page.getByText('Ce mode n’existe plus.',{exact:true})).not.toBeVisible();
+  await expect(page.getByRole('button',{name:'Annuler la suppression',exact:true})).not.toBeVisible();await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();await expect(page.locator('.pos-editor-head button').last()).toBeDisabled();
+  await expect(page).toHaveURL(`/1/settings/modes/${modeId}`);expect(writes).toHaveLength(1);
+ }finally{releaseList();}
+ await expect(page).toHaveURL('/1/settings/modes');await expect(page.locator('[data-pos-settings=modes] tbody tr')).toHaveCount(1);
+});
 for(const [locale,theme,width,heading,undo]of [['en','light',390,'Deletion pending','Undo deletion'],['he','dark',320,'מחיקה ממתינה לאישור','ביטול המחיקה']]as const)test(`mode deletion pending state remains accessible ${locale} ${width}`,async({page},info)=>{
  const writes=await install(page,locale,theme);await page.setViewportSize({width,height:844});await page.goto(`/1/settings/modes/${modeId}`);
  await page.locator('.pos-mode-delete').click();await page.getByRole('alertdialog').getByRole('button').last().click();

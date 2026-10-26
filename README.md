@@ -943,6 +943,8 @@ Settings now separates the restaurant policy from device checkout profiles:
   shows Deletion pending and Undo deletion restores the complete edited profile.
   A confirmed save returns to the modes list; failed, conflicting or unconfirmed
   saves keep the pending removal visible. A genuinely missing profile is separate.
+  While the confirmed removal waits for list navigation, the editor keeps its
+  name and a locked loading state instead of reporting a missing profile.
   With Open checks home enabled, a confirmed non-stay POS send releases only the
   editor: the saved table/named check stays intact, while Menu opens a fresh sale.
   Continue retains the current check. Foody tracks all saved orders, including
