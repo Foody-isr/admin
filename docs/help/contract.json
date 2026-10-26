@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "de548ce25aa6d47b3d9c0dd7e52af127becf0da3",
-  "documentationRevision": "a12e38cb02921efd644da31633b4312da3c62165fc5680b8a3ba1b89f0fb01e3",
+  "documentationRef": "b93b6e195df625a110133dc8a86ef45136c9adc5",
+  "documentationRevision": "279a6653ccc685bd4b2467d280bceec9bcc7580e1451c69d43de6e9e0f59a348",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -563,15 +563,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/service-mode.mdx",
-          "sha256": "9a6eb6d2b2d41a2d536d40b9ca91b6429f5089e198aa09038b79f2da6daf00f8"
+          "sha256": "18d875186a721ec88b5667017cbded15b0f3145e73b880fefc73092678d0c88d"
         },
         "fr": {
           "path": "src/content/help/fr/settings/service-mode.mdx",
-          "sha256": "36682780a0aede56184502979283a735d286c4a7a998a98290c27e79e9e00211"
+          "sha256": "7338e2c12ec8359db2588c511c4fe5ff9f2e127c4ba8b95d19ce80800cd925d8"
         },
         "he": {
           "path": "src/content/help/he/settings/service-mode.mdx",
-          "sha256": "cc62c99ce975a3aff663f6fc5a6e41d02dc5a663ce7435ce0f4418c7503397cc"
+          "sha256": "b97edbf4fc6db164240f47ea228dfb838e8b2d9dd823902dd031fdae1e798eeb"
         }
       }
     },
@@ -5309,7 +5309,7 @@
       ]
     },
     "src/components/settings/POSSettingsWorkspace.tsx": {
-      "sha256": "3b54464fcc3eb81c40caf652544a84351a855c0381e31190fac9a4127fe56d99",
+      "sha256": "9f543e3c5148fa19bb404d8b454a8eb2f363ef9a17c47684f496939de309b93f",
       "features": [
         "order-types",
         "pos-service-modes",
@@ -6325,7 +6325,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "7ee59279b154c841957fd096a4e5bb53a82e80f00a0e384ca11e460effc00de3",
+      "sha256": "858e99bae56e83175bb40b50d0193ed3325f7a8d779645906b0dab58a6978b06",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -20004,6 +20004,8 @@
         "posManageLocation",
         "posModeCreatedDate",
         "posModeDateUnavailable",
+        "posModeDeletionPending",
+        "posModeDeletionPendingHint",
         "posModeNoAssignedDevices",
         "posModeNotFound",
         "posModeProfile",
@@ -20011,6 +20013,7 @@
         "posModeSharedHint",
         "posModeSummaryHint",
         "posModeUnavailableDevice",
+        "posModeUndoDeletion",
         "posModes",
         "posMoveDown",
         "posMoveUp",
@@ -20055,7 +20058,8 @@
         "openCategoryPicker",
         "openDevices",
         "remove",
-        "save"
+        "save",
+        "savePolicy"
       ]
     },
     {
