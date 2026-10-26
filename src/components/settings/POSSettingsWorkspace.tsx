@@ -29,17 +29,36 @@ function BooleanInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
 function Workspace({rid,view,modeId,section}:{rid:number;view:View;modeId:string;section:string}) {
  const editorRef=useRef<HTMLDivElement>(null);
  const {t}=useI18n(), policy=usePOSSettings(rid, view==='mode'?`/${rid}/settings/modes/${modeId}`:undefined), router=useRouter();
+ const [removedMode,setRemovedMode]=useState<{mode:POSMode;index:number}|null>(null);
+ // A confirmed save or an explicitly accepted reload establishes a new draft.
+ useEffect(()=>{setRemovedMode(null);},[policy.baseline]);
+ const pendingRemoval=removedMode&&policy.baseline?.modes?.some(mode=>mode.id===modeId)&&policy.draft&&!policy.draft.modes?.some(mode=>mode.id===modeId)?removedMode:null;
+ const stageRemoval=()=>{
+  if(!policy.editable||policy.saving)return;
+  const modes=policy.draft?.modes??[],index=modes.findIndex(mode=>mode.id===modeId);
+  if(index<0)return;
+  setRemovedMode({mode:modes[index],index});policy.patch({modes:modes.filter(mode=>mode.id!==modeId)});
+ };
+ const restoreRemoval=()=>{
+  if(!pendingRemoval||!policy.editable||policy.saving)return;
+  const modes=[...(policy.draft?.modes??[])];modes.splice(Math.min(pendingRemoval.index,modes.length),0,pendingRemoval.mode);
+  policy.patch({modes});setRemovedMode(null);
+ };
+ const savePolicy=async()=>{
+  const returnToList=view==='mode'&&pendingRemoval!==null;
+  if(await policy.save()&&returnToList)router.replace(`/${rid}/settings/modes`);
+ };
  const titles:Record<View,string>={services:'posServices', 'menu-behavior':'posMenuBehavior',fulfillment:'posFulfillmentTitle',modes:'posModes',mode:'posFullServiceMode',adjustments:'posAdjustmentReasons'};
- const title = view==='mode' ? policy.draft?.modes?.find(m=>m.id===modeId)?.name??t(modeId==='default'?'posRestaurantDefaults':'posFullServiceMode') : t(titles[view]);
+ const title = view==='mode' ? policy.draft?.modes?.find(m=>m.id===modeId)?.name??pendingRemoval?.mode.name??t(modeId==='default'?'posRestaurantDefaults':'posFullServiceMode') : t(titles[view]);
  const exit=()=>{if(policy.saving)return;const path=`/${rid}/settings/modes`;if(policy.dirty)policy.setLeaving(path);else router.push(path);};
  const content=<>
-  {!policy.draft ? <div role={policy.error?'alert':'status'}><p>{policy.error||t('loading')}</p>{policy.error&&<Button type="button" onClick={policy.reload}>{t('retry')}</Button>}</div> : <form id="pos-settings-form" onSubmit={e=>{e.preventDefault();void policy.save();}}>
+  {!policy.draft ? <div role={policy.error?'alert':'status'}><p>{policy.error||t('loading')}</p>{policy.error&&<Button type="button" onClick={policy.reload}>{t('retry')}</Button>}</div> : <form id="pos-settings-form" onSubmit={e=>{e.preventDefault();void savePolicy();}}>
    <fieldset disabled={view==='modes'?policy.saving:!policy.editable||policy.saving} className="min-w-0">
     {view==='services'&&<Services policy={policy} rid={rid}/>}
     {view==='menu-behavior'&&<MenuBehavior policy={policy}/>}
     {view==='fulfillment'&&<Fulfillment policy={policy} rid={rid}/>}
     {view==='modes'&&<Modes policy={policy} rid={rid}/>}
-    {view==='mode'&&<ModeEditor policy={policy} rid={rid} id={modeId} section={section}/>}
+    {view==='mode'&&<ModeEditor policy={policy} rid={rid} id={modeId} section={section} pendingRemoval={pendingRemoval!==null} onRemove={stageRemoval} onRestore={restoreRemoval}/>}
     {view==='adjustments'&&<Reasons policy={policy}/>}
    </fieldset>
   </form>}
@@ -234,13 +253,14 @@ function Modes({policy,rid}:{policy:Policy;rid:number}) {
   <Drawer open={creating} onOpenChange={setCreating} title={t('posAddMode')} onSave={()=>{const value=name.trim();if(!value||(draft.modes??[]).some(m=>m.name.toLowerCase()===value.toLowerCase())){policy.setError(t('fullServiceInvalid'));return;}policy.patch({modes:[...(draft.modes??[]),{...modeDefaults(draft),id:crypto.randomUUID(),name:value,device_ids:[]}]});setCreating(false);}} saveLabel={t('apply')} saveDisabled={!name.trim()||!policy.editable||policy.saving}><label className="pos-inset-field">{t('name')}<Input disabled={!policy.editable||policy.saving} aria-label={t('name')} maxLength={80} value={name} onChange={e=>setName(e.target.value)}/></label></Drawer>
  </>;
 }
-function ModeEditor({policy,rid,id,section}:{policy:Policy;rid:number;id:string;section:string}) {
+function ModeEditor({policy,rid,id,section,pendingRemoval,onRemove,onRestore}:{policy:Policy;rid:number;id:string;section:string;pendingRemoval:boolean;onRemove:()=>void;onRestore:()=>void}) {
  const {t}=useI18n(),draft=policy.draft!;
  const mode=draft.modes?.find(mode=>mode.id===id),isDefault=id==='default';
  const value=isDefault?modeDefaults(draft):mode;
  const [devices,setDevices]=useState<RestaurantDevice[]|null>(null),[deviceError,setDeviceError]=useState(''),[selecting,setSelecting]=useState(false),[selected,setSelected]=useState<string[]>([]);
  const [remove,setRemove]=useState(false);
  const patch=(next:Partial<POSMode>)=>{if(isDefault){const {tile_size,...rest}=next;policy.patch({...rest,...(tile_size?{order_entry:{...(draft.order_entry??{return_to_menu:'home'}),tile_size}}:{})});}else policy.patch({modes:(draft.modes??[]).map(m=>m.id===id?{...m,...next}:m)});};
+ if(pendingRemoval)return <SettingSection title={t('posModeDeletionPending')}><p role="status" className="pos-setting-hint">{t('posModeDeletionPendingHint')}</p><Button type="button" variant="secondary" disabled={!policy.editable||policy.saving} onClick={onRestore}>{t('posModeUndoDeletion')}</Button></SettingSection>;
  if(!value)return <p role="alert">{t('posModeNotFound')}</p>;
  const behavior:POSCheckBehavior=value?.check_behavior??draft.check_behavior??{allow_hold_fire:true,collapse_sent:true,open_checks_enabled:true,open_checks_home:false,predefined_tickets:false};
  const patchBehavior=(next:Partial<POSCheckBehavior>)=>patch({check_behavior:{...behavior,...next}});
@@ -290,7 +310,7 @@ function ModeEditor({policy,rid,id,section}:{policy:Policy;rid:number;id:string;
   <Drawer open={selecting} onOpenChange={setSelecting} title={t('posAssignedDevices')} subtitle={t('posDeviceAssignmentHint')} onSave={()=>{policy.patch({modes:(draft.modes??[]).map(m=>({...m,device_ids:m.id===id?selected:m.device_ids.filter(d=>!selected.includes(d))}))});setSelecting(false);}} saveLabel={t('apply')} saveDisabled={!devices||!!deviceError||!policy.editable||policy.saving}>
    {deviceError?<div role="alert">{deviceError}<Button type="button" onClick={openDevices}>{t('retry')}</Button></div>:!devices?<p role="status">{t('loading')}</p>:devices.length?devices.map(device=><ChoiceRow key={device.id} label={device.display_name||device.system_name} checked={selected.includes(device.id)} description={draft.modes?.find(m=>m.id!==id&&m.device_ids.includes(device.id))?.name} disabled={!policy.editable||policy.saving} onChange={e=>setSelected(e.target.checked?[...selected,device.id]:selected.filter(d=>d!==device.id))}/>):<p>{t('posNoDevices')}</p>}
   </Drawer>
-  <ConfirmDialog open={remove} onOpenChange={setRemove} title={t('posDeleteMode')} description={t('posDeleteModeHint')} confirmLabel={t('delete')} cancelLabel={t('cancel')} onConfirm={()=>{policy.patch({modes:(draft.modes??[]).filter(m=>m.id!==id)});setRemove(false);}}/>
+  <ConfirmDialog open={remove} onOpenChange={setRemove} title={t('posDeleteMode')} description={t('posDeleteModeHint')} confirmLabel={t('delete')} cancelLabel={t('cancel')} onConfirm={()=>{onRemove();setRemove(false);}}/>
  </>;
 }
 function Reasons({policy}:{policy:Policy}) {

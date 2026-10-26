@@ -188,6 +188,81 @@ test('Modes sorting, search, selection and deletion remain staged until explicit
  await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();await expect(list.locator('tbody tr')).toHaveCount(0);expect(writes).toEqual([]);
  await list.getByRole('button',{name:'Enregistrer',exact:true}).click();expect(writes[0].modes?.map(m=>m.id)).toEqual([modeId]);
 });
+async function stageEditorModeDeletion(page:Page) {
+ await page.getByRole('button',{name:'Supprimer le mode',exact:true}).click();
+ await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();
+}
+test('mode editor deletion stays explicit until Save then returns to the persisted list',async({page})=>{
+ const writes=await install(page);await page.goto(`/1/settings/modes/${modeId}`);
+ await page.getByRole('textbox',{name:'Nom',exact:true}).fill('Service QA');await stageEditorModeDeletion(page);
+ await expect(page.getByRole('status')).toContainText('Enregistrez pour confirmer la suppression');
+ await expect(page.locator('.pos-editor-head h2')).toHaveText('Service QA');
+ await expect(page.getByText('Ce mode n’existe plus.',{exact:true})).not.toBeVisible();expect(writes).toEqual([]);
+ await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page).toHaveURL('/1/settings/modes');
+ const list=page.locator('[data-pos-settings=modes]');await expect(list.locator('tbody tr')).toHaveCount(1);await expect(list.locator('tbody')).toContainText('Comptoir');
+ expect(writes).toHaveLength(1);expect(writes[0].modes?.map(mode=>mode.id)).toEqual([otherId]);expect(writes[0].seating_mode).toBe('optionalSeats');
+ await page.reload();await expect(list.locator('tbody tr')).toHaveCount(1);await expect(list.locator('tbody')).not.toContainText('Service QA');
+});
+test('undoing mode editor deletion restores its edited draft and original position without a write',async({page})=>{
+ const writes=await install(page);await page.goto(`/1/settings/modes/${modeId}`);
+ await page.getByRole('textbox',{name:'Nom',exact:true}).fill('Edited before deletion');await stageEditorModeDeletion(page);
+ await page.getByRole('button',{name:'Annuler la suppression',exact:true}).click();
+ await expect(page.getByRole('textbox',{name:'Nom',exact:true})).toHaveValue('Edited before deletion');expect(writes).toEqual([]);
+ await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true})).toBeDisabled();await expect(page).toHaveURL(`/1/settings/modes/${modeId}`);
+ expect(writes[0].modes?.map(mode=>mode.id)).toEqual([modeId,otherId]);expect(writes[0].modes?.[0]).toMatchObject({name:'Edited before deletion',device_ids:[],seating_mode:'requiredSeats',send_and_stay:true});expect(writes[0].modes?.[0]).not.toHaveProperty('check_behavior');
+});
+for(const status of [409,503])test(`failed mode editor deletion ${status} retains the pending draft for deliberate retry`,async({page})=>{
+ const writes=await install(page);let attempts=0,fail=true;
+ await page.route('**/api/v1/restaurants/1/settings',async route=>{
+  if(route.request().method()==='PUT'&&fail){attempts++;return route.fulfill({status,json:{error:'Synthetic save failure',details:{code:status===409?'pos_settings_conflict':'unavailable'}}});}
+  return route.fallback();
+ });
+ await page.goto(`/1/settings/modes/${modeId}`);await stageEditorModeDeletion(page);
+ const save=page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true});await save.click();
+ await expect(page.getByRole('alert')).toContainText(status===409?'ont changé sur un autre appareil':'Vos modifications sont conservées ici');
+ await expect(page.getByRole('status')).toContainText('Enregistrez pour confirmer la suppression');await expect(save).toBeEnabled();await expect(page).toHaveURL(`/1/settings/modes/${modeId}`);expect(attempts).toBe(1);expect(writes).toEqual([]);
+ fail=false;await save.click();await expect(page).toHaveURL('/1/settings/modes');expect(writes).toHaveLength(1);expect(writes[0].modes?.map(mode=>mode.id)).toEqual([otherId]);
+});
+test('an unconfirmed deletion response cannot close the pending mode editor',async({page})=>{
+ const writes=await install(page,'fr','light',undefined,{savedPolicy:policy=>({...policy,modes:[{id:modeId,name:'Service complet',device_ids:[],seating_mode:'requiredSeats',send_and_stay:true,coursing_enabled:true,auto_progression:true,tile_size:'wide',sort_cart:'seat'},...policy.modes??[]]})});
+ await page.goto(`/1/settings/modes/${modeId}`);await stageEditorModeDeletion(page);await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('n’a pas confirmé');await expect(page.getByRole('status')).toContainText('Enregistrez pour confirmer la suppression');await expect(page).toHaveURL(`/1/settings/modes/${modeId}`);expect(writes).toHaveLength(1);
+});
+test('a genuinely absent mode remains not found rather than a pending local deletion',async({page})=>{
+ const writes=await install(page,'fr','light',undefined,{initialPolicy:{modes:[]}});await page.goto(`/1/settings/modes/${modeId}`);
+ await expect(page.getByRole('alert')).toHaveText('Ce mode n’existe plus.');await expect(page.getByRole('button',{name:'Annuler la suppression',exact:true})).not.toBeVisible();await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true})).toBeDisabled();expect(writes).toEqual([]);
+});
+test('reload after a conflicting deletion discards its undo snapshot only after confirmation',async({page})=>{
+ let removedElsewhere=false;
+ const writes=await install(page,'fr','light',undefined,{loadedPolicy:policy=>removedElsewhere?{...policy,modes:policy.modes?.filter(mode=>mode.id!==modeId)}:policy});
+ await page.route('**/api/v1/restaurants/1/settings',route=>route.request().method()==='PUT'?route.fulfill({status:409,json:{error:'Synthetic conflict',details:{code:'pos_settings_conflict'}}}):route.fallback());
+ await page.goto(`/1/settings/modes/${modeId}`);await stageEditorModeDeletion(page);await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('ont changé sur un autre appareil');
+ const reload=page.getByRole('button',{name:'Recharger les réglages enregistrés',exact:true});await reload.click();
+ await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(page.getByRole('button',{name:'Annuler la suppression',exact:true})).toBeVisible();
+ removedElsewhere=true;await reload.click();await page.getByRole('alertdialog').getByRole('button',{name:'Recharger les réglages enregistrés',exact:true}).click();
+ await expect(page.getByRole('alert')).toHaveText('Ce mode n’existe plus.');await expect(page.getByRole('button',{name:'Annuler la suppression',exact:true})).not.toBeVisible();await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true})).toBeDisabled();expect(writes).toEqual([]);
+});
+test('a pending mode deletion locks undo and dismissal until its one save is confirmed',async({page})=>{
+ let release:()=>void=()=>{};const gate=new Promise<void>(resolve=>{release=resolve;});
+ const writes=await install(page,'fr','light',undefined,{beforeResponse:async method=>{if(method==='PUT')await gate;}});
+ await page.goto(`/1/settings/modes/${modeId}`);await stageEditorModeDeletion(page);
+ await page.locator('.pos-editor-layout>aside').getByRole('link',{name:'Additions en attente',exact:true}).click();
+ await expect(page.getByRole('status')).toContainText('Enregistrez pour confirmer la suppression');expect(writes).toEqual([]);
+ await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect.poll(()=>writes.length).toBe(1);await expect(page.getByRole('button',{name:'Annuler la suppression',exact:true})).toBeDisabled();await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();
+ await page.keyboard.press('Escape');await expect(page).toHaveURL(`/1/settings/modes/${modeId}/open-checks`);await expect(page.locator('.pos-editor-head button').last()).toBeDisabled();
+ release();await expect(page).toHaveURL('/1/settings/modes');expect(writes).toHaveLength(1);
+});
+for(const [locale,theme,width,heading,undo]of [['en','light',390,'Deletion pending','Undo deletion'],['he','dark',320,'מחיקה ממתינה לאישור','ביטול המחיקה']]as const)test(`mode deletion pending state remains accessible ${locale} ${width}`,async({page},info)=>{
+ const writes=await install(page,locale,theme);await page.setViewportSize({width,height:844});await page.goto(`/1/settings/modes/${modeId}`);
+ await page.locator('.pos-mode-delete').click();await page.getByRole('alertdialog').getByRole('button').last().click();
+ const editor=page.locator('.pos-mode-editor');await expect(editor.getByRole('heading',{name:heading,exact:true})).toBeVisible();await expect(editor.getByRole('button',{name:undo,exact:true})).toBeEnabled();
+ await expect(editor.locator('.pos-editor-head h2')).toHaveText('Service complet');expect(await editor.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+ await page.screenshot({path:info.outputPath(`mode-delete-pending-${locale}-${width}.png`)});await editor.getByRole('button',{name:undo,exact:true}).click();await expect(editor.getByRole('textbox')).toHaveValue('Service complet');expect(writes).toEqual([]);
+});
 test('Modes keeps a failed rename draft and rejects a foreign device inventory',async({page})=>{
  const writes=await install(page);await page.route('**/restaurants/1/devices',route=>route.fulfill({json:{devices:[{id:deviceId,restaurant_id:2,display_name:'Foreign fixture device'}]}}));
  await page.goto('/1/settings/modes');await page.locator('.pos-mode-name').first().click();const preview=page.locator('.pos-mode-preview');
