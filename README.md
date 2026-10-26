@@ -975,6 +975,22 @@ changes. A conflict keeps the draft visible instead of retrying a mutation.
 the current shared policy. Missing support or an unconfirmed save remains an
 explicit error. Deploy the matching API before this Admin version; there is no
 new migration or environment variable.
+Incomplete policy reads never expose editable invented defaults. A save response
+must retain the canonical core and complete explicit check behavior before its
+edited fields can be confirmed; omitted/null inherited behavior is not expanded.
+
+Table status colours and yellow/red elapsed-time thresholds remain restaurant-wide,
+independent of checkout mode or fulfillment method. Their save confirms every
+submitted value against the complete API response (hexadecimal colour case may
+normalize). An omitted or rolled-back value retains the unsaved draft and shows
+the existing save error rather than claiming success. Hidden, historical and
+reversed thresholds keep their existing semantics and are not rewritten by a
+mode, course or fulfillment edit.
+Order processing likewise confirms each changed service mode, preparation time,
+prepayment requirement and kitchen-dispatch override before clearing the draft.
+An HTTP 200 response with a missing or old changed value is not confirmation;
+the existing error retains the input for review and deliberate retry. This does
+not collect a payment or change provider, deposit or settlement behavior.
 
 Isolated checks: `npx playwright test -c playwright.redesign.config.ts pos-settings.spec.ts item-checkout.spec.ts`.
 

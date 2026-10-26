@@ -6,7 +6,7 @@ import { ApiError, getRestaurantSettings, updateRestaurantSettings, type FullSer
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { validFulfillment } from '@/lib/pos-fulfillment';
-import { posSettingsSaveConfirmed } from '@/lib/pos-settings-save';
+import { isCompletePOSSettings, posSettingsSaveConfirmed } from '@/lib/pos-settings-save';
 
 /** Stage restaurant POS policies; preserve other settings and discard on explicit navigation. */
 export function usePOSSettings(rid: number, internalPath?: string) {
@@ -18,7 +18,7 @@ export function usePOSSettings(rid: number, internalPath?: string) {
  const lock=useRef(false),generation=useRef(0),editable=hasAnyPermission('settings.edit');
  const dirty=JSON.stringify(draft)!==JSON.stringify(baseline);
  useEffect(()=>{const current=++generation.current;setDraft(null);setBaseline(null);setError('');setMergeSupported(false);setReloadConfirmation(false);
-  getRestaurantSettings(rid).then(result=>{if(!result.full_service)throw new Error('Missing POS policy');if(current===generation.current){setDraft(result.full_service);setBaseline(result.full_service);setMergeSupported(result.pos_settings_merge_supported===true);setCustomDiningSupported(result.pos_custom_dining_supported===true);setCustomerInformationSupported(result.pos_fulfillment_customer_information_supported===true);}}).catch(()=>{if(current===generation.current)setError(t('tableSettingsLoadFailed'));});
+  getRestaurantSettings(rid).then(result=>{if(!isCompletePOSSettings(result.full_service))throw new Error('Missing POS policy');if(current===generation.current){setDraft(result.full_service);setBaseline(result.full_service);setMergeSupported(result.pos_settings_merge_supported===true);setCustomDiningSupported(result.pos_custom_dining_supported===true);setCustomerInformationSupported(result.pos_fulfillment_customer_information_supported===true);}}).catch(()=>{if(current===generation.current)setError(t('tableSettingsLoadFailed'));});
   return()=>{generation.current++;};
  },[rid,retry,t]);
  useEffect(()=>{

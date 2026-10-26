@@ -4,7 +4,7 @@ import type { FullServiceSettings } from '../../src/lib/api';
 const modeId='4d3db2c3-b29a-4d8d-94f5-0a231d85bc22';
 const otherId='4d3db2c3-b29a-4d8d-94f5-0a231d85bc23';
 const deviceId='5d3db2c3-b29a-4d8d-94f5-0a231d85bc22';
-async function install(page:Page,locale='fr',theme='light',permissions?:string[],options:{supported?:boolean; mergeSupported?:boolean; savedMergeSupported?:boolean; customerInformationSupported?:boolean; savedCustomerInformationSupported?:boolean; restaurantIds?:number[]; initialPolicy?:Partial<FullServiceSettings>; beforeResponse?:(method:string)=>Promise<void>; savedPolicy?:(policy:FullServiceSettings)=>FullServiceSettings}={}) {
+async function install(page:Page,locale='fr',theme='light',permissions?:string[],options:{supported?:boolean; mergeSupported?:boolean; savedMergeSupported?:boolean; customerInformationSupported?:boolean; savedCustomerInformationSupported?:boolean; restaurantIds?:number[]; initialPolicy?:Partial<FullServiceSettings>; beforeResponse?:(method:string)=>Promise<void>; loadedPolicy?:(policy:FullServiceSettings)=>unknown; savedPolicy?:(policy:FullServiceSettings)=>FullServiceSettings}={}) {
  const fixtureOptions={library:true,permissions};
  const fixture=createFixture(fixtureOptions);
  let policy:FullServiceSettings={seating_mode:'optionalSeats',send_and_stay:false,coursing_enabled:true,courses:['Entrées','Plats principaux','Desserts'],show_held_on_kds:false,sort_cart:'course',comp_reasons:['Geste commercial'],void_reasons:['Erreur'],auto_progression:true,order_entry:{tile_size:'tall',return_to_menu:'home'},modes:[{id:modeId,name:'Service complet',device_ids:[],seating_mode:'requiredSeats',send_and_stay:true,coursing_enabled:true,auto_progression:true,tile_size:'wide',sort_cart:'seat'},{id:otherId,name:'Comptoir',device_ids:[deviceId],seating_mode:'disabled',send_and_stay:false,coursing_enabled:false,auto_progression:false,tile_size:'tall',sort_cart:'entry'}]};
@@ -18,7 +18,7 @@ async function install(page:Page,locale='fr',theme='light',permissions?:string[]
   const r=route.request(),path=new URL(r.url()).pathname,body=r.postDataJSON()??{};
   if(path==='/api/v1/restaurants/1/settings'){
    if(r.method()==='PUT'){expect(r.headers()['x-restaurant-id']).toBe('1');expect(Object.keys(body).sort()).toEqual(['full_service','full_service_base']);expect(body.full_service_base).toBeTruthy();policy=body.full_service;writes.push(structuredClone(policy));}
-   const returned=r.method()==='PUT'&&options.savedPolicy?options.savedPolicy(structuredClone(policy)):structuredClone(policy);
+   const returned=r.method()==='PUT'&&options.savedPolicy?options.savedPolicy(structuredClone(policy)):r.method()==='GET'&&options.loadedPolicy?options.loadedPolicy(structuredClone(policy)):structuredClone(policy);
    await options.beforeResponse?.(r.method());
    const customerSupported=r.method()==='PUT'?options.savedCustomerInformationSupported??options.customerInformationSupported:options.customerInformationSupported;
    return route.fulfill({json:{settings:{full_service:returned,pos_custom_dining_supported:options.supported??true,pos_settings_merge_supported:(r.method()==='PUT'?options.savedMergeSupported??options.mergeSupported:options.mergeSupported)??true,...(customerSupported!==false?{pos_fulfillment_customer_information_supported:true}:{})}}});
@@ -97,6 +97,20 @@ test('a server without safe POS merging cannot receive an unsafe full-policy rep
  await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
  await expect(page.getByRole('alert')).toContainText('sauvegarde sécurisée');
  await expect(page.getByRole('switch',{name:'Activer la gestion des services',exact:true})).not.toBeChecked();expect(writes).toEqual([]);
+});
+
+for(const malformed of ['core fields','check behavior'] as const)test(`a policy read with incomplete ${malformed} cannot expose editable defaults`,async({page})=>{
+ const writes=await install(page,'fr','light',undefined,{loadedPolicy:policy=>malformed==='core fields'?{...policy,courses:undefined}:{...policy,check_behavior:{allow_hold_fire:false}}});
+ await page.goto(`/1/settings/modes/${modeId}/courses`);
+ await expect(page.getByRole('alert')).toContainText('Impossible de charger');
+ await expect(page.getByRole('switch')).toHaveCount(0);await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true})).toBeDisabled();expect(writes).toEqual([]);
+});
+
+test('a truncated unchanged core field never confirms a changed mode flag',async({page})=>{
+ const writes=await install(page,'fr','light',undefined,{savedPolicy:policy=>({...policy,courses:undefined}) as unknown as FullServiceSettings});
+ await page.goto(`/1/settings/modes/${modeId}/courses`);const coursing=page.getByRole('switch',{name:'Activer la gestion des services',exact:true});
+ await coursing.uncheck();await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('n’a pas confirmé');await expect(coursing).not.toBeChecked();await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true})).toBeEnabled();expect(writes).toHaveLength(1);
 });
 
 for(const lost of ['mode field','merge capability'] as const)test(`a save losing its ${lost} remains unconfirmed with its draft retained`,async({page})=>{
