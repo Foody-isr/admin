@@ -10,18 +10,19 @@ history. Deploy the API staff-profile schema (migration 272 audit) before this U
 Synthetic regression: `npx playwright test -c playwright.redesign.config.ts
 staff-profile.spec.ts delivery-planner.spec.ts team-square.spec.ts`.
 
-Articles and Cartes share the same anchored availability editor: opening never
+Articles and Cartes share the same centered availability dialog: opening never
 writes, and Apply confirms unlimited, unavailable, predefined remaining stock or
 automatic rules. Articles loads fresh tenant stock and shows the current series
 when applicable; outside series, all size counters save atomically with revision
 checks. Deploy the matching API restock extension before this Admin version.
 
-The carte Availability badge opens a compact anchored editor. Choose unlimited,
+The carte Availability badge opens a spacious centered dialog. Choose unlimited,
 unavailable, predefined remaining stock or the existing automatic rules, then Apply.
 Opening, changing choices and cancelling never write stock. Quantities can be
 counted, measured in base g/ml or entered per size; committed orders are preserved.
 Errors retain input and allow an explicit stock reload. The row ellipsis opens the
-same editor. Stock preparation and carte publication remain separate workflows.
+same editor. The dialog fits the viewport, scrolls only its content and keeps
+Cancel/Apply visible. Per-size inputs use two columns on wider screens. Stock preparation and carte publication remain separate workflows.
 Website V3 → Order journey can draft and publish the optional entry sign-in
 invitation. Settings → Usage and quotas is read-only restaurant-scoped Google and
 Geoapify consumption, including independent units, 80% warnings and UTC renewal.
