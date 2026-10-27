@@ -1,0 +1,22 @@
+{
+  "review": "The visible table-session clock hint is corrected in French, Hebrew and English. The existing tables-floors/floor-plans#service-time-and-state procedure already describes the session start in all three languages. Landing UI evidence checks the source values and existing guide; this is source concordance, not deployed browser acceptance. No timer, threshold, table state, save, permission or recovery logic changes.",
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "1964d81c61276c080c050a5064c7470d3fd44729c92426a8daee32505231a64a",
+      "baseSha256": "fb4612ce669ea09e691b3938026cdea02a026a18974e463f90d25e3d24b56f2b",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the three visible tableSettingsClockHint values change to match the existing session-start clock procedure. Customer profiles, menus and groups, delivery, Google setup, website design, POS behavior settings, WhatsApp and product-photo strings and procedures are unchanged. This scoped review covers those eight classified features only; the corrected table hint is explicitly reviewed against the existing FR/HE/EN floor-plan guide without changing any timer or merchant operation."
+    }
+  ]
+}
