@@ -400,13 +400,19 @@ test("stock history links to the existing order-detail route", async ({
 test("a series-managed product exposes its own stock summary and history", async ({
   page,
 }) => {
-  await install(page);
+  const f = await install(page);
+  const queries: URLSearchParams[] = [];
+  await page.route("**/api/v1/menu/sales-stock/history*", route => {
+    queries.push(new URL(route.request().url()).searchParams);
+    expect(route.request().headers()['x-restaurant-id']).toBe('1');
+    return route.fulfill({ json: { events: [], next_cursor: queries.length === 1 ? 42 : 0 } });
+  });
   await page.goto("/1/menu/items/1?tab=availability");
   await expect(
     page
       .locator("#item-availability")
       .getByRole("link", { name: "Historique complet du stock", exact: true }),
-  ).toHaveAttribute("href", "/1/menu/stock?item_id=1");
+  ).toHaveCount(0);
   await page
     .locator("#item-availability")
     .getByRole("button", { name: "Historique du stock", exact: true })
@@ -422,6 +428,14 @@ test("a series-managed product exposes its own stock summary and history", async
       })
       .last(),
   ).toBeVisible();
+  const history = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Historique du stock', exact: true }) }).last();
+  await expect(history.getByRole('button', { name: 'Afficher la suite', exact: true })).toBeEnabled();
+  await history.getByRole('button', { name: 'Afficher la suite', exact: true }).click();
+  await expect.poll(() => queries.length).toBe(2);
+  expect(queries.every(query => query.get('item_id') === '1')).toBe(true);
+  expect(queries[1].get('before_id')).toBe('42');
+  await expect(page).toHaveURL('/1/menu/items/1?tab=availability');
+  expect(f.writes).toEqual([]);
 });
 
 test("Square geometry, collapse and bulk membership edits preserve the publication boundary", async ({
