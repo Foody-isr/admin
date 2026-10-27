@@ -3,9 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import {
   getSalesStock,
-  setSalesStockAvailability,
   type SaleStockRow,
-  type AvailabilityOverride,
 } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { usePermissions } from "@/lib/permissions-context";
@@ -17,7 +15,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { ItemAvailabilityPopover } from "@/components/menu/ItemAvailabilityPopover";
 import { StockHistory } from "./StockHistory";
+/** Shows the series allowance and its explicit remaining-stock editor. */
 export function ProductSalesStock({
   rid,
   date,
@@ -32,50 +32,46 @@ export function ProductSalesStock({
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const [history, setHistory] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
-  async function change(value: AvailabilityOverride) {
-    setBusy(true);
-    setError(false);
-    try {
-      await setSalesStockAvailability(rid, date, row.item.id, value);
-      const latest = await getSalesStock(rid, date, row.item.id);
-      if (latest.rows[0]) onUpdate(latest.rows[0]);
-    } catch {
-      setError(true);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const measured = row.config?.mode === "measure";
+  const counter = row.config?.counters.find((value) => value.option_id === 0);
+  const unit = measured ? (row.config?.unit === "kg" ? "g" : row.config?.unit === "l" ? "ml" : row.config?.unit) : "";
+  const available = measured && counter
+    ? counter.initial_quantity == null ? "∞" : Math.max(0, counter.initial_quantity - counter.committed)
+    : row.availability.buildable_count ?? "∞";
   return (
     <div className="space-y-3 border rounded-lg p-4">
       <h3 className="font-semibold">
         {t("saleStockSeries")} · {date}
       </h3>
       <p>
-        {t("saleStockAvailable")}: {row.availability.buildable_count ?? "∞"} ·{" "}
+        {t("saleStockAvailable")}: {available} {unit} ·{" "}
         {t("saleStockCommitted")}:{" "}
-        {row.config?.counters.reduce((sum, c) => sum + c.committed, 0) ?? 0}
+        {row.config?.counters.reduce((sum, c) => sum + c.committed, 0) ?? 0} {unit}
       </p>
+      {row.config?.mode === "per_variant" && <ul className="space-y-1 text-sm">
+        {row.sizes.map((size) => {
+          const value = row.config?.counters.find((counter) => counter.option_id === size.id);
+          return <li key={size.id}>{size.name} · {t("saleStockAvailable")}: {value?.initial_quantity == null ? "∞" : Math.max(0, value.initial_quantity - value.committed)} · {t("saleStockCommitted")}: {value?.committed ?? 0}</li>;
+        })}
+      </ul>}
       <p className="text-sm text-[var(--fg-muted)]">
         {t("saleStockProductHint")}
       </p>
       <div className="flex flex-wrap gap-3 items-center">
-        <select
-          className="input w-auto"
-          aria-label={t("carteImmediateAvailability")}
-          disabled={busy || !hasAnyPermission("menu.edit")}
-          value={row.config?.override ?? "auto"}
-          onChange={(e) => change(e.target.value as AvailabilityOverride)}
-        >
-          {(["auto", "force_available", "force_sold_out"] as const).map(
-            (value) => (
-              <option key={value} value={value}>
-                {t(`saleStockOverride_${value}`)}
-              </option>
-            ),
-          )}
-        </select>
+        <ItemAvailabilityPopover
+          key={`${rid}:${date}:${row.item.id}`}
+          rid={rid}
+          date={date}
+          item={row.item}
+          canEdit={hasAnyPermission("menu.edit")}
+          triggerLabel={t("itemStockEdit")}
+          onChanged={async () => {
+            const latest = await getSalesStock(rid, date, row.item.id);
+            const current = latest.rows.find((value) => value.item.id === row.item.id);
+            if (!current) throw new Error("Missing refreshed stock");
+            onUpdate(current);
+          }}
+        />
         <Link
           className="underline text-sm"
           href={`/${rid}/menu/stock?item_id=${row.item.id}`}
@@ -86,7 +82,6 @@ export function ProductSalesStock({
           {t("saleStockHistory")}
         </Button>
       </div>
-      {error && <p role="alert">{t("saleStockError")}</p>}
       <Dialog open={history} onOpenChange={setHistory}>
         <DialogContent className="sm:max-w-5xl">
           <DialogHeader>

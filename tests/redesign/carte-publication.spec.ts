@@ -973,3 +973,115 @@ test("non-series carte restock uses the library revision rather than a series re
  await panel.getByRole('spinbutton').fill('7');await panel.getByRole('button',{name:'Appliquer',exact:true}).click();
  await expect(panel).toBeHidden();expect(received).toMatchObject({quantity:7,expected_revision:9});
 });
+
+for (const tracking of ['measure', 'per_variant'] as const) test(`series product restores ${tracking} stock with measured input and explicit Apply`, async ({ page }) => {
+  const f = await install(page, 'fr', true);
+  const inputs: any[] = [];
+  const sizes = [{ id: 20, name: '250 g' }, { id: 21, name: '500 g' }];
+  let config: any = null;
+  await page.route('**/api/v1/menu/sales-stock?*', route => route.fulfill({ json: {
+    series_key: f.key,
+    rows: f.items.map(item => ({ item: { ...item, stock_mode: '', stock_quantity: null }, managed: true, previous: null, sizes, config, availability: { availability_state: 'available', buildable_count: config ? 8 : null } })),
+  } }));
+  await page.route('**/api/v1/menu/items/*/sales-stock/restock?*', route => {
+    const input = route.request().postDataJSON(); inputs.push(input);
+    expect(new URL(route.request().url()).searchParams.get('serie_date')).toBe(f.key);
+    expect(route.request().headers()['x-restaurant-id']).toBe('1');
+    config = { ...input, revision: 1, counters: tracking === 'measure'
+      ? [{ option_id: 0, initial_quantity: input.quantity, committed: 0 }]
+      : sizes.map(size => ({ option_id: size.id, initial_quantity: input.options[size.id], committed: 0 })) };
+    return route.fulfill({ json: { revision: 1 } });
+  });
+  await page.goto('/1/menu/items/1?tab=availability');
+  const section = page.locator('#item-availability');
+  const edit = section.getByRole('button', { name: 'Modifier le stock et la disponibilité', exact: true });
+  await edit.click();
+  const dialog = page.getByRole('dialog', { name: 'Disponibilité', exact: true });
+  await dialog.getByRole('radio', { name: 'Stock prédéfini', exact: true }).check();
+  await dialog.getByRole('combobox', { name: 'Mode de suivi', exact: true }).selectOption(tracking);
+  await dialog.getByRole('combobox', { name: 'Unité de saisie', exact: true }).selectOption('g');
+  if (tracking === 'measure') {
+    await dialog.getByRole('spinbutton').fill('2000');
+    await dialog.getByRole('combobox', { name: 'Unité de saisie', exact: true }).selectOption('kg');
+    await expect(dialog.getByRole('spinbutton')).toHaveValue('2');
+  } else {
+    await dialog.getByRole('spinbutton', { name: '250 g (g)', exact: true }).fill('1000');
+    await dialog.getByRole('spinbutton', { name: '500 g (g)', exact: true }).fill('1000');
+    await expect(dialog.getByText('4 × 250 g', { exact: true })).toBeVisible();
+    await expect(dialog.getByText('2 × 500 g', { exact: true })).toBeVisible();
+    await dialog.getByRole('spinbutton', { name: '250 g (g)', exact: true }).fill('1100');
+    await expect(dialog.getByRole('button', { name: 'Appliquer', exact: true })).toBeDisabled();
+    await dialog.getByRole('spinbutton', { name: '250 g (g)', exact: true }).fill('1000');
+  }
+  expect(inputs).toEqual([]);
+  await dialog.getByRole('button', { name: 'Annuler', exact: true }).click();
+  expect(inputs).toEqual([]);
+  await edit.click();
+  await dialog.getByRole('radio', { name: 'Stock prédéfini', exact: true }).check();
+  await dialog.getByRole('combobox', { name: 'Mode de suivi', exact: true }).selectOption(tracking);
+  await dialog.getByRole('combobox', { name: 'Unité de saisie', exact: true }).selectOption(tracking === 'measure' ? 'kg' : 'g');
+  if (tracking === 'measure') await dialog.getByRole('spinbutton').fill('2');
+  else for (const input of await dialog.getByRole('spinbutton').all()) await input.fill('1000');
+  await page.screenshot({ path: `test-results/product-stock-${tracking}-fr.png`, fullPage: true });
+  await dialog.getByRole('button', { name: 'Appliquer', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(inputs).toHaveLength(1);
+  expect(inputs[0]).toMatchObject(tracking === 'measure'
+    ? { mode: 'measure', unit: 'g', quantity: 2000, expected_revision: 0 }
+    : { mode: 'per_variant', unit: '', quantity: null, options: { '20': 4, '21': 2 }, expected_revision: 0 });
+  expect(f.writes).toEqual([]);
+});
+
+for (const rejected of [false, true]) test(`a committed series can change tracking mode and preserves the draft after a conversion error (${rejected})`, async ({ page }) => {
+  const f = await install(page, 'fr', true);
+  const inputs: any[] = [];
+  let mode = 'count', revision = 3;
+  await page.route('**/api/v1/menu/sales-stock?*', route => route.fulfill({ json: { series_key: f.key, rows: f.items.map(item => ({ item, managed: true, previous: null, sizes: [{ id: 20, name: '250 g' }, { id: 21, name: '500 g' }], config: { mode, unit: mode === 'measure' ? 'g' : '', override: 'auto', revision, counters: [{ option_id: 0, initial_quantity: mode === 'measure' ? 3000 : 488, committed: mode === 'measure' ? 1000 : 3 }] }, availability: { availability_state: 'available', buildable_count: 8 } })) } }));
+  await page.route('**/api/v1/menu/items/*/sales-stock/restock?*', route => {
+    const input = route.request().postDataJSON(); inputs.push(input);
+    if (rejected) return route.fulfill({ status: 422, json: { error: 'stock_conversion_unavailable' } });
+    mode = input.mode; revision++;
+    return route.fulfill({ json: { revision } });
+  });
+  await page.goto('/1/menu/items/1?tab=availability');
+  const section = page.locator('#item-availability');
+  await section.getByRole('button', { name: 'Modifier le stock et la disponibilité', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Disponibilité', exact: true });
+  await expect(dialog.getByRole('combobox', { name: 'Mode de suivi', exact: true })).toBeEnabled();
+  await dialog.getByRole('combobox', { name: 'Mode de suivi', exact: true }).selectOption('measure');
+  await expect(dialog.getByText(/Les réservations existantes seront recalculées/)).toBeVisible();
+  await expect(dialog.getByRole('spinbutton')).toHaveValue('');
+  await dialog.getByRole('spinbutton').fill('2000');
+  expect(inputs).toEqual([]);
+  await dialog.getByRole('button', { name: 'Appliquer', exact: true }).click();
+  expect(inputs[0]).toMatchObject({ mode: 'measure', unit: 'g', quantity: 2000, expected_revision: 3 });
+  if (rejected) {
+    await expect(dialog.getByRole('alert')).toContainText('Impossible de convertir les réservations existantes');
+    await expect(dialog.getByRole('spinbutton')).toHaveValue('2000');
+    expect(mode).toBe('count');
+  } else {
+    await expect(dialog).toHaveCount(0);
+    await expect(section).toContainText('2000 g');
+    await expect(section).toContainText('1000 g');
+  }
+  expect(f.writes).toEqual([]);
+});
+
+test('series product measured size inputs fit Hebrew mobile', async ({ page }) => {
+  const f = await install(page, 'he', true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route('**/api/v1/menu/sales-stock?*', route => route.fulfill({ json: { series_key: f.key, rows: f.items.map(item => ({ item, managed: true, previous: null, sizes: [{ id: 20, name: '250 g' }, { id: 21, name: '500 g' }], config: { mode: 'per_variant', unit: '', override: 'auto', revision: 1, counters: [{ option_id: 20, initial_quantity: 4, committed: 0 }, { option_id: 21, initial_quantity: 2, committed: 0 }] }, availability: { availability_state: 'available', buildable_count: 6 } })) } }));
+  await page.goto('/1/menu/items/1?tab=availability');
+  await page.locator('#item-availability').getByRole('button', { name: 'עריכת מלאי וזמינות', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'זמינות', exact: true });
+  await dialog.getByRole('combobox', { name: 'יחידת הזנה', exact: true }).selectOption('g');
+  await expect(dialog.getByRole('spinbutton', { name: '250 g (g)', exact: true })).toHaveValue('1000');
+  await expect(dialog.getByRole('spinbutton', { name: '500 g (g)', exact: true })).toHaveValue('1000');
+  const box = await dialog.boundingBox();
+  expect(box?.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+  expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await expect(dialog.getByRole('button', { name: 'החל', exact: true })).toBeVisible();
+  expect(f.writes).toEqual([]);
+  await page.screenshot({ path: 'test-results/product-stock-per-variant-mobile-he.png', fullPage: true });
+});
