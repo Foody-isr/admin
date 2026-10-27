@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { stockInputUnits, stockInputValue, convertStockInput } from "@/lib/sale-stock-input";
 import { X } from "lucide-react";
 import type {
   AvailabilityOverride,
@@ -28,6 +29,7 @@ interface Props {
   ready?: boolean;
   loading?: boolean;
   contextLabel?: string;
+  triggerLabel?: string;
   onOpenChange: (open: boolean) => void;
   onReload: () => Promise<unknown>;
   onApply: (
@@ -40,7 +42,9 @@ interface Props {
 export function AvailabilityPopover(props: Props) {
   const { t, direction } = useI18n();
   const title = useId();
-  const pill = (
+  const pill = props.triggerLabel ? (
+    <Button type="button" variant="secondary" disabled={!props.canEdit || props.busy}>{props.triggerLabel}</Button>
+  ) : (
     <AvailabilityPill
       state={props.row.availability.availability_state as AvailabilityState}
       override={
@@ -123,10 +127,10 @@ function AvailabilityForm({
     override !== "auto" ? override : storedMode ? "stock" : "auto",
   );
   const [mode, setMode] = useState<SaleStockLimit["mode"]>(initialMode);
-  const storedUnit = row.config?.unit || row.item.stock_unit || "g";
-  const [unit, setUnit] = useState(
-    storedUnit === "kg" ? "g" : storedUnit === "l" ? "ml" : storedUnit,
-  );
+  const units = stockInputUnits(row.sizes);
+  const storedUnit = row.config?.unit || row.item.stock_unit || units[0] || "g";
+  const baseUnit = storedUnit === "kg" ? "g" : storedUnit === "l" ? "ml" : storedUnit;
+  const [unit, setUnit] = useState(initialMode === "per_variant" ? "" : baseUnit);
   const [quantities, setQuantities] = useState<Record<number, string>>(() =>
     Object.fromEntries(
       [0, ...row.sizes.map((s) => s.id)].map((id) => {
@@ -145,28 +149,50 @@ function AvailabilityForm({
     ),
   );
   const variant = mode === "per_variant";
+  const inputUnit = mode === "count" ? "" : unit;
   const fields = variant
-    ? row.sizes.map((size) => ({ id: size.id, label: size.name }))
+    ? row.sizes.map((size) => ({ id: size.id, label: size.name + (inputUnit ? ` (${inputUnit})` : "") }))
     : [
         {
           id: 0,
           label:
             t("carteRestockQuantity") +
-            (mode === "measure" ? ` (${unit})` : ""),
+            (inputUnit ? ` (${inputUnit})` : ""),
         },
       ];
-  const values = fields.map((f) => quantities[f.id] ?? "");
+  const values = fields.map((field) =>
+    stockInputValue(
+      quantities[field.id] ?? "",
+      mode,
+      inputUnit,
+      row.sizes.find((size) => size.id === field.id),
+    ),
+  );
   const valid =
     choice !== "stock" ||
     (fields.length > 0 &&
-      values.every(
-        (v) =>
-          (variant && v === "") || (/^\d+$/.test(v) && Number(v) <= 2147483647),
-      ) &&
-      values.some((v) => Number(v) > 0));
-  const modeLocked = (row.config?.counters ?? []).some(
+      values.every((value) => value !== undefined) &&
+      values.some((value) => value != null && value > 0) &&
+      (mode !== "measure" || units.includes(unit)));
+  const hasCommitments = series && (row.config?.counters ?? []).some(
     (counter) => counter.committed > 0,
   );
+  function changeUnit(next: string) {
+    setQuantities((current) =>
+      Object.fromEntries(
+        Object.entries(current).map(([id, value]) => [
+          id,
+          convertStockInput(
+            value,
+            inputUnit,
+            next,
+            variant ? row.sizes.find((size) => size.id === Number(id)) : undefined,
+          ),
+        ]),
+      ),
+    );
+    setUnit(next);
+  }
   async function apply() {
     if (busy || !valid) return;
     const remaining: SaleStockLimit | undefined =
@@ -174,21 +200,16 @@ function AvailabilityForm({
         ? {
             menu_item_id: row.item.id,
             mode,
-            unit: mode === "measure" ? unit : "",
+            unit: mode === "measure" ? (unit === "kg" ? "g" : unit === "l" ? "ml" : unit) : "",
             override: "auto",
             expected_revision:
               row.config?.revision ??
               (series ? 0 : (row.item.stock_revision ?? 0)),
             reason: t("carteRestockReason"),
-            quantity: variant ? null : Number(quantities[0]),
+            quantity: variant ? null : values[0]!,
             options: variant
               ? Object.fromEntries(
-                  row.sizes.map((size) => [
-                    size.id,
-                    (quantities[size.id] ?? "") === ""
-                      ? null
-                      : Number(quantities[size.id]),
-                  ]),
+                  row.sizes.map((size, index) => [size.id, values[index]!]),
                 )
               : undefined,
           }
@@ -200,6 +221,7 @@ function AvailabilityForm({
     <form
       onSubmit={(event) => {
         event.preventDefault();
+        event.stopPropagation();
         void apply();
       }}
       className="flex max-h-[min(620px,var(--radix-popover-content-available-height))] flex-col text-start"
@@ -258,18 +280,21 @@ function AvailabilityForm({
           }
           {choice === "stock" && (
             <div className="space-y-3 border-b border-[var(--line)] py-3">
-              {row.sizes.length > 0 && !modeLocked && (
+              {row.sizes.length > 0 && (
                 <Field label={t("saleStockMode")}>
                   <Select
                     value={mode}
-                    onChange={(event) =>
-                      setMode(event.target.value as SaleStockLimit["mode"])
-                    }
+                    onChange={(event) => {
+                      const next = event.target.value as SaleStockLimit["mode"];
+                      setMode(next);
+                      setUnit(next === "measure" ? units[0] : "");
+                      setQuantities({});
+                    }}
                   >
                     <option value="count">{t("saleStockCount")}</option>
                     {row.sizes.length > 0 && (
                       <>
-                        <option value="measure">{t("saleStockMeasure")}</option>
+                        {(units.length > 0 || mode === "measure") && <option value="measure">{t("saleStockMeasure")}</option>}
                         <option value="per_variant">
                           {t("saleStockPerVariant")}
                         </option>
@@ -278,26 +303,31 @@ function AvailabilityForm({
                   </Select>
                 </Field>
               )}
-              {mode === "measure" && !modeLocked && (
-                <Field label={t("saleStockUnit")}>
+              {hasCommitments && mode !== storedMode && (
+                <p className="text-xs text-[var(--fg-muted)]">
+                  {t("itemStockModeConversionHint")}
+                </p>
+              )}
+              {(mode === "measure" || (variant && units.length > 0)) && (
+                <Field label={t("itemStockInputUnit")}>
                   <Select
                     value={unit}
-                    disabled={modeLocked}
-                    onChange={(event) => setUnit(event.target.value)}
+                    onChange={(event) => changeUnit(event.target.value)}
                   >
-                    <option value="g">g</option>
-                    <option value="ml">ml</option>
+                    {variant && <option value="">{t("availabilityPortions")}</option>}
+                    {units.map((value) => <option key={value} value={value}>{value}</option>)}
                   </Select>
                 </Field>
               )}
-              {fields.map((field) => (
+              {fields.map((field, index) => (
                 <Field key={field.id} label={field.label}>
                   <Input
                     type="number"
-                    inputMode="numeric"
+                    aria-label={field.label}
+                    inputMode={inputUnit ? "decimal" : "numeric"}
                     min={0}
                     max={2147483647}
-                    step={1}
+                    step={inputUnit ? "any" : 1}
                     value={quantities[field.id] ?? ""}
                     placeholder={variant ? "∞" : "0"}
                     onChange={(event) =>
@@ -307,8 +337,20 @@ function AvailabilityForm({
                       }))
                     }
                   />
+                  {variant && inputUnit && values[index] != null && (
+                    <span className="text-xs text-[var(--fg-muted)]">
+                      {t("itemStockPortionPreview")
+                        .replace("{count}", String(values[index]))
+                        .replace("{size}", row.sizes[index].name)}
+                    </span>
+                  )}
                 </Field>
               ))}
+              {variant && inputUnit && (
+                <p className="text-xs text-[var(--fg-muted)]">
+                  {t("itemStockWholePortions")}
+                </p>
+              )}
               {variant && (
                 <p className="text-xs text-[var(--fg-muted)]">
                   {t("carteVariantUnlimitedHint")}

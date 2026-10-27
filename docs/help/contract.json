@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "19b7fa85edb6312aeccc67a50e4bf6ef4dbb4bb2",
-  "documentationRevision": "38a3f137bacf6e7f63cf5fae21f02a6aec65ace8e432d429c20b14a9f2f48f5b",
+  "documentationRef": "db46e9b0586fb756d97dc66414b6429f40b36895",
+  "documentationRevision": "889c742cc5016259720e78f34135eac975ec11e2e0b97e38f3cb66695cec460f",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -221,15 +221,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/using-support.mdx",
-          "sha256": "730d212d71822773c5defe02c96ca13bea813ab94885dbe7e8bef304e84d49fc"
+          "sha256": "4ec15df57cb57576e8aa9bf1216ef3030406e649a4ea5f5743b2834c588b91c1"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/using-support.mdx",
-          "sha256": "9cd2f3b2d1e847b34f9f12a165b7933f8062582ffaedd91e2cb6161fa8e29fd0"
+          "sha256": "f4aa65ac16137df61899dc5e52dd12eab0d6a8a69231f1c35d9abaf5c4a3bd0c"
         },
         "he": {
           "path": "src/content/help/he/getting-started/using-support.mdx",
-          "sha256": "d60131af0f32ad6a50bc99f1e04958dfd5c17abaeb7b2507600625849d789b0e"
+          "sha256": "258034b79af686cc43f8cd3985a5838a6d92d0e586c473c56cc6e6c7f666658c"
         }
       }
     },
@@ -240,15 +240,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/kitchen/availability.mdx",
-          "sha256": "be87ab680ba8af194e69830f18798cfd920cff235695f7fe29bf526692e7df6a"
+          "sha256": "ba803f93a263486631c1bb5b5912659d529de6c83dd200c4f23be4dc693f5770"
         },
         "fr": {
           "path": "src/content/help/fr/kitchen/availability.mdx",
-          "sha256": "92fa20c3331ac2ca6d724d924e5be1f942efeb0639334f90775db6440fb0cd20"
+          "sha256": "2b90d2b160950d7f18eb71a82f0a24c514b56009f07e55c23773210791550918"
         },
         "he": {
           "path": "src/content/help/he/kitchen/availability.mdx",
-          "sha256": "bbfad91d30f37bf2dde21244d64f66712b56cbef136ab26cebed8c68af7eebfc"
+          "sha256": "662446af6ae02a413d8a06935cb7bf9739400e33840f896e936ce7760238ebf6"
         }
       }
     },
@@ -335,15 +335,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/categories-and-items.mdx",
-          "sha256": "c912f2e7ce4a5b9ac1199656ff0eb26596a6fe3214fd440b028fd03933c9dad7"
+          "sha256": "0c0835aa2c41dab6f41cd27b11febc59417b85c70e3bc9773ee1fb25b4f0b4fe"
         },
         "fr": {
           "path": "src/content/help/fr/menu/categories-and-items.mdx",
-          "sha256": "27f89fee227eac1419372185b316900b2578451d147098f0fb9a0aef8f921320"
+          "sha256": "5693ac5465a22a0d40aee618de41d390e73defe524c33993c92c3dc4a4f52618"
         },
         "he": {
           "path": "src/content/help/he/menu/categories-and-items.mdx",
-          "sha256": "58d16ece6266b5f0ccccaab873b9c8d0ac4e50b17c65a9bf8b8cd1fb85fdeb52"
+          "sha256": "09bbfdc857b391ad6b0641b0c72a079f6468b5e77dec1c2aaac5a139d5a3e0ac"
         }
       }
     },
@@ -392,15 +392,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/menus-and-groups.mdx",
-          "sha256": "098d80c720362d09e3fe37aeaab4df2b414291a466b6e4c3ce928859cfe821e7"
+          "sha256": "6c89272a376c073a0f5b7cbe7a950fb4586504f9298b639f3b146b70581b6876"
         },
         "fr": {
           "path": "src/content/help/fr/menu/menus-and-groups.mdx",
-          "sha256": "ec89fa1881eb3080dcde3d0ecc7e4bf0d07e99ceb579e467a7164072a352ed8c"
+          "sha256": "0340fab0cb688cd41acb6d9d8e7730ad344f1e449f6fd23a3621fc8360b9c692"
         },
         "he": {
           "path": "src/content/help/he/menu/menus-and-groups.mdx",
-          "sha256": "4e5848ebffe62fea2b4fc05985ada85552bc0758ea085ddd53d765f80a22697f"
+          "sha256": "7e4e33bee63cd74d3473febc8afc3da79c57796064f7aeeb585af474d5efa1ea"
         }
       }
     },
@@ -1779,15 +1779,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "2517a2f6e35de642205438e85bd22f29925d58875109fbde72a233da47f0d447"
+          "sha256": "3790d94b404289077f2517d2baa724804edf66e8d76b587891ebd57ef33308e1"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "aff69cef144e90135f7fce903bc01cf88f955c04bfd6f4b6a3a25f9755f54306"
+          "sha256": "34ec0d075bfaa0403777d73f1f234d5c4e3093f311e1a46c7dd37993178c4469"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "52a4d796a2fe0744824190f2bb33ea0efdcb263d7e9625c359fa2e1127fbf9cc"
+          "sha256": "5c05cc3fc07ea66c21c779aaa907532941418a582b69d9c9cf8ba19fb33b8877"
         }
       }
     },
@@ -4782,7 +4782,7 @@
       ]
     },
     "src/components/menu/ItemAvailabilityPopover.tsx": {
-      "sha256": "e9703710216732765a963b2d66e998f8f2ce074679a94ca31aadf48fc5122aaf",
+      "sha256": "18269487270437db88e232e49dd0d813401d110826e9d345a80aebb12608ee96",
       "features": [
         "menu-menus-and-groups"
       ]
@@ -4830,7 +4830,7 @@
       ]
     },
     "src/components/menu/publication/AvailabilityPopover.tsx": {
-      "sha256": "e95074c5182ba0af5b5280dcb4c38800c4fabb1fe45c92663ab97f5e37942016",
+      "sha256": "6ad032ffccf6ae4801da1f4dccfc1938f1661ab93c31a9715becdc7b7aa8459d",
       "features": [
         "menu-menus-and-groups"
       ]
@@ -4842,7 +4842,7 @@
       ]
     },
     "src/components/menu/publication/CarteEditor.tsx": {
-      "sha256": "1aee3f44091b24363dce54d731797f2bce2d060900ac9c2defe0d2c33e34b9de",
+      "sha256": "4149bf8f1bbc96cb7f803e640e5b6dc0e57bfe88ba9bff34c26a747ae8ce467c",
       "features": [
         "menu-menus-and-groups"
       ]
@@ -4866,7 +4866,7 @@
       ]
     },
     "src/components/menu/publication/ProductSalesStock.tsx": {
-      "sha256": "ae34467d2d9f1024db4e2ad62de37f3e1ae4b744ca2e17ed9f150cdc06dc1bdc",
+      "sha256": "d82f9616f61433a7f72debc00dfe4d7954ae49cc28cf956e105ceafc94d64550",
       "features": [
         "menu-menus-and-groups"
       ]
@@ -4878,7 +4878,7 @@
       ]
     },
     "src/components/menu/publication/StockHistory.tsx": {
-      "sha256": "9b882f3a7ce834a9f262bfd658d00d4c11a10ecfef35f51fab5dc793fd03f369",
+      "sha256": "1086b8f3120761449015acd7d66fca8841c9440be4cff61082b6549385f25c14",
       "features": [
         "menu-menus-and-groups"
       ]
@@ -6368,7 +6368,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "bb06071931908d4b73c311b8dabf19c71866f6891e1496c8fb4ee741dfc23b17",
+      "sha256": "fb4612ce669ea09e691b3938026cdea02a026a18974e463f90d25e3d24b56f2b",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -6879,6 +6879,13 @@
     "src/lib/runtime-origins.ts": {
       "sha256": "831d6285facc265113ab5d30c4f5a669796e885ead20a323a32bd2438ecde672",
       "features": [
+        "shared-runtime"
+      ]
+    },
+    "src/lib/sale-stock-input.ts": {
+      "sha256": "8f8c9cf270359496bb6a24959a8be3b43355d72946c75d3e48024c32b1f65cb7",
+      "features": [
+        "menu-menus-and-groups",
         "shared-runtime"
       ]
     },
@@ -17853,7 +17860,6 @@
         "menu-menus-and-groups"
       ],
       "labels": [
-        "carteConflict",
         "saleStockError",
         "saleStockSeries"
       ],
@@ -18012,6 +18018,7 @@
       "labels": [
         "apply",
         "availability",
+        "availabilityPortions",
         "cancel",
         "carteAvailabilityTitle",
         "carteChoiceAutomatic",
@@ -18024,12 +18031,15 @@
         "carteRestockReason",
         "carteVariantUnlimitedHint",
         "close",
+        "itemStockInputUnit",
+        "itemStockModeConversionHint",
+        "itemStockPortionPreview",
+        "itemStockWholePortions",
         "loading",
         "saleStockCount",
         "saleStockMeasure",
         "saleStockMode",
         "saleStockPerVariant",
-        "saleStockUnit",
         "unavailable"
       ],
       "actions": [
@@ -18051,7 +18061,6 @@
         "carteAddGroupCard",
         "carteAddItems",
         "carteBack",
-        "carteConflict",
         "carteConflictHint",
         "carteDeleteGroupHint",
         "carteDeleteGroupTitle",
@@ -18221,10 +18230,9 @@
         "menu-menus-and-groups"
       ],
       "labels": [
-        "carteImmediateAvailability",
+        "itemStockEdit",
         "saleStockAvailable",
         "saleStockCommitted",
-        "saleStockError",
         "saleStockFullHistory",
         "saleStockHistory",
         "saleStockHistoryHint",
