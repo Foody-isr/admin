@@ -13,7 +13,7 @@ import {
   type SaleStockOverview,
 } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
-import { AvailabilityPopover } from "./publication/AvailabilityPopover";
+import { AvailabilityPopover, type AvailabilityRuleSelection } from "./publication/AvailabilityPopover";
 
 /** Loads fresh tenant stock on opening and reuses the carte's explicit editor. */
 export function ItemAvailabilityPopover({
@@ -23,6 +23,7 @@ export function ItemAvailabilityPopover({
   onChanged,
   date,
   triggerLabel,
+  ruleSelection,
 }: {
   rid: number;
   item: MenuItem;
@@ -30,6 +31,7 @@ export function ItemAvailabilityPopover({
   onChanged: () => Promise<unknown>;
   date?: string;
   triggerLabel?: string;
+  ruleSelection?: AvailabilityRuleSelection;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -122,6 +124,7 @@ export function ItemAvailabilityPopover({
     <AvailabilityPopover
       row={row}
       triggerLabel={triggerLabel}
+      ruleSelection={ruleSelection}
       series={snapshot?.series ?? false}
       open={open}
       canEdit={canEdit}
