@@ -1,0 +1,79 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/menu/items/[itemId]/page.tsx",
+      "sha256": "ca27e1003d6bb63bccde69fdb400f5c84d379e0b62268cdf42e465668816cb5c",
+      "baseSha256": "9a2031298942d467b30f195c9d776c4c0b6fafc197c0fe1dbfa8829f5c34ed0b",
+      "features": [
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed diff changes only product-photo state, upload validation, cover selection, gallery rendering or photo-container wrapping. Ingredient quantities, portions, menu membership/publication, variants, prices and modifiers are unchanged for the scoped features."
+    },
+    {
+      "path": "src/app/[restaurantId]/menu/items/new/page.tsx",
+      "sha256": "de67ad40d74471806eac195e28f979efc0d4470227f141e6d707ed22cec74092",
+      "baseSha256": "5bdd7cf1dafe6bd08221cb1288ec253018f88d78ed84375646b067c30bcd2598",
+      "features": [
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed diff changes only product-photo state, upload validation, cover selection, gallery rendering or photo-container wrapping. Ingredient quantities, portions, menu membership/publication, variants, prices and modifiers are unchanged for the scoped features."
+    },
+    {
+      "path": "src/components/menu-item/MenuItemPhoto.tsx",
+      "sha256": "4d06dac81578184c3f849ad9d53aca34148150aafc0443643ed6192a716509c6",
+      "baseSha256": "4f81231769186e6006213a4175d9a987b66aec87f4b733768c82b03d947d931e",
+      "features": [
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed diff changes only product-photo state, upload validation, cover selection, gallery rendering or photo-container wrapping. Ingredient quantities, portions, menu membership/publication, variants, prices and modifiers are unchanged for the scoped features."
+    },
+    {
+      "path": "src/components/menu-item/item-editor.css",
+      "sha256": "53c271b2366461a24568c7e998b32c14a97e02d5ee1aa6474112de6f4e9b4e84",
+      "baseSha256": "6bdbe1aa8190a8d96a965512329dfdc7e96aa8b3b3e47eff7aef502771337bb4",
+      "features": [
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed diff changes only product-photo state, upload validation, cover selection, gallery rendering or photo-container wrapping. Ingredient quantities, portions, menu membership/publication, variants, prices and modifiers are unchanged for the scoped features."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "3286b28796084d90cc1bdd7b311b6ccebc3473f0570e646603bf4be49d7b6995",
+      "baseSha256": "b5755fa0610656efee4a0ccff108bc1e0b5dab5644348e7ab8fe8ee1a476b03f",
+      "features": [
+        "customers-profiles",
+        "payments-how-payments-work"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The change adds only optional ordered additional product photos to the item contract and its public-menu mapping. Existing customer, payment, catering and other scoped API methods and fields are unchanged."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "bb06071931908d4b73c311b8dabf19c71866f6891e1496c8fb4ee741dfc23b17",
+      "baseSha256": "858e99bae56e83175bb40b50d0193ed3325f7a8d779645906b0dab58a6978b06",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only product-photo action, validation and gallery navigation translations were added. Existing labels, permissions and behavior for all scoped features are unchanged."
+    }
+  ]
+}

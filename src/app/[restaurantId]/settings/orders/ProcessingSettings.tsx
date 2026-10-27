@@ -77,7 +77,11 @@ function ProcessingWorkspace({ rid }: { rid: number }) {
     }
     lock.current = true; setSaving(true); setSaveError(false); setSaved(false);
     const generation = lifetime.current.generation, current = () => generation === lifetime.current.generation;
-    try { const response = await updateRestaurantSettings(rid, input), next = draftFrom(response); if (current()) { setDraft(next); setBaseline(next); setSaved(true); } }
+    try {
+      const response = await updateRestaurantSettings(rid, input), next = draftFrom(response);
+      if (!Object.entries(input).every(([key, value]) => response[key as keyof RestaurantSettings] === value)) throw new Error('Unconfirmed processing settings save');
+      if (current()) { setDraft(next); setBaseline(next); setSaved(true); }
+    }
     catch { if (current()) setSaveError(true); }
     finally { if (current()) { lock.current = false; setSaving(false); } }
   };

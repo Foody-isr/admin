@@ -76,7 +76,11 @@ function TableStatusWorkspace({ rid }: { rid: number }) {
     if (draft.table_red_after_minutes !== baseline.table_red_after_minutes) input.table_red_after_minutes = draft.table_red_after_minutes;
     try {
       const response = await updateRestaurantSettings(rid, input);
-      const next = draftFrom({ ...draft, ...response });
+      const next = draftFrom(response);
+      const confirmed = Object.entries(input).every(([key, value]) => key === 'table_in_service_color'
+        ? next.table_in_service_color.toLowerCase() === String(value).toLowerCase()
+        : response[key as keyof RestaurantSettings] === value);
+      if (!confirmed) throw new Error('Unconfirmed table settings save');
       if (current()) { setDraft(next); setBaseline(next); setSaved(true); }
     } catch { if (current()) setSaveError(true); }
     finally { if (current()) { lock.current = false; setSaving(false); } }

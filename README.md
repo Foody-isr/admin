@@ -336,7 +336,7 @@ Full menu management:
 
 Creation and editing use one continuous form: identity and photo, pricing and variants, personalizations or combo composition, customer facts, availability, recipe/cost, and assistant context. The full-page editor uses Cash Sans, inset field labels and a centered two-column layout. Status, internal categories and menu groups have separate cards alongside the form; on mobile they follow it. Translations open beside the item name. The fixed header shows unsaved changes and keeps Save/Cancel reachable, with the title appearing in the header after scrolling.
 
-Existing `?tab=recipe`, `?tab=availability` and legacy links scroll to the corresponding section. New articles expose **Save and configure** for stock and recipe settings that need a saved item. Form fields, variants, recipe instructions and availability commit with Save; existing explicit image, modifier and ingredient operations retain their immediate persistence.
+Existing `?tab=recipe`, `?tab=availability` and legacy links scroll to the corresponding section. New articles expose **Save and configure** for stock and recipe settings that need a saved item. Form fields, variants, recipe instructions and availability commit with Save; photo gallery changes apply with Save; explicit AI cover confirmation, modifier and ingredient operations retain their immediate persistence.
 
 Regular articles also expose **Customization at checkout** for Foody POS:
 automatic first-variant selection and skipping optional customization. Both
@@ -939,6 +939,12 @@ Settings now separates the restaurant policy from device checkout profiles:
   the full-screen editor. Rename, creation and selected deletion are staged until
   explicit Save. The API has no mode creation timestamp, so that column shows a
   dash rather than invented dates. Read-only staff can inspect profiles.
+  Deleting a profile from its editor stages the removal until Save. The editor
+  shows Deletion pending and Undo deletion restores the complete edited profile.
+  A confirmed save returns to the modes list; failed, conflicting or unconfirmed
+  saves keep the pending removal visible. A genuinely missing profile is separate.
+  While the confirmed removal waits for list navigation, the editor keeps its
+  name and a locked loading state instead of reporting a missing profile.
   With Open checks home enabled, a confirmed non-stay POS send releases only the
   editor: the saved table/named check stays intact, while Menu opens a fresh sale.
   Continue retains the current check. Foody tracks all saved orders, including
@@ -959,10 +965,38 @@ Admin and POS consume the same persisted policy; kitchen progress remains separa
 from payments, table occupancy and inventory. Comp/void reasons are configuration
 only until the corresponding operational actions are implemented. Additive
 mode/fulfillment/menu/printing policies reuse `full_service` JSONB and need no new
-migration. POS reloads settings explicitly; changing Admin does not push a live
-mode update. Fired/held printing currently adds held context to fired tickets;
+migration. The matching POS reloads settings on foreground resume, sale navigation
+and actions, with foreground polling; changes are deferred during sending or
+payment. This is refresh synchronization, not an instantaneous WebSocket push.
+Fired/held printing currently adds held context to fired tickets;
 standalone held-only printing remains unsupported. Custom dining labels are now
 implemented in the newer follow-up below.
+
+Shared POS policy saves now require the API capability
+`pos_settings_merge_supported`. Admin sends the unchanged original policy as
+`full_service_base` alongside its edited `full_service`; the API merges edited
+fields and modes by stable ID without replacing another device's unrelated
+changes. A conflict keeps the draft visible instead of retrying a mutation.
+**Reload saved settings** asks before discarding unsaved input and then displays
+the current shared policy. Missing support or an unconfirmed save remains an
+explicit error. Deploy the matching API before this Admin version; there is no
+new migration or environment variable.
+Incomplete policy reads never expose editable invented defaults. A save response
+must retain the canonical core and complete explicit check behavior before its
+edited fields can be confirmed; omitted/null inherited behavior is not expanded.
+
+Table status colours and yellow/red elapsed-time thresholds remain restaurant-wide,
+independent of checkout mode or fulfillment method. Their save confirms every
+submitted value against the complete API response (hexadecimal colour case may
+normalize). An omitted or rolled-back value retains the unsaved draft and shows
+the existing save error rather than claiming success. Hidden, historical and
+reversed thresholds keep their existing semantics and are not rewritten by a
+mode, course or fulfillment edit.
+Order processing likewise confirms each changed service mode, preparation time,
+prepayment requirement and kitchen-dispatch override before clearing the draft.
+An HTTP 200 response with a missing or old changed value is not confirmation;
+the existing error retains the input for review and deliberate retry. This does
+not collect a payment or change provider, deposit or settlement behavior.
 
 Isolated checks: `npx playwright test -c playwright.redesign.config.ts pos-settings.spec.ts item-checkout.spec.ts`.
 
@@ -1484,3 +1518,24 @@ in manual mode; clients must not invent a reopening countdown. Active temporary
 test access must be disabled before public reopening. Deploy API migration
 `277_manual_batch_ordering.sql` before the clients and publish the reviewed guides
 with the feature.
+
+## Responsive category navigation
+
+Website V3 category-menu style applies to groups on desktop and mobile. Menu
+tabs remain separately underlined. Pill/rounded selections use their active
+background and text colors; underlined selections use the active text color.
+Long group headings wrap inside the page instead of widening the document.
+Synthetic Chromium/WebKit regression: from foodyadmin run
+`FOODY_MENU_TABS=1 FOODY_MENU_LAYOUT=1 npx playwright test -c
+playwright.website-editor.config.ts mobile-menu-layout.spec.ts`.
+
+## Product photos
+
+Item creation and editing accept up to ten JPEG/PNG/GIF/WebP photos (5 MB each).
+The first is the cover; open another thumbnail to make it primary. File selection,
+cover selection and removal are applied with Save. Existing-item uploads prepare
+files without committing the gallery or other form fields. Partial uploads retain
+successful files. Creation retries reuse the item and successful uploads. Explicit
+AI cover confirmation retains its existing immediate save and preserves detail photos.
+Deploy API migration 278 before this Admin and the matching guest gallery.
+Regression: `npx playwright test -c playwright.redesign.config.ts item-continuous.spec.ts`.

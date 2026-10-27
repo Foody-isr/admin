@@ -1,0 +1,30 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "b5755fa0610656efee4a0ccff108bc1e0b5dab5644348e7ab8fe8ee1a476b03f",
+      "baseSha256": "7a530fd07d105d6b3357bf5da8ace96f3bf53e84fe2f4615250c29d15fe9c52d",
+      "features": [
+        "customers-profiles",
+        "payments-how-payments-work"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed source diff against the integrated origin/develop adds only the POS merge capability and the full_service_base request type. Customer-profile and general payment endpoints, inputs, permissions and recovery are unchanged. POS shared-policy behavior has actual FR/HE/EN procedure updates and is not exempted by this scoped review."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "7ee59279b154c841957fd096a4e5bb53a82e80f00a0e384ca11e460effc00de3",
+      "baseSha256": "0aab44371f0c81e1b449d11adc15ce72e934b03e33055c0259f59b005b57ad73",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed source diff against the integrated origin/develop only adds five POS shared-policy save/reload messages in French, Hebrew and English. It changes no customer-contact, catalog menu/group, delivery dispatch, Google-account, website-design or WhatsApp controls or translations. POS save and recovery procedures are updated in all three languages and remain outside this exact scoped exemption."
+    }
+  ]
+}

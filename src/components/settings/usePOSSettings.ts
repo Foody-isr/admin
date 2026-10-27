@@ -2,21 +2,23 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getRestaurantSettings, updateRestaurantSettings, type FullServiceSettings } from '@/lib/api';
+import { ApiError, getRestaurantSettings, updateRestaurantSettings, type FullServiceSettings } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { fulfillmentSaveConfirmed, validFulfillment } from '@/lib/pos-fulfillment';
+import { validFulfillment } from '@/lib/pos-fulfillment';
+import { isCompletePOSSettings, posSettingsSaveConfirmed } from '@/lib/pos-settings-save';
 
 /** Stage restaurant POS policies; preserve other settings and discard on explicit navigation. */
 export function usePOSSettings(rid: number, internalPath?: string) {
  const { t } = useI18n(), { hasAnyPermission } = usePermissions(), router = useRouter();
  const [draft,setDraft]=useState<FullServiceSettings|null>(null),[baseline,setBaseline]=useState<FullServiceSettings|null>(null);
  const [customDiningSupported,setCustomDiningSupported]=useState(false),[customerInformationSupported,setCustomerInformationSupported]=useState(false);
+ const [mergeSupported,setMergeSupported]=useState(false),[reloadConfirmation,setReloadConfirmation]=useState(false);
  const [error,setError]=useState(''),[saving,setSaving]=useState(false),[leaving,setLeaving]=useState<string|null>(null),[retry,setRetry]=useState(0);
  const lock=useRef(false),generation=useRef(0),editable=hasAnyPermission('settings.edit');
  const dirty=JSON.stringify(draft)!==JSON.stringify(baseline);
- useEffect(()=>{const current=++generation.current;setDraft(null);setBaseline(null);setError('');
-  getRestaurantSettings(rid).then(result=>{if(!result.full_service)throw new Error('Missing POS policy');if(current===generation.current){setDraft(result.full_service);setBaseline(result.full_service);setCustomDiningSupported(result.pos_custom_dining_supported===true);setCustomerInformationSupported(result.pos_fulfillment_customer_information_supported===true);}}).catch(()=>{if(current===generation.current)setError(t('tableSettingsLoadFailed'));});
+ useEffect(()=>{const current=++generation.current;setDraft(null);setBaseline(null);setError('');setMergeSupported(false);setReloadConfirmation(false);
+  getRestaurantSettings(rid).then(result=>{if(!isCompletePOSSettings(result.full_service))throw new Error('Missing POS policy');if(current===generation.current){setDraft(result.full_service);setBaseline(result.full_service);setMergeSupported(result.pos_settings_merge_supported===true);setCustomDiningSupported(result.pos_custom_dining_supported===true);setCustomerInformationSupported(result.pos_fulfillment_customer_information_supported===true);}}).catch(()=>{if(current===generation.current)setError(t('tableSettingsLoadFailed'));});
   return()=>{generation.current++;};
  },[rid,retry,t]);
  useEffect(()=>{
@@ -32,15 +34,17 @@ export function usePOSSettings(rid: number, internalPath?: string) {
  const patch=useCallback((value:Partial<FullServiceSettings>)=>{if(editable&&!lock.current){setDraft(previous=>previous?{...previous,...value}:null);setError('');}},[editable]);
  async function save(candidate?: FullServiceSettings){
   const snapshot = candidate ?? draft;
-  if(!snapshot||!editable||JSON.stringify(snapshot)===JSON.stringify(baseline)||lock.current)return false;
+  if(!snapshot||!baseline||!editable||JSON.stringify(snapshot)===JSON.stringify(baseline)||lock.current)return false;
+  if(!mergeSupported){setError(t('posSettingsMergeUnavailable'));return false;}
   if(snapshot.fulfillment?.methods&&!validFulfillment(snapshot.fulfillment)){setError(t('fullServiceInvalid'));return false;}
   if(snapshot.fulfillment?.methods&&!customDiningSupported){setError(t('posDiningUnavailable'));return false;}
   if(snapshot.fulfillment?.methods?.some(method=>method.show_customer_information!==undefined)&&!customerInformationSupported){setError(t('posDiningCustomerUnavailable'));return false;}
   for(const key of ['courses','comp_reasons','void_reasons'] as const){const list=snapshot[key];if(!list.length||list.length>(key==='courses'?12:30)||list.some(value=>!value.trim()||Array.from(value.trim()).length>80)||new Set(list.map(value=>value.trim().toLowerCase())).size!==list.length){setError(t('fullServiceInvalid'));return false;}}
   lock.current=true;setDraft(snapshot);setSaving(true);setError('');const current=generation.current;
-  try {const normalized={...snapshot,courses:snapshot.courses.map(v=>v.trim()),comp_reasons:snapshot.comp_reasons.map(v=>v.trim()),void_reasons:snapshot.void_reasons.map(m=>m.trim()),modes:snapshot.modes?.map(m=>({...m,name:m.name.trim()}))};const result=await updateRestaurantSettings(rid,{full_service:normalized});if(!result.full_service)throw new Error('Incomplete save');if(current!==generation.current)return false;setCustomerInformationSupported(result.pos_fulfillment_customer_information_supported===true);if(normalized.fulfillment?.methods?.some(method=>method.show_customer_information!==undefined)&&result.pos_fulfillment_customer_information_supported!==true||!fulfillmentSaveConfirmed(normalized.fulfillment,result.full_service.fulfillment)){setError(t('posDiningSaveUnconfirmed'));return false;}setDraft(result.full_service);setBaseline(result.full_service);return true;}
-  catch {if(current===generation.current)setError(t('tableSettingsSaveFailed'));return false;}
+  try {const normalized={...snapshot,courses:snapshot.courses.map(v=>v.trim()),comp_reasons:snapshot.comp_reasons.map(v=>v.trim()),void_reasons:snapshot.void_reasons.map(m=>m.trim()),modes:snapshot.modes?.map(m=>({...m,name:m.name.trim()}))};const result=await updateRestaurantSettings(rid,{full_service:normalized,full_service_base:baseline});if(!result.full_service)throw new Error('Incomplete save');if(current!==generation.current)return false;setMergeSupported(result.pos_settings_merge_supported===true);setCustomerInformationSupported(result.pos_fulfillment_customer_information_supported===true);if(result.pos_settings_merge_supported!==true||normalized.fulfillment?.methods?.some(method=>method.show_customer_information!==undefined)&&result.pos_fulfillment_customer_information_supported!==true||!posSettingsSaveConfirmed(baseline,normalized,result.full_service)){setError(t('posSettingsSaveUnconfirmed'));return false;}setDraft(result.full_service);setBaseline(result.full_service);return true;}
+  catch(error) {if(current===generation.current)setError(t(error instanceof ApiError&&error.status===409?'posSettingsConflict':'tableSettingsSaveFailed'));return false;}
   finally {lock.current=false;if(current===generation.current)setSaving(false);}
  }
- return {draft,baseline,customDiningSupported,customerInformationSupported,patch,save,error,setError,saving,dirty,editable,leaving,setLeaving,reload:()=>setRetry(n=>n+1),discard:()=>{const path=leaving;setLeaving(null);setDraft(baseline);if(path)router.push(path);}};
+ const reload=()=>{if(lock.current)return;if(dirty)setReloadConfirmation(true);else setRetry(n=>n+1);};
+ return {draft,baseline,customDiningSupported,customerInformationSupported,patch,save,error,setError,saving,dirty,editable,leaving,setLeaving,reload,reloadConfirmation,setReloadConfirmation,confirmReload:()=>{if(lock.current)return;setReloadConfirmation(false);setRetry(n=>n+1);},discard:()=>{const path=leaving;setLeaving(null);setDraft(baseline);if(path)router.push(path);}};
 }

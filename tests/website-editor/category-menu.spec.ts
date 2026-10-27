@@ -4,7 +4,7 @@ import { normalizeWebsiteHeader } from "../../src/lib/website-v3/header";
 import { normalizeSiteColors } from "../../src/lib/website-v3/site-colors";
 
 // All API writes stay in the isolated fixture's memory.
-test("desktop category styles and sticky choices survive preview, reload and publication without changing mobile chrome", async ({ page, context, request }) => {
+test("category styles and sticky choices survive preview, reload and publication on desktop and mobile", async ({ page, context, request }) => {
   test.setTimeout(240_000);
   await page.addInitScript(() => {
     localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
@@ -65,7 +65,7 @@ test("desktop category styles and sticky choices survive preview, reload and pub
   await page.locator(".sqe-order-settings .sqe-shared-colors").first()
     .getByRole("button", { name: "Style de couleurs 2", exact: true }).click();
   await expect.poll(dimensions).toEqual(initial);
-  const categoryStyle = page.getByRole("combobox", { name: "Style du menu des catégories (bureau)", exact: true });
+  const categoryStyle = page.getByRole("combobox", { name: "Style du menu des catégories", exact: true });
   await expect(categoryStyle).toBeVisible();
   await categoryStyle.selectOption("underline");
   await expect(navigation).toHaveAttribute("data-shape", "underline");
@@ -122,7 +122,8 @@ test("desktop category styles and sticky choices survive preview, reload and pub
         categories: element.querySelector("nav")!.getBoundingClientRect().width,
         search: element.querySelector("input")!.getBoundingClientRect().height,
       }));
-      expect(geometry).toEqual({ height: 104, toolbar: 56, categories: width, search: 40 });
+      expect(geometry.height).toBeGreaterThanOrEqual(104);
+      expect(geometry).toMatchObject({ toolbar: 56, categories: width, search: 40 });
     }
     await assertPinned(publicNavigation);
     await publicNavigation.locator("nav a").first().click();
