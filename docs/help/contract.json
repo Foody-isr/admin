@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "WORKSPACE",
-  "documentationRevision": "9ac45aade437269f53eed146d89f85a2dec1f9fb64dd72f683ec6675adcfa998",
+  "documentationRef": "19b7fa85edb6312aeccc67a50e4bf6ef4dbb4bb2",
+  "documentationRevision": "38a3f137bacf6e7f63cf5fae21f02a6aec65ace8e432d429c20b14a9f2f48f5b",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -88,15 +88,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/staff/devices-and-shifts.mdx",
-          "sha256": "ff9bcd2ad7e1f2621adb84fb2ce1ee67aeaef5a763bfe4db59bdffb927699897"
+          "sha256": "f883507ad01655978358467dcb270b117fd69b396ef4956879fa0ad53edb0419"
         },
         "fr": {
           "path": "src/content/help/fr/staff/devices-and-shifts.mdx",
-          "sha256": "dd33b20c89e2dcf044d05438c59c67f3c0dca0c96f4fbc5f41cfd19d26016f3d"
+          "sha256": "a294896dea2f8ea18a9aea686631c08e6af190db83c8f5eeed0beaad47a29240"
         },
         "he": {
           "path": "src/content/help/he/staff/devices-and-shifts.mdx",
-          "sha256": "6abfbe01d8c5ce743156b1e499aae203febe44132cf99d158fa3ed94f34b5708"
+          "sha256": "d7c3e968b0b816ffa99eced0e6c0e7e6ed7f2a9f4f079994ad6d578edb9319e8"
         }
       }
     },
@@ -1285,15 +1285,34 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/pos-checkout.mdx",
-          "sha256": "b59313369fba7d75986737ec81ad4cb8204bbf019e9e4914573bee9f13b69d0d"
+          "sha256": "a0301523416a5b8162b978972b9f03e238a94dc1023819d8fd92f4392877c242"
         },
         "fr": {
           "path": "src/content/help/fr/payments/pos-checkout.mdx",
-          "sha256": "eabb32b7c1887fe1d3b33e6f66e4a73fc13b7224e7c95cb84baa83b3b301359d"
+          "sha256": "2cad47664cc69c2d43cc8ee2da910131756a6b8e5efedfb8121457d786bd1306"
         },
         "he": {
           "path": "src/content/help/he/payments/pos-checkout.mdx",
-          "sha256": "2e529f80533db7a13a36f1a9e79bee122b5f2c060d5ae68220771960a6da1e32"
+          "sha256": "98f1512465b471313a0cbaa98a6d12dbba7507828c5e68a4e119843d26349eb0"
+        }
+      }
+    },
+    "payments/cash-access": {
+      "feature": "pos-cash-access-diagnostics",
+      "audience": "public",
+      "status": "local-release-unverified",
+      "translations": {
+        "en": {
+          "path": "src/content/help/en/payments/cash-access.mdx",
+          "sha256": "b5ce9eaddf2039c0767e76e936d5ac0da90da90d46c833dd041f9edf651afb6f"
+        },
+        "fr": {
+          "path": "src/content/help/fr/payments/cash-access.mdx",
+          "sha256": "2c5ce980682a144626eb299bab7a45d0120245c37c3c38a8039a2a131e57b658"
+        },
+        "he": {
+          "path": "src/content/help/he/payments/cash-access.mdx",
+          "sha256": "2792060a5c592ba1041eee478df645ac759ee05874734d639b14ba1252755d4a"
         }
       }
     },
@@ -1304,15 +1323,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/pos-workspace.mdx",
-          "sha256": "4d37e0f4b0f9a9de87958315ab5755b3bd763e72d999fdf70b31bc76bbb29dd3"
+          "sha256": "a48aeba485896c125f6f0d00b1971365eff32113b68457a4ea3b3d795d0623c8"
         },
         "fr": {
           "path": "src/content/help/fr/settings/pos-workspace.mdx",
-          "sha256": "770c1d0cd88fc16a9026b41ef7e025f79b08c5e5619565fb8ca3c9661a08502e"
+          "sha256": "24d8b308bb6be00d336a6e7e37553b0b3180cb831594e074fc5336d0501167d9"
         },
         "he": {
           "path": "src/content/help/he/settings/pos-workspace.mdx",
-          "sha256": "18fc2e8fe464e022afdcb09664218af7dcbd5a6b28cfc013328d9da9ce16f9ab"
+          "sha256": "992529c7a30fe045cf0e9bef5803ccbce3527e64ff5948cb03777009616a7a63"
         }
       }
     },
@@ -1908,19 +1927,19 @@
     "menu/product-photos": {
       "feature": "menu-product-photos",
       "audience": "public",
-      "status": "local-release-unverified",
+      "status": "available",
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/product-photos.mdx",
-          "sha256": "76e9f189350bbe4a806db49b204fd6dff63b36767134c36bb27f50296749aa3a"
+          "sha256": "f90b0501cdc04aed2780d7c2e5d0b2b86d37b5b9afc81e24467dac550eae0559"
         },
         "fr": {
           "path": "src/content/help/fr/menu/product-photos.mdx",
-          "sha256": "72f3a03b6faa116a22be2a973ab401ca22fedba5ed5af0d568d163c2d6763a02"
+          "sha256": "4f365ba0e2a1f2bdd7de0b7c325a835af3a921b3aa1a824d715771172711cc51"
         },
         "he": {
           "path": "src/content/help/he/menu/product-photos.mdx",
-          "sha256": "4e706ae76b192aae959d4b9361ccea67451c166929adf1e7004d8de18b9ba066"
+          "sha256": "b3ed919a52b8d28280cafe2e4d02961939bf46194abaca1a0111dd74829a1e6d"
         }
       }
     }
