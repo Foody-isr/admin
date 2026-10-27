@@ -16,6 +16,7 @@ import {
   Store,
 } from "lucide-react";
 import {
+  ApiError,
   getRestaurant,
   listMenus,
   listAllItems,
@@ -233,7 +234,7 @@ function CarteEditor({
     setState(value);
     setDoc(value.payload);
   }, []);
-  const fail = () => setError(t("carteConflict"));
+  const fail = (error?: unknown) => setError(t(error instanceof ApiError && error.message === "stock_conversion_unavailable" ? "itemStockConversionError" : "carteConflict"));
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -318,8 +319,8 @@ function CarteEditor({
     setError("");
     try {
       return await action();
-    } catch {
-      fail();
+    } catch (error) {
+      fail(error);
       return undefined;
     } finally {
       lock.current = false;

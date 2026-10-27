@@ -90,6 +90,8 @@ export function StockHistory({
             "reservation_released",
             "availability_changed",
             "baseline_imported",
+            "reservation_recalculated",
+            "tracking_changed",
           ].map((value) => (
             <option key={value} value={value}>
               {t(`stockEvent_${value}`)}
@@ -159,6 +161,13 @@ export function StockHistory({
                       >
                         {t("saleStockOrder")} #{event.order_id}
                       </Link>
+                    </div>
+                  )}
+                  {event.previous_mode && event.previous_mode !== event.mode && (
+                    <div className="text-xs">
+                      {t(event.previous_mode === "measure" ? "saleStockMeasure" : event.previous_mode === "per_variant" ? "saleStockPerVariant" : "saleStockCount")}
+                      {" → "}
+                      {t(event.mode === "measure" ? "saleStockMeasure" : event.mode === "per_variant" ? "saleStockPerVariant" : event.mode ? "saleStockCount" : "saleStockUnlimited")}
                     </div>
                   )}
                   {event.previous_override !== event.override &&

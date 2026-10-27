@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  ApiError,
   getBatchFulfillmentConfig,
   getSalesStock,
   restockSalesStock,
@@ -20,11 +21,15 @@ export function ItemAvailabilityPopover({
   item,
   canEdit,
   onChanged,
+  date,
+  triggerLabel,
 }: {
   rid: number;
   item: MenuItem;
   canEdit: boolean;
   onChanged: () => Promise<unknown>;
+  date?: string;
+  triggerLabel?: string;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -51,7 +56,7 @@ export function ItemAvailabilityPopover({
       const [overview, config] = await Promise.all([
         getSalesStock(
           rid,
-          initial ? "" : (snapshot?.overview.series_key ?? ""),
+          initial ? (date ?? "") : (snapshot?.overview.series_key ?? date ?? ""),
           item.id,
         ),
         getBatchFulfillmentConfig(rid),
@@ -92,8 +97,8 @@ export function ItemAvailabilityPopover({
       setSnapshot({ ...snapshot, overview });
       await onChanged();
       return true;
-    } catch {
-      setError(t("carteConflict"));
+    } catch (error) {
+      setError(t(error instanceof ApiError && error.message === "stock_conversion_unavailable" ? "itemStockConversionError" : "carteConflict"));
       return false;
     } finally {
       lock.current = false;
@@ -116,6 +121,7 @@ export function ItemAvailabilityPopover({
   return (
     <AvailabilityPopover
       row={row}
+      triggerLabel={triggerLabel}
       series={snapshot?.series ?? false}
       open={open}
       canEdit={canEdit}
