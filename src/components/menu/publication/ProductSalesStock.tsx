@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { useState } from "react";
 import {
   getSalesStock,
@@ -72,12 +71,6 @@ export function ProductSalesStock({
             onUpdate(current);
           }}
         />
-        <Link
-          className="underline text-sm"
-          href={`/${rid}/menu/stock?item_id=${row.item.id}`}
-        >
-          {t("saleStockFullHistory")}
-        </Link>
         <Button variant="ghost" onClick={() => setHistory(true)}>
           {t("saleStockHistory")}
         </Button>
