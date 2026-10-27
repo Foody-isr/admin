@@ -756,6 +756,8 @@ export interface MenuItem {
    *  options (e.g. "par personne"). Translatable via the translations map. */
   portion?: string;
   image_url: string;
+  /** Ordered additional photos; image_url remains the cover. */
+  image_urls?: string[];
   price: number;
   is_active: boolean;
   /** Per-item toggle for the guest "special instructions" field (guest web only).
