@@ -861,7 +861,7 @@ test("history remains available if its item filter fails and history errors can 
   await expect(page.getByRole("cell", { name: "Responsable", exact: true })).toBeVisible();
 });
 
-test("carte availability opens a compact editor and only applies an explicit choice", async ({ page }) => {
+test("carte availability opens the centered editor and only applies an explicit choice", async ({ page }) => {
  const f = await install(page, 'fr', true);
  await page.goto(`/1/menu/menus/${f.menu.id}`);
  const row = page.locator('[data-carte-item]').first();
@@ -1084,4 +1084,59 @@ test('series product measured size inputs fit Hebrew mobile', async ({ page }) =
   await expect(dialog.getByRole('button', { name: 'החל', exact: true })).toBeVisible();
   expect(f.writes).toEqual([]);
   await page.screenshot({ path: 'test-results/product-stock-per-variant-mobile-he.png', fullPage: true });
+});
+
+for (const viewport of [
+  { name: 'desktop', width: 1440, height: 900, locale: 'fr' },
+  { name: 'short desktop', width: 1280, height: 600, locale: 'fr' },
+  { name: 'Hebrew mobile', width: 390, height: 844, locale: 'he' },
+  { name: 'mobile landscape', width: 844, height: 390, locale: 'fr' },
+]) test(`stock editor uses the viewport and keeps actions visible on ${viewport.name}`, async ({ page }) => {
+  await page.setViewportSize({ width: viewport.width, height: viewport.height });
+  const f = await install(page, viewport.locale, true);
+  const sizes = Array.from({ length: 16 }, (_, index) => ({ id: 20 + index, name: `${(index + 1) * 100} g` }));
+  await page.route('**/api/v1/menu/sales-stock?*', route => route.fulfill({ json: {
+    series_key: f.key,
+    rows: f.items.map(item => ({ item, managed: true, previous: null, sizes,
+      config: { mode: 'per_variant', unit: '', override: 'auto', revision: 1,
+        counters: sizes.map(size => ({ option_id: size.id, initial_quantity: 10, committed: 1 })) },
+      availability: { availability_state: 'available', buildable_count: 144 } })),
+  } }));
+  await page.goto('/1/menu/items/1?tab=availability');
+  const edit = page.locator('#item-availability').getByRole('button', {
+    name: viewport.locale === 'he' ? 'עריכת מלאי וזמינות' : 'Modifier le stock et la disponibilité', exact: true,
+  });
+  // Reproduce a trigger at the bottom of the product page's visible area.
+  await edit.evaluate(element => element.scrollIntoView({ block: 'end' }));
+  await edit.click();
+  const dialog = page.getByRole('dialog', { name: viewport.locale === 'he' ? 'זמינות' : 'Disponibilité', exact: true });
+  const scroll = dialog.locator('[data-availability-scroll]');
+  const actions = dialog.locator('[data-availability-actions]');
+  await expect(dialog).toBeVisible();
+  await expect(actions).toBeInViewport({ ratio: 1 });
+  const box = (await dialog.boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(11);
+  expect(box.y).toBeGreaterThanOrEqual(11);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width - 11);
+  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height - 11);
+  if (viewport.width >= 1000) {
+    expect(box.width).toBeGreaterThanOrEqual(630);
+    expect((await scroll.boundingBox())!.height).toBeGreaterThan(viewport.height - 330);
+  }
+  expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  const before = await actions.boundingBox();
+  const scrollBox = (await scroll.boundingBox())!;
+  await page.mouse.move(scrollBox.x + scrollBox.width / 2, scrollBox.y + scrollBox.height / 2);
+  await page.mouse.wheel(0, 2200);
+  await expect.poll(() => scroll.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  const lastInput = dialog.getByRole('spinbutton', { name: '1600 g', exact: true });
+  await lastInput.scrollIntoViewIfNeeded();
+  await expect(lastInput).toBeInViewport({ ratio: 1 });
+  await expect(actions).toBeInViewport({ ratio: 1 });
+  expect((await actions.boundingBox())!.y).toBeCloseTo(before!.y, 0);
+  await page.screenshot({ path: `test-results/stock-editor-${viewport.name.replaceAll(' ', '-')}.png`, animations: 'disabled' });
+  await dialog.getByRole('button', { name: viewport.locale === 'he' ? 'ביטול' : 'Annuler', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(edit).toBeFocused();
+  expect(f.writes).toEqual([]);
 });
