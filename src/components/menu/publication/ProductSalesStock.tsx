@@ -16,17 +16,20 @@ import {
 } from "@/components/ui/dialog";
 import { ItemAvailabilityPopover } from "@/components/menu/ItemAvailabilityPopover";
 import { StockHistory } from "./StockHistory";
+import type { AvailabilityRuleSelection } from "./AvailabilityPopover";
 /** Shows the series allowance and its explicit remaining-stock editor. */
 export function ProductSalesStock({
   rid,
   date,
   row,
   onUpdate,
+  ruleSelection,
 }: {
   rid: number;
   date: string;
   row: SaleStockRow;
   onUpdate: (row: SaleStockRow) => void;
+  ruleSelection?: AvailabilityRuleSelection;
 }) {
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
@@ -64,6 +67,7 @@ export function ProductSalesStock({
           item={row.item}
           canEdit={hasAnyPermission("menu.edit")}
           triggerLabel={t("itemStockEdit")}
+          ruleSelection={ruleSelection}
           onChanged={async () => {
             const latest = await getSalesStock(rid, date, row.item.id);
             const current = latest.rows.find((value) => value.item.id === row.item.id);
