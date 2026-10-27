@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
 import { stockInputUnits, stockInputValue, convertStockInput } from "@/lib/sale-stock-input";
 import { X } from "lucide-react";
 import type {
@@ -12,11 +13,6 @@ import type {
 import { useI18n } from "@/lib/i18n";
 import { Button, Field, Input, Select } from "@/components/ds";
 import { ChoiceRow } from "@/components/ds/Selection";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { AvailabilityPill } from "@/components/menu/AvailabilityPill";
 
 interface Props {
@@ -38,7 +34,7 @@ interface Props {
   ) => Promise<boolean | undefined>;
 }
 
-/** Edits an explicit availability choice beside its badge; opening never writes stock. */
+/** Edits availability in a spacious, viewport-bounded dialog; opening never writes stock. */
 export function AvailabilityPopover(props: Props) {
   const { t, direction } = useI18n();
   const title = useId();
@@ -58,47 +54,48 @@ export function AvailabilityPopover(props: Props) {
   );
   if (!props.canEdit || props.row.item.is_active === false) return pill;
   return (
-    <Popover
+    <Dialog.Root
       modal
       open={props.open}
       onOpenChange={(open) => {
         if (!props.busy) props.onOpenChange(open);
       }}
     >
-      <PopoverTrigger asChild>{pill}</PopoverTrigger>
-      <PopoverContent
-        align={direction === "rtl" ? "end" : "start"}
-        sideOffset={8}
-        collisionPadding={12}
-        dir={direction}
-        aria-labelledby={title}
-        className="list-popover w-[360px] max-w-[calc(100vw-24px)] rounded-xl border border-[var(--line)] bg-[var(--surface)] p-0 text-[var(--fg)] shadow-lg [&_.choice-row]:min-h-11 [&_.choice-row]:py-2 [&_.choice-title]:text-sm"
-        onEscapeKeyDown={(event) => {
-          if (props.busy) event.preventDefault();
-        }}
-        onInteractOutside={(event) => {
-          if (props.busy) event.preventDefault();
-        }}
-      >
-        {props.ready === false ? (
-          <div className="space-y-3 p-4">
-            <h2 id={title} className="font-semibold">
-              {t("availability")}
-            </h2>
-            <p role={props.error ? "alert" : "status"} className="text-sm">
-              {props.loading ? t("loading") : props.error}
-            </p>
-            {!props.loading && (
-              <Button variant="secondary" onClick={() => void props.onReload()}>
-                {t("carteReloadStock")}
-              </Button>
-            )}
-          </div>
-        ) : (
-          <AvailabilityForm {...props} titleId={title} />
-        )}
-      </PopoverContent>
-    </Popover>
+      <Dialog.Trigger asChild>{pill}</Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-[var(--overlay)]" />
+        <Dialog.Content
+          dir={direction}
+          aria-labelledby={title}
+          aria-describedby={undefined}
+          className="fixed left-1/2 top-1/2 z-50 flex max-h-[min(860px,calc(100dvh-24px-var(--safe-top)-var(--safe-bottom)))] w-[640px] max-w-[calc(100vw-24px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--fg)] shadow-lg outline-none [&_.choice-row]:min-h-11 [&_.choice-row]:py-2 [&_.choice-title]:text-sm"
+          onEscapeKeyDown={(event) => {
+            if (props.busy) event.preventDefault();
+          }}
+          onInteractOutside={(event) => {
+            if (props.busy) event.preventDefault();
+          }}
+        >
+          {props.ready === false ? (
+            <div className="space-y-3 p-4">
+              <Dialog.Title id={title} className="font-semibold">
+                {t("availability")}
+              </Dialog.Title>
+              <p role={props.error ? "alert" : "status"} className="text-sm">
+                {props.loading ? t("loading") : props.error}
+              </p>
+              {!props.loading && (
+                <Button variant="secondary" onClick={() => void props.onReload()}>
+                  {t("carteReloadStock")}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <AvailabilityForm {...props} titleId={title} />
+          )}
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
@@ -224,13 +221,13 @@ function AvailabilityForm({
         event.stopPropagation();
         void apply();
       }}
-      className="flex max-h-[min(620px,var(--radix-popover-content-available-height))] flex-col text-start"
+      className="flex min-h-0 flex-col text-start"
     >
-      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--line)] p-4">
+      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--line)] p-4 sm:px-6">
         <div className="min-w-0">
-          <h2 id={titleId} className="text-base font-semibold">
+          <Dialog.Title id={titleId} className="text-lg font-semibold">
             {t("availability")}
-          </h2>
+          </Dialog.Title>
           <p className="mt-1 break-words text-sm text-[var(--fg-muted)]">
             {row.item.name}
           </p>
@@ -250,7 +247,7 @@ function AvailabilityForm({
           <X aria-hidden className="size-4" />
         </button>
       </div>
-      <div className="min-h-0 overflow-y-auto px-4 py-2">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-2 sm:px-6" data-availability-scroll>
         <fieldset disabled={busy} aria-label={t("availability")}>
           <ChoiceRow
             type="radio"
@@ -319,33 +316,35 @@ function AvailabilityForm({
                   </Select>
                 </Field>
               )}
-              {fields.map((field, index) => (
-                <Field key={field.id} label={field.label}>
-                  <Input
-                    type="number"
-                    aria-label={field.label}
-                    inputMode={inputUnit ? "decimal" : "numeric"}
-                    min={0}
-                    max={2147483647}
-                    step={inputUnit ? "any" : 1}
-                    value={quantities[field.id] ?? ""}
-                    placeholder={variant ? "∞" : "0"}
-                    onChange={(event) =>
-                      setQuantities((current) => ({
-                        ...current,
-                        [field.id]: event.target.value,
-                      }))
-                    }
-                  />
-                  {variant && inputUnit && values[index] != null && (
-                    <span className="text-xs text-[var(--fg-muted)]">
-                      {t("itemStockPortionPreview")
-                        .replace("{count}", String(values[index]))
-                        .replace("{size}", row.sizes[index].name)}
-                    </span>
-                  )}
-                </Field>
-              ))}
+              <div className={variant ? "grid gap-3 sm:grid-cols-2" : "space-y-3"}>
+                {fields.map((field, index) => (
+                  <Field key={field.id} label={field.label}>
+                    <Input
+                      type="number"
+                      aria-label={field.label}
+                      inputMode={inputUnit ? "decimal" : "numeric"}
+                      min={0}
+                      max={2147483647}
+                      step={inputUnit ? "any" : 1}
+                      value={quantities[field.id] ?? ""}
+                      placeholder={variant ? "∞" : "0"}
+                      onChange={(event) =>
+                        setQuantities((current) => ({
+                          ...current,
+                          [field.id]: event.target.value,
+                        }))
+                      }
+                    />
+                    {variant && inputUnit && values[index] != null && (
+                      <span className="text-xs text-[var(--fg-muted)]">
+                        {t("itemStockPortionPreview")
+                          .replace("{count}", String(values[index]))
+                          .replace("{size}", row.sizes[index].name)}
+                      </span>
+                    )}
+                  </Field>
+                ))}
+              </div>
               {variant && inputUnit && (
                 <p className="text-xs text-[var(--fg-muted)]">
                   {t("itemStockWholePortions")}
@@ -391,7 +390,7 @@ function AvailabilityForm({
           </div>
         )}
       </div>
-      <div className="shrink-0 border-t border-[var(--line)] p-4">
+      <div className="shrink-0 border-t border-[var(--line)] p-4 sm:px-6" data-availability-actions>
         <p className="mb-3 text-xs text-[var(--fg-muted)]">
           {t(
             series ? "carteApplyAvailabilityHint" : "itemApplyAvailabilityHint",
