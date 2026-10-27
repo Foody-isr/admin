@@ -327,6 +327,7 @@
 }
 .item-photo {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   min-height: 168px;
@@ -397,6 +398,7 @@
   align-self: stretch;
   flex: 1;
   min-height: 150px;
+  min-width: 100px;
   font-size: 14px;
   color: var(--fg-muted);
   border-radius: 8px;

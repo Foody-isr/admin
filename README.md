@@ -336,7 +336,7 @@ Full menu management:
 
 Creation and editing use one continuous form: identity and photo, pricing and variants, personalizations or combo composition, customer facts, availability, recipe/cost, and assistant context. The full-page editor uses Cash Sans, inset field labels and a centered two-column layout. Status, internal categories and menu groups have separate cards alongside the form; on mobile they follow it. Translations open beside the item name. The fixed header shows unsaved changes and keeps Save/Cancel reachable, with the title appearing in the header after scrolling.
 
-Existing `?tab=recipe`, `?tab=availability` and legacy links scroll to the corresponding section. New articles expose **Save and configure** for stock and recipe settings that need a saved item. Form fields, variants, recipe instructions and availability commit with Save; existing explicit image, modifier and ingredient operations retain their immediate persistence.
+Existing `?tab=recipe`, `?tab=availability` and legacy links scroll to the corresponding section. New articles expose **Save and configure** for stock and recipe settings that need a saved item. Form fields, variants, recipe instructions and availability commit with Save; photo gallery changes apply with Save; explicit AI cover confirmation, modifier and ingredient operations retain their immediate persistence.
 
 Regular articles also expose **Customization at checkout** for Foody POS:
 automatic first-variant selection and skipping optional customization. Both
@@ -1528,3 +1528,14 @@ Long group headings wrap inside the page instead of widening the document.
 Synthetic Chromium/WebKit regression: from foodyadmin run
 `FOODY_MENU_TABS=1 FOODY_MENU_LAYOUT=1 npx playwright test -c
 playwright.website-editor.config.ts mobile-menu-layout.spec.ts`.
+
+## Product photos
+
+Item creation and editing accept up to ten JPEG/PNG/GIF/WebP photos (5 MB each).
+The first is the cover; open another thumbnail to make it primary. File selection,
+cover selection and removal are applied with Save. Existing-item uploads prepare
+files without committing the gallery or other form fields. Partial uploads retain
+successful files. Creation retries reuse the item and successful uploads. Explicit
+AI cover confirmation retains its existing immediate save and preserves detail photos.
+Deploy API migration 278 before this Admin and the matching guest gallery.
+Regression: `npx playwright test -c playwright.redesign.config.ts item-continuous.spec.ts`.

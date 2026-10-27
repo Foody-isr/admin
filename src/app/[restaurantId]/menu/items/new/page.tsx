@@ -24,6 +24,7 @@ import {
 import type { MenuItemSection } from '@/components/menu-item/TabBar';
 import MenuItemDistribution from '@/components/menu-item/MenuItemDistribution';
 import MenuItemPhoto from '@/components/menu-item/MenuItemPhoto';
+import { validateItemPhotos } from '@/lib/item-photos';
 import MenuItemEditorForm from '@/components/menu-item/MenuItemEditorForm';
 import MenuItemShell from '@/components/menu-item/MenuItemShell';
 import ItemUnsavedDialog from '@/components/menu-item/ItemUnsavedDialog';
@@ -68,7 +69,7 @@ function NewItemEditor() {
   const [draftStorageError, setDraftStorageError] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [createdId, setCreatedId] = useState<number | null>(null);
-  const progress = useRef({ id: 0, imageUrl: '', imageSaved: false, groups: new Set<number>(), modifiers: new Set<number>(), variants: false });
+  const progress = useRef({ id: 0, imageUrls: new Map<File, string>(), imageSaved: false, groups: new Set<number>(), modifiers: new Set<number>(), variants: false });
   const busy = useRef(false);
   const requestGuard = useRef(new RestaurantRequestGuard());
   requestGuard.current.enterRestaurant(rid);
@@ -94,8 +95,9 @@ function NewItemEditor() {
   const [posSkipCustomization, setPosSkipCustomization] = useState(false);
   const [comboAllowQuantity, setComboAllowQuantity] = useState(true);
   const [itemType, setItemType] = useState<ItemType>('food_and_beverage');
-  const [pendingImage, setPendingImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState('');
+  const [pendingImages, setPendingImages] = useState<{ file: File; url: string }[]>([]);
+  const pendingImagesRef = useRef(pendingImages);
+  pendingImagesRef.current = pendingImages;
   const [saving, setSaving] = useState(false);
   const [vatRate, setVatRate] = useState(18);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -218,7 +220,7 @@ function NewItemEditor() {
     finally { if (guard.isCurrent(token)) setLoading(false); }
   }, [rid]);
   useEffect(() => { const guard = requestGuard.current; void load(); return () => guard.invalidate(); }, [load]);
-  useEffect(() => () => { if (imagePreview) URL.revokeObjectURL(imagePreview); }, [imagePreview]);
+  useEffect(() => () => { pendingImagesRef.current.forEach(image => URL.revokeObjectURL(image.url)); }, []);
 
   // Price single-source-of-truth — see the edit page for rationale. When an
   // article has meaningful sizes, the Details base-price field hides and the
@@ -273,9 +275,14 @@ function NewItemEditor() {
         completed.id = item.id;
         setCreatedId(item.id);
       }
-      if (pendingImage && !completed.imageSaved) {
-        if (!completed.imageUrl) completed.imageUrl = await uploadMenuItemImage(rid, completed.id, pendingImage);
-        await updateMenuItem(rid, completed.id, { image_url: completed.imageUrl });
+      if (pendingImages.length && !completed.imageSaved) {
+        for (const image of pendingImages) {
+          if (!completed.imageUrls.has(image.file)) {
+            completed.imageUrls.set(image.file, await uploadMenuItemImage(rid, completed.id, image.file));
+          }
+        }
+        const urls = pendingImages.map(image => completed.imageUrls.get(image.file)!);
+        await updateMenuItem(rid, completed.id, { image_url: urls[0], image_urls: urls.slice(1) });
         completed.imageSaved = true;
       }
       for (const groupId of Array.from(selectedGroupIds)) {
@@ -350,15 +357,17 @@ function NewItemEditor() {
     setPendingType(null);
   };
 
-  const handleFileSelect = (file: File) => {
+  const handleFileSelect = (files: File[]) => {
     if (!canEdit || busy.current || progress.current.id) return;
-    setPendingImage(file);
-    setImagePreview(URL.createObjectURL(file));
+    const invalid = validateItemPhotos(files, pendingImages.length);
+    if (invalid) { setSaveError(t(invalid)); return; }
+    setSaveError('');
+    setPendingImages(current => [...current, ...files.map(file => ({ file, url: URL.createObjectURL(file) }))]);
   };
 
   const initialCategory = useRef<number | null>(null);
   useEffect(() => { if (!loading && !loadError && initialCategory.current === null) initialCategory.current = categoryId; }, [loading, loadError, categoryId]);
-  const hasDraft = (initialCategory.current !== null && initialCategory.current !== categoryId) || isMeaningfulDraft(draftSnapshot) || !!pendingImage || !!aiContext || pricingMode !== 'standard' || !allowNotes || !comboAllowQuantity || JSON.stringify(customerFacts) !== JSON.stringify(normalizeMenuItemCustomerFacts());
+  const hasDraft = (initialCategory.current !== null && initialCategory.current !== categoryId) || isMeaningfulDraft(draftSnapshot) || pendingImages.length > 0 || !!aiContext || pricingMode !== 'standard' || !allowNotes || !comboAllowQuantity || JSON.stringify(customerFacts) !== JSON.stringify(normalizeMenuItemCustomerFacts());
   const leaveGuard = useItemLeaveGuard(() => hasDraft, () => busy.current);
   const goBack = () => leaveGuard.request(`/${rid}/menu/items`);
 
@@ -408,11 +417,12 @@ function NewItemEditor() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/gif,image/webp" multiple
         className="hidden"
         onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) handleFileSelect(f);
+          const files = Array.from(e.target.files ?? []);
+          e.target.value = '';
+          if (files.length) handleFileSelect(files);
         }}
       />
 
@@ -503,16 +513,18 @@ function NewItemEditor() {
               hideBasePrice={meaningfulVariants && firstVariantPrice > 0}
               photo={
                 <MenuItemPhoto
-                  imageUrl={imagePreview || undefined}
+                  imageUrls={pendingImages.map(image => image.url)}
                   onRemove={
                     canEdit && !saving && !createdId
-                      ? () => {
-                          setPendingImage(null);
-                          setImagePreview('');
-                          if (fileInputRef.current) fileInputRef.current.value = '';
+                      ? (index) => {
+                          URL.revokeObjectURL(pendingImages[index].url);
+                          setPendingImages(current => current.filter((_, position) => position !== index));
                         }
                       : undefined
                   }
+                  onPrimary={canEdit && !saving && !createdId
+                    ? (index) => setPendingImages(current => [current[index], ...current.filter((_, position) => position !== index)])
+                    : undefined}
                   name={name}
                   onImageClick={
                     canEdit && !saving && !createdId
