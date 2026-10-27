@@ -1,0 +1,33 @@
+{
+  "files": [
+    {
+      "path": "src/components/menu-item/ItemAvailabilityPanel.tsx",
+      "sha256": "8d7ab8ea644ba9649081d907e8668e1aab8e3ae5552406df7708be70528bf9a1",
+      "baseSha256": "c3335fad289945e9a6697850b4046d9a72d2355c460d069b0dd60e313b03f062",
+      "features": [
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The saved product availability section moves its existing rule selector into the stock dialog and renames the stock-dialog field. Item creation, recipe/ingredient amounts, portions, variant configuration and prices are unchanged. These scoped guides retain their existing links to the updated primary stock procedures; the visible availability change is documented separately."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "99990cb3fd18bbcb074f3852eca65f822e1815488d196679cf789a5ecc31b0b8",
+      "baseSha256": "841dcf01d9854dd4392acf432179c439d07c68a62f0ccffc87a6785c5430f9f9",
+      "features": [
+        "customers-profiles",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the availability-rule label and product-wide scope/product Save hints are added in French, Hebrew and English. Existing customer, delivery, Google, website, POS, WhatsApp, shared-runtime and photo-gallery labels and workflows in this explicit scope remain byte-identical. The stock-rule relocation is documented in the updated stock guides and is not exempted."
+    }
+  ]
+}

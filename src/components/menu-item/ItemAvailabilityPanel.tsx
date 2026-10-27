@@ -376,8 +376,9 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
       );
     return (
       <div className="item-fulfillment-settings">
-        {seriesRow?.managed ? <><ProductSalesStock rid={rid} date={seriesDate} row={seriesRow} onUpdate={setSeriesRow}/>
-        <label className="block text-sm space-y-2">{t('availabilityManageRules')}<select className="input" disabled={!canEdit} value={stock.ruleId} onChange={e=>setStock(prev=>({...prev,ruleId:Number(e.target.value)}))}><option value={0}>{t('none')}</option>{rules.map(rule=><option key={rule.id} value={rule.id}>{rule.name}</option>)}</select></label></> : <>
+        {seriesRow?.managed ? <ProductSalesStock rid={rid} date={seriesDate} row={seriesRow} onUpdate={setSeriesRow}
+          ruleSelection={{ value: stock.ruleId, options: rules, onApply: ruleId => setStock(previous => ({ ...previous, ruleId })) }}
+        /> : <>
         <button type="button" className="item-settings-link" onClick={()=>setHistoryOpen(!historyOpen)}>{t('saleStockHistory')}</button>
         {historyOpen&&<StockHistory rid={rid} itemId={itemId}/>}
         <div className="item-stock-actions">
@@ -694,7 +695,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
                 </>
               )}
               <label>
-                {t('availabilityRuleField')}
+                {t('itemStockAvailabilityRule')}
                 <select
                   value={stockDraft.ruleId}
                   onChange={(event) =>

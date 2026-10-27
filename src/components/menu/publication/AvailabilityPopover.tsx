@@ -6,6 +6,7 @@ import { stockInputUnits, stockInputValue, convertStockInput } from "@/lib/sale-
 import { X } from "lucide-react";
 import type {
   AvailabilityOverride,
+  AvailabilityRule,
   AvailabilityState,
   SaleStockLimit,
   SaleStockRow,
@@ -14,6 +15,13 @@ import { useI18n } from "@/lib/i18n";
 import { Button, Field, Input, Select } from "@/components/ds";
 import { ChoiceRow } from "@/components/ds/Selection";
 import { AvailabilityPill } from "@/components/menu/AvailabilityPill";
+
+/** Stages the product rule for the item editor's existing Save action. */
+export interface AvailabilityRuleSelection {
+  value: number;
+  options: Pick<AvailabilityRule, "id" | "name">[];
+  onApply: (ruleId: number) => void;
+}
 
 interface Props {
   row: SaleStockRow;
@@ -26,6 +34,7 @@ interface Props {
   loading?: boolean;
   contextLabel?: string;
   triggerLabel?: string;
+  ruleSelection?: AvailabilityRuleSelection;
   onOpenChange: (open: boolean) => void;
   onReload: () => Promise<unknown>;
   onApply: (
@@ -52,7 +61,7 @@ export function AvailabilityPopover(props: Props) {
       actionLabel={t("carteAvailabilityTitle")}
     />
   );
-  if (!props.canEdit || props.row.item.is_active === false) return pill;
+  if (!props.canEdit || (props.row.item.is_active === false && !props.ruleSelection)) return pill;
   return (
     <Dialog.Root
       modal
@@ -109,9 +118,14 @@ function AvailabilityForm({
   onApply,
   titleId,
   contextLabel,
+  ruleSelection,
 }: Props & { titleId: string }) {
   const { t } = useI18n();
   const name = useId();
+  const ruleHintId = useId();
+  const [ruleId, setRuleId] = useState(ruleSelection?.value ?? 0);
+  const [ruleEdited, setRuleEdited] = useState(false);
+  const [availabilityEdited, setAvailabilityEdited] = useState(false);
   const storedMode = row.config?.mode || row.item.stock_mode || "";
   const initialMode =
     storedMode === "measure" || storedMode === "per_variant"
@@ -174,6 +188,8 @@ function AvailabilityForm({
   const hasCommitments = series && (row.config?.counters ?? []).some(
     (counter) => counter.committed > 0,
   );
+  const ruleOnlyEdit = !!ruleSelection && ruleEdited && !availabilityEdited;
+  const canApply = ruleOnlyEdit || (row.item.is_active !== false && valid);
   function changeUnit(next: string) {
     setQuantities((current) =>
       Object.fromEntries(
@@ -191,7 +207,13 @@ function AvailabilityForm({
     setUnit(next);
   }
   async function apply() {
-    if (busy || !valid) return;
+    if (busy || !canApply) return;
+    // A product rule is a catalog draft, not a stock or series adjustment.
+    if (ruleOnlyEdit) {
+      ruleSelection?.onApply(ruleId);
+      onOpenChange(false);
+      return;
+    }
     const remaining: SaleStockLimit | undefined =
       choice === "stock"
         ? {
@@ -211,8 +233,10 @@ function AvailabilityForm({
               : undefined,
           }
         : undefined;
-    if (await onApply(choice === "stock" ? "auto" : choice, remaining))
+    if (await onApply(choice === "stock" ? "auto" : choice, remaining)) {
+      if (ruleEdited) ruleSelection?.onApply(ruleId);
       onOpenChange(false);
+    }
   }
   return (
     <form
@@ -248,7 +272,7 @@ function AvailabilityForm({
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-2 sm:px-6" data-availability-scroll>
-        <fieldset disabled={busy} aria-label={t("availability")}>
+        <fieldset disabled={busy || row.item.is_active === false} aria-label={t("availability")} onChange={() => setAvailabilityEdited(true)}>
           <ChoiceRow
             type="radio"
             name={name}
@@ -358,7 +382,7 @@ function AvailabilityForm({
               <p className="text-xs text-[var(--fg-muted)]">
                 {t("carteRemainingStockHint")}
               </p>
-              {!valid && (
+              {!valid && !ruleOnlyEdit && row.item.is_active !== false && (
                 <p className="text-xs text-[var(--fg-muted)]">
                   {t("cartePositiveStockHint")}
                 </p>
@@ -374,6 +398,28 @@ function AvailabilityForm({
             label={t("carteChoiceAutomatic")}
           />
         </fieldset>
+        {ruleSelection && (
+          <div className="border-t border-[var(--line)] py-3">
+            <Field label={t("itemStockAvailabilityRule")}>
+              <Select
+                aria-label={t("itemStockAvailabilityRule")}
+                aria-describedby={ruleHintId}
+                disabled={busy}
+                value={ruleId}
+                onChange={(event) => {
+                  setRuleId(Number(event.target.value));
+                  setRuleEdited(true);
+                }}
+              >
+                <option value={0}>{t("none")}</option>
+                {ruleSelection.options.map((rule) => (
+                  <option key={rule.id} value={rule.id}>{rule.name}</option>
+                ))}
+              </Select>
+              <p id={ruleHintId} className="text-xs text-[var(--fg-muted)]">{t("itemStockRuleScopeHint")}</p>
+            </Field>
+          </div>
+        )}
         {error && (
           <div className="py-3">
             <p role="alert" className="text-sm text-[var(--danger-500)]">
@@ -392,9 +438,7 @@ function AvailabilityForm({
       </div>
       <div className="shrink-0 border-t border-[var(--line)] p-4 sm:px-6" data-availability-actions>
         <p className="mb-3 text-xs text-[var(--fg-muted)]">
-          {t(
-            series ? "carteApplyAvailabilityHint" : "itemApplyAvailabilityHint",
-          )}
+          {t(ruleSelection ? "itemStockRuleApplyHint" : series ? "carteApplyAvailabilityHint" : "itemApplyAvailabilityHint")}
         </p>
         <div className="flex justify-end gap-2">
           <Button
@@ -405,7 +449,7 @@ function AvailabilityForm({
           >
             {t("cancel")}
           </Button>
-          <Button type="submit" disabled={busy || !valid}>
+          <Button type="submit" disabled={busy || !canApply}>
             {t("apply")}
           </Button>
         </div>
