@@ -16,11 +16,11 @@ import { Button, Field, Input, Select } from "@/components/ds";
 import { ChoiceRow } from "@/components/ds/Selection";
 import { AvailabilityPill } from "@/components/menu/AvailabilityPill";
 
-/** Stages the product rule for the item editor's existing Save action. */
+/** Synchronizes the product rule after the stock dialog confirms persistence. */
 export interface AvailabilityRuleSelection {
   value: number;
   options: Pick<AvailabilityRule, "id" | "name">[];
-  onApply: (ruleId: number) => void;
+  onSaved: (ruleId: number) => void;
 }
 
 interface Props {
@@ -38,8 +38,9 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onReload: () => Promise<unknown>;
   onApply: (
-    value: AvailabilityOverride,
+    value: AvailabilityOverride | undefined,
     remaining?: SaleStockLimit,
+    ruleId?: number,
   ) => Promise<boolean | undefined>;
 }
 
@@ -208,10 +209,9 @@ function AvailabilityForm({
   }
   async function apply() {
     if (busy || !canApply) return;
-    // A product rule is a catalog draft, not a stock or series adjustment.
+    // A rule-only save must not reapply the displayed stock or availability.
     if (ruleOnlyEdit) {
-      ruleSelection?.onApply(ruleId);
-      onOpenChange(false);
+      if (await onApply(undefined, undefined, ruleId)) onOpenChange(false);
       return;
     }
     const remaining: SaleStockLimit | undefined =
@@ -233,8 +233,7 @@ function AvailabilityForm({
               : undefined,
           }
         : undefined;
-    if (await onApply(choice === "stock" ? "auto" : choice, remaining)) {
-      if (ruleEdited) ruleSelection?.onApply(ruleId);
+    if (await onApply(choice === "stock" ? "auto" : choice, remaining, ruleEdited ? ruleId : undefined)) {
       onOpenChange(false);
     }
   }

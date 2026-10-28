@@ -464,7 +464,7 @@ export function CarteGroups({
                                     error={availabilityError} open={availabilityKey === `${group.key}:${id}`}
                                     onOpenChange={open => { if (open) onAvailabilityOpen(); setAvailabilityKey(open ? `${group.key}:${id}` : null); }}
                                     onReload={onReloadStock}
-                                    onApply={(value, remaining) => onAvailabilityApply(id, value, remaining)}
+                                    onApply={(value, remaining) => value === undefined ? Promise.resolve(false) : onAvailabilityApply(id, value, remaining)}
                                   />
                                 ) : (
                                   <span aria-label={t("availability")}>—</span>

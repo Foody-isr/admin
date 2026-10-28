@@ -11220,10 +11220,12 @@ export const getSalesStockHistory = (rid: number,filter: {itemId?: number; date?
  return apiFetch<{events: SaleStockEvent[];next_cursor: number}>(`/api/v1/menu/sales-stock/history?${query}`,rid);
 };
 export const setSalesStock = (rid: number,date: string,input: SaleStockLimit) => apiFetch<SaleStockSeries>(`/api/v1/menu/items/${input.menu_item_id}/sales-stock?serie_date=${encodeURIComponent(date)}`,rid,{method:'PUT',body:JSON.stringify(input)});
-export const setSalesStockAvailability = (rid: number,date: string,itemId: number,override: AvailabilityOverride) => apiFetch<void>(`/api/v1/menu/items/${itemId}/sales-stock/availability?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify({override})});
+/** Saves an operational override and/or product rule in one stock-locked transaction. */
+export const setSalesStockAvailability = (rid: number,date: string,itemId: number,override: AvailabilityOverride | undefined,ruleId?: number) => apiFetch<void>(`/api/v1/menu/items/${itemId}/sales-stock/availability?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify({override,availability_rule_id:ruleId})});
 
 /** Sets remaining quantities; committed orders are preserved by the API transaction. */
-export const restockSalesStock = (rid: number,date: string,input: SaleStockLimit) => apiFetch<{revision: number}>(`/api/v1/menu/items/${input.menu_item_id}/sales-stock/restock?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify(input)});
+/** Saves remaining stock and an optional product rule atomically without changing commitments. */
+export const restockSalesStock = (rid: number,date: string,input: SaleStockLimit & { availability_rule_id?: number }) => apiFetch<{revision: number}>(`/api/v1/menu/items/${input.menu_item_id}/sales-stock/restock?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify(input)});
 
 /** Monthly tenant allowances supplement independent provider-wide protection. */
 export interface ExternalApiCounter { id: string; provider: string; unit: string; default_limit: number; used: number; requests: number; limit: number; remaining: number; status: 'available' | 'warning' | 'exhausted' }
