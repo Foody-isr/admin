@@ -12,6 +12,7 @@ import type {
   DraftImageResult,
   ManualRecipeImportResult,
 } from '@/app/[restaurantId]/kitchen/lab/types';
+import type { OrderLifecycle } from './orders/lifecycle';
 import type { PosDisplayLayout } from './posDisplay';
 import {
   startRegistration,
@@ -914,6 +915,8 @@ export interface OrderItem {
 }
 
 export interface Order {
+  /** Read-only independent lifecycle facts for this Order ID. */
+  lifecycle?: OrderLifecycle | null;
 	/** Selected contact from staff read metadata; never part of the persisted order. */
 	customer_whatsapp_phone?: string;
   dining_option?: string;

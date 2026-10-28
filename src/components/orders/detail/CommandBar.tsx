@@ -6,6 +6,7 @@ import { Button, MenuItem, MenuLabel, MenuSeparator } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import type { Order } from '@/lib/api';
 import type { OrderCapabilities, PrimaryAction } from '@/lib/orders/order-actions';
+import { orderHandoffKind } from '@/lib/orders/order-actions';
 import { SendToCustomerItems } from './menus/SendToCustomerMenu';
 import styles from './order-detail.module.css';
 
@@ -31,6 +32,9 @@ export function CommandBar({
   onPrimary,
 }: CommandBarProps) {
   const { t } = useI18n();
+  const handoffKind = orderHandoffKind(order.order_type);
+  const handoffLabel = handoffKind === 'delivery' ? t('confirmOrderDelivery')
+    : handoffKind === 'pickup' ? t('confirmOrderPickup') : t('confirmOrderService');
 
   // Literal t() calls so the i18n checker can see every key. Resolving
   // t(caps.primary) instead would be the dynamic-key trap it cannot follow.
@@ -38,7 +42,7 @@ export function CommandBar({
     accept: t('accept'),
     sendToKitchen: t('sendToKitchen'),
     markReady: t('markReady'),
-    markServed: t('markServed'),
+    markServed: handoffKind === 'pickup' ? t('confirmOrderPickup') : t('markServed'),
     markOutForDelivery: t('markOutForDelivery'),
     markDelivered: t('markDelivered'),
   };
@@ -47,7 +51,7 @@ export function CommandBar({
     {canManage && caps.canEditOrder && <MenuItem onSelect={onEdit}><EditIcon />{t('edit')}</MenuItem>}
     {canManage && caps.canConfirmWeights && onConfirmWeights && <MenuItem disabled={isLoading} onSelect={onConfirmWeights}><ScaleIcon />{t('confirmWeights')}</MenuItem>}
     {canManage && caps.canTakePayment && <MenuItem disabled={isLoading} onSelect={onTakePayment}><CreditCardIcon />{t('takePayment')}</MenuItem>}
-    {canManage && caps.canCloseOrder && <MenuItem disabled={isLoading} onSelect={onCloseOrder}><CheckCircle2Icon />{t('closeOrder')}</MenuItem>}
+    {canManage && caps.canCloseOrder && <MenuItem disabled={isLoading} onSelect={onCloseOrder}><CheckCircle2Icon />{handoffLabel}</MenuItem>}
     <MenuSeparator />
     <MenuLabel>{t('sendToCustomer')}</MenuLabel>
     <SendToCustomerItems order={order} canManage={canManage} onSendConfirmation={onSendConfirmation} onSendReceipt={onSendReceipt} />

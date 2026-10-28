@@ -6,8 +6,9 @@ import { Check, Share2, X } from 'lucide-react';
 import { Button } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import type { Order } from '@/lib/api';
-import { ORDER_STATUS_BADGE_TONE, displayedPaymentStatus as getDisplayedPaymentStatus, localizePaymentStatus, localizeStatus } from '@/lib/orders/status-presentation';
+import { ORDER_STATUS_BADGE_TONE, displayedOrderStatus, displayedPaymentStatus as getDisplayedPaymentStatus, localizePaymentStatus, localizeStatus } from '@/lib/orders/status-presentation';
 import { getOrderTiming, isOperationalOrder } from '@/lib/orders/operations-board';
+import { readOrderLifecycle } from '@/lib/orders/lifecycle';
 import { orderDetailUrl } from '@/lib/orders/routes';
 import styles from './order-detail.module.css';
 
@@ -64,19 +65,23 @@ export function OrderDetailHead({ order, children }: { order: Order; children: R
 }
 
 /** Customer title and compact workflow/payment badges, matching the order list. */
-export function OrderDetailSummary({ order, isCancelled }: { order: Order; isCancelled: boolean }) {
+export function OrderDetailSummary({ order, isCancelled, onRetry }: { order: Order; isCancelled: boolean; onRetry?: () => void }) {
   const { t } = useI18n();
+  const lifecycle = readOrderLifecycle(order.lifecycle, order.id);
+  const displayedStatus = displayedOrderStatus(order);
   const timing = getOrderTiming(order);
   const showTiming = isOperationalOrder(order) && !timing.scheduledForFuture;
   return (
     <section className={styles.summary}>
       <h2>{order.customer_name || t('guestCustomer')}</h2>
       <div className={styles.badges}>
-        <span className={styles.statusBadge} data-status-tone={ORDER_STATUS_BADGE_TONE[order.status] ?? 'neutral'}>
-          <span aria-hidden className={styles.statusDot} />{localizeStatus(order.status, t)}
+        <span className={styles.statusBadge} data-status-tone={ORDER_STATUS_BADGE_TONE[displayedStatus as Order['status']] ?? 'neutral'}>
+          <span aria-hidden className={styles.statusDot} />{localizeStatus(displayedStatus, t)}
         </span>
         <span className={styles.paymentBadge}>{localizePaymentStatus(getDisplayedPaymentStatus(order, isCancelled), t)}</span>
       </div>
+      {lifecycle.kind === 'available' && lifecycle.value.handoff.tracking === 'not_tracked' && <p className={styles.orderReference}>{t('lifecycleHandoffNotTracked')}</p>}
+      {lifecycle.kind === 'unavailable' && onRetry && <button type="button" onClick={onRetry} className="text-fs-xs underline">{t('retry')}</button>}
       <p className={styles.orderReference}>
         {t('orderNumber').replace('{id}', String(order.id))}
         {showTiming && <> · {timing.minutes} {t('minShort')}</>}

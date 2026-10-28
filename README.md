@@ -1560,3 +1560,27 @@ non-tracking profiles show a visible explanation. Apply saves only stock setting
 and the optional profile atomically. Name, price and preparation drafts remain
 local until product Save. Read failures after a confirmed write only reload data.
 Requires the API explicit recipe source (migration 279); deploy API first.
+
+## Independent order lifecycle facts
+
+Order detail keeps the configured workflow, payment badge, and existing layout.
+The optional API `order.lifecycle` v1 is scoped to exactly the displayed Order ID;
+financial checks and table sessions never replace it. Preparation and customer
+handoff use their own facts: payment, refund and commercial closure do not mark
+kitchen stages complete. Known handoff history remains visible after a refund.
+Pending alone means payment is expected and preserves the existing collection
+and hosted-link conditions; it does not prove an active attempt. Card authorizations
+remain protected, and provider claims/journals remain authoritative. Weight
+settlement keeps its specific Confirm weights action.
+Older APIs without this field keep the explicit legacy path. Advertised invalid
+or unavailable facts display unavailable status and Retry; collection, financial
+correction and handoff shortcuts remain blocked until a scoped refresh succeeds.
+Legacy WebSocket events invalidate then refresh the detail through HTTP.
+
+The existing paid-order shortcut now says **Confirm served**, **Confirm customer
+pickup**, or **Confirm delivery**, with a matching confirmation. It still invokes
+the existing order handoff endpoint, preserves permissions and balance/weight
+holds, and does not close a financial check. QR orders remain distinct.
+
+Synthetic regressions: `npx tsx --test src/lib/orders/__tests__/lifecycle*.test.ts`
+and `npx playwright test -c playwright.lifecycle.config.ts` (FR/HE/EN).
