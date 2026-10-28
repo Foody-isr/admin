@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "17cef90172c37ad7b7db2ce5d2992bf699077529",
-  "documentationRevision": "a73c9c4e2faccc8f330c44ff90e9c38b4db67f1016b2e95b84fb9b46f6527fd0",
+  "documentationRef": "beb4e675fd64113a9f2195b3153801a3ebd607f0",
+  "documentationRevision": "36194de47573a341e845044f247e2eaaa6e85bcf1741c933a30d27ebf6358721",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -1589,15 +1589,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/tracking-and-account.mdx",
-          "sha256": "f730ba09b2f87bdc7fe58f2c50d495bad82f2958a0994b29a4b078a00219260d"
+          "sha256": "1043f32dafc2866faf57079253c03f9a5b6151037845dd100262e98a757f4fe8"
         },
         "fr": {
           "path": "src/content/help/fr/guest/tracking-and-account.mdx",
-          "sha256": "5afb9bcc82e1899e1c6826e5d25e4fc94f74f4a54022359ac14082661560c7dc"
+          "sha256": "d543fee4e88bb866bb6a146cb156d2689a688e4a9321bfdbb9301e7612948814"
         },
         "he": {
           "path": "src/content/help/he/guest/tracking-and-account.mdx",
-          "sha256": "e69cd1d34f99ab4e9b1f6fa9f4edeb06c292b51d39691a7fa7a787384f0ec9df"
+          "sha256": "68eada4fcebfe832f09126776e24edfc078130c63a02a85faf53007985102e2c"
         }
       }
     },
