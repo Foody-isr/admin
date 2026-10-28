@@ -1168,11 +1168,16 @@ async function installStockRule(page: Page, options: { inactive?: boolean; overr
       config: { mode: 'count', unit: '', override, revision, counters: [{ option_id: 0, initial_quantity: remaining + 2, committed: 2 }] },
       availability: { availability_state: override === 'force_sold_out' ? 'sold_out' : override === 'force_available' || remaining > 0 ? 'available' : 'sold_out', buildable_count: override === 'auto' ? remaining : null } })),
   } }));
+  await page.route('**/api/v1/menu/items/1/sales-stock/availability?*', route => {
+    const input = route.request().postDataJSON();
+    if (Object.hasOwn(input, 'override')) override = input.override;
+    if (Object.hasOwn(input, 'availability_rule_id')) items[0].availability_rule_id = input.availability_rule_id;
+    return route.fulfill({ status: 204 });
+  });
   await page.route('**/api/v1/**', route => {
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(route.request().method())) {
       expect(route.request().headers()['x-restaurant-id']).toBe('1');
       mutations.push({ path: new URL(route.request().url()).pathname, body: route.request().postDataJSON() });
-      if (new URL(route.request().url()).pathname.endsWith('/sales-stock/availability')) override = route.request().postDataJSON().override;
     }
     return route.fallback();
   });
@@ -1202,31 +1207,25 @@ test('series availability rule moves inside the stock modal and Cancel/Escape di
   await expect(stockRuleDialog(page).getByRole('combobox', { name: 'Règle de disponibilité', exact: true })).toHaveValue('0');
 });
 
-test('series rule selection stages with Apply, persists only on product Save and retains inheritance and forced availability', async ({ page }) => {
+test('series rule selection persists on Apply without product Save and retains inheritance and forced availability', async ({ page }) => {
   const f = await installStockRule(page);
   for (const id of [1, 0]) {
-    if (id === 0) await page.goto('/1/menu/items/1?tab=availability');
     await editProductStock(page).click();
     const dialog = stockRuleDialog(page);
     const rule = dialog.getByRole('combobox', { name: 'Règle de disponibilité', exact: true });
     await expect(rule).toHaveValue(id === 1 ? '0' : '1');
     await rule.selectOption(String(id));
-    await expect(dialog).toContainText('Enregistrez la fiche produit pour sauvegarder la règle');
+    await expect(dialog).toContainText('enregistrés immédiatement');
     const before = f.mutations.length;
     await dialog.getByRole('button', { name: 'Appliquer', exact: true }).click();
     await expect(dialog).toHaveCount(0);
-    expect(f.mutations).toHaveLength(before);
+    expect(f.mutations.slice(before)).toEqual([{ path: '/api/v1/menu/items/1/sales-stock/availability', body: { availability_rule_id: id } }]);
+    expect(f.items[0].availability_rule_id).toBe(id);
+    expect(f.items[0].availability_override).toBe('force_available');
+    await page.reload();
     await editProductStock(page).click();
     await expect(rule).toHaveValue(String(id));
     await dialog.getByRole('button', { name: 'Annuler', exact: true }).click();
-    await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
-    await expect(page).toHaveURL('/1/menu/items');
-    expect(f.items[0].availability_rule_id).toBe(id);
-    expect(f.items[0].availability_override).toBe('force_available');
-    const rules = f.mutations.filter(m => Object.hasOwn(m.body ?? {}, 'availability_rule_id'));
-    expect(rules.at(-1)?.body).toMatchObject({ availability_rule_id: id });
-    expect(rules.at(-1)?.body).not.toHaveProperty('stock_quantity');
-    expect(f.mutations.filter(m => m.path.includes('/sales-stock/'))).toEqual([]);
   }
 });
 
@@ -1239,11 +1238,9 @@ for (const inactive of [false, true]) test(`rule-only Apply preserves exhausted 
   await expect(dialog.getByRole('button', { name: 'Appliquer', exact: true })).toBeEnabled();
   await dialog.getByRole('button', { name: 'Appliquer', exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  expect(f.mutations).toEqual([]);
-  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
-  await expect(page).toHaveURL('/1/menu/items');
+  expect(f.mutations).toEqual([{ path: '/api/v1/menu/items/1/sales-stock/availability', body: { availability_rule_id: 1 } }]);
   expect(f.items[0]).toMatchObject({ availability_rule_id: 1, stock_quantity: 0, availability_override: 'auto', is_active: !inactive });
-  expect(f.mutations.filter(m => m.path.includes('/sales-stock/'))).toEqual([]);
+  expect(f.mutations.filter(m => m.path.endsWith('/restock'))).toEqual([]);
 });
 
 test('mixed stock and rule changes retain the modal draft after a stock conflict and use existing save routes', async ({ page }) => {
@@ -1252,9 +1249,9 @@ test('mixed stock and rule changes retain the modal draft after a stock conflict
   const restocks: any[] = [];
   await page.route('**/api/v1/menu/items/1/sales-stock/restock?*', route => {
     const input = route.request().postDataJSON(); restocks.push(input);
-    expect(input).not.toHaveProperty('availability_rule_id');
+    expect(input.availability_rule_id).toBe(2);
     if (reject) return route.fulfill({ status: 409, json: { error: 'revision_conflict' } });
-    f.restocked(input.quantity);
+    f.restocked(input.quantity); f.items[0].availability_rule_id = input.availability_rule_id;
     return route.fulfill({ json: { revision: 4 } });
   });
   await editProductStock(page).click();
@@ -1278,10 +1275,8 @@ test('mixed stock and rule changes retain the modal draft after a stock conflict
   await expect(dialog).toHaveCount(0);
   expect(restocks).toHaveLength(2);
   expect(restocks[1]).toMatchObject({ quantity: 7, mode: 'count', expected_revision: 3 });
-  expect(f.items[0].availability_rule_id).toBe(0);
-  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
-  await expect(page).toHaveURL('/1/menu/items');
   expect(f.items[0].availability_rule_id).toBe(2);
+  expect(f.mutations.filter(m => m.path === '/api/v1/menu/items/1')).toEqual([]);
 });
 
 test('read-only product viewers cannot open the moved availability rule editor', async ({ page }) => {
@@ -1291,7 +1286,7 @@ test('read-only product viewers cannot open the moved availability rule editor',
   expect(f.mutations).toEqual([]);
 });
 
-test('a forced availability choice still applies immediately when a rule is also staged', async ({ page }) => {
+test('a forced availability choice and its product rule save together on Apply', async ({ page }) => {
   const f = await installStockRule(page);
   await editProductStock(page).click();
   const dialog = stockRuleDialog(page);
@@ -1299,14 +1294,14 @@ test('a forced availability choice still applies immediately when a rule is also
   await dialog.getByRole('combobox', { name: 'Règle de disponibilité', exact: true }).selectOption('2');
   await dialog.getByRole('button', { name: 'Appliquer', exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  expect(f.mutations).toEqual([{ path: '/api/v1/menu/items/1/sales-stock/availability', body: { override: 'force_sold_out' } }]);
-  expect(f.items[0].availability_rule_id).toBe(0);
+  expect(f.mutations).toEqual([{ path: '/api/v1/menu/items/1/sales-stock/availability', body: { override: 'force_sold_out', availability_rule_id: 2 } }]);
+  expect(f.items[0].availability_rule_id).toBe(2);
   await editProductStock(page).click();
   await expect(dialog.getByRole('radio', { name: 'Indisponible', exact: true })).toBeChecked();
   await expect(dialog.getByRole('combobox', { name: 'Règle de disponibilité', exact: true })).toHaveValue('2');
 });
 
-test('the existing non-series stock modal uses the availability rule label and keeps its product Save behavior', async ({ page }) => {
+test('the non-series stock modal saves its rule immediately without product Save', async ({ page }) => {
   const f = await installStockRule(page, { series: false });
   await page.locator('#item-availability').getByRole('button', { name: 'Actions', exact: true }).click();
   await page.getByRole('button', { name: 'Suivi du stock', exact: true }).click();
@@ -1314,8 +1309,105 @@ test('the existing non-series stock modal uses the availability rule label and k
   await dialog.getByRole('combobox', { name: 'Règle de disponibilité', exact: true }).selectOption('1');
   await dialog.getByRole('button', { name: 'Appliquer', exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  expect(f.mutations).toEqual([]);
-  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
-  await expect(page).toHaveURL('/1/menu/items');
+  expect(f.mutations).toEqual([{ path: '/api/v1/menu/items/1/sales-stock/availability', body: { availability_rule_id: 1 } }]);
   expect(f.items[0].availability_rule_id).toBe(1);
+  await page.reload();
+  await page.locator('#item-availability').getByRole('button', { name: 'Actions', exact: true }).click();
+  await page.getByRole('button', { name: 'Suivi du stock', exact: true }).click();
+  await expect(dialog.getByRole('combobox', { name: 'Règle de disponibilité', exact: true })).toHaveValue('1');
+});
+
+for (const series of [true, false]) test(`rule Apply keeps its draft on failure and locks duplicate submissions (${series ? 'series' : 'library'})`, async ({ page }) => {
+  const f = await installStockRule(page, { series });
+  let reject = true, calls = 0;
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/api/v1/menu/items/1/sales-stock/availability?*', async route => {
+    calls++;
+    if (!reject) return route.fallback();
+    await gate;
+    return route.fulfill({ status: 503, json: { error: 'carte_operation_failed' } });
+  });
+  if (series) await editProductStock(page).click();
+  else {
+    await page.locator('#item-availability').getByRole('button', { name: 'Actions', exact: true }).click();
+    await page.getByRole('button', { name: 'Suivi du stock', exact: true }).click();
+  }
+  const dialog = page.getByRole('dialog', { name: series ? 'Disponibilité' : 'Suivi du stock', exact: true });
+  const rule = dialog.getByRole('combobox', { name: 'Règle de disponibilité', exact: true });
+  await rule.selectOption('1');
+  const apply = dialog.getByRole('button', { name: 'Appliquer', exact: true });
+  await apply.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
+  await expect.poll(() => calls).toBe(1);
+  await expect(apply).toBeDisabled();
+  await expect(rule).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeVisible();
+  release();
+  await expect(dialog.getByRole('alert')).toBeVisible();
+  await expect(rule).toHaveValue('1');
+  expect(f.items[0].availability_rule_id).toBe(0);
+  reject = false;
+  await apply.click();
+  await expect(dialog).toHaveCount(0);
+  expect(calls).toBe(2);
+  expect(f.items[0].availability_rule_id).toBe(1);
+});
+
+test('rule Apply preserves unrelated product drafts and a later product Save retains the latest saved rule', async ({ page }) => {
+  const f = await installStockRule(page);
+  const original = f.items[0].name;
+  const name = page.getByRole('textbox', { name: "Nom de l'article", exact: true });
+  await name.fill('Draft product name');
+  await page.locator('.item-execution-section').getByRole('button', { name: 'Modifier', exact: true }).click();
+  const preparation = page.getByRole('dialog', { name: 'Temps de préparation de l’article', exact: true });
+  await preparation.getByRole('switch').click();
+  await preparation.getByRole('combobox').first().selectOption('240');
+  await preparation.getByRole('button', { name: 'Appliquer', exact: true }).click();
+  await expect(preparation).toHaveCount(0);
+  await editProductStock(page).click();
+  const dialog = stockRuleDialog(page);
+  await dialog.getByRole('combobox', { name: 'Règle de disponibilité', exact: true }).selectOption('2');
+  await dialog.getByRole('button', { name: 'Appliquer', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(name).toHaveValue('Draft product name');
+  expect(f.items[0].name).toBe(original);
+  expect(f.items[0]).not.toHaveProperty('preparation_lead_time_minutes', 240);
+  expect(f.items[0].availability_rule_id).toBe(2);
+  expect(f.mutations).toEqual([{ path: '/api/v1/menu/items/1/sales-stock/availability', body: { availability_rule_id: 2 } }]);
+  // Another operator changes the product rule before this form's unrelated Save.
+  f.items[0].availability_rule_id = 1;
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(page).toHaveURL('/1/menu/items', { timeout: 15000 });
+  expect(f.items[0]).toMatchObject({ name: 'Draft product name', availability_rule_id: 1, preparation_lead_time_minutes: 240 });
+  expect(f.mutations.filter(m => Object.hasOwn(m.body ?? {}, 'availability_rule_id'))).toHaveLength(1);
+});
+
+test('a confirmed stock and rule Apply never replays the write after a failed refresh', async ({ page }) => {
+  const f = await installStockRule(page, { override: 'auto', remaining: 4 });
+  let failRead = false, writes = 0;
+  await page.route('**/api/v1/menu/sales-stock?*', route => failRead ? route.fulfill({ status: 503, json: {} }) : route.fallback());
+  await page.route('**/api/v1/menu/items/1/sales-stock/restock?*', route => {
+    writes++;
+    const input = route.request().postDataJSON();
+    f.restocked(input.quantity); f.items[0].availability_rule_id = input.availability_rule_id;
+    failRead = true;
+    return route.fulfill({ json: { revision: 4 } });
+  });
+  await editProductStock(page).click();
+  const dialog = stockRuleDialog(page);
+  await dialog.getByRole('spinbutton').fill('7');
+  await dialog.getByRole('combobox', { name: 'Règle de disponibilité', exact: true }).selectOption('2');
+  await dialog.getByRole('button', { name: 'Appliquer', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  const alert = page.getByRole('alert').filter({ hasText: 'Enregistré. Impossible d’actualiser' });
+  await expect(alert).toBeVisible();
+  expect(writes).toBe(1);
+  failRead = false;
+  await alert.getByRole('button', { name: 'Réessayer', exact: true }).click();
+  await expect(alert).toHaveCount(0);
+  expect(writes).toBe(1);
+  await editProductStock(page).click();
+  await expect(dialog.getByRole('spinbutton')).toHaveValue('7');
+  await expect(dialog.getByRole('combobox', { name: 'Règle de disponibilité', exact: true })).toHaveValue('2');
 });

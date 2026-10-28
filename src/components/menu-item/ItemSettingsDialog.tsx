@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { useI18n } from '@/lib/i18n';
 import { useDialogReturnFocus } from '@/lib/use-dialog-return-focus';
 
-/** Square-style item settings dialog. Apply updates the item draft only. */
+/** Item settings dialog with optional locking while an explicit save is pending. */
 export function ItemSettingsDialog({
   title,
   description,
@@ -14,13 +14,15 @@ export function ItemSettingsDialog({
   onApply,
   onClose,
   applyDisabled = false,
+  busy = false,
 }: {
   title: string;
   description?: string;
   children: ReactNode;
-  onApply: () => void;
+  onApply: () => void | Promise<void>;
   onClose: () => void;
   applyDisabled?: boolean;
+  busy?: boolean;
 }) {
   const { t, direction } = useI18n();
   const focus = useDialogReturnFocus();
@@ -28,7 +30,7 @@ export function ItemSettingsDialog({
     <Dialog.Root
       open
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open && !busy) onClose();
       }}
     >
       <Dialog.Portal>
@@ -38,20 +40,23 @@ export function ItemSettingsDialog({
           {...(!description ? { 'aria-describedby': undefined } : {})}
           dir={direction}
           className="item-editor item-settings-dialog"
+          aria-busy={busy}
+          onEscapeKeyDown={(event) => { if (busy) event.preventDefault(); }}
           onInteractOutside={(event) => event.preventDefault()}
         >
           <div className="item-settings-toolbar">
             <Dialog.Close
               className="item-settings-close"
               aria-label={t('cancel')}
+              disabled={busy}
             >
               <X size={24} />
             </Dialog.Close>
             <button
               type="button"
               className="item-settings-primary"
-              disabled={applyDisabled}
-              onClick={onApply}
+              disabled={applyDisabled || busy}
+              onClick={() => void onApply()}
             >
               {t('apply')}
             </button>

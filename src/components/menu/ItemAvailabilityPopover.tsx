@@ -38,6 +38,7 @@ export function ItemAvailabilityPopover({
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [refreshError, setRefreshError] = useState(false);
   const [snapshot, setSnapshot] = useState<{
     overview: SaleStockOverview;
     series: boolean;
@@ -81,9 +82,17 @@ export function ItemAvailabilityPopover({
     setError("");
     if (value) void reload(true);
   }
+  async function refresh() {
+    const overview = await getSalesStock(rid, snapshot?.overview.series_key ?? date ?? "", item.id);
+    if (!overview.rows.some((row) => row.item.id === item.id)) throw new Error();
+    setSnapshot((current) => current ? { ...current, overview } : current);
+    await onChanged();
+    setRefreshError(false);
+  }
   async function apply(
-    override: AvailabilityOverride,
+    override: AvailabilityOverride | undefined,
     remaining?: SaleStockLimit,
+    ruleId?: number,
   ) {
     if (lock.current || loading || !snapshot || !canEdit) return false;
     lock.current = true;
@@ -91,13 +100,11 @@ export function ItemAvailabilityPopover({
     setError("");
     try {
       const date = snapshot.overview.series_key;
-      if (remaining) await restockSalesStock(rid, date, remaining);
-      else await setSalesStockAvailability(rid, date, item.id, override);
-      const overview = await getSalesStock(rid, date, item.id);
-      if (!overview.rows.some((row) => row.item.id === item.id))
-        throw new Error();
-      setSnapshot({ ...snapshot, overview });
-      await onChanged();
+      if (remaining) await restockSalesStock(rid, date, { ...remaining, availability_rule_id: ruleId });
+      else await setSalesStockAvailability(rid, date, item.id, override, ruleId);
+      if (ruleId !== undefined) ruleSelection?.onSaved(ruleId);
+      // The write is confirmed. A failed read must never replay its stock change.
+      try { await refresh(); } catch { setRefreshError(true); }
       return true;
     } catch (error) {
       setError(t(error instanceof ApiError && error.message === "stock_conversion_unavailable" ? "itemStockConversionError" : "carteConflict"));
@@ -121,6 +128,7 @@ export function ItemAvailabilityPopover({
     },
   };
   return (
+    <>
     <AvailabilityPopover
       row={row}
       triggerLabel={triggerLabel}
@@ -141,5 +149,15 @@ export function ItemAvailabilityPopover({
       onReload={() => reload()}
       onApply={apply}
     />
+    {refreshError && <div role="alert" className="text-sm">
+      <p>{t("itemStockSavedRefreshError")}</p>
+      <button type="button" className="underline" disabled={busy} onClick={async () => {
+        if (lock.current) return;
+        lock.current = true; setBusy(true);
+        try { await refresh(); } catch { setRefreshError(true); }
+        finally { lock.current = false; setBusy(false); }
+      }}>{t("retry")}</button>
+    </div>}
+    </>
   );
 }
