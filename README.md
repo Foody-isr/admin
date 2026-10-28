@@ -1139,8 +1139,8 @@ Search filters addresses, contacts, order numbers and notes without changing the
 saved sequence; selecting a pin clears the filter and reveals its stop. The
 panel handle supports dragging, arrow keys and Home/End.
 
-Tap-to-call is available before departure. The fixed dock offers Adjust/Start for
-a draft, then navigation and delivery confirmation for the next unfinished stop,
+Tap-to-call is available before departure. The fixed dock offers Start for
+a draft, then navigation and delivery confirmation for the selected stop,
 identified above the actions. Another stop can be completed from its selected
 row. Completion requires an active route but no separate Arrived action. A current
 run must finish before another can start. Account, restaurant, language and theme
@@ -1156,11 +1156,18 @@ The courier preflights each changed set of destinations through an owner-scoped
 API call. Missing, imprecise or mismatched coordinates are warned before departure.
 Provider outages are visible and retryable without disabling call/completion.
 Waze receives a checked GPS point, avoiding language-dependent text matching.
-Unverified text searches require an explicit warning; the correction editor accepts
-local/Hebrew addresses or a manually checked point. This checks Foody's destination,
+Unverified text searches require an explicit warning; address problems must be
+reviewed by the dispatcher. This checks Foody's destination,
 not Waze's private address index, and never silently changes a saved destination.
 
-Isolated synthetic checks: `npx playwright test -c playwright.courier.config.ts` and
+Courier mode is execution-only for couriers, owners and superadmins. Route
+settings, reoptimization, address correction and stop reordering are unavailable.
+Total-duration details are read-only. Plan-warning Retry only reloads saved data.
+Authorized dispatchers change plans in Orders → Deliveries. The matching API
+rejects legacy courier planning writes and blocks Courier memberships from route
+planning even with a historical orders.manage grant.
+
+Isolated synthetic checks: `npx playwright test -c playwright.redesign.config.ts tests/redesign/courier-workflow.spec.ts tests/redesign/delivery-planner.spec.ts` and
 `npx tsx --test src/lib/__tests__/delivery-links.test.ts src/lib/__tests__/delivery-planning.test.ts`.
 
 ## Delivery maps and usage
