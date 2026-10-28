@@ -2,8 +2,8 @@
   "files": [
     {
       "path": "src/lib/api.ts",
-      "sha256": "d6e891dd852b5c4ed0b1c4fd82cd9bdc414086a39f03179f4a71768f0ba3356e",
-      "baseSha256": "3286b28796084d90cc1bdd7b311b6ccebc3473f0570e646603bf4be49d7b6995",
+      "sha256": "af2ba997c7c6066709a05a350d2cc2f34ad1f2e95c580ed99d43bac1da852f46",
+      "baseSha256": "ebe0c10e6f7cf9a831524d35426bcfe6018e3b22d4f3a2ff5c2b0d14735e588a",
       "features": [
         "customers-profiles",
         "menu-product-photos",
@@ -14,8 +14,8 @@
     },
     {
       "path": "src/lib/i18n.tsx",
-      "sha256": "d5b01baafcaf5d5b5e02a67f2a008367ab33ab1efe96e45f29e2a4a78fa1b88f",
-      "baseSha256": "841dcf01d9854dd4392acf432179c439d07c68a62f0ccffc87a6785c5430f9f9",
+      "sha256": "b4b8aa97144b74e8f0b654066ce3942efb8e312c803bc62c3ede373e3bc4663b",
+      "baseSha256": "0e637df2b52026a1df607e9dbcdb646e8c90a0b18872762ebf792d81b8425bf6",
       "features": [
         "customers-profiles",
         "delivery-dispatch",
