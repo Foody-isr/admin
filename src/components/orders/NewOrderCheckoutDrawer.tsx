@@ -33,7 +33,7 @@ export type OrderType = 'pickup' | 'delivery';
 // carries the cash badge — instead of forcing a choice between "already paid" and
 // an ambiguous method-less "unpaid". `paymentCollected` is ignored for `link`
 // (the customer pays via the provider; the order is created pending).
-export type PaymentMethodChoice = 'cash' | 'card' | 'link';
+export type PaymentMethodChoice = 'cash' | 'card' | 'link' | 'sumit_card';
 
 export interface CheckoutData {
   customerName: string;
@@ -96,6 +96,8 @@ interface NewOrderCheckoutDrawerProps {
   onStateChange?: (state: DrawerDraftState) => void;
   /** État repris d'un brouillon, appliqué une seule fois au montage. */
   initialState?: DrawerDraftState;
+  sumitCheckoutEnabled?: boolean;
+  sumitCardEnabled?: boolean;
 }
 
 // A single selectable tile (used for order type + payment choices).
@@ -117,7 +119,7 @@ function OptionTile({
 
 export function NewOrderCheckoutDrawer({
   open, onClose, total, itemCount, submitting, error, onConfirm, batchConfig, defaultDate,
-  restaurantId, discountItems, onStateChange, initialState,
+  restaurantId, discountItems, onStateChange, initialState, sumitCheckoutEnabled = false, sumitCardEnabled = false,
 }: NewOrderCheckoutDrawerProps) {
   const { money } = useCurrency();
   const { t } = useI18n();
@@ -363,7 +365,7 @@ export function NewOrderCheckoutDrawer({
 
   // Delivery fee in ₪ (only for delivery; negatives/blank → 0). Added to the
   // order total the same way the server does (subtotal + fee - discount).
-  const feeValue = orderType === 'delivery' ? Math.max(0, parseFloat(deliveryFee) || 0) : 0;
+  const feeValue = orderType === 'delivery' && payMethod !== 'link' ? Math.max(0, parseFloat(deliveryFee) || 0) : 0;
 
   // A manual discount typed into the fields but not yet confirmed with the inner
   // "Apply" button. Honouring it makes that button optional: staff who fill the
@@ -391,15 +393,15 @@ export function NewOrderCheckoutDrawer({
   const discountedTotal = Math.max(0, total + feeValue - appliedAmount);
 
   const canConfirm =
-    customerName.trim().length > 0 &&
-    customerPhone.trim().length > 0 &&
-    (orderType !== 'delivery' || address.trim().length > 0) &&
-    !submitting;
+    (payMethod === 'link' || (customerName.trim().length > 0 &&
+      customerPhone.trim().length > 0 && (orderType !== 'delivery' || address.trim().length > 0))) &&
+    (payMethod !== 'link' || sumitCheckoutEnabled) && (payMethod !== 'sumit_card' || sumitCardEnabled) && !submitting;
 
   const payMethods: { key: PaymentMethodChoice; icon: React.ReactNode; label: string }[] = [
     { key: 'cash', icon: <BanknoteIcon />, label: t('payMethodCash') },
     { key: 'card', icon: <CreditCardIcon />, label: t('payMethodCard') },
-    { key: 'link', icon: <LinkIcon />, label: t('payMethodLink') },
+    ...(sumitCheckoutEnabled ? [{ key: 'link' as const, icon: <LinkIcon />, label: t('sumitCustomerLink') }] : []),
+    ...(sumitCardEnabled ? [{ key: 'sumit_card' as const, icon: <CreditCardIcon />, label: t('sumitAdminCard') }] : []),
   ];
 
   // Fill the sheet from an existing customer. The most recent address is
@@ -437,7 +439,7 @@ export function NewOrderCheckoutDrawer({
         onConfirm({
           customerName, customerPhone, orderType, address, city, floor, apt, entryCode,
           deliveryNotes, deliveryFee: feeValue, paymentMethod: payMethod, paymentCollected: collected,
-          fulfillment, addToProduction,
+          fulfillment, addToProduction: payMethod === 'link' || payMethod === 'sumit_card' ? false : addToProduction,
           ...(appliedCoupon ? { discountCode: appliedCoupon.code } : {}),
           ...(effectiveManual
             ? { manualDiscount: { type: effectiveManual.type, value: effectiveManual.value, reason: effectiveManual.reason } }
@@ -539,10 +541,12 @@ export function NewOrderCheckoutDrawer({
                 <Input
                   value={deliveryFee}
                   onChange={(e) => { setDeliveryFee(e.target.value); setFeeTouched(true); }}
+                  disabled={payMethod === 'link'}
                   inputMode="decimal"
                   placeholder="0.00"
                 />
               </Field>
+              {payMethod === 'link' && <p className="text-fs-sm text-[var(--fg-muted)]">{t('sumitDeliveryCalculated')}</p>}
             </>
           )}
         </div>
@@ -558,9 +562,10 @@ export function NewOrderCheckoutDrawer({
             ))}
           </div>
 
+          {(payMethod === 'link' || payMethod === 'sumit_card') && <p className="text-fs-sm text-[var(--fg-muted)]">{t(payMethod === 'link' ? 'sumitCustomerLinkHint' : 'sumitAdminCardHint')}</p>}
           {/* The payment link is always paid by the customer via the provider, so
               the collected toggle only applies to cash / card. */}
-          {payMethod !== 'link' && (
+          {(payMethod === 'cash' || payMethod === 'card') && (
             <div className="flex items-center justify-between gap-2 rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] py-2">
               <span className="text-fs-sm font-medium text-[var(--fg)]">{t('payAlreadyCollected')}</span>
               <Switch checked={collected} onCheckedChange={setCollected} aria-label={t('payAlreadyCollected')} />
@@ -700,7 +705,7 @@ export function NewOrderCheckoutDrawer({
           </span>
         </button>
 
-        {fulfillment.timing === 'scheduled' && (payMethod === 'link' || !collected) && (
+        {fulfillment.timing === 'scheduled' && (payMethod === 'cash' || payMethod === 'card') && !collected && (
           <p className="text-fs-xs text-[var(--fg-muted)]">{t('fulfillmentScheduledUnpaidHint')}</p>
         )}
 

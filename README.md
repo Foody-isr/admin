@@ -1628,3 +1628,23 @@ courier and use the shared route view, like a superadmin. Selection does not
 replace the signed-in account or report its GPS for the courier. The API checks
 actual restaurant ownership and selected courier membership/route ownership.
 Deploy the matching API before this Admin; no migration is required.
+
+## Prepared Sumit internal checkout
+
+Compatible API/Admin/Web versions add staff-prepared pickup/delivery baskets:
+`internal_checkout: link` returns a private Foody basket URL, while `card` opens
+Sumit's hosted form in Admin. Both require the active configured Sumit provider;
+creation requires `orders.manage`, and Admin card entry additionally requires
+`payments.manage`. Recipient delivery uses the existing server-resolved zones,
+minimum and retained service date, reviews recalculated fees/discounts/total, and
+compares `expected_total_minor` again before payment. Admin card orders keep the
+staff delivery quote. No PAN/CVV enters a Foody form or API in these flows.
+
+One durable claim binds contacts and the hosted URL; retries resume the same
+page. Uncertain creation blocks another attempt. The order stays pending and
+immutable until provider confirmation; unpaid baskets expire after 24 hours via
+the cancellation/stock-release path. Saved Admin orders expose recovery actions.
+No schema or environment change is needed. See the FR/HE/EN prepared Sumit guide
+in Landing and `docs/help/reviews/sumit-internal-checkout.json`. Release requires an immutable reviewed documentation pin and coordinated
+API-first development verification. Synthetic regression tests replace Sumit;
+provider acceptance is verified separately before production promotion.
