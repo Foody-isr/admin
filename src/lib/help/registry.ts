@@ -31,6 +31,10 @@ export const HELP_BASE_URL = runtimeHelpBase(
 );
 
 export const FEATURE_HELP: Record<string, FeatureHelp> = {
+  internalSumitCheckout: {
+    key: 'internalSumitCheckout', landingTopic: 'orders', landingSlug: 'internal-sumit-checkout',
+    titleKey: 'sumitCustomerLink', blurbKey: 'sumitCustomerLinkHint',
+  },
   availability: {
     key: 'availability',
     landingTopic: 'kitchen',

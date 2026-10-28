@@ -120,6 +120,18 @@ export function i18nOr(t: (key: string) => string, key: string, fallback: string
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    sumitDeliveryCalculated: "Delivery fees are calculated from the recipient’s address before payment.",
+    sumitCustomerLink: "Foody payment link",
+    sumitAdminCard: "Charge a card with Sumit",
+    sumitCustomerLinkHint: "The customer opens the prepared basket, enters their details and pays with Sumit. The private link expires after 24 hours. Share it only with the intended customer. The service date is set by you. Delivery fees are calculated from the customer’s address before payment.",
+    sumitAdminCardHint: "Enter the card details in the secure Sumit form. The order stays pending until Sumit confirms payment.",
+    sumitPaymentConfirmed: "Payment confirmed",
+    sumitPaymentError: "The order is saved. Payment could not be opened or verified. Check this order before trying again; do not create it again.",
+    sumitCheckoutClosed: "This order is closed. Check its status in Orders.",
+    sumitOpenPayment: "Open secure Sumit payment",
+    sumitAwaitingPayment: "Awaiting confirmation from Sumit",
+    sumitOpenNewTab: "Open the same payment in a new tab",
+
     correctCustomerPhones: "Correct phone numbers",
     customerContactPhones: "Phone numbers",
     customerPrimaryPhone: "Primary phone",
@@ -9166,6 +9178,18 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
   he: {
+    sumitDeliveryCalculated: "דמי המשלוח מחושבים לפי כתובת הנמען לפני התשלום.",
+    sumitCustomerLink: "קישור לתשלום ב־Foody",
+    sumitAdminCard: "חיוב כרטיס באמצעות Sumit",
+    sumitCustomerLinkHint: "הלקוח פותח את הסל שהוכן, מזין פרטים ומשלם באמצעות Sumit. הקישור הפרטי תקף ל־24 שעות. יש לשתף אותו רק עם הלקוח המיועד. מועד האספקה נקבע על ידכם. דמי המשלוח מחושבים לפי כתובת הלקוח לפני התשלום.",
+    sumitAdminCardHint: "הזינו את פרטי הכרטיס בטופס המאובטח של Sumit. ההזמנה נשארת בהמתנה עד לאישור התשלום מ־Sumit.",
+    sumitPaymentConfirmed: "התשלום אושר",
+    sumitPaymentError: "ההזמנה נשמרה. לא ניתן היה לפתוח או לאמת את התשלום. בדקו את ההזמנה לפני ניסיון נוסף; אין ליצור אותה שוב.",
+    sumitCheckoutClosed: "הזמנה זו סגורה. בדקו את מצבה בהזמנות.",
+    sumitOpenPayment: "פתיחת תשלום מאובטח ב־Sumit",
+    sumitAwaitingPayment: "ממתינים לאישור התשלום מ־Sumit",
+    sumitOpenNewTab: "פתיחת אותו תשלום בלשונית חדשה",
+
     correctCustomerPhones: "תיקון מספרי טלפון",
     customerContactPhones: "מספרי טלפון",
     customerPrimaryPhone: "טלפון ראשי",
@@ -18203,6 +18227,18 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── French ──────────────────────────────────────────────────────────────
   fr: {
+    sumitDeliveryCalculated: "Les frais sont calculés selon l’adresse du destinataire avant le paiement.",
+    sumitCustomerLink: "Lien de paiement Foody",
+    sumitAdminCard: "Encaisser une carte avec Sumit",
+    sumitCustomerLinkHint: "Le client retrouve le panier, renseigne ses coordonnées et paie avec Sumit. Le lien privé expire après 24 heures. Partagez-le uniquement avec le client concerné. Vous fixez la date de service. Les frais sont calculés selon l’adresse du client avant le paiement.",
+    sumitAdminCardHint: "Saisissez la carte dans le formulaire sécurisé Sumit. La commande reste en attente jusqu’à la confirmation du paiement par Sumit.",
+    sumitPaymentConfirmed: "Paiement confirmé",
+    sumitPaymentError: "La commande est enregistrée. Le paiement n’a pas pu être ouvert ou vérifié. Vérifiez cette commande avant de réessayer ; ne la recréez pas.",
+    sumitCheckoutClosed: "Cette commande est clôturée. Vérifiez son état dans Commandes.",
+    sumitOpenPayment: "Ouvrir le paiement sécurisé Sumit",
+    sumitAwaitingPayment: "En attente de confirmation par Sumit",
+    sumitOpenNewTab: "Ouvrir le même paiement dans un nouvel onglet",
+
     correctCustomerPhones: "Corriger les téléphones",
     customerContactPhones: "Numéros de téléphone",
     customerPrimaryPhone: "Téléphone principal",

@@ -129,8 +129,11 @@ export function deriveOrderCapabilities(
   // status remains `paid`, while `balance_due` exposes the supplement still
   // owed. Treat that state like `partially_paid` so the manual cash/card/
   // transfer dialog remains available alongside the hosted payment link.
+  const internalCheckout = order.external_metadata?.internal_checkout as { mode?: string } | undefined;
+  const prepared = internalCheckout?.mode === 'link' || internalCheckout?.mode === 'card';
+  const preparedPending = prepared && order.payment_status === 'pending';
   const canTakePayment =
-    financialKnown && lifecycleCollectionAllowed(order) &&
+    !preparedPending && financialKnown && lifecycleCollectionAllowed(order) &&
     !isCancelled &&
     financialPayment !== 'refunded' &&
     (financialPayment !== 'paid' || (order.balance_due ?? 0) > 0.01);
@@ -156,7 +159,7 @@ export function deriveOrderCapabilities(
   // orders moved real money and must be refunded, never data-corrected. The
   // server rejects these anyway; this hides an option that would always fail.
   const providerSettled = isProviderSettled(order);
-  const canCorrectPayment = financialKnown && !!perms.canOverride && !isCancelled && !providerSettled;
+  const canCorrectPayment = !prepared && financialKnown && !!perms.canOverride && !isCancelled && !providerSettled;
 
   // Relabelling HOW a settled order was paid is a separate correction from
   // moving its status. Only meaningful once something has actually settled.
@@ -166,13 +169,13 @@ export function deriveOrderCapabilities(
   // Any manager can pin an order onto the production sheet, including a dead
   // order. The server restores a dead order when it is pinned.
   const canForceProduction =
-    perms.canManage && !!handlers.onToggleForceProduction;
+    perms.canManage && !preparedPending && !(prepared && isCancelled) && !!handlers.onToggleForceProduction;
 
   const canDelete = !!perms.canDelete && !!handlers.onDelete;
-  const canReactivate = perms.canManage && isCancelled && !!handlers.onReactivate;
+  const canReactivate = !prepared && perms.canManage && isCancelled && !!handlers.onReactivate;
 
   // Items can be edited while the order is still in progress.
-  const canEditOrder = !isCancelled && !isTerminal;
+  const canEditOrder = !preparedPending && !isCancelled && !isTerminal;
 
   // The ⋯ button renders only when something is inside it. Without this guard
   // the production page — which supplies none of the correction handlers —
