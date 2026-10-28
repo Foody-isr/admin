@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "fb377692fb60b76afcfcba6ad287c1626f20a3e2",
-  "documentationRevision": "9bf0b371df3572bb5c74329388e19bbef09aeba093f13c71b2d71ccae5e6d5be",
+  "documentationRef": "5e220fe94d38b87eca8c9d34796a5f7857b849c6",
+  "documentationRevision": "205158249d83ceaca73e57f42b7a537bf666374b4fb8a7b735183a0a73af1b46",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -1779,15 +1779,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "a49cfed5ffa8aaf4ec9de882801ad1d792810c7d40ee7cfe7a44f73d736574c2"
+          "sha256": "ee13bdafa20e1bc70f34c6661b840a2860390fef121aec33efaf6fb2598efe5f"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "5823c848b9f4727b8ae217341373b1e25276bb13fd0767d75222d9b91bfd2924"
+          "sha256": "d07706a9cdcdecb53007e6e92effd3fc71c1ed05b1ac9adceb5b7029d102bfdc"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "f03a3291d6c821e0d0bcc24d38f3fcaaef4ce0bc626ebb34cff28953f45627d5"
+          "sha256": "403104ef5ac91ba7f3bd5db230feb5a15a9fcf84d989e803c502bc8893f0f4d1"
         }
       }
     },
@@ -4287,7 +4287,7 @@
       ]
     },
     "src/components/menu-item/ItemAvailabilityPanel.tsx": {
-      "sha256": "8fecb0dd5ef88f718c8995c7c5c260ab90aab25b3b0c32a0bd0cb5de8a0c6127",
+      "sha256": "61daa66744a04bc2d99781a0eeb54341edea4e5a1f6c8f116104f58d6aa3a781",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -6181,7 +6181,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "41eaab50a8d0d6c5f65d23d1849804b91fa4525ef2c829335fd1ec19e99429d2",
+      "sha256": "ebe0c10e6f7cf9a831524d35426bcfe6018e3b22d4f3a2ff5c2b0d14735e588a",
       "features": [
         "customers-profiles",
         "payments-how-payments-work",

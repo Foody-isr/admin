@@ -15,7 +15,7 @@
     },
     {
       "path": "src/components/menu-item/ItemAvailabilityPanel.tsx",
-      "sha256": "8fecb0dd5ef88f718c8995c7c5c260ab90aab25b3b0c32a0bd0cb5de8a0c6127",
+      "sha256": "61daa66744a04bc2d99781a0eeb54341edea4e5a1f6c8f116104f58d6aa3a781",
       "baseSha256": "ac6534875cbe0232ecd0040f5c99885cfb345c65dbe74676c4cfa2f4c62708a9",
       "features": [
         "menu-creating-a-menu-item",
@@ -27,7 +27,7 @@
     },
     {
       "path": "src/lib/api.ts",
-      "sha256": "41eaab50a8d0d6c5f65d23d1849804b91fa4525ef2c829335fd1ec19e99429d2",
+      "sha256": "ebe0c10e6f7cf9a831524d35426bcfe6018e3b22d4f3a2ff5c2b0d14735e588a",
       "baseSha256": "fb5a3179343849324d1100f0fc9e460b6359ac57f8c8d04df675c85426b80dd6",
       "features": [
         "customers-profiles",
