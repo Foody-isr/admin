@@ -81,15 +81,18 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
     useEffect(() => {
       onDirtyChange?.(dirty);
     }, [dirty, onDirtyChange]);
-    const loadPreview = useCallback(async () => {
-      setPreviewFailed(false);
-      try {
-        setPreview(await previewItemAvailability(rid, itemId));
-      } catch {
-        setPreview(null);
-        setPreviewFailed(true);
-      }
-    }, [rid, itemId]);
+    const loadPreview = useCallback(
+      async (seriesKey = "") => {
+        setPreviewFailed(false);
+        try {
+          setPreview(await previewItemAvailability(rid, itemId, seriesKey));
+        } catch {
+          setPreview(null);
+          setPreviewFailed(true);
+        }
+      },
+      [rid, itemId],
+    );
     useEffect(() => {
       let alive = true;
       setLoading(true);
@@ -104,6 +107,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
           setRules(profiles);
           setRow(current);
           setDate(overview.series_key);
+          void loadPreview(current.managed ? overview.series_key : "");
         })
         .catch(() => {
           if (alive) setLoadError(true);
@@ -111,7 +115,6 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
         .finally(() => {
           if (alive) setLoading(false);
         });
-      void loadPreview();
       return () => {
         alive = false;
       };
@@ -124,9 +127,19 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
         immediate_sale_mode: preparation.saleMode,
       });
       setSaved(preparation);
-      await loadPreview();
+      await loadPreview(row?.managed ? date : "");
       await onSaved?.();
-    }, [canEdit, dirty, rid, itemId, preparation, loadPreview, onSaved]);
+    }, [
+      canEdit,
+      dirty,
+      rid,
+      itemId,
+      preparation,
+      loadPreview,
+      onSaved,
+      row?.managed,
+      date,
+    ]);
     useImperativeHandle(ref, () => ({ save, isDirty: () => dirty }), [
       save,
       dirty,
@@ -160,7 +173,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
           row={row}
           onUpdate={(current) => {
             setRow(current);
-            void loadPreview();
+            void loadPreview(current.managed ? date : "");
           }}
           ruleSelection={{
             value: row.item.availability_rule_id ?? 0,

@@ -9334,8 +9334,8 @@ export async function deleteAvailabilityRule(restaurantId: number, id: number): 
 }
 
 /** Live buildable count + bottleneck + resolved state for a single dish. */
-export async function previewItemAvailability(restaurantId: number, itemId: number): Promise<AvailabilityPreview> {
-  return apiFetch<AvailabilityPreview>(`/api/v1/availability/items/${itemId}/preview`, restaurantId);
+export async function previewItemAvailability(restaurantId: number, itemId: number, seriesKey = ''): Promise<AvailabilityPreview> {
+  return apiFetch<AvailabilityPreview>(`/api/v1/availability/items/${itemId}/preview${seriesKey ? `?serie_date=${encodeURIComponent(seriesKey)}` : ''}`, restaurantId);
 }
 
 // ─── WhatsApp Embedded Signup (ISV / Tech Provider) ────────────────────────────

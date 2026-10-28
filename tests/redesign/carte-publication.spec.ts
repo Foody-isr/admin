@@ -1430,6 +1430,8 @@ for (const series of [true,false]) test(`all stock sources save immediately whil
  let options:Record<string,number|null>={};
  const sizes=[{id:20,name:'250 g'},{id:21,name:'500 g'}];
  const writes:any[]=[];
+ const previewQueries:URLSearchParams[]=[];
+ await page.route('**/api/v1/availability/items/1/preview*',route=>{previewQueries.push(new URL(route.request().url()).searchParams);return route.fulfill({json:{basis:recipe?'recipe':'predefined_stock',buildable:recipe?25:quantity,unlimited:false,ingredients:[]}})});
  await page.route('**/api/v1/menu/sales-stock?*',route=>route.fulfill({json:{series_key:f.key,rows:[{
   item:{...f.items[0],stock_mode:recipe?'':mode,stock_unit:recipe?'':unit,stock_quantity:recipe?null:quantity,stock_from_recipe:recipe,stock_revision:revision,availability_override:override,option_sets:[{options:sizes.map(size=>({...size,stock_remaining:options[size.id]??null}))}]},
   managed:series,stored_mode:mode,stored_unit:unit,recipe_configured:true,previous:null,sizes,
@@ -1485,6 +1487,7 @@ for (const series of [true,false]) test(`all stock sources save immediately whil
  await dialog.getByRole('radio',{name:'Disponible sans limite',exact:true}).check();
  await dialog.getByRole('button',{name:'Appliquer',exact:true}).click();await expect(dialog).toHaveCount(0);
  expect(writes[4]).toEqual({override:'force_available'});
+ await expect.poll(()=>previewQueries.length).toBeGreaterThan(0);expect(previewQueries.every(query=>series?query.get('serie_date')===f.key:!query.has('serie_date'))).toBe(true);
  await expect(name).toHaveValue('Unrelated name draft');
  await expect(page.locator('.item-execution-section')).toContainText('4 heures');
  expect(f.items[0].name).toBe(original);expect(f.items[0]).not.toHaveProperty('preparation_lead_time_minutes',240);
