@@ -7,7 +7,9 @@ the contract between them as implemented.
 ## Who is a courier?
 A courier is a **staff member** (a `User` with a `UserRestaurantRole` for the
 restaurant). A default RBAC role template **"Courier"** is seeded
-(`server/internal/rbac/permissions.go`) with `orders.view` + `orders.manage`.
+(`server/internal/rbac/permissions.go`) with `orders.view`. Existing Courier roles
+may still carry historical grants; delivery route planning rejects courier accounts
+even when `orders.manage` remains assigned.
 Owners create couriers through the existing Roles & Permissions / Staff UI.
 
 The admin app treats a staff member as a courier when their role is the legacy
@@ -82,8 +84,7 @@ the owner opts in and a courier is assigned.
 `/[restaurantId]/orders/courier-mode` lets the active restaurant’s owner and platform superadmins select a
 current Courier staff member of that restaurant. The shared courier screen and
 its requests pass optional `courier_id` to `mine/all`, `my-navigation-check`,
-`my-settings`, `my-optimize`, `my-address`, `start`, `arrived`, `delivered` and
-`stops/reorder`. The API validates actual ownership through the scoped restaurant’s owner_id (or the explicit superadmin claim), active staff membership,
+`start`, `arrived` and `delivered`. The API validates actual ownership through the scoped restaurant’s owner_id (or the explicit superadmin claim), active staff membership,
 Courier role (legacy or RBAC), and route ownership in the explicit restaurant.
 Normal courier requests omit the selector and retain their existing scope.
 
@@ -91,8 +92,12 @@ Switching remounts the shared view to clear old route, stop, search and dialog
 state; responses from the old selection cannot populate the new view. The
 original account/token stays intact. Actions are real delivery operations, while
 location reporting is disabled for a selected courier so the selecting account’s device
-never replaces that courier's GPS. Address corrections retain the actual actor
-in their audit. Deploy the matching API before Admin; no migration is required.
+never replaces that courier's GPS. The workspace is execution-only for every
+viewer: it exposes no route settings, address correction, stop reordering or
+reoptimization. An authorized dispatcher must return to Deliveries to change
+the plan. Legacy courier planning endpoints return 403
+`courier_itinerary_read_only`; dispatcher route writes reject courier accounts
+and explicit `courier_id` selection. Start, arrival and delivery remain available. Deploy the matching API before Admin; no migration is required.
 
 Help impact: `delivery/courier-workspace#superadmin-courier-selection` and
 `delivery/dispatch-and-routes#superadmin-courier-mode` are updated in FR/HE/EN.

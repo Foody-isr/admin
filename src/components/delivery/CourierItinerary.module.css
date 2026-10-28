@@ -382,6 +382,9 @@
 .dockActions > button:first-child {
   flex: 0 1 auto;
 }
+.dockActions > button:only-child {
+  flex: 1;
+}
 .draftDock {
   display: flex;
   align-items: center;
