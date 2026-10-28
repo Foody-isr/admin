@@ -77,20 +77,20 @@ the owner opts in and a courier is assigned.
   It is an integer from 0 to 60, default 3. Arrival precedes the stop's own handover;
   later arrivals and total duration include each configured handover.
 
-## Superadmin courier mode
+## Owner and superadmin courier mode
 
-`/[restaurantId]/orders/courier-mode` lets only platform superadmins select a
+`/[restaurantId]/orders/courier-mode` lets the active restaurant’s owner and platform superadmins select a
 current Courier staff member of that restaurant. The shared courier screen and
 its requests pass optional `courier_id` to `mine/all`, `my-navigation-check`,
 `my-settings`, `my-optimize`, `my-address`, `start`, `arrived`, `delivered` and
-`stops/reorder`. The API validates the superadmin claim, active staff membership,
+`stops/reorder`. The API validates actual ownership through the scoped restaurant’s owner_id (or the explicit superadmin claim), active staff membership,
 Courier role (legacy or RBAC), and route ownership in the explicit restaurant.
 Normal courier requests omit the selector and retain their existing scope.
 
 Switching remounts the shared view to clear old route, stop, search and dialog
 state; responses from the old selection cannot populate the new view. The
 original account/token stays intact. Actions are real delivery operations, while
-location reporting is disabled for a selected courier so the superadmin's device
+location reporting is disabled for a selected courier so the selecting account’s device
 never replaces that courier's GPS. Address corrections retain the actual actor
 in their audit. Deploy the matching API before Admin; no migration is required.
 
@@ -98,3 +98,5 @@ Help impact: `delivery/courier-workspace#superadmin-courier-selection` and
 `delivery/dispatch-and-routes#superadmin-courier-mode` are updated in FR/HE/EN.
 Synthetic coverage lives in `tests/redesign/courier-workflow.spec.ts` and API
 `internal/delivery/courier_context_test.go`.
+
+Owner selection requires the matching API and Admin update; deploy the API first. A global owner role in another restaurant never grants this selection. Managers and couriers retain their existing own-route scope.

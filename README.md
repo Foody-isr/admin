@@ -1613,3 +1613,11 @@ minimum, booking mode and pickup alternative agree. Original zone records remain
 separate; incompatible settings and overlapping windows keep oldest-zone priority.
 An order address change revalidates the effective calendar even if its priority
 zone ID stays the same. No business codes, days, fees or restaurant data are seeded.
+
+## Owner courier mode
+
+Orders → Courier mode lets the active restaurant owner select a current restaurant
+courier and use the shared route view, like a superadmin. Selection does not
+replace the signed-in account or report its GPS for the courier. The API checks
+actual restaurant ownership and selected courier membership/route ownership.
+Deploy the matching API before this Admin; no migration is required.
