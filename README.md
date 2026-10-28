@@ -1550,3 +1550,13 @@ successful files. Creation retries reuse the item and successful uploads. Explic
 AI cover confirmation retains its existing immediate save and preserves detail photos.
 Deploy API migration 278 before this Admin and the matching guest gallery.
 Regression: `npx playwright test -c playwright.redesign.config.ts item-continuous.spec.ts`.
+
+The saved-product stock editor uses the same immediate Apply flow for library and
+series stock. Its four choices distinguish unlimited, unavailable, manually defined
+remaining quantity and recipe calculation. Recipe calculation is an explicit API
+source change and preserves frozen manual reservations. Advanced stock settings
+collapse the product-wide stock profile and describe its effective behavior;
+non-tracking profiles show a visible explanation. Apply saves only stock settings
+and the optional profile atomically. Name, price and preparation drafts remain
+local until product Save. Read failures after a confirmed write only reload data.
+Requires the API explicit recipe source (migration 279); deploy API first.

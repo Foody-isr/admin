@@ -156,7 +156,7 @@ test("Articles badge opens the shared editor without writing or navigating and C
   await f.badge.click();
   const panel = page.getByRole("dialog");
   await expect(
-    panel.getByRole("radio", { name: "Stock prédéfini", exact: true }),
+    panel.getByRole("radio", { name: "Quantité définie manuellement", exact: true }),
   ).toBeChecked();
   expect(f.writes).toHaveLength(0);
   await expect(page).toHaveURL("/1/menu/items");
@@ -168,7 +168,7 @@ test("Articles badge opens the shared editor without writing or navigating and C
   await expect(f.badge).toBeFocused();
   await f.badge.click();
   await expect(
-    panel.getByRole("radio", { name: "Stock prédéfini", exact: true }),
+    panel.getByRole("radio", { name: "Quantité définie manuellement", exact: true }),
   ).toBeChecked();
   await page.keyboard.press("Escape");
   expect(f.writes).toHaveLength(0);
@@ -198,13 +198,14 @@ test("Articles availability choices only persist on Apply and refresh the row", 
   await f.badge.click();
   await panel
     .getByRole("radio", {
-      name: "Automatique (règles existantes)",
+      name: "Quantité calculée depuis la recette",
       exact: true,
     })
     .click();
   await panel.getByRole("button", { name: "Appliquer", exact: true }).click();
   await expect(panel).toBeHidden();
-  expect(f.writes[2].body).toEqual({ override: "auto" });
+  expect(f.writes[2].path).toContain("/restock");
+  expect(f.writes[2].body).toMatchObject({ stock_source: "recipe", mode: "", expected_revision: 3 });
   Object.assign(f.item, { availability_override: "force_sold_out", availability_state: "sold_out" });
   await page.getByRole("button", { name: "Actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Actualiser", exact: true }).click();
@@ -219,7 +220,7 @@ for (const series of [false, true])
     await f.badge.click();
     const panel = page.getByRole("dialog");
     await expect(
-      panel.getByRole("radio", { name: "Stock prédéfini", exact: true }),
+      panel.getByRole("radio", { name: "Quantité définie manuellement", exact: true }),
     ).toBeChecked();
     if (series) await expect(panel).toContainText(f.key);
     await expect(
@@ -268,7 +269,7 @@ test("Articles cannot apply before fresh stock loads and can retry a failed init
     .getByRole("button", { name: "Recharger les stocks", exact: true })
     .click();
   await expect(
-    panel.getByRole("radio", { name: "Stock prédéfini", exact: true }),
+    panel.getByRole("radio", { name: "Quantité définie manuellement", exact: true }),
   ).toBeChecked();
 });
 
@@ -298,4 +299,15 @@ test("Articles shared availability panel fits Hebrew mobile and supports stock i
     fullPage: true,
     animations: "disabled",
   });
+});
+
+
+test("legacy quantity-only stock stays on the manual choice", async ({page}) => {
+ const f=await install(page);
+ f.item.stock_mode="";
+ await f.badge.click();
+ const dialog=page.getByRole("dialog");
+ await expect(dialog.getByRole("radio",{name:"Quantité définie manuellement",exact:true})).toBeChecked();
+ await expect(dialog.getByRole("radio",{name:"Quantité calculée depuis la recette",exact:true})).not.toBeChecked();
+ expect(f.writes).toHaveLength(0);
 });
