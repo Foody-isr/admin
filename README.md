@@ -24,10 +24,15 @@ Errors retain input and allow an explicit stock reload. The row ellipsis opens t
 same editor. The dialog fits the viewport, scrolls only its content and keeps
 Cancel/Apply visible. Per-size inputs use two columns on wider screens.
 The saved product's Availability rule selector lives inside that dialog. Apply
-stages its product-wide rule for the existing product Save; Cancel/Escape discard
-the local choice. A rule-only confirmation never adjusts series stock. Stock and
-status edits retain their immediate routes, and the non-series stock dialog keeps
-its existing product Save behavior. Stock preparation and carte publication remain separate workflows.
+saves the product-wide rule immediately, without product Save. Rule-only changes
+never adjust stock; mixed stock/rule requests commit atomically. Cancel/Escape
+before confirmation discard the local choice. Pending saves lock duplicate clicks
+and closing; errors retain inputs. A confirmed save with a failed refresh offers a
+read-only retry rather than replaying stock. In the non-series Stock tracking
+dialog, the rule is also immediate while other stock/preparation drafts retain
+product Save. Unrelated product drafts remain untouched. Deploy the API's optional
+availability_rule_id extension before this Admin. Stock preparation and carte
+publication remain separate workflows.
 Website V3 → Order journey can draft and publish the optional entry sign-in
 invitation. Settings → Usage and quotas is read-only restaurant-scoped Google and
 Geoapify consumption, including independent units, 80% warnings and UTC renewal.

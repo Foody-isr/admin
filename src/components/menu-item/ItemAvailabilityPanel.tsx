@@ -6,6 +6,7 @@ import {
   useEffect,
   useImperativeHandle,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import Link from 'next/link';
@@ -17,6 +18,7 @@ import {
   listAvailabilityRules,
   previewItemAvailability,
   updateMenuItem,
+  setSalesStockAvailability,
   setItemOptionStock,
   type AvailabilityRule,
   type AvailabilityPreview,
@@ -146,6 +148,9 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
       onDirtyChange?.(dirty);
     }, [dirty, onDirtyChange]);
     const [stockDraft, setStockDraft] = useState<StockDraft | null>(null);
+    const [ruleBusy, setRuleBusy] = useState(false);
+    const [ruleError, setRuleError] = useState(false);
+    const ruleLock = useRef(false);
     const [statusDraft, setStatusDraft] = useState<AvailabilityOverride | null>(
       null,
     );
@@ -196,14 +201,13 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
       if (loading || loadError)
         throw new Error(t('itemAvailabilityLoadRequired'));
       const fields = {
-        availability_rule_id: stock.ruleId,
         availability_override: override,
         preparation_lead_time_minutes: preparation.leadMinutes,
         preparation_schedule: preparation.schedule,
         immediate_sale_mode: preparation.saleMode,
       };
       if (seriesRow?.managed) {
-        await updateMenuItem(rid,itemId,{availability_rule_id:stock.ruleId,preparation_lead_time_minutes:preparation.leadMinutes,preparation_schedule:preparation.schedule,immediate_sale_mode:preparation.saleMode});
+        await updateMenuItem(rid,itemId,{preparation_lead_time_minutes:preparation.leadMinutes,preparation_schedule:preparation.schedule,immediate_sale_mode:preparation.saleMode});
       } else if (!stock.tracked)
         await updateMenuItem(rid, itemId, {
           ...fields,
@@ -357,7 +361,28 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
           : String(preview.count ?? preview.buildable ?? '—');
     const editStock = () => {
       setActionsOpen(false);
+      setRuleError(false);
       setStockDraft(structuredClone(stock));
+    };
+    const acceptRule = (ruleId: number) => {
+      setStock(previous => ({ ...previous, ruleId }));
+      setSaved(previous => ({ ...previous, stock: { ...previous.stock, ruleId } }));
+    };
+    const applyLegacyStock = async () => {
+      if (!stockDraft || !stockValid || !canEdit || ruleLock.current) return;
+      ruleLock.current = true;
+      setRuleBusy(true); setRuleError(false);
+      try {
+        if (stockDraft.ruleId !== saved.stock.ruleId) {
+          await setSalesStockAvailability(rid, seriesDate, itemId, undefined, stockDraft.ruleId);
+          acceptRule(stockDraft.ruleId);
+          void loadPreview();
+        }
+        setStock(stockDraft);
+        if (stockDisablesReady) setPreparation({ ...preparation, saleMode: '' });
+        setStockDraft(null);
+      } catch { setRuleError(true); }
+      finally { ruleLock.current = false; setRuleBusy(false); }
     };
 
     if (loading) return <p role="status">{t('loading')}</p>;
@@ -377,7 +402,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
     return (
       <div className="item-fulfillment-settings">
         {seriesRow?.managed ? <ProductSalesStock rid={rid} date={seriesDate} row={seriesRow} onUpdate={setSeriesRow}
-          ruleSelection={{ value: stock.ruleId, options: rules, onApply: ruleId => setStock(previous => ({ ...previous, ruleId })) }}
+          ruleSelection={{ value: stock.ruleId, options: rules, onSaved: acceptRule }}
         /> : <>
         <button type="button" className="item-settings-link" onClick={()=>setHistoryOpen(!historyOpen)}>{t('saleStockHistory')}</button>
         {historyOpen&&<StockHistory rid={rid} itemId={itemId}/>}
@@ -585,14 +610,10 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
             description={t('itemStockDescription')}
             onClose={() => setStockDraft(null)}
             applyDisabled={!stockValid}
-            onApply={() => {
-              setStock(stockDraft);
-              if (stockDisablesReady)
-                setPreparation({ ...preparation, saleMode: '' });
-              setStockDraft(null);
-            }}
+            busy={ruleBusy}
+            onApply={applyLegacyStock}
           >
-            <div className="item-settings-stack">
+            <fieldset disabled={ruleBusy} className="item-settings-stack">
               <label>
                 {t('itemStockSource')}
                 <select
@@ -721,7 +742,9 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
                   {t('itemStockDisablesReady')}
                 </p>
               )}
-            </div>
+              <p className="item-settings-footnote">{t('itemStockLegacyRuleApplyHint')}</p>
+              {ruleError && <p role="alert">{t('carteConflict')}</p>}
+            </fieldset>
           </ItemSettingsDialog>
         )}
       </div>

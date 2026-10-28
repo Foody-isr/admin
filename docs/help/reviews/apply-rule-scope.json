@@ -1,0 +1,72 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/menu/items/[itemId]/page.tsx",
+      "sha256": "88c32304a1d2be3852915223c846063510b364b3153dc2ca8116bdce08e9bbfd",
+      "baseSha256": "ca27e1003d6bb63bccde69fdb400f5c84d379e0b62268cdf42e465668816cb5c",
+      "features": [
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-variants-and-sizes",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the explanatory comment for the existing product Save handler changes. Its executable save payload and creation, recipe, variant and product-photo workflows are unchanged. Immediate rule persistence lives in the stock components and is documented separately in the updated stock guides."
+    },
+    {
+      "path": "src/components/menu-item/ItemAvailabilityPanel.tsx",
+      "sha256": "ac6534875cbe0232ecd0040f5c99885cfb345c65dbe74676c4cfa2f4c62708a9",
+      "baseSha256": "8d7ab8ea644ba9649081d907e8668e1aab8e3ae5552406df7708be70528bf9a1",
+      "features": [
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The saved-product stock modal now confirms its rule immediately and removes rule assignment from the later product Save payload. Creation, recipe/ingredient quantities and variant setup do not change. The changed rule timing is documented in the primary saved-product stock procedures."
+    },
+    {
+      "path": "src/components/menu-item/ItemSettingsDialog.tsx",
+      "sha256": "58e0fa10bb464a3b18b5e80aefccd1df876086113d0fe067981485d0a474632f",
+      "baseSha256": "c2fb374935e71d9910adfea48ecd39f5327d863751796aefa491b356d8c422b8",
+      "features": [
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The optional busy prop locks the legacy stock dialog during its new explicit rule save; its default remains false. Other callers retain their previous close, Apply, preparation, creation, recipe and variant behavior. The adjacent preparation regression still requires product Save. The stock-rule timing change is documented separately."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "fb5a3179343849324d1100f0fc9e460b6359ac57f8c8d04df675c85426b80dd6",
+      "baseSha256": "3286b28796084d90cc1bdd7b311b6ccebc3473f0570e646603bf4be49d7b6995",
+      "features": [
+        "customers-profiles",
+        "payments-how-payments-work",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the existing sales-stock availability/restock helpers gain the optional product-rule field. Customer, payment, POS payment, photo gallery and shared API transport methods are byte-identical. No credential, tenant header or financial contract changes. The immediate rule operation is documented in the stock guides and internal API contract."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "97dd8b3384cb3cb189f927a9d9af9688dfd55cc55a21f53d139333c153e61c73",
+      "baseSha256": "99990cb3fd18bbcb074f3852eca65f822e1815488d196679cf789a5ecc31b0b8",
+      "features": [
+        "customers-profiles",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the stock-rule immediate-save hints, legacy save distinction and saved-but-refresh-failed recovery text change in French, Hebrew and English. Customer, delivery, Google, website, POS, WhatsApp, shared-runtime and photo-gallery labels in this explicit scope are unchanged. The actual stock workflow is documented separately."
+    }
+  ]
+}

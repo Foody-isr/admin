@@ -526,8 +526,8 @@ function EditItemEditor() {
       if (itemType !== 'combo' && recipeRef.current?.isDirty()) {
         await recipeRef.current.save();
       }
-      // Stock & disponibilité tab is transactional: it stages edits locally and
-      // only persists here on Save (never on change/blur), so Annuler discards.
+      // Save remaining preparation and legacy stock drafts. Series stock and
+      // availability rules persist from their explicit Apply actions.
       if (availabilityRef.current?.isDirty()) {
         await availabilityRef.current.save();
       }
