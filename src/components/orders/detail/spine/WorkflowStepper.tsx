@@ -9,6 +9,7 @@ import {
   type StepState,
 } from '@/lib/orders/workflow-stepper';
 import { useOrderWorkflows, pickWorkflow } from '@/lib/orders/use-order-workflows';
+import { displayedOrderStatus } from '@/lib/orders/status-presentation';
 import { formatTime } from '@/lib/orders/order-time';
 
 /**
@@ -130,9 +131,10 @@ export function WorkflowStepper({
 
   if (stages.length === 0) return null;
 
-  const activeColor = order.status === 'scheduled'
+  const displayedStatus = displayedOrderStatus(order);
+  const activeColor = displayedStatus === 'scheduled'
     ? 'var(--info-500)'
-    : statusStageKind(order.status) === 'completed'
+    : statusStageKind(displayedStatus) === 'completed'
       ? 'var(--success-500)'
       : 'var(--brand-500)';
 

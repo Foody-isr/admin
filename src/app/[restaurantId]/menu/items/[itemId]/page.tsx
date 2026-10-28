@@ -25,6 +25,7 @@ import { usePermissions } from '@/lib/permissions-context';
 import type { MenuItemSection } from '@/components/menu-item/TabBar';
 import MenuItemDistribution from '@/components/menu-item/MenuItemDistribution';
 import MenuItemPhoto from '@/components/menu-item/MenuItemPhoto';
+import { itemPhotos, validateItemPhotos } from '@/lib/item-photos';
 import MenuItemEditorForm from '@/components/menu-item/MenuItemEditorForm';
 import MenuItemTabOptions from '@/components/menu-item/MenuItemTabOptions';
 import VariantsEditor, {
@@ -145,7 +146,7 @@ function EditItemEditor() {
   const [itemType, setItemType] = useState<ItemType>(
     () => (item?.item_type as ItemType) || 'food_and_beverage',
   );
-  const [imageUrl, setImageUrl] = useState(() => item?.image_url ?? '');
+  const [photos, setPhotos] = useState<string[]>(() => itemPhotos(item ?? undefined));
   const [saving, setSaving] = useState(false);
   const saveLock = useRef(false);
   const [saveError, setSaveError] = useState('');
@@ -229,13 +230,12 @@ function EditItemEditor() {
   const [prepItems, setPrepItems] = useState<PrepItem[]>([]);
   const [vatRate, setVatRate] = useState(18);
   const [defaultLeadMinutes, setDefaultLeadMinutes] = useState(0);
-  const [defaultStockUnit, setDefaultStockUnit] = useState<'' | 'g' | 'kg'>('');
 
   const recipeRef = useRef<MenuItemTabRecipeHandle>(null);
   const availabilityRef = useRef<ItemAvailabilityPanelHandle>(null);
 
   const formSnapshot = JSON.stringify({ name, price, pricingMode, pricePerKg, estimatedWeightGrams,
-    description, imageUrl, aiContext, customerFacts, portion, translations, categoryId, isActive, allowNotes,
+    description, photos, aiContext, customerFacts, portion, translations, categoryId, isActive, allowNotes,
     comboAllowQuantity, posAutoSelectFirstVariant, posSkipCustomization, itemType, comboSteps, variantGroups, groups: Array.from(selectedGroupIds).sort((a,b) => a-b) });
   const initialSnapshot = useRef<string | null>(null);
   useEffect(() => {
@@ -271,7 +271,6 @@ function EditItemEditor() {
       const foundItem = cats.flatMap(category => category.items ?? []).find(value => value.id === iid);
       if (!foundItem) throw new Error('itemNotFound');
       setVatRate(settings.vat_rate ?? 18);
-      setDefaultStockUnit((settings.default_stock_unit as '' | 'g' | 'kg') ?? '');
       setDefaultLeadMinutes((settings.scheduling_lead_time_minutes ?? 0) > 0 ? settings.scheduling_lead_time_minutes! : (settings.scheduling_min_days_ahead ?? 0) * 1440);
       const defaultLocale = restaurant.default_locale;
       if (defaultLocale === 'en' || defaultLocale === 'he' || defaultLocale === 'fr') {
@@ -317,7 +316,7 @@ function EditItemEditor() {
           setPosSkipCustomization(found.pos_skip_customization ?? false);
           setComboAllowQuantity(found.combo_allow_quantity ?? true);
           setItemType(found.item_type || 'food_and_beverage');
-          setImageUrl(found.image_url ?? '');
+          setPhotos(itemPhotos(found));
           if (found.item_type === 'combo' && found.combo_steps) {
             setComboSteps(found.combo_steps.map((s) => {
               const draft: ComboStepDraft = {
@@ -513,7 +512,8 @@ function EditItemEditor() {
         combo_allow_quantity: comboAllowQuantity,
         item_type: itemType,
         category_id: categoryId,
-        image_url: imageUrl,
+        image_url: photos[0] ?? '',
+        image_urls: photos.slice(1),
         translations,
       };
       if (itemType === 'combo') {
@@ -524,8 +524,8 @@ function EditItemEditor() {
       if (itemType !== 'combo' && recipeRef.current?.isDirty()) {
         await recipeRef.current.save();
       }
-      // Stock & disponibilité tab is transactional: it stages edits locally and
-      // only persists here on Save (never on change/blur), so Annuler discards.
+      // Save remaining preparation and legacy stock drafts. Series stock and
+      // availability rules persist from their explicit Apply actions.
       if (availabilityRef.current?.isDirty()) {
         await availabilityRef.current.save();
       }
@@ -550,13 +550,16 @@ function EditItemEditor() {
     }
   };
 
-  const handleImageUpload = async (file: File) => {
-    if (!canEdit || saving || modifierLock.current || imageLock.current) return;
+  const handleImageUpload = async (files: File[]) => {
+    if (!canEdit || loading || loadError || saving || modifierLock.current || imageLock.current) return;
+    const invalid = validateItemPhotos(files, photos.length);
+    if (invalid) { setImageError(t(invalid)); return; }
     imageLock.current = true; setImageBusy(true); setImageError('');
     try {
-      const url = await uploadMenuItemImage(rid, iid, file);
-      await updateMenuItem(rid, iid, { image_url: url });
-      setImageUrl(url);
+      for (const file of files) {
+        const url = await uploadMenuItemImage(rid, iid, file);
+        setPhotos(current => [...current, url]);
+      }
     } catch (cause) { setImageError(cause instanceof Error ? cause.message : t('libraryOperationFailed')); }
     finally { imageLock.current = false; setImageBusy(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
@@ -674,11 +677,13 @@ function EditItemEditor() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        multiple
         className="hidden"
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleImageUpload(file);
+          const files = Array.from(e.target.files ?? []);
+          e.target.value = '';
+          if (files.length) void handleImageUpload(files);
         }}
       />
 
@@ -691,7 +696,7 @@ function EditItemEditor() {
         open={aiModalOpen}
         onClose={() => setAiModalOpen(false)}
         onSaved={(url, updated) => {
-          setImageUrl(url);
+          setPhotos(current => Array.from(new Set([url, ...current.slice(1)])));
           setItem((prev) => (prev ? { ...prev, ...updated } : prev));
         }}
       />
@@ -785,20 +790,23 @@ function EditItemEditor() {
               hideBasePrice={meaningfulVariants && firstVariantPrice > 0}
               photo={
                 <MenuItemPhoto
-                  imageUrl={imageUrl || undefined}
+                  imageUrls={photos}
                   name={name}
                   onImageClick={
-                    canEdit && !imageBusy && !saving && !modifierBusy
+                    canEdit && !loading && !loadError && !imageBusy && !saving && !modifierBusy
                       ? () => fileInputRef.current?.click()
                       : undefined
                   }
                   onRemove={
-                    canEdit && !imageBusy && !saving && !modifierBusy
-                      ? () => setImageUrl('')
+                    canEdit && !loading && !loadError && !imageBusy && !saving && !modifierBusy
+                      ? (index) => setPhotos(current => current.filter((_, position) => position !== index))
                       : undefined
                   }
+                  onPrimary={canEdit && !loading && !loadError && !imageBusy && !saving && !modifierBusy
+                    ? (index) => setPhotos(current => [current[index], ...current.filter((_, position) => position !== index)])
+                    : undefined}
                   onAiImageClick={
-                    canEdit && !imageBusy && !saving && !modifierBusy
+                    canEdit && !loading && !loadError && !imageBusy && !saving && !modifierBusy
                       ? () => setAiModalOpen(true)
                       : undefined
                   }
@@ -904,7 +912,7 @@ function EditItemEditor() {
                   rid={rid}
                   itemId={iid}
                   item={item}
-                  defaultStockUnit={defaultStockUnit}
+                  inheritedRuleId={categories.find(category => category.id === item.category_id)?.availability_rule_id}
                   defaultLeadMinutes={defaultLeadMinutes}
                 />
               }

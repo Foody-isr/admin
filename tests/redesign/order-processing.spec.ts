@@ -6,7 +6,7 @@ async function install(page: Page, options: { locale?: string; permissions?: str
   const fixture = createFixture(fixtureOptions);
   const control = {
     settings: { service_mode: 'table', pickup_prep_time_minutes: 20, require_dine_in_prepayment: false, require_pickup_prepayment: true, require_delivery_prepayment: true, auto_send_dine_in_to_kitchen: null, auto_send_pickup_to_kitchen: null, auto_send_delivery_to_kitchen: false, auto_send_to_kitchen: true } as Record<string, any>,
-    channels: { dine_in_enabled: true, pickup_enabled: true, delivery_enabled: true }, reads: 0, failRead: false, failSave: 0, gate: null as Promise<void> | null,
+    channels: { dine_in_enabled: true, pickup_enabled: true, delivery_enabled: true }, reads: 0, failRead: false, failSave: 0, gate: null as Promise<void> | null, savedResponse: null as Record<string, unknown> | null,
   };
   const writes: { body: any; restaurant?: string; path: string }[] = [];
   await page.addInitScript(({ locale }) => {
@@ -18,13 +18,16 @@ async function install(page: Page, options: { locale?: string; permissions?: str
     if (/\/restaurants\/\d+\/settings$/.test(path)) {
       if (method === 'GET') { control.reads++; if (control.failRead) return route.fulfill({ status: 503, json: { error: 'Synthetic processing failure' } }); }
       else { writes.push({ path, restaurant, body }); if (control.gate) await control.gate; if (control.failSave) { control.failSave--; return route.fulfill({ status: 503, json: { error: 'Synthetic write failure' } }); } Object.assign(control.settings, body); }
-      return route.fulfill({ json: { settings: control.settings } });
+      return route.fulfill({ json: { settings: method === 'GET' ? control.settings : control.savedResponse ?? control.settings } });
     }
     const result = fixture.response(req.url(), method, body, Number(restaurant) || 1);
     if (/\/restaurants\/\d+$/.test(path)) return route.fulfill({ json: { restaurant: { ...(result.json as { restaurant?: Record<string, unknown> } | undefined)?.restaurant, ...control.channels } } });
     return route.fulfill({ json: result.json ?? {}, status: result.status ?? 200 });
   });
-  await page.route('**/*', route => ['localhost','127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
+  await page.route('**/*', route => {
+    const url = new URL(route.request().url());
+    return ['localhost','127.0.0.1'].includes(url.hostname) || url.pathname.startsWith('/api/v1/') ? route.fallback() : route.abort();
+  });
   return { fixture, control, writes };
 }
 const save = (page: Page) => page.getByRole('button', { name: 'Enregistrer les modifications', exact: true });
@@ -55,6 +58,23 @@ test('processing kitchen override can be reverted before save but cannot pretend
   const state = await install(page); await page.goto('/1/settings/orders/processing'); await kitchen(page).selectOption('true'); await kitchen(page).selectOption('inherited'); await expect(save(page)).toBeDisabled();
   await kitchen(page).selectOption('false'); await save(page).click(); await expect(status(page)).toContainText('Enregistré'); expect(state.writes[0].body).toEqual({ auto_send_pickup_to_kitchen: false }); await expect(kitchen(page).locator('option[value=inherited]')).toHaveCount(0);
 });
+
+for (const channel of ['dine_in', 'pickup', 'delivery'] as const)
+  for (const policy of ['kitchen', 'prepayment'] as const)
+    for (const lost of ['missing', 'old'] as const) test(`processing ${channel} ${policy} retains the draft after a ${lost} successful response`, async ({ page }) => {
+      const state = await install(page); await page.goto('/1/settings/orders/processing');
+      const key = policy === 'kitchen' ? `auto_send_${channel}_to_kitchen` : `require_${channel}_prepayment`;
+      const choice = policy === 'kitchen' ? kitchen(page, channel) : payment(page, channel);
+      const value = policy === 'kitchen' || !state.control.settings[key];
+      await choice.selectOption(String(value));
+      state.control.savedResponse = { ...state.control.settings };
+      if (lost === 'missing') delete state.control.savedResponse[key];
+      await save(page).click();
+      await expect(page.locator('main [role=alert]')).toContainText('n’a pas pu être confirmé');
+      await expect(choice).toHaveValue(String(value)); await expect(save(page)).toBeEnabled(); expect(await guarded(page)).toBe(true); expect(state.writes).toHaveLength(1);
+      state.control.savedResponse = null; await save(page).click();
+      await expect(status(page)).toContainText('Enregistré'); expect(state.writes).toHaveLength(2); expect(state.writes[1].body).toEqual({ [key]: value }); expect(await guarded(page)).toBe(false);
+    });
 
 test('processing preserves historical service mode and preparation estimate on independent payment change', async ({ page }) => {
   const state = await install(page); state.control.settings.service_mode = 'drive_thru'; state.control.settings.pickup_prep_time_minutes = 360; await page.goto('/1/settings/orders/processing');

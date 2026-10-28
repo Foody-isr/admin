@@ -11,14 +11,15 @@ export const isSource = file => /^(?:src|app|components|lib|services|store|inter
  && !/(?:^|\/)(?:__tests__|test|tests|node_modules|build|Pods|\.dart_tool|generated|l10n\/app_localizations[^/]*)(?:\/|$)|(?:\.test|\.spec|_test|\.g|\.freezed)\./.test(file);
 const git = (root, ...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }).trim();
 const read = file => JSON.parse(fs.readFileSync(file, 'utf8'));
-function sourceFiles(root) {
+function sourceFiles(root, additionalSource = () => false) {
+ const accepted = file => isSource(file) || additionalSource(file);
  let top;
  try { top=git(root,'rev-parse','--show-toplevel'); } catch { /* Local-only application. */ }
- if(top===path.resolve(root)) return [...new Set((git(root,'ls-files')+'\n'+git(root,'ls-files','--others','--exclude-standard')).split('\n').filter(file=>isSource(file)&&fs.existsSync(path.join(root,file))))];
+ if(top===path.resolve(root)) return [...new Set((git(root,'ls-files')+'\n'+git(root,'ls-files','--others','--exclude-standard')).split('\n').filter(file=>accepted(file)&&fs.existsSync(path.join(root,file))))];
  const walk=(directory='')=>fs.readdirSync(path.join(root,directory),{withFileTypes:true}).flatMap(item=>{
   if(item.name.startsWith('.')||['node_modules','Pods','build','vendor'].includes(item.name))return [];
   const file=path.posix.join(directory,item.name);
-  return item.isDirectory()?walk(file):item.isFile()&&isSource(file)?[file]:[];
+  return item.isDirectory()?walk(file):item.isFile()&&accepted(file)?[file]:[];
  });
  return walk();
 }
@@ -37,7 +38,14 @@ export function checkContract(root, docsRoot, base) {
   const file = path.join(docsRoot, translation.path);
   if (!fs.existsSync(file) || hash(fs.readFileSync(file)) !== translation.sha256) errors.push(`${id}: ${lang} translation is stale.`);
  }
- const files = sourceFiles(root);
+ // Match the inventory's opt-in SQL boundary: only authored migration
+ // selectors in this reviewed documentation checkout expand the footprint.
+ const cataloguePath=path.join(docsRoot,'docs/help/catalog/features.json');
+ const catalogue=contract.service==='foodyserver' && fs.existsSync(cataloguePath) ? read(cataloguePath) : [];
+ const glob=value=>new RegExp('^'+value.split('**').map(part=>part.split('*').map(x=>x.replace(/[.+?^(){}$|[\]\\]/g,'\\$&')).join('[^/]*')).join('.*')+'$');
+ const selected=Array.isArray(catalogue) ? catalogue.flatMap(feature=>feature.selectors?.foodyserver || []).filter(value=>typeof value==='string').map(glob) : [];
+ const migration=file=>contract.service==='foodyserver' && /^migrations\/[^/]+\.sql$/.test(file) && selected.some(pattern=>pattern.test(file));
+ const files = sourceFiles(root,migration);
  for (const file of files) {
   const expected = contract.sources[file];
   if (!expected) { errors.push(`${file}: new source is not inventoried.`); continue; }

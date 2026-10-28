@@ -12,6 +12,7 @@ import type {
   DraftImageResult,
   ManualRecipeImportResult,
 } from '@/app/[restaurantId]/kitchen/lab/types';
+import type { OrderLifecycle } from './orders/lifecycle';
 import type { PosDisplayLayout } from './posDisplay';
 import {
   startRegistration,
@@ -269,6 +270,8 @@ export interface FullServiceSettings {
 }
 
 export interface RestaurantSettings {
+  /** Supports conflict-safe three-way saves of restaurant and assigned POS policies. */
+  pos_settings_merge_supported?: boolean;
   pos_custom_dining_supported?: boolean;
   pos_fulfillment_customer_information_supported?: boolean;
  full_service?: FullServiceSettings;
@@ -367,6 +370,8 @@ export interface RestaurantSettings {
   batch_cutoff_time?: string; // "HH:MM"
   // When the next batch's ordering window opens. Defaults match cutoff
   // (zero-gap) on legacy data; set explicitly to introduce a switchover gap.
+  /** Manual intake retains delivery days and uses the explicit ordering pause. */
+  batch_ordering_mode?: 'calendar' | 'manual';
   batch_order_open_day?: number; // 0=Sun..6=Sat
   batch_order_open_time?: string; // "HH:MM"
   batch_fulfillment_days?: BatchFulfillmentDay[];
@@ -752,6 +757,8 @@ export interface MenuItem {
    *  options (e.g. "par personne"). Translatable via the translations map. */
   portion?: string;
   image_url: string;
+  /** Ordered additional photos; image_url remains the cover. */
+  image_urls?: string[];
   price: number;
   is_active: boolean;
   /** Per-item toggle for the guest "special instructions" field (guest web only).
@@ -779,6 +786,8 @@ export interface MenuItem {
   recipe_steps?: RecipeStep[];
   /** Per-locale name/description overrides. Source-locale is never stored here. */
   translations?: TranslationMap;
+  /** Uses recipe availability while retaining dormant manual pools for frozen orders. */
+  stock_from_recipe?: boolean;
   /** Recipe-aware availability rule assignment (null = inherit category/default). */
   availability_rule_id?: number | null;
   /** Staff "86" switch: 'auto' | 'force_available' | 'force_sold_out'. */
@@ -906,6 +915,8 @@ export interface OrderItem {
 }
 
 export interface Order {
+  /** Read-only independent lifecycle facts for this Order ID. */
+  lifecycle?: OrderLifecycle | null;
 	/** Selected contact from staff read metadata; never part of the persisted order. */
 	customer_whatsapp_phone?: string;
   dining_option?: string;
@@ -2944,7 +2955,10 @@ export async function getRestaurantSettings(id: number): Promise<RestaurantSetti
 }
 
 export async function updateRestaurantSettings(
-  id: number, input: Partial<RestaurantSettings>
+  id: number, input: Partial<RestaurantSettings> & {
+    /** Original unedited policy from GET, required for conflict-safe POS policy saves. */
+    full_service_base?: FullServiceSettings;
+  }
 ): Promise<RestaurantSettings> {
   const data = await apiFetch<{ settings: RestaurantSettings }>(
     `/api/v1/restaurants/${id}/settings`, id,
@@ -3341,6 +3355,7 @@ export interface BatchCycleSummary {
 export interface BatchFulfillmentConfigResponse {
   enabled: boolean;
   ordering_open: boolean;
+  ordering_mode?: 'calendar' | 'manual';
   current_batch_open_at: string;  // ISO 8601 datetime
   current_batch_cutoff: string;   // ISO 8601 datetime
   cutoff_day_name: string;
@@ -3379,6 +3394,7 @@ export async function getStaffBatchFulfillmentConfig(
 
 /** Draft batch config the operator is editing, sent to the preview endpoint. */
 export interface BatchPreviewInput {
+  batch_ordering_mode?: 'calendar' | 'manual';
   batch_order_open_day: number;
   batch_order_open_time: string;
   batch_cutoff_day: number;
@@ -5750,6 +5766,8 @@ export interface OrderSerie {
   date: string; // YYYY-MM-DD
   order_count: number;
   revenue: number; // paid revenue only, matches the dashboard KPIs
+  /** Default service date of the current weekly batch, in restaurant time. */
+  is_current?: boolean;
 }
 
 export async function fetchOrderSeries(restaurantId: number): Promise<OrderSerie[]> {
@@ -9319,8 +9337,8 @@ export async function deleteAvailabilityRule(restaurantId: number, id: number): 
 }
 
 /** Live buildable count + bottleneck + resolved state for a single dish. */
-export async function previewItemAvailability(restaurantId: number, itemId: number): Promise<AvailabilityPreview> {
-  return apiFetch<AvailabilityPreview>(`/api/v1/availability/items/${itemId}/preview`, restaurantId);
+export async function previewItemAvailability(restaurantId: number, itemId: number, seriesKey = ''): Promise<AvailabilityPreview> {
+  return apiFetch<AvailabilityPreview>(`/api/v1/availability/items/${itemId}/preview${seriesKey ? `?serie_date=${encodeURIComponent(seriesKey)}` : ''}`, restaurantId);
 }
 
 // ─── WhatsApp Embedded Signup (ISV / Tech Provider) ────────────────────────────
@@ -11184,8 +11202,8 @@ export interface SaleStockLimit {
  expected_revision: number; reason?: string;
 }
 export interface SaleStockCounter { id: number; option_id: number; initial_quantity: number | null; committed: number }
-export interface SaleStockSeries { id: number; menu_item_id: number; series_key: string; mode: SaleStockLimit['mode']; unit: string; override: AvailabilityOverride; revision: number; counters: SaleStockCounter[] }
-export interface SaleStockRow { item: MenuItem; managed: boolean; config: SaleStockSeries | null; previous: SaleStockSeries | null; sizes: OptionSetOption[]; availability: {availability_state: string; buildable_count: number | null} }
+export interface SaleStockSeries { id: number; menu_item_id: number; series_key: string; mode: SaleStockLimit['mode']; stock_from_recipe?: boolean; unit: string; override: AvailabilityOverride; revision: number; counters: SaleStockCounter[] }
+export interface SaleStockRow { recipe_configured?: boolean; stored_mode?: SaleStockLimit['mode']; stored_unit?: string; item: MenuItem; managed: boolean; config: SaleStockSeries | null; previous: SaleStockSeries | null; sizes: OptionSetOption[]; availability: {availability_state: string; buildable_count: number | null} }
 export interface SaleStockOverview {series_key: string; rows: SaleStockRow[]}
 export interface SaleStockEvent {id: number; menu_item_id: number; item_name: string; option_name: string; series_key: string; kind: string; before_quantity: number | null; after_quantity: number | null; delta: number; actor_id: number; actor_name: string; order_id?: number; reason: string; created_at: string; previous_mode?: string; mode?: string; previous_override?: string; override?: string}
 export interface CarteDraftGroup {
@@ -11209,10 +11227,11 @@ export const getSalesStockHistory = (rid: number,filter: {itemId?: number; date?
  return apiFetch<{events: SaleStockEvent[];next_cursor: number}>(`/api/v1/menu/sales-stock/history?${query}`,rid);
 };
 export const setSalesStock = (rid: number,date: string,input: SaleStockLimit) => apiFetch<SaleStockSeries>(`/api/v1/menu/items/${input.menu_item_id}/sales-stock?serie_date=${encodeURIComponent(date)}`,rid,{method:'PUT',body:JSON.stringify(input)});
-export const setSalesStockAvailability = (rid: number,date: string,itemId: number,override: AvailabilityOverride) => apiFetch<void>(`/api/v1/menu/items/${itemId}/sales-stock/availability?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify({override})});
+/** Saves an operational override and/or product rule in one stock-locked transaction. */
+export const setSalesStockAvailability = (rid: number,date: string,itemId: number,override: AvailabilityOverride | undefined,ruleId?: number) => apiFetch<void>(`/api/v1/menu/items/${itemId}/sales-stock/availability?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify({override,availability_rule_id:ruleId})});
 
-/** Sets remaining quantities; committed orders are preserved by the API transaction. */
-export const restockSalesStock = (rid: number,date: string,input: SaleStockLimit) => apiFetch<{revision: number}>(`/api/v1/menu/items/${input.menu_item_id}/sales-stock/restock?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify(input)});
+/** Saves remaining stock (empty mode selects recipe) and an optional profile atomically. */
+export const restockSalesStock = (rid: number,date: string,input: SaleStockLimit & { availability_rule_id?: number }) => apiFetch<{revision: number}>(`/api/v1/menu/items/${input.menu_item_id}/sales-stock/restock?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify({...input,...(input.mode===''?{stock_source:'recipe'}:{})})});
 
 /** Monthly tenant allowances supplement independent provider-wide protection. */
 export interface ExternalApiCounter { id: string; provider: string; unit: string; default_limit: number; used: number; requests: number; limit: number; remaining: number; status: 'available' | 'warning' | 'exhausted' }

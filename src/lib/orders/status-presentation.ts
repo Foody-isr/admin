@@ -10,6 +10,7 @@
 // deliberately unchanged, including the gaps noted below.
 
 import type { Order } from '@/lib/api';
+import { readOrderLifecycle } from './lifecycle';
 
 /** Shared list/detail workflow badge palette from the Square reference. */
 export const ORDER_STATUS_BADGE_TONE: Partial<Record<Order['status'], 'new' | 'progress'>> = {
@@ -54,6 +55,9 @@ export const PAYMENT_TONE: Record<string, BadgeTone> = {
   pending: 'warning',
   unpaid: 'warning',
   refunded: 'neutral',
+  authorized: 'info',
+  unknown: 'neutral',
+  mixed: 'neutral',
 };
 
 const PAYMENT_KEY: Record<string, string> = {
@@ -62,6 +66,9 @@ const PAYMENT_KEY: Record<string, string> = {
   pending: 'pending',
   unpaid: 'unpaid',
   refunded: 'refunded',
+  authorized: 'lifecyclePaymentAuthorized',
+  unknown: 'lifecyclePaymentUnknown',
+  mixed: 'lifecyclePaymentUnknown',
 };
 
 /**
@@ -71,6 +78,12 @@ const PAYMENT_KEY: Record<string, string> = {
  * collected.
  */
 export function displayedPaymentStatus(order: Order, isCancelled = false): string {
+  const lifecycle = readOrderLifecycle(order.lifecycle, order.id);
+  if (lifecycle.kind === 'unavailable') return 'unknown';
+  if (lifecycle.kind === 'available') {
+    const state = lifecycle.value.payment.state;
+    return state === 'paid' && (order.balance_due ?? 0) > 0.01 ? 'partially_paid' : state;
+  }
   if (isCancelled && order.payment_status === 'pending') return 'unpaid';
   if (order.payment_status === 'paid' && (order.balance_due ?? 0) > 0.01) return 'partially_paid';
   return order.payment_status;
@@ -99,6 +112,11 @@ const STATUS_KEY: Record<string, string> = {
   // Legacy abandoned-payment status — same label as `rejected` ("Annulée").
   cancelled: 'statusRejected',
   scheduled: 'statusScheduled',
+  lifecycle_unknown: 'lifecycleProgressUnknown',
+  lifecycle_not_tracked: 'lifecycleHandoffNotTracked',
+  lifecycle_held: 'lifecyclePreparationHeld',
+  lifecycle_not_sent: 'lifecyclePreparationNotSent',
+  lifecycle_partially_ready: 'lifecyclePartiallyReady',
 };
 
 /** `t()` returns the key itself when missing — treat that as "not translated". */
@@ -135,4 +153,37 @@ export function localizeOrderType(type: Order['order_type'], t: (k: string) => s
   if (type === 'pickup') return t('pickup');
   if (type === 'delivery') return t('delivery');
   return String(type).replace(/_/g, ' ');
+}
+
+/** Present operational facts without treating commercial closure or payment as food progress. */
+export function displayedOrderStatus(order: Order): string {
+  const lifecycle = readOrderLifecycle(order.lifecycle, order.id);
+  if (lifecycle.kind === 'legacy') return order.status;
+  if (lifecycle.kind === 'unavailable') return 'lifecycle_unknown';
+  const { preparation, handoff, commercial } = lifecycle.value;
+  if (commercial.state === 'cancelled') return 'cancelled';
+  if (handoff.state === 'complete') return order.order_type === 'delivery' ? 'delivered' : order.order_type === 'pickup' ? 'picked_up' : 'served';
+  if (handoff.state === 'in_transit' && order.order_type === 'delivery') return 'out_for_delivery';
+  if (preparation.state === 'ready') return order.order_type === 'delivery' ? 'ready_for_delivery' : order.order_type === 'pickup' ? 'ready_for_pickup' : 'ready';
+  if (preparation.state === 'partially_ready') return 'lifecycle_partially_ready';
+  if (preparation.state === 'in_progress') return 'in_kitchen';
+  if (preparation.state === 'held') return 'lifecycle_held';
+  if (preparation.state === 'not_sent') return ['scheduled', 'pending_review', 'accepted'].includes(order.status) ? order.status : 'lifecycle_not_sent';
+  return handoff.tracking === 'not_tracked' ? 'lifecycle_not_tracked' : 'lifecycle_unknown';
+}
+
+/** Missing or unsupported advertised facts cannot unlock collection or financial correction. */
+export function lifecycleFinancialStateKnown(order: Order): boolean {
+  const lifecycle = readOrderLifecycle(order.lifecycle, order.id);
+  return lifecycle.kind === 'legacy' || lifecycle.kind === 'available' && !['unknown', 'mixed'].includes(lifecycle.value.payment.state);
+}
+
+
+/** Pending is an expected payment, not proof of an active attempt; retain existing collection eligibility. */
+export function lifecycleCollectionAllowed(order: Order): boolean {
+  const lifecycle = readOrderLifecycle(order.lifecycle, order.id);
+  if (lifecycle.kind === 'legacy') return true;
+  if (lifecycle.kind === 'unavailable') return false;
+  const payment = lifecycle.value.payment.state;
+  return payment === 'unpaid' || payment === 'pending' || payment === 'partially_paid' || payment === 'paid' && (order.balance_due ?? 0) > 0.01;
 }

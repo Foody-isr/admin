@@ -42,6 +42,7 @@ export interface OrderDetailModalProps {
   canOverride?: boolean;
   isLoading: boolean;
   onClose: () => void;
+  onRetry?: () => void;
   onAccept: () => void | Promise<AcceptOrderResult | undefined>;
   onReject: () => void;
   onDelete?: () => void;
@@ -83,7 +84,7 @@ export interface OrderDetailModalProps {
 }
 
 export function OrderDetailModal({
-  order, canManage, canDelete, canOverride, isLoading, onClose, onAccept, onReject, onDelete,
+  order, canManage, canDelete, canOverride, isLoading, onClose, onRetry, onAccept, onReject, onDelete,
   onOverride, onCorrectPayment, onCorrectPaymentMethod, onReactivate, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered, onTakePayment, onCloseOrder, onEdit, onConfirmWeights,
   onEditCustomer, onToggleForceProduction, restaurantName, restaurantDefaultLocale, customFieldLabels, checkoutConfig,
@@ -237,7 +238,7 @@ export function OrderDetailModal({
             onPrimary={(action) => { void handlePrimary(action); }}
           />
         </OrderDetailHead>}
-        summary={<OrderDetailSummary order={order} isCancelled={caps.isCancelled} />}
+        summary={<OrderDetailSummary order={order} isCancelled={caps.isCancelled} onRetry={onRetry} />}
         center={
           <>
             {/* Alerts head the ticket, and TicketItems opens with its own

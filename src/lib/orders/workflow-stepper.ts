@@ -18,6 +18,7 @@
 // server-side, change them here in the same PR.
 
 import type { Order, OrderWorkflow, WorkflowStage, WorkflowStageKind } from '@/lib/api';
+import { readOrderLifecycle, type OrderLifecycle } from './lifecycle';
 
 /** Position of each stage kind along the forward pipeline. Mirror of kindRank(). */
 export const KIND_RANK: Record<WorkflowStageKind, number> = {
@@ -166,6 +167,43 @@ function stampForKind(order: Order, kind: WorkflowStageKind): string | undefined
   }
 }
 
+/** Keep configured stage names/IDs while applying only facts from their own operational axis. */
+function lifecycleStages(order: Order, resolved: ResolvedStage[], lifecycle: OrderLifecycle): StepperStage[] {
+  const prep = lifecycle.preparation;
+  const handoff = lifecycle.handoff;
+  const exact = resolved.findIndex(stage => stage.id != null && stage.id === order.workflow_stage_id);
+  const firstByKind = new Map<WorkflowStageKind, number>();
+  resolved.forEach((stage, index) => { if (!firstByKind.has(stage.kind)) firstByKind.set(stage.kind, index); });
+  const prepCurrent: WorkflowStageKind | undefined = prep.state === 'ready' ? 'ready'
+    : ['in_progress', 'partially_ready'].includes(prep.state) ? 'in_progress'
+    : ['not_sent', 'held'].includes(prep.state) ? 'received' : undefined;
+  const handoffCurrent: WorkflowStageKind | undefined = handoff.state === 'complete' ? 'completed'
+    : handoff.state === 'in_transit' ? 'out_for_delivery' : undefined;
+  const currentKind = handoffCurrent ?? prepCurrent;
+  return resolved.map((stage, index) => {
+    const selected = exact >= 0 && resolved[exact].kind === stage.kind ? exact : firstByKind.get(stage.kind);
+    let state: StepState = 'pending';
+    let at: string | undefined;
+    if (stage.kind === 'received') {
+      state = currentKind === 'received' && index === selected ? 'current' : 'done';
+      if (index === firstByKind.get('received')) at = order.created_at;
+    } else if (stage.kind === 'in_progress' && ['in_progress', 'partially_ready', 'ready'].includes(prep.state)) {
+      state = currentKind === 'in_progress' && index === selected ? 'current' : index <= (selected ?? -1) ? 'done' : 'pending';
+      if (index === firstByKind.get('in_progress')) at = prep.evidence.find(item => item.state === 'in_progress' && item.at)?.at;
+    } else if (stage.kind === 'ready' && prep.state === 'ready') {
+      state = currentKind === 'ready' && index === selected ? 'current' : index <= (selected ?? -1) ? 'done' : 'pending';
+      if (index === firstByKind.get('ready')) at = prep.evidence.find(item => item.state === 'ready' && item.at)?.at;
+    } else if (stage.kind === 'out_for_delivery' && handoff.state === 'in_transit') {
+      state = index === selected ? 'current' : index < (selected ?? -1) ? 'done' : 'pending';
+      if (index === firstByKind.get('out_for_delivery')) at = handoff.evidence.find(item => item.at)?.at;
+    } else if (stage.kind === 'completed' && handoff.state === 'complete') {
+      state = index === selected ? 'current' : index < (selected ?? -1) ? 'done' : 'pending';
+      if (index === firstByKind.get('completed')) at = handoff.evidence.find(item => item.at)?.at;
+    }
+    return { key: stage.id != null ? `stage-${stage.id}` : `${stage.kind}-${index}`, label: stage.label, kind: stage.kind, state, at };
+  });
+}
+
 export interface BuildStepperOptions {
   /** Label for the terminal node on a cancelled order. */
   cancelledLabel: string;
@@ -187,6 +225,20 @@ export function buildStepperStages(
 ): StepperStage[] {
   const resolved = resolveStages(order, workflow, t);
   if (resolved.length === 0) return [];
+
+  const lifecycle = readOrderLifecycle(order.lifecycle, order.id);
+  if (lifecycle.kind === 'unavailable') return resolved.map((stage, index) => ({
+    key: stage.id != null ? `stage-${stage.id}` : `${stage.kind}-${index}`, label: stage.label, kind: stage.kind, state: 'pending',
+  }));
+  if (lifecycle.kind === 'available') {
+    const handoffNotTracked = lifecycle.value.handoff.tracking === 'not_tracked' && lifecycle.value.handoff.state !== 'complete';
+    const visible = handoffNotTracked ? resolved.filter(stage => !['completed', 'out_for_delivery'].includes(stage.kind)) : resolved;
+    const facts = lifecycleStages(order, visible, lifecycle.value);
+    if (opts.acceptedNote && order.accepted_at && facts.length) facts[0].note = opts.acceptedNote;
+    return lifecycle.value.commercial.state === 'cancelled' ? [...facts, {
+      key: 'cancelled', label: opts.cancelledLabel, kind: 'completed', state: 'cancelled',
+    } as StepperStage] : facts;
+  }
 
   const currentIdx = findCurrentIndex(order, resolved);
   const cancelled = CANCELLED_STATUSES.has(order.status);

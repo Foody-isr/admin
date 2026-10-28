@@ -422,9 +422,9 @@ test('photo preview traps focus, preserves drafts and stages removal until save'
   await expect(preview).toBeFocused();
   await expect(page.locator('#menu-item-name')).toHaveValue('Photo draft');
   const chooserPromise = page.waitForEvent('filechooser');
-  await page.getByRole('button', { name: 'Change photo', exact: true }).click();
+  await page.getByRole('button', { name: 'Add photo', exact: true }).click();
   const chooser = await chooserPromise;
-  expect(chooser.isMultiple()).toBe(false);
+  expect(chooser.isMultiple()).toBe(true);
   await chooser.setFiles([]);
   await preview.click();
   await dialog
@@ -762,4 +762,69 @@ test('outline excludes sections hidden by the combo type and stays usable in Heb
   expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
     true,
   );
+});
+
+const galleryFile = (name: string) => ({ name, mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jWZkAAAAASUVORK5CYII=', 'base64') });
+
+test('multiple photos keep the form draft, choose a cover and persist only on Save', async ({ page }) => {
+  const fixture = await install(page);
+  fixture.items[0].image_url = 'http://localhost:3103/brand/favicon.svg?cover';
+  const uploads: string[] = [];
+  await page.route('**/api/v1/menu/items/*/image?*', route => {
+    const url = `http://localhost:3103/brand/favicon.svg?photo=${uploads.length}`;
+    uploads.push(url);
+    return route.fulfill({ json: { image_url: url } });
+  });
+  await page.goto('/1/menu/items/1');
+  await page.locator('#menu-item-name').fill('Gallery draft');
+  await page.locator('input[type=file]').setInputFiles([galleryFile('one.png'), galleryFile('two.png')]);
+  await expect(page.locator('.item-photo-thumbnail')).toHaveCount(3);
+  expect(fixture.writes).toEqual([]);
+  await page.getByRole('button', { name: 'Item photo 3', exact: true }).click();
+  await page.getByRole('button', { name: 'Use as primary photo', exact: true }).click();
+  await expect(page.locator('.item-photo-image').first()).toHaveAttribute('src', uploads[1]);
+  await page.getByRole('button', { name: 'Remove image 2', exact: true }).click();
+  await expect(page.locator('.item-photo-thumbnail')).toHaveCount(2);
+  await page.screenshot({ path: 'test-results/product-photos-admin.png', fullPage: true });
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page).toHaveURL('/1/menu/items');
+  expect(fixture.items[0]).toMatchObject({ name: 'Gallery draft', image_url: uploads[1], image_urls: [uploads[0]] });
+  await page.goto('/1/menu/items/1');
+  await expect(page.locator('.item-photo-thumbnail')).toHaveCount(2);
+});
+
+test('new item resumes a failed multi-photo upload without creating a second item or reuploading successful files', async ({ page }) => {
+  const fixture = await install(page);
+  let attempts = 0;
+  const urls = ['http://localhost:3103/brand/favicon.svg?first', 'http://localhost:3103/brand/favicon.svg?second'];
+  await page.route('**/api/v1/menu/items/*/image?*', route => {
+    attempts++;
+    return attempts === 2 ? route.fulfill({ status: 503, json: { error: 'Synthetic upload failure' } }) : route.fulfill({ json: { image_url: urls[attempts === 1 ? 0 : 1] } });
+  });
+  await page.goto('/1/menu/items/new');
+  await page.locator('#menu-item-name').fill('New gallery');
+  await page.getByRole('textbox', { name: 'Selling price', exact: true }).fill('30');
+  await page.locator('input[type=file]').setInputFiles([galleryFile('first.png'), galleryFile('second.png')]);
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Synthetic upload failure');
+  await expect(page.locator('.item-photo-thumbnail')).toHaveCount(2);
+  expect(fixture.items).toHaveLength(4);
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page).toHaveURL('/1/menu/items');
+  expect(attempts).toBe(3);
+  expect(fixture.items).toHaveLength(4);
+  expect(fixture.items[3]).toMatchObject({ image_url: urls[0], image_urls: [urls[1]] });
+});
+
+test('photo limit rejects an entire selection before any upload', async ({ page }) => {
+  const fixture = await install(page);
+  fixture.items[0].image_url = '/brand/favicon.svg';
+  let uploads = 0;
+  await page.route('**/api/v1/menu/items/*/image?*', route => { uploads++; return route.fulfill({ json: { image_url: '/brand/favicon.svg' } }); });
+  await page.goto('/1/menu/items/1');
+  await page.locator('input[type=file]').setInputFiles(Array.from({ length: 10 }, (_, i) => galleryFile(`${i}.png`)));
+  await expect(page.getByRole('alert')).toContainText('up to 10 photos');
+  await expect(page.locator('.item-photo-thumbnail')).toHaveCount(1);
+  expect(uploads).toBe(0);
+  expect(fixture.writes).toEqual([]);
 });

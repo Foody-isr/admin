@@ -1,0 +1,20 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "fb4612ce669ea09e691b3938026cdea02a026a18974e463f90d25e3d24b56f2b",
+      "baseSha256": "bb06071931908d4b73c311b8dabf19c71866f6891e1496c8fb4ee741dfc23b17",
+      "features": [
+        "customers-profiles",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff adds stock-editor labels, measured-entry and current-series conversion guidance, a conversion error and a journal label in French, Hebrew and English. Customer profiles, delivery, provider configuration, website design, POS policies, WhatsApp and product-photo controls, permissions and recovery are unchanged. Stock behavior is reviewed in the updated multilingual menu and availability procedures."
+    }
+  ]
+}

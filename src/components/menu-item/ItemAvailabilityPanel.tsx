@@ -1,56 +1,36 @@
-'use client';
+"use client";
 
 import {
   forwardRef,
   useCallback,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useState,
-} from 'react';
-import Link from 'next/link';
-import * as Popover from '@radix-ui/react-popover';
-import { Box, ChevronDown } from 'lucide-react';
+} from "react";
+import Link from "next/link";
+import { Box } from "lucide-react";
 import {
   getSalesStock,
-  type SaleStockRow,
   listAvailabilityRules,
   previewItemAvailability,
   updateMenuItem,
-  setItemOptionStock,
+  type SaleStockRow,
   type AvailabilityRule,
   type AvailabilityPreview,
-  type AvailabilityOverride,
   type MenuItem,
-} from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
-import { usePermissions } from '@/lib/permissions-context';
-import { parsePortionGrams } from '@/lib/production';
-import { toBaseUnit, convertQuantity } from '@/lib/units';
+} from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
+import { usePermissions } from "@/lib/permissions-context";
 import {
   preparationSummary,
   type ItemPreparationDraft,
-} from '@/lib/item-preparation';
-import { ProductSalesStock } from '@/components/menu/publication/ProductSalesStock';
-import { StockHistory } from '@/components/menu/publication/StockHistory';
-import { AvailabilityCapacityCard } from './AvailabilityCapacityCard';
-import { ItemSettingsDialog } from './ItemSettingsDialog';
-import { ItemPreparationDialog } from './ItemPreparationDialog';
+} from "@/lib/item-preparation";
+import { ProductSalesStock } from "@/components/menu/publication/ProductSalesStock";
+import { AvailabilityCapacityCard } from "./AvailabilityCapacityCard";
+import { ItemSettingsDialog } from "./ItemSettingsDialog";
+import { ItemPreparationDialog } from "./ItemPreparationDialog";
 
-type StockUnit = '' | 'g' | 'kg';
-type StockDraft = {
-  tracked: boolean;
-  mode: 'shared' | 'per_variant';
-  unit: StockUnit;
-  quantity: number;
-  sizes: Record<number, number>;
-  ruleId: number;
-};
-const round2 = (value: number) => Math.round(value * 100) / 100;
-const same = (left: unknown, right: unknown) =>
-  JSON.stringify(left) === JSON.stringify(right);
-
-/** Lets the item editor persist the applied settings with its Save action. */
+/** Persists only the independent preparation draft with the product Save action. */
 export interface ItemAvailabilityPanelHandle {
   save: () => Promise<void>;
   isDirty: () => boolean;
@@ -59,8 +39,8 @@ interface Props {
   rid: number;
   itemId: number;
   item: MenuItem;
-  defaultStockUnit?: StockUnit;
   defaultLeadMinutes?: number;
+  inheritedRuleId?: number | null;
   onSaved?: () => void | Promise<void>;
   onDirtyChange?: (dirty: boolean) => void;
 }
@@ -71,112 +51,63 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
       rid,
       itemId,
       item,
-      defaultStockUnit = '',
       defaultLeadMinutes = 0,
+      inheritedRuleId,
       onSaved,
       onDirtyChange,
     },
     ref,
   ) {
-    const { t, locale, direction } = useI18n();
+    const { t, locale } = useI18n();
     const { hasAnyPermission } = usePermissions();
-    const canEdit = hasAnyPermission('menu.edit');
-    const sizeSet = item.option_sets?.[0];
-    const sizes = useMemo(
-      () =>
-        (sizeSet?.options ?? []).filter((option) => option.is_active !== false),
-      [sizeSet],
-    );
-    const weighted =
-      sizes.length > 0 &&
-      sizes.every((option) => parsePortionGrams(option.name) != null);
-    const [stock, setStock] = useState<StockDraft>(() => {
-      const unit: StockUnit =
-        item.stock_unit === 'kg'
-          ? 'kg'
-          : item.stock_unit === 'g' || item.stock_mode === 'measure'
-            ? 'g'
-            : weighted
-              ? defaultStockUnit
-              : '';
-      return {
-        tracked:
-          item.stock_quantity != null || item.stock_mode === 'per_variant',
-        mode: item.stock_mode === 'per_variant' ? 'per_variant' : 'shared',
-        unit,
-        quantity:
-          item.stock_mode === 'measure'
-            ? round2(
-                convertQuantity(item.stock_quantity ?? 0, 'g', unit || 'g'),
-              )
-            : (item.stock_quantity ?? 0),
-        sizes: Object.fromEntries(
-          sizes.map((option) => [
-            option.id,
-            unit
-              ? round2(
-                  convertQuantity(
-                    (option.stock_remaining ?? 0) *
-                      (parsePortionGrams(option.name) ?? 0),
-                    'g',
-                    unit,
-                  ),
-                )
-              : (option.stock_remaining ?? 0),
-          ]),
-        ),
-        ruleId: item.availability_rule_id ?? 0,
-      };
-    });
-    const [override, setOverride] = useState<AvailabilityOverride>(
-      item.availability_override ?? 'auto',
-    );
+    const canEdit = hasAnyPermission("menu.edit");
     const [preparation, setPreparation] = useState<ItemPreparationDraft>({
       leadMinutes: item.preparation_lead_time_minutes ?? null,
       schedule: item.preparation_schedule ?? null,
-      saleMode: item.immediate_sale_mode ?? '',
+      saleMode: item.immediate_sale_mode ?? "",
     });
-    const [saved, setSaved] = useState(() => ({
-      stock,
-      override,
-      preparation,
-    }));
-    const dirty = !same(saved, { stock, override, preparation });
-    useEffect(() => {
-      onDirtyChange?.(dirty);
-    }, [dirty, onDirtyChange]);
-    const [stockDraft, setStockDraft] = useState<StockDraft | null>(null);
-    const [statusDraft, setStatusDraft] = useState<AvailabilityOverride | null>(
-      null,
-    );
-    const [prepOpen, setPrepOpen] = useState(false);
-    const [actionsOpen, setActionsOpen] = useState(false);
-    const [capacityOpen, setCapacityOpen] = useState(false);
+    const [saved, setSaved] = useState(preparation);
+    const dirty = JSON.stringify(saved) !== JSON.stringify(preparation);
+    const [row, setRow] = useState<SaleStockRow | null>(null);
+    const [date, setDate] = useState("");
     const [rules, setRules] = useState<AvailabilityRule[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
     const [attempt, setAttempt] = useState(0);
-    const [seriesRow,setSeriesRow]=useState<SaleStockRow|null>(null);
-    const [seriesDate,setSeriesDate]=useState('');
-    const [historyOpen,setHistoryOpen]=useState(false);
+    const [prepOpen, setPrepOpen] = useState(false);
+    const [capacityOpen, setCapacityOpen] = useState(false);
     const [preview, setPreview] = useState<AvailabilityPreview | null>(null);
     const [previewFailed, setPreviewFailed] = useState(false);
-    const loadPreview = useCallback(async () => {
-      setPreviewFailed(false);
-      try {
-        setPreview(await previewItemAvailability(rid, itemId));
-      } catch {
-        setPreview(null);
-        setPreviewFailed(true);
-      }
-    }, [rid, itemId]);
+    useEffect(() => {
+      onDirtyChange?.(dirty);
+    }, [dirty, onDirtyChange]);
+    const loadPreview = useCallback(
+      async (seriesKey = "") => {
+        setPreviewFailed(false);
+        try {
+          setPreview(await previewItemAvailability(rid, itemId, seriesKey));
+        } catch {
+          setPreview(null);
+          setPreviewFailed(true);
+        }
+      },
+      [rid, itemId],
+    );
     useEffect(() => {
       let alive = true;
       setLoading(true);
       setLoadError(false);
-      Promise.all([listAvailabilityRules(rid),getSalesStock(rid,'',itemId)])
-        .then(([value,overview]) => {
-          if (alive) { setRules(value);setSeriesRow(overview.rows[0]??null);setSeriesDate(overview.series_key); }
+      Promise.all([listAvailabilityRules(rid), getSalesStock(rid, "", itemId)])
+        .then(([profiles, overview]) => {
+          if (!alive) return;
+          const current = overview.rows.find(
+            (value) => value.item.id === itemId,
+          );
+          if (!current) throw new Error("Missing product stock");
+          setRules(profiles);
+          setRow(current);
+          setDate(overview.series_key);
+          void loadPreview(current.managed ? overview.series_key : "");
         })
         .catch(() => {
           if (alive) setLoadError(true);
@@ -184,348 +115,109 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
         .finally(() => {
           if (alive) setLoading(false);
         });
-      void loadPreview();
       return () => {
         alive = false;
       };
-    }, [rid, attempt, loadPreview]);
-    const readyEligible =
-      stock.tracked && stock.mode === 'shared' && stock.unit === '';
+    }, [rid, itemId, attempt, loadPreview]);
     const save = useCallback(async () => {
       if (!canEdit || !dirty) return;
-      if (loading || loadError)
-        throw new Error(t('itemAvailabilityLoadRequired'));
-      const fields = {
-        availability_rule_id: stock.ruleId,
-        availability_override: override,
+      await updateMenuItem(rid, itemId, {
         preparation_lead_time_minutes: preparation.leadMinutes,
         preparation_schedule: preparation.schedule,
         immediate_sale_mode: preparation.saleMode,
-      };
-      if (seriesRow?.managed) {
-        await updateMenuItem(rid,itemId,{availability_rule_id:stock.ruleId,preparation_lead_time_minutes:preparation.leadMinutes,preparation_schedule:preparation.schedule,immediate_sale_mode:preparation.saleMode});
-      } else if (!stock.tracked)
-        await updateMenuItem(rid, itemId, {
-          ...fields,
-          stock_quantity: null,
-          stock_mode: '',
-          stock_unit: '',
-        });
-      else if (stock.mode === 'per_variant' && sizeSet) {
-        await Promise.all(
-          sizes.map((option) =>
-            setItemOptionStock(
-              rid,
-              sizeSet.id,
-              itemId,
-              option.id,
-              stock.unit
-                ? Math.floor(
-                    toBaseUnit(stock.sizes[option.id] ?? 0, stock.unit) /
-                      (parsePortionGrams(option.name) ?? 1),
-                  )
-                : (stock.sizes[option.id] ?? 0),
-            ),
-          ),
-        );
-        await updateMenuItem(rid, itemId, {
-          ...fields,
-          stock_quantity: null,
-          stock_mode: 'per_variant',
-          stock_unit: stock.unit,
-        });
-      } else
-        await updateMenuItem(rid, itemId, {
-          ...fields,
-          stock_quantity: stock.unit
-            ? Math.round(toBaseUnit(stock.quantity, stock.unit))
-            : stock.quantity,
-          stock_mode: stock.unit ? 'measure' : 'count',
-          stock_unit: stock.unit,
-        });
-      setSaved({ stock, override, preparation });
-      await loadPreview();
+      });
+      setSaved(preparation);
+      await loadPreview(row?.managed ? date : "");
       await onSaved?.();
     }, [
       canEdit,
       dirty,
-      loading,
-      loadError,
-      t,
-      stock,
-      override,
-      preparation,
       rid,
       itemId,
-      sizeSet,
-      sizes,
-      seriesRow,
+      preparation,
       loadPreview,
       onSaved,
+      row?.managed,
+      date,
     ]);
     useImperativeHandle(ref, () => ({ save, isDirty: () => dirty }), [
       save,
       dirty,
     ]);
-
-    const changeUnit = (unit: StockUnit) => {
-      if (!stockDraft) return;
-      const previous = stockDraft.unit;
-      const quantities = Object.fromEntries(
-        sizes.map((option) => {
-          const grams = parsePortionGrams(option.name) ?? 1;
-          const count = previous
-            ? Math.floor(
-                toBaseUnit(stockDraft.sizes[option.id] ?? 0, previous) / grams,
-              )
-            : (stockDraft.sizes[option.id] ?? 0);
-          return [
-            option.id,
-            unit ? round2(convertQuantity(count * grams, 'g', unit)) : count,
-          ];
-        }),
-      );
-      setStockDraft({
-        ...stockDraft,
-        unit,
-        sizes: quantities,
-        quantity:
-          previous && unit
-            ? round2(convertQuantity(stockDraft.quantity, previous, unit))
-            : previous === unit
-              ? stockDraft.quantity
-              : 0,
-      });
-    };
-    const stockValid =
-      stockDraft != null &&
-      (!stockDraft.tracked ||
-        (stockDraft.mode === 'shared'
-          ? [stockDraft.quantity]
-          : sizes.map((option) => stockDraft.sizes[option.id] ?? 0)
-        ).every(
-          (value) =>
-            Number.isFinite(value) &&
-            value >= 0 &&
-            (stockDraft.unit !== '' || Number.isSafeInteger(value)),
-        ));
-    const stockDisablesReady =
-      stockDraft &&
-      (!stockDraft.tracked ||
-        stockDraft.mode !== 'shared' ||
-        stockDraft.unit !== '') &&
-      preparation.saleMode !== '';
-    const appliedStockChanged =
-      !same(saved.stock, stock) || saved.override !== override;
-    const status =
-      override === 'force_available'
-        ? 'available'
-        : override === 'force_sold_out'
-          ? 'sold_out'
-          : appliedStockChanged
-            ? 'pending'
-            : (preview?.state ?? 'unknown');
-    const stateLabel = t(
-      status === 'available'
-        ? 'availabilityStateAvailable'
-        : status === 'low'
-          ? 'availabilityStateLow'
-          : status === 'sold_out'
-            ? 'availabilityStateSoldOut'
-            : status === 'hidden'
-              ? 'availabilityStateHidden'
-              : status === 'pending'
-                ? 'itemStockRecalculate'
-                : previewFailed
-                  ? 'availabilityPreviewUnavailableShort'
-                  : 'availabilityComputing',
-    );
-    const modes: { value: AvailabilityOverride; key: string }[] = [
-      { value: 'auto', key: 'availabilityOverrideAuto' },
-      { value: 'force_available', key: 'availabilityOverrideForceAvailable' },
-      { value: 'force_sold_out', key: 'availabilityOverrideForceSoldOut' },
-    ];
-    const unitLabel = stock.unit || t('availabilityPortions');
-    const quantity = stock.tracked
-      ? stock.mode === 'per_variant'
-        ? t('itemStockBySize')
-        : `${new Intl.NumberFormat(locale).format(stock.quantity)} ${unitLabel}`
-      : appliedStockChanged || !preview
-        ? '—'
-        : preview.unlimited
-          ? '∞'
-          : String(preview.count ?? preview.buildable ?? '—');
-    const editStock = () => {
-      setActionsOpen(false);
-      setStockDraft(structuredClone(stock));
-    };
-
-    if (loading) return <p role="status">{t('loading')}</p>;
-    if (loadError)
+    const readyEligible =
+      !!row &&
+      !row.item.stock_from_recipe &&
+      !row.config?.stock_from_recipe &&
+      (row.config?.mode ||
+        row.item.stock_mode ||
+        (row.item.stock_quantity != null ? "count" : "")) === "count";
+    if (loading) return <p role="status">{t("loading")}</p>;
+    if (loadError || !row)
       return (
         <div role="alert">
-          <p>{t('itemAvailabilityLoadRequired')}</p>
+          <p>{t("itemAvailabilityLoadRequired")}</p>
           <button
             type="button"
             className="item-settings-link"
             onClick={() => setAttempt((value) => value + 1)}
           >
-            {t('retry')}
+            {t("retry")}
           </button>
         </div>
       );
     return (
       <div className="item-fulfillment-settings">
-        {seriesRow?.managed ? <><ProductSalesStock rid={rid} date={seriesDate} row={seriesRow} onUpdate={setSeriesRow}/>
-        <label className="block text-sm space-y-2">{t('availabilityManageRules')}<select className="input" disabled={!canEdit} value={stock.ruleId} onChange={e=>setStock(prev=>({...prev,ruleId:Number(e.target.value)}))}><option value={0}>{t('none')}</option>{rules.map(rule=><option key={rule.id} value={rule.id}>{rule.name}</option>)}</select></label></> : <>
-        <button type="button" className="item-settings-link" onClick={()=>setHistoryOpen(!historyOpen)}>{t('saleStockHistory')}</button>
-        {historyOpen&&<StockHistory rid={rid} itemId={itemId}/>}
-        <div className="item-stock-actions">
-          <Popover.Root open={actionsOpen} onOpenChange={setActionsOpen}>
-            <Popover.Trigger asChild>
-              <button type="button" className="item-settings-link">
-                {t('actions')}
-                <ChevronDown size={18} />
-              </button>
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Content
-                dir={direction}
-                align="end"
-                sideOffset={8}
-                className="item-editor item-settings-popover item-settings-menu"
-              >
-                <button type="button" disabled={!canEdit} onClick={editStock}>
-                  {t('itemStockTracking')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActionsOpen(false);
-                    setCapacityOpen(true);
-                  }}
-                >
-                  {t('itemStockViewCalculation')}
-                </button>
-                <Link href={`/${rid}/settings/stock/availability`}>
-                  {t('availabilityManageRules')}
-                </Link>
-              </Popover.Content>
-            </Popover.Portal>
-          </Popover.Root>
-        </div>
-        <table className="item-stock-table">
-          <thead>
-            <tr>
-              <th>{t('itemStockArticle')}</th>
-              <th>{t('itemStockQuantity')}</th>
-              <th>{t('itemStockStatus')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>
-                {item.name}
-                <span>
-                  {t(
-                    stock.tracked
-                      ? stock.mode === 'per_variant'
-                        ? 'itemStockBySize'
-                        : 'itemStockCounted'
-                      : 'itemStockRecipe',
-                  )}
-                </span>
-              </td>
-              <td>
-                <button
-                  type="button"
-                  className="item-stock-quantity"
-                  disabled={!canEdit}
-                  onClick={editStock}
-                >
-                  {quantity}
-                </button>
-              </td>
-              <td>
-                <Popover.Root
-                  open={statusDraft !== null}
-                  onOpenChange={(open) =>
-                    setStatusDraft(open ? override : null)
-                  }
-                >
-                  <Popover.Trigger asChild>
-                    <button
-                      type="button"
-                      className="item-stock-status"
-                      data-state-tone={status}
-                      disabled={!canEdit}
-                      aria-label={`${t('itemStockStatus')}: ${stateLabel}`}
-                    >
-                      {stateLabel}
-                      <ChevronDown size={16} />
-                    </button>
-                  </Popover.Trigger>
-                  <Popover.Portal>
-                    <Popover.Content
-                      dir={direction}
-                      align="end"
-                      sideOffset={8}
-                      className="item-editor item-settings-popover"
-                      onInteractOutside={() => setStatusDraft(null)}
-                    >
-                      <div role="radiogroup" aria-label={t('itemStockStatus')}>
-                        {modes.map((mode) => (
-                          <label key={mode.value} className="item-stock-choice selection-row">
-                            <input
-                              type="radio"
-                              name="availability-status"
-                              checked={statusDraft === mode.value}
-                              onChange={() => setStatusDraft(mode.value)}
-                            />
-                            <span>
-                              {t(mode.key)}
-                              <small>{t(`${mode.key}Desc`)}</small>
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                      <div className="item-settings-popover-footer">
-                        <button
-                          type="button"
-                          className="item-settings-secondary"
-                          onClick={() => setStatusDraft(null)}
-                        >
-                          {t('cancel')}
-                        </button>
-                        <button
-                          type="button"
-                          className="item-settings-primary"
-                          onClick={() => {
-                            setOverride(statusDraft!);
-                            setStatusDraft(null);
-                          }}
-                        >
-                          {t('apply')}
-                        </button>
-                      </div>
-                    </Popover.Content>
-                  </Popover.Portal>
-                </Popover.Root>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        </>}
+        <ProductSalesStock
+          rid={rid}
+          date={date}
+          row={row}
+          onUpdate={(current) => {
+            setRow(current);
+            void loadPreview(current.managed ? date : "");
+          }}
+          ruleSelection={{
+            value: row.item.availability_rule_id ?? 0,
+            options: rules,
+            inheritedRuleId: inheritedRuleId ?? undefined,
+            onSaved: (ruleId) =>
+              setRow((current) =>
+                current
+                  ? {
+                      ...current,
+                      item: {
+                        ...current.item,
+                        availability_rule_id: ruleId || null,
+                      },
+                    }
+                  : current,
+              ),
+          }}
+        />
+        <details className="py-3 text-sm">
+          <summary className="cursor-pointer">{t("actions")}</summary>
+          <div className="flex flex-wrap gap-4 py-2">
+            <button
+              type="button"
+              className="item-settings-link"
+              onClick={() => setCapacityOpen(true)}
+            >
+              {t("itemStockViewCalculation")}
+            </button>
+            <Link href={`/${rid}/settings/stock/availability`}>
+              {t("availabilityManageRules")}
+            </Link>
+          </div>
+        </details>
         <section className="item-execution-section">
           <h3>
             <span>
               <Box size={24} />
             </span>
-            {t('itemPrepSection')}
+            {t("itemPrepSection")}
           </h3>
           <div className="item-settings-row item-settings-row-plain item-preparation-row">
             <div>
-              <h4>{t('itemPrepTitle')}</h4>
+              <h4>{t("itemPrepTitle")}</h4>
               <div className="item-preparation-summary">
                 {preparationSummary(
                   preparation,
@@ -547,7 +239,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
               className="item-settings-link"
               onClick={() => setPrepOpen(true)}
             >
-              {t('edit')}
+              {t("edit")}
             </button>
           </div>
         </section>
@@ -565,7 +257,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
         )}
         {capacityOpen && (
           <ItemSettingsDialog
-            title={t('itemStockViewCalculation')}
+            title={t("itemStockViewCalculation")}
             onClose={() => setCapacityOpen(false)}
             onApply={() => setCapacityOpen(false)}
           >
@@ -574,158 +266,12 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
               failed={previewFailed}
             />
             <p className="item-settings-footnote">
-              {t('itemStockSavedCalculation')}
+              {t("itemStockSavedCalculation")}
             </p>
-          </ItemSettingsDialog>
-        )}
-        {stockDraft && (
-          <ItemSettingsDialog
-            title={t('itemStockTracking')}
-            description={t('itemStockDescription')}
-            onClose={() => setStockDraft(null)}
-            applyDisabled={!stockValid}
-            onApply={() => {
-              setStock(stockDraft);
-              if (stockDisablesReady)
-                setPreparation({ ...preparation, saleMode: '' });
-              setStockDraft(null);
-            }}
-          >
-            <div className="item-settings-stack">
-              <label>
-                {t('itemStockSource')}
-                <select
-                  value={stockDraft.tracked ? 'count' : 'recipe'}
-                  onChange={(event) =>
-                    setStockDraft({
-                      ...stockDraft,
-                      tracked: event.target.value === 'count',
-                    })
-                  }
-                >
-                  <option value="recipe">{t('itemStockRecipe')}</option>
-                  <option value="count">{t('itemStockCounted')}</option>
-                </select>
-              </label>
-              {stockDraft.tracked && (
-                <>
-                  {sizes.length > 0 && (
-                    <label>
-                      {t('itemStockTrackingMode')}
-                      <select
-                        value={stockDraft.mode}
-                        onChange={(event) =>
-                          setStockDraft({
-                            ...stockDraft,
-                            mode: event.target.value as StockDraft['mode'],
-                          })
-                        }
-                      >
-                        <option value="shared">{t('itemStockShared')}</option>
-                        <option value="per_variant">
-                          {t('itemStockBySize')}
-                        </option>
-                      </select>
-                    </label>
-                  )}
-                  {(weighted || stockDraft.unit) && (
-                    <label>
-                      {t('stockUnit')}
-                      <select
-                        value={stockDraft.unit}
-                        onChange={(event) =>
-                          changeUnit(event.target.value as StockUnit)
-                        }
-                      >
-                        <option value="">{t('availabilityPortions')}</option>
-                        <option value="g">g</option>
-                        <option value="kg">kg</option>
-                      </select>
-                    </label>
-                  )}
-                  <div className="item-stock-edit-table">
-                    {(stockDraft.mode === 'per_variant'
-                      ? sizes.map((option) => ({
-                          id: option.id,
-                          name: option.name,
-                          value: stockDraft.sizes[option.id] ?? 0,
-                        }))
-                      : [
-                          {
-                            id: 0,
-                            name: t('itemStockQuantity'),
-                            value: stockDraft.quantity,
-                          },
-                        ]
-                    ).map((row) => (
-                      <label key={row.id}>
-                        {row.name}
-                        <span>
-                          <input
-                            type="number"
-                            min={0}
-                            step={stockDraft.unit ? 'any' : 1}
-                            value={Number.isNaN(row.value) ? '' : row.value}
-                            onChange={(event) => {
-                              const value =
-                                event.target.value === ''
-                                  ? NaN
-                                  : Number(event.target.value);
-                              setStockDraft(
-                                row.id === 0
-                                  ? { ...stockDraft, quantity: value }
-                                  : {
-                                      ...stockDraft,
-                                      sizes: {
-                                        ...stockDraft.sizes,
-                                        [row.id]: value,
-                                      },
-                                    },
-                              );
-                            }}
-                          />
-                          <span>
-                            {stockDraft.unit || t('availabilityPortions')}
-                          </span>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </>
-              )}
-              <label>
-                {t('availabilityRuleField')}
-                <select
-                  value={stockDraft.ruleId}
-                  onChange={(event) =>
-                    setStockDraft({
-                      ...stockDraft,
-                      ruleId: Number(event.target.value),
-                    })
-                  }
-                >
-                  <option value={0}>{t('itemStockDefaultRule')}</option>
-                  {rules.map((rule) => (
-                    <option key={rule.id} value={rule.id}>
-                      {rule.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <p className="item-settings-description">
-                {t('availabilityRuleHelp')}
-              </p>
-              {stockDisablesReady && (
-                <p className="item-settings-notice" role="status">
-                  {t('itemStockDisablesReady')}
-                </p>
-              )}
-            </div>
           </ItemSettingsDialog>
         )}
       </div>
     );
   },
 );
-
 export default ItemAvailabilityPanel;

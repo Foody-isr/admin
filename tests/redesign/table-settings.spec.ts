@@ -6,7 +6,7 @@ async function install(page: Page, options: { locale?: string; permissions?: str
   const fixture = createFixture(fixtureOptions);
   const settings = { floor_plan_color_indicators: true, table_in_service_color: '#54D6A1', table_yellow_after_minutes: 30, table_red_after_minutes: 60 };
   const makeSection = (id: number, name: string, count: number) => ({ id, name, restaurant_id: 1, sort_order: id, created_at: '2026-10-01', updated_at: '2026-10-01', tables: Array.from({ length: count }, (_, i) => ({ id: id * 100 + i, section_id: id, name: `${name} ${i + 1}`, active: false, seats: 4, code: `synthetic-${id}-${i}` })) });
-  const control = { settings, sections: options.empty ? [] : [makeSection(1, 'Terrasse • מרפסת — espace du jardin et grandes tablées familiales', 3), makeSection(2, 'Bar', 0)], settingsReads: 0, sectionReads: 0, gate: null as Promise<void> | null, partialCreate: false };
+  const control = { settings, settingsResponse: null as Record<string, unknown> | null, sections: options.empty ? [] : [makeSection(1, 'Terrasse • מרפסת — espace du jardin et grandes tablées familiales', 3), makeSection(2, 'Bar', 0)], settingsReads: 0, sectionReads: 0, gate: null as Promise<void> | null, partialCreate: false };
   const faults = { settingsLoad: 0, settingsSave: 0, sectionsLoad: 0, sectionWrite: 0, afterWriteLoad: 0 };
   const writes: { path: string; method: string; body: any; restaurant?: string }[] = [];
   await page.addInitScript(({ locale }) => {
@@ -24,7 +24,7 @@ async function install(page: Page, options: { locale?: string; permissions?: str
       if (method === 'GET') { control.settingsReads++; return consume('settingsLoad') ? fail() : send({ settings: control.settings }); }
       writes.push({ path, method, body, restaurant }); if (control.gate) await control.gate;
       if (consume('settingsSave')) return fail();
-      Object.assign(control.settings, body); control.settings.table_in_service_color = control.settings.table_in_service_color.toUpperCase(); return send({ settings: control.settings });
+      Object.assign(control.settings, body); control.settings.table_in_service_color = control.settings.table_in_service_color.toUpperCase(); return send({ settings: control.settingsResponse ?? control.settings });
     }
     if (/\/restaurants\/\d+\/sections(?:\/\d+)?$/.test(path)) {
       if (method === 'GET') { control.sectionReads++; return consume('sectionsLoad') ? fail() : send({ sections: control.sections }); }
@@ -40,7 +40,10 @@ async function install(page: Page, options: { locale?: string; permissions?: str
     const result = fixture.response(request.url(), method, body, Number(restaurant) || 1);
     return send(result.json ?? {}, result.status ?? 200);
   });
-  await page.route('**/*', route => ['localhost', '127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
+  await page.route('**/*', route => {
+    const url = new URL(route.request().url());
+    return ['localhost', '127.0.0.1'].includes(url.hostname) || url.pathname.startsWith('/api/v1/') ? route.fallback() : route.abort();
+  });
   return { fixture, control, faults, writes };
 }
 const save = (page: Page) => page.getByRole('button', { name: 'Enregistrer les modifications', exact: true }).last();
@@ -85,6 +88,18 @@ test('table indicators validate the hex field, retry errors and serialize change
   await save(page).evaluate((button: HTMLButtonElement) => { button.click(); button.click(); }); await expect(hex(page)).toHaveJSProperty('readOnly', true); await expect(page.getByRole('switch')).toBeDisabled(); release(); state.control.gate = null;
   await expect(page.locator('main [role=alert]')).toBeVisible(); expect(await guarded(page)).toBe(true); await expect(hex(page)).toHaveValue('#aabbcc');
   await save(page).click(); await expect(notice(page)).toContainText('Enregistré'); await expect(hex(page)).toHaveValue('#AABBCC'); expect(state.writes).toHaveLength(2); expect(await guarded(page)).toBe(false);
+});
+
+for (const lost of ['missing threshold', 'old threshold'] as const) test(`table indicators retain the draft when a successful response has a ${lost}`, async ({ page }) => {
+  const state = await install(page); await page.goto('/1/restaurant/table-status'); await yellow(page).fill('45');
+  const { table_yellow_after_minutes, ...others } = state.control.settings;
+  state.control.settingsResponse = lost === 'missing threshold' ? others : { ...others, table_yellow_after_minutes };
+  await save(page).click();
+  await expect(page.locator('main [role=alert]')).toBeVisible();
+  await expect(yellow(page)).toHaveValue('45'); await expect(save(page)).toBeEnabled(); expect(await guarded(page)).toBe(true); expect(state.writes).toHaveLength(1);
+  state.control.settingsResponse = null; await save(page).click();
+  await expect(notice(page)).toContainText('Enregistré'); expect(await guarded(page)).toBe(false); expect(state.writes).toHaveLength(2);
+  expect(state.writes[1].body).toEqual({ table_yellow_after_minutes: 45 });
 });
 
 test('table indicators protect navigation, reset and interface language changes', async ({ page }) => {

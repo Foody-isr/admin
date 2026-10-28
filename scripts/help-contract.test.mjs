@@ -43,6 +43,41 @@ test('invalid comparison refs fail closed',t=>{const f=fixture(t);assert.ok(chec
 
 test('local-only applications can validate without a Git repository',t=>{const f=fixture(t);fs.rmSync(path.join(f.root,'.git'),{recursive:true,force:true});assert.deepEqual(checkContract(f.root,f.root),[]);});
 
+function migrationFixture(t) {
+ const f=fixture(t);
+ f.contract.service='foodyserver';
+ f.write('internal/support/corpus.json','{}');
+ f.write('docs/help/catalog/public-corpus.json','{}');
+ f.contract.sources['internal/support/corpus.json']={sha256:hash('{}'),features:['example']};
+ f.write('docs/help/catalog/features.json',[{id:'example',selectors:{foodyserver:['migrations/280_example.sql']}}]);
+ f.save();
+ return f;
+}
+test('selected SQL migration hashes, additions and deletions are checked without admitting other SQL',t=>{
+ const f=migrationFixture(t), file='migrations/280_example.sql', text='CREATE TABLE synthetic_scope (id bigint);\n';
+ f.write(file,text);f.contract.sources[file]={sha256:hash(text),features:['example']};
+ f.write('migrations/001_unselected.sql','CREATE TABLE synthetic_other (id bigint);\n');
+ f.write('migrations/280_example.sql.gz','Not source SQL.\n');
+ f.save();assert.deepEqual(checkContract(f.root,f.root),[]);
+ f.write(file,'ALTER TABLE synthetic_scope ADD COLUMN reviewed boolean;\n');
+ assert.ok(checkContract(f.root,f.root).some(error=>error.includes(file+': source changed')));
+ f.write(file,text);delete f.contract.sources[file];f.save();
+ assert.ok(checkContract(f.root,f.root).some(error=>error.includes(file+': new source')));
+ f.contract.sources[file]={sha256:hash(text),features:['example']};f.save();fs.unlinkSync(path.join(f.root,file));
+ assert.ok(checkContract(f.root,f.root).some(error=>error.includes(file+': deleted source')));
+});
+test('a newly selected SQL migration still requires all translated behavior updates',t=>{
+ const f=migrationFixture(t), file='migrations/280_example.sql', text='CREATE TABLE synthetic_scope (id bigint);\n';
+ f.git('add','.');f.git('commit','-qm','migration footprint baseline');f.base=f.git('rev-parse','HEAD');
+ f.write(file,text);f.contract.sources[file]={sha256:hash(text),features:['example']};f.save();
+ assert.equal(checkContract(f.root,f.root,f.base).filter(error=>error.includes('guide update')).length,3);
+ for(const lang of ['en','fr','he']) {
+  const translation=f.release.articles['example/guide'].translations[lang], body='migration guide '+lang;
+  f.write(translation.path,body);translation.sha256=hash(body);
+ }
+ f.save();assert.deepEqual(checkContract(f.root,f.root,f.base),[]);
+});
+
 function sharedFixture(t) {
  const f=fixture(t), source='src/app/example/page.tsx';
  const ids=['pos-behavior','google-account-setup','delivery-dispatch'];

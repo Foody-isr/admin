@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { deriveOrderCapabilities, type PrimaryAction } from "@/lib/orders/order-actions";
+import { deriveOrderCapabilities, orderHandoffKind, type PrimaryAction } from "@/lib/orders/order-actions";
 import type { Order } from "@/lib/api";
 
 const SERVER_STATUSES = [
@@ -333,5 +333,22 @@ test("never throws, whatever the combination", () => {
         }
       }
     }
+  }
+});
+
+// Physical handoff wording never promises to close a financial check.
+test("handoff confirmation names service, customer pickup or delivery by order type", () => {
+  assert.equal(orderHandoffKind("dine_in"), "service");
+  assert.equal(orderHandoffKind("pickup"), "pickup");
+  assert.equal(orderHandoffKind("delivery"), "delivery");
+});
+
+test("handoff shortcut keeps weight holds, partial balances and refunded payments blocked", () => {
+  for (const over of [
+    { settlement_status: "held", payment_status: "paid" },
+    { payment_status: "partially_paid", balance_due: 20 },
+    { payment_status: "refunded" },
+  ] as Partial<Order>[]) {
+    assert.equal(deriveOrderCapabilities(makeOrder({ status: "in_kitchen", ...over }), OWNER).canCloseOrder, false);
   }
 });

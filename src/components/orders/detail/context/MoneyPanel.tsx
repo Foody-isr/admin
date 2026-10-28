@@ -21,6 +21,8 @@ import { formatMoney } from '@/lib/format-money';
 import { useCurrency } from '@/lib/i18n';
 import {
   displayedPaymentStatus as getDisplayedPaymentStatus,
+  lifecycleFinancialStateKnown,
+  lifecycleCollectionAllowed,
   localizePaymentStatus,
 } from '@/lib/orders/status-presentation';
 import { localizePaymentMethod, paymentReference, settledPaymentMethod } from '@/lib/orders/payment';
@@ -51,6 +53,8 @@ export function MoneyPanel({
   t: (k: string) => string;
 }) {
   const { symbol } = useCurrency();
+  const financialKnown = lifecycleFinancialStateKnown(order);
+  const collectionAllowed = lifecycleCollectionAllowed(order);
 
   // Payment link, for orders awaiting online payment. Regenerated on demand
   // rather than stored, so staff can re-share it any time.
@@ -77,6 +81,7 @@ export function MoneyPanel({
   }, [order.id]);
 
   const fetchPayLink = async () => {
+    if (!collectionAllowed) return;
     setPayLinkLoading(true);
     setPayLinkError(null);
     try {
@@ -102,6 +107,7 @@ export function MoneyPanel({
   };
 
   const generateBalanceLink = async () => {
+    if (!collectionAllowed) return;
     setBalanceLinkLoading(true);
     setBalanceLinkError(null);
     try {
@@ -223,7 +229,7 @@ export function MoneyPanel({
           </div>
 
           <h3 id={`order-${order.id}-payment-summary`}>{t('permDomain_payments')}</h3>
-          <PaymentAdjustments key={`${order.restaurant_id}:${order.id}`} order={order} />
+          {financialKnown && <PaymentAdjustments key={`${order.restaurant_id}:${order.id}`} order={order} />}
           <div className={styles.paymentHead}>
             <div className={styles.paymentMethod}>
               {settledPaymentMethod(order).toLowerCase() === 'cash' ? (
@@ -347,7 +353,7 @@ export function MoneyPanel({
                 {/* Keep the supplement controls on one compact receipt row.
                     The URL remains available to copy/share without adding a
                     nested card that can overflow the fixed context column. */}
-                {hasBalanceDue && (
+                {collectionAllowed && hasBalanceDue && (
                   <div className="mt-1 border-t border-[color-mix(in_oklab,var(--warning-500)_24%,var(--line))] pt-1.5">
                     {balanceLink ? (
                       <div className="flex items-center justify-between gap-2" aria-live="polite">
@@ -423,7 +429,7 @@ export function MoneyPanel({
 
           {/* Payment link — for orders awaiting online payment. Lets staff
               re-fetch and re-share the link any time. */}
-          {!isCancelled && order.payment_status === 'pending' && (
+          {collectionAllowed && !isCancelled && order.payment_status === 'pending' && (
             <div className="mt-[var(--s-2)] flex flex-col gap-[var(--s-2)] border-t border-[var(--line)] pt-[var(--s-3)]">
               <span className="flex items-center gap-1.5 text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
                 <LinkIcon className="size-3.5" /> {t('paymentLink')}

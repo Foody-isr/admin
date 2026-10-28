@@ -1,0 +1,32 @@
+{
+  "files": [
+    {
+      "path": "src/components/settings/POSSettingsWorkspace.tsx",
+      "sha256": "9f543e3c5148fa19bb404d8b454a8eb2f363ef9a17c47684f496939de309b93f",
+      "baseSha256": "3b54464fcc3eb81c40caf652544a84351a855c0381e31190fac9a4127fe56d99",
+      "features": [
+        "order-types",
+        "pos-behavior"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The exact diff against origin/develop changes only deletion from the Admin mode-profile editor: an explicit pending state, restoration of that profile's edited draft, and return to the list after the existing server-confirmed Save. Fulfillment catalog/default/prompt controls and POS runtime item, course, open-check and payment behavior are unchanged. The pos-service-modes procedure receives actual French, Hebrew and English updates and is not exempted."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "858e99bae56e83175bb40b50d0193ed3325f7a8d779645906b0dab58a6978b06",
+      "baseSha256": "7ee59279b154c841957fd096a4e5bb53a82e80f00a0e384ca11e460effc00de3",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The exact reviewed source diff adds only the three Admin mode-editor pending-deletion, explanation and undo labels in French, Hebrew and English. It changes no existing translation or customer, catalog, dispatch, Google, website, POS runtime, WhatsApp or shared-runtime control. The actual Admin mode-profile deletion workflow is documented under pos-service-modes and remains outside this scoped decision."
+    }
+  ]
+}

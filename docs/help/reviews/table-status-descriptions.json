@@ -1,0 +1,22 @@
+{
+  "review": "The seven visible TableStatus description keys are corrected in French, Hebrew and English, for 21 changed values. The existing floor-plans#service-time-and-state procedures were reviewed in full and remain compatible with the same service/session clock, occupancy and distinct payment/checkout states. No merchant action or procedure changes. UI evidence asserts source values; it does not claim authenticated browser acceptance of every locale. The previous three ClockHint values remain byte-identical.",
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "841dcf01d9854dd4392acf432179c439d07c68a62f0ccffc87a6785c5430f9f9",
+      "baseSha256": "1964d81c61276c080c050a5064c7470d3fd44729c92426a8daee32505231a64a",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The visible table-status introduction, occupied-colour title and hint, time-toggle description and Free/Occupied/To settle explanations change in all three languages. They correct descriptions of existing service and checkout behavior without changing timer, state, palette, threshold, save, permission or recovery logic. Customer profiles, menus/groups, delivery, Google setup, website design, POS behavior settings, WhatsApp and product-photo strings and procedures are unchanged. This review covers only those eight classified public features; the 21 visible table-status corrections are explicitly reviewed against the compatible existing floor-plan guide, not waived globally."
+    }
+  ]
+}

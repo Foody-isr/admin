@@ -124,3 +124,24 @@ test("all menu roles use one style reference and follow a later site default cha
     "var(--site-default-menu-background)",
   );
 });
+
+
+test("menu tabs and category text have independent colors, defaults and resets", () => {
+  const style = { ...base, menu: { menu_text: "#fae4af", category_text: "#778899" } };
+  const colors = resolveSiteMenuColors(style);
+  assert.equal(colors.menu_text, "#fae4af");
+  assert.equal(colors.category_text, "#778899");
+  assert.equal(resolveSiteMenuColors({ ...style, menu: { ...style.menu, category_text: "#112233" } }).menu_text, colors.menu_text);
+  assert.equal(resolveSiteMenuColors({ ...style, menu: { ...style.menu, menu_text: "#445566" } }).category_text, colors.category_text);
+  const automatic = resolveSiteMenuColors({ ...base, menu: { category_text: "#778899" } });
+  assert.equal(automatic.menu_text, base.paragraph);
+  assert.equal(resolveSiteMenuColors({ ...base, menu: { category_text: "#112233" } }).menu_text, automatic.menu_text);
+  assert.equal(resolveSiteMenuColors({ ...style, menu: { menu_text: "#fae4af" } }).category_text, base.paragraph);
+  assert.equal(resolveSiteMenuColors({ ...base, menu: { bar_background: "#111111" } }).menu_text, "#ffffff");
+  assert.equal(siteMenuColorVariables(style)["--site-menu-menu-text"], "#fae4af");
+  assert.equal(siteMenuColorReference("style-2")["--site-menu-menu-text"], "var(--style-2-menu-menu-text)");
+  const saved = normalizeSiteColors({ color_styles: { styles: [style] } });
+  assert.deepEqual(saved.styles[0].menu, style.menu);
+  assert.deepEqual(normalizeSiteColors({ color_styles: saved }), saved);
+  assert.deepEqual(normalizeSiteMenuColors({ menu_text: "var(--unsafe)", category_text: "#abc" }), { category_text: "#aabbcc" });
+});

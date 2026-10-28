@@ -4,7 +4,7 @@ import type { FullServiceSettings } from '../../src/lib/api';
 const modeId='4d3db2c3-b29a-4d8d-94f5-0a231d85bc22';
 const otherId='4d3db2c3-b29a-4d8d-94f5-0a231d85bc23';
 const deviceId='5d3db2c3-b29a-4d8d-94f5-0a231d85bc22';
-async function install(page:Page,locale='fr',theme='light',permissions?:string[],options:{supported?:boolean; customerInformationSupported?:boolean; savedCustomerInformationSupported?:boolean; restaurantIds?:number[]; initialPolicy?:Partial<FullServiceSettings>; beforeResponse?:(method:string)=>Promise<void>; savedPolicy?:(policy:FullServiceSettings)=>FullServiceSettings}={}) {
+async function install(page:Page,locale='fr',theme='light',permissions?:string[],options:{supported?:boolean; mergeSupported?:boolean; savedMergeSupported?:boolean; customerInformationSupported?:boolean; savedCustomerInformationSupported?:boolean; restaurantIds?:number[]; initialPolicy?:Partial<FullServiceSettings>; beforeResponse?:(method:string)=>Promise<void>; loadedPolicy?:(policy:FullServiceSettings)=>unknown; savedPolicy?:(policy:FullServiceSettings)=>FullServiceSettings}={}) {
  const fixtureOptions={library:true,permissions};
  const fixture=createFixture(fixtureOptions);
  let policy:FullServiceSettings={seating_mode:'optionalSeats',send_and_stay:false,coursing_enabled:true,courses:['Entrées','Plats principaux','Desserts'],show_held_on_kds:false,sort_cart:'course',comp_reasons:['Geste commercial'],void_reasons:['Erreur'],auto_progression:true,order_entry:{tile_size:'tall',return_to_menu:'home'},modes:[{id:modeId,name:'Service complet',device_ids:[],seating_mode:'requiredSeats',send_and_stay:true,coursing_enabled:true,auto_progression:true,tile_size:'wide',sort_cart:'seat'},{id:otherId,name:'Comptoir',device_ids:[deviceId],seating_mode:'disabled',send_and_stay:false,coursing_enabled:false,auto_progression:false,tile_size:'tall',sort_cart:'entry'}]};
@@ -17,11 +17,11 @@ async function install(page:Page,locale='fr',theme='light',permissions?:string[]
  await page.route('**/api/v1/**',async route=>{
   const r=route.request(),path=new URL(r.url()).pathname,body=r.postDataJSON()??{};
   if(path==='/api/v1/restaurants/1/settings'){
-   if(r.method()==='PUT'){expect(r.headers()['x-restaurant-id']).toBe('1');expect(Object.keys(body)).toEqual(['full_service']);policy=body.full_service;writes.push(structuredClone(policy));}
-   const returned=r.method()==='PUT'&&options.savedPolicy?options.savedPolicy(structuredClone(policy)):structuredClone(policy);
+   if(r.method()==='PUT'){expect(r.headers()['x-restaurant-id']).toBe('1');expect(Object.keys(body).sort()).toEqual(['full_service','full_service_base']);expect(body.full_service_base).toBeTruthy();policy=body.full_service;writes.push(structuredClone(policy));}
+   const returned=r.method()==='PUT'&&options.savedPolicy?options.savedPolicy(structuredClone(policy)):r.method()==='GET'&&options.loadedPolicy?options.loadedPolicy(structuredClone(policy)):structuredClone(policy);
    await options.beforeResponse?.(r.method());
    const customerSupported=r.method()==='PUT'?options.savedCustomerInformationSupported??options.customerInformationSupported:options.customerInformationSupported;
-   return route.fulfill({json:{settings:{full_service:returned,pos_custom_dining_supported:options.supported??true,...(customerSupported!==false?{pos_fulfillment_customer_information_supported:true}:{})}}});
+   return route.fulfill({json:{settings:{full_service:returned,pos_custom_dining_supported:options.supported??true,pos_settings_merge_supported:(r.method()==='PUT'?options.savedMergeSupported??options.mergeSupported:options.mergeSupported)??true,...(customerSupported!==false?{pos_fulfillment_customer_information_supported:true}:{})}}});
   }
   if(path==='/api/v1/restaurants/1/devices')return route.fulfill({json:{devices:[{id:deviceId,restaurant_id:1,kind:'tablet',display_name:'iPad Salle',system_name:'iPad',capabilities:[]}]}});
   if(path==='/api/v1/menu/item-categories')return route.fulfill({json:{categories:[{id:10,name:'Boissons'}]}});
@@ -46,6 +46,80 @@ test('mode assignment moves an actual device once and does not change restaurant
  await page.getByRole('button',{name:/Appareils attribués/}).click();await page.getByRole('checkbox',{name:'iPad Salle'}).check();await page.getByRole('button',{name:'Appliquer',exact:true}).last().click();
  expect(writes).toEqual([]);await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
  expect(writes[0].modes?.[0].device_ids).toEqual([deviceId]);expect(writes[0].modes?.[1].device_ids).toEqual([]);expect(writes[0].seating_mode).toBe('optionalSeats');
+});
+test('mode saves include the original policy snapshot and adopt concurrent POS changes to other fields',async({page})=>{
+ const requests:Record<string,FullServiceSettings>[]=[];
+ page.on('request',request=>{if(request.method()==='PUT'&&new URL(request.url()).pathname==='/api/v1/restaurants/1/settings')requests.push(request.postDataJSON());});
+ const writes=await install(page,'fr','light',undefined,{savedPolicy:policy=>({...policy,modes:policy.modes?.map(mode=>mode.id===modeId?{...mode,name:'Renamed from POS'}:{...mode,auto_progression:true})})});
+ await page.goto(`/1/settings/modes/${modeId}/courses`);
+ const coursing=page.getByRole('switch',{name:'Activer la gestion des services',exact:true});
+ await coursing.uncheck();await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page.locator('.pos-editor-head h2')).toHaveText('Renamed from POS');
+ await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true})).toBeDisabled();
+ expect(requests[0].full_service_base.modes?.[0]).toMatchObject({name:'Service complet',coursing_enabled:true});
+ expect(requests[0].full_service.modes?.[0].coursing_enabled).toBe(false);
+ await coursing.check();await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect.poll(()=>writes.length).toBe(2);
+ expect(requests[1].full_service_base.modes?.[0]).toMatchObject({name:'Renamed from POS',coursing_enabled:false});
+ expect(requests[1].full_service_base.modes?.[1].auto_progression).toBe(true);
+});
+
+test('a conflicting POS save keeps the draft and reload requires explicit discard confirmation',async({page})=>{
+ const writes=await install(page);
+ let attempts=0,changed=false;
+ let current:FullServiceSettings|undefined;
+ await page.route('**/api/v1/restaurants/1/settings',async route=>{
+  if(route.request().method()==='PUT'){
+   attempts++;const body=route.request().postDataJSON();current={...body.full_service_base,modes:body.full_service_base.modes.map((mode:Record<string,unknown>)=>mode.id===modeId?{...mode,name:'From iPad'}:mode)};changed=true;
+   return route.fulfill({status:409,json:{error:'POS settings changed; reload before saving',details:{code:'pos_settings_conflict'}}});
+  }
+  if(changed)return route.fulfill({json:{settings:{full_service:current,pos_settings_merge_supported:true,pos_custom_dining_supported:true,pos_fulfillment_customer_information_supported:true}}});
+  return route.fallback();
+ });
+ await page.goto(`/1/settings/modes/${modeId}`);
+ const name=page.getByRole('textbox',{name:'Nom',exact:true});
+ await name.fill('Local unsaved name');await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('ont changé sur un autre appareil');
+ await expect(name).toHaveValue('Local unsaved name');expect(attempts).toBe(1);expect(writes).toEqual([]);
+ await page.getByRole('button',{name:'Recharger les réglages enregistrés',exact:true}).click();
+ await expect(page.getByRole('alertdialog')).toBeVisible();
+ await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();
+ await expect(name).toHaveValue('Local unsaved name');expect(attempts).toBe(1);
+ await page.getByRole('button',{name:'Recharger les réglages enregistrés',exact:true}).click();
+ await page.getByRole('alertdialog').getByRole('button',{name:'Recharger les réglages enregistrés',exact:true}).click();
+ await expect(page.getByRole('textbox',{name:'Nom',exact:true})).toHaveValue('From iPad');
+ await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true})).toBeDisabled();expect(attempts).toBe(1);
+});
+
+test('a server without safe POS merging cannot receive an unsafe full-policy replacement',async({page})=>{
+ const writes=await install(page,'fr','light',undefined,{mergeSupported:false});await page.goto(`/1/settings/modes/${modeId}/courses`);
+ await page.getByRole('switch',{name:'Activer la gestion des services',exact:true}).uncheck();
+ await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('sauvegarde sécurisée');
+ await expect(page.getByRole('switch',{name:'Activer la gestion des services',exact:true})).not.toBeChecked();expect(writes).toEqual([]);
+});
+
+for(const malformed of ['core fields','check behavior'] as const)test(`a policy read with incomplete ${malformed} cannot expose editable defaults`,async({page})=>{
+ const writes=await install(page,'fr','light',undefined,{loadedPolicy:policy=>malformed==='core fields'?{...policy,courses:undefined}:{...policy,check_behavior:{allow_hold_fire:false}}});
+ await page.goto(`/1/settings/modes/${modeId}/courses`);
+ await expect(page.getByRole('alert')).toContainText('Impossible de charger');
+ await expect(page.getByRole('switch')).toHaveCount(0);await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true})).toBeDisabled();expect(writes).toEqual([]);
+});
+
+test('a truncated unchanged core field never confirms a changed mode flag',async({page})=>{
+ const writes=await install(page,'fr','light',undefined,{savedPolicy:policy=>({...policy,courses:undefined}) as unknown as FullServiceSettings});
+ await page.goto(`/1/settings/modes/${modeId}/courses`);const coursing=page.getByRole('switch',{name:'Activer la gestion des services',exact:true});
+ await coursing.uncheck();await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('n’a pas confirmé');await expect(coursing).not.toBeChecked();await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true})).toBeEnabled();expect(writes).toHaveLength(1);
+});
+
+for(const lost of ['mode field','merge capability'] as const)test(`a save losing its ${lost} remains unconfirmed with its draft retained`,async({page})=>{
+ const writes=await install(page,'fr','light',undefined,lost==='mode field'?{savedPolicy:policy=>({...policy,modes:policy.modes?.map(mode=>mode.id===modeId?{...mode,coursing_enabled:true}:mode)})}:{savedMergeSupported:false});
+ await page.goto(`/1/settings/modes/${modeId}/courses`);
+ await page.getByRole('switch',{name:'Activer la gestion des services',exact:true}).uncheck();
+ await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('n’a pas confirmé');
+ await expect(page.getByRole('switch',{name:'Activer la gestion des services',exact:true})).not.toBeChecked();expect(writes).toHaveLength(1);
 });
 test.describe('Square mode editor alignment',()=>{
 test.use({deviceScaleFactor:2});
@@ -113,6 +187,95 @@ test('Modes sorting, search, selection and deletion remain staged until explicit
  await list.getByRole('checkbox',{name:'Comptoir',exact:true}).check();await list.getByRole('button',{name:'Supprimer (1)',exact:true}).click();
  await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();await expect(list.locator('tbody tr')).toHaveCount(0);expect(writes).toEqual([]);
  await list.getByRole('button',{name:'Enregistrer',exact:true}).click();expect(writes[0].modes?.map(m=>m.id)).toEqual([modeId]);
+});
+async function stageEditorModeDeletion(page:Page) {
+ await page.getByRole('button',{name:'Supprimer le mode',exact:true}).click();
+ await page.getByRole('alertdialog').getByRole('button',{name:'Supprimer',exact:true}).click();
+}
+test('mode editor deletion stays explicit until Save then returns to the persisted list',async({page})=>{
+ const writes=await install(page);await page.goto(`/1/settings/modes/${modeId}`);
+ await page.getByRole('textbox',{name:'Nom',exact:true}).fill('Service QA');await stageEditorModeDeletion(page);
+ await expect(page.getByRole('status')).toContainText('Enregistrez pour confirmer la suppression');
+ await expect(page.locator('.pos-editor-head h2')).toHaveText('Service QA');
+ await expect(page.getByText('Ce mode n’existe plus.',{exact:true})).not.toBeVisible();expect(writes).toEqual([]);
+ await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page).toHaveURL('/1/settings/modes');
+ const list=page.locator('[data-pos-settings=modes]');await expect(list.locator('tbody tr')).toHaveCount(1);await expect(list.locator('tbody')).toContainText('Comptoir');
+ expect(writes).toHaveLength(1);expect(writes[0].modes?.map(mode=>mode.id)).toEqual([otherId]);expect(writes[0].seating_mode).toBe('optionalSeats');
+ await page.reload();await expect(list.locator('tbody tr')).toHaveCount(1);await expect(list.locator('tbody')).not.toContainText('Service QA');
+});
+test('undoing mode editor deletion restores its edited draft and original position without a write',async({page})=>{
+ const writes=await install(page);await page.goto(`/1/settings/modes/${modeId}`);
+ await page.getByRole('textbox',{name:'Nom',exact:true}).fill('Edited before deletion');await stageEditorModeDeletion(page);
+ await page.getByRole('button',{name:'Annuler la suppression',exact:true}).click();
+ await expect(page.getByRole('textbox',{name:'Nom',exact:true})).toHaveValue('Edited before deletion');expect(writes).toEqual([]);
+ await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true})).toBeDisabled();await expect(page).toHaveURL(`/1/settings/modes/${modeId}`);
+ expect(writes[0].modes?.map(mode=>mode.id)).toEqual([modeId,otherId]);expect(writes[0].modes?.[0]).toMatchObject({name:'Edited before deletion',device_ids:[],seating_mode:'requiredSeats',send_and_stay:true});expect(writes[0].modes?.[0]).not.toHaveProperty('check_behavior');
+});
+for(const status of [409,503])test(`failed mode editor deletion ${status} retains the pending draft for deliberate retry`,async({page})=>{
+ const writes=await install(page);let attempts=0,fail=true;
+ await page.route('**/api/v1/restaurants/1/settings',async route=>{
+  if(route.request().method()==='PUT'&&fail){attempts++;return route.fulfill({status,json:{error:'Synthetic save failure',details:{code:status===409?'pos_settings_conflict':'unavailable'}}});}
+  return route.fallback();
+ });
+ await page.goto(`/1/settings/modes/${modeId}`);await stageEditorModeDeletion(page);
+ const save=page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true});await save.click();
+ await expect(page.getByRole('alert')).toContainText(status===409?'ont changé sur un autre appareil':'Vos modifications sont conservées ici');
+ await expect(page.getByRole('status')).toContainText('Enregistrez pour confirmer la suppression');await expect(save).toBeEnabled();await expect(page).toHaveURL(`/1/settings/modes/${modeId}`);expect(attempts).toBe(1);expect(writes).toEqual([]);
+ fail=false;await save.click();await expect(page).toHaveURL('/1/settings/modes');expect(writes).toHaveLength(1);expect(writes[0].modes?.map(mode=>mode.id)).toEqual([otherId]);
+});
+test('an unconfirmed deletion response cannot close the pending mode editor',async({page})=>{
+ const writes=await install(page,'fr','light',undefined,{savedPolicy:policy=>({...policy,modes:[{id:modeId,name:'Service complet',device_ids:[],seating_mode:'requiredSeats',send_and_stay:true,coursing_enabled:true,auto_progression:true,tile_size:'wide',sort_cart:'seat'},...policy.modes??[]]})});
+ await page.goto(`/1/settings/modes/${modeId}`);await stageEditorModeDeletion(page);await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('n’a pas confirmé');await expect(page.getByRole('status')).toContainText('Enregistrez pour confirmer la suppression');await expect(page).toHaveURL(`/1/settings/modes/${modeId}`);expect(writes).toHaveLength(1);
+});
+test('a genuinely absent mode remains not found rather than a pending local deletion',async({page})=>{
+ const writes=await install(page,'fr','light',undefined,{initialPolicy:{modes:[]}});await page.goto(`/1/settings/modes/${modeId}`);
+ await expect(page.getByRole('alert')).toHaveText('Ce mode n’existe plus.');await expect(page.getByRole('button',{name:'Annuler la suppression',exact:true})).not.toBeVisible();await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true})).toBeDisabled();expect(writes).toEqual([]);
+});
+test('reload after a conflicting deletion discards its undo snapshot only after confirmation',async({page})=>{
+ let removedElsewhere=false;
+ const writes=await install(page,'fr','light',undefined,{loadedPolicy:policy=>removedElsewhere?{...policy,modes:policy.modes?.filter(mode=>mode.id!==modeId)}:policy});
+ await page.route('**/api/v1/restaurants/1/settings',route=>route.request().method()==='PUT'?route.fulfill({status:409,json:{error:'Synthetic conflict',details:{code:'pos_settings_conflict'}}}):route.fallback());
+ await page.goto(`/1/settings/modes/${modeId}`);await stageEditorModeDeletion(page);await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('ont changé sur un autre appareil');
+ const reload=page.getByRole('button',{name:'Recharger les réglages enregistrés',exact:true});await reload.click();
+ await page.getByRole('alertdialog').getByRole('button',{name:'Annuler',exact:true}).click();await expect(page.getByRole('button',{name:'Annuler la suppression',exact:true})).toBeVisible();
+ removedElsewhere=true;await reload.click();await page.getByRole('alertdialog').getByRole('button',{name:'Recharger les réglages enregistrés',exact:true}).click();
+ await expect(page.getByRole('alert')).toHaveText('Ce mode n’existe plus.');await expect(page.getByRole('button',{name:'Annuler la suppression',exact:true})).not.toBeVisible();await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true})).toBeDisabled();expect(writes).toEqual([]);
+});
+test('a pending mode deletion locks undo and dismissal until its one save is confirmed',async({page})=>{
+ let release:()=>void=()=>{};const gate=new Promise<void>(resolve=>{release=resolve;});
+ const writes=await install(page,'fr','light',undefined,{beforeResponse:async method=>{if(method==='PUT')await gate;}});
+ await page.goto(`/1/settings/modes/${modeId}`);await stageEditorModeDeletion(page);
+ await page.locator('.pos-editor-layout>aside').getByRole('link',{name:'Additions en attente',exact:true}).click();
+ await expect(page.getByRole('status')).toContainText('Enregistrez pour confirmer la suppression');expect(writes).toEqual([]);
+ await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect.poll(()=>writes.length).toBe(1);await expect(page.getByRole('button',{name:'Annuler la suppression',exact:true})).toBeDisabled();await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();
+ await page.keyboard.press('Escape');await expect(page).toHaveURL(`/1/settings/modes/${modeId}/open-checks`);await expect(page.locator('.pos-editor-head button').last()).toBeDisabled();
+ release();await expect(page).toHaveURL('/1/settings/modes');expect(writes).toHaveLength(1);
+});
+test('confirmed mode deletion keeps its title and loading state while the list navigation is slow',async({page})=>{
+ const writes=await install(page);let releaseList:()=>void=()=>{},heldList=0;
+ const listReady=new Promise<void>(resolve=>{releaseList=resolve;});
+ await page.route('**/1/settings/modes?*',async route=>{if(route.request().headers().rsc==='1'){heldList++;await listReady;}await route.continue();});
+ await page.goto(`/1/settings/modes/${modeId}`);await page.getByRole('textbox',{name:'Nom',exact:true}).fill('Slow navigation QA');await stageEditorModeDeletion(page);
+ await page.locator('.pos-editor-head').getByRole('button',{name:'Enregistrer',exact:true}).click();
+ try{
+  await expect.poll(()=>heldList).toBe(1);await expect(page.getByRole('status')).toContainText('Chargement');
+  await expect(page.locator('.pos-editor-head h2')).toHaveText('Slow navigation QA');await expect(page.getByText('Ce mode n’existe plus.',{exact:true})).not.toBeVisible();
+  await expect(page.getByRole('button',{name:'Annuler la suppression',exact:true})).not.toBeVisible();await expect(page.locator('.pos-editor-head').getByRole('button',{name:'Fermer',exact:true})).toBeDisabled();await expect(page.locator('.pos-editor-head button').last()).toBeDisabled();
+  await expect(page).toHaveURL(`/1/settings/modes/${modeId}`);expect(writes).toHaveLength(1);
+ }finally{releaseList();}
+ await expect(page).toHaveURL('/1/settings/modes');await expect(page.locator('[data-pos-settings=modes] tbody tr')).toHaveCount(1);
+});
+for(const [locale,theme,width,heading,undo]of [['en','light',390,'Deletion pending','Undo deletion'],['he','dark',320,'מחיקה ממתינה לאישור','ביטול המחיקה']]as const)test(`mode deletion pending state remains accessible ${locale} ${width}`,async({page},info)=>{
+ const writes=await install(page,locale,theme);await page.setViewportSize({width,height:844});await page.goto(`/1/settings/modes/${modeId}`);
+ await page.locator('.pos-mode-delete').click();await page.getByRole('alertdialog').getByRole('button').last().click();
+ const editor=page.locator('.pos-mode-editor');await expect(editor.getByRole('heading',{name:heading,exact:true})).toBeVisible();await expect(editor.getByRole('button',{name:undo,exact:true})).toBeEnabled();
+ await expect(editor.locator('.pos-editor-head h2')).toHaveText('Service complet');expect(await editor.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+ await page.screenshot({path:info.outputPath(`mode-delete-pending-${locale}-${width}.png`)});await editor.getByRole('button',{name:undo,exact:true}).click();await expect(editor.getByRole('textbox')).toHaveValue('Service complet');expect(writes).toEqual([]);
 });
 test('Modes keeps a failed rename draft and rejects a foreign device inventory',async({page})=>{
  const writes=await install(page);await page.route('**/restaurants/1/devices',route=>route.fulfill({json:{devices:[{id:deviceId,restaurant_id:2,display_name:'Foreign fixture device'}]}}));
