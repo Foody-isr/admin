@@ -1,0 +1,25 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/orders/courier-mode/page.tsx",
+      "sha256": "022dd04d5853a6e115dbd4150c78a60e722dd025befaab2f2caceea8ad26b65e",
+      "baseSha256": "a8425513b95d757d586c3f8d98fa9aed6ad8ad163cdea451d297bd67eb7e7d49",
+      "features": [
+        "orders-managing-orders"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The owner courier selector changes only the dedicated courier workspace documented in all three languages. The general Orders list and detail workflow, order-management permission requirements, payments and customer messages are unchanged."
+    },
+    {
+      "path": "src/lib/delivery.ts",
+      "sha256": "6b28dc003e0ff777b273b10f56907c2f6eccb9a66a3be75d5ac3591285402d7e",
+      "baseSha256": "0549e30d710adae1e5411cfce21bdbb8041f95e5071c6d9e496d46bdb662af30",
+      "features": [
+        "delivery-dispatch",
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the three request documentation comments now mention owner-selected couriers alongside superadmins. Request paths, restaurant headers, optional courier parameters, payloads, response contracts and behavior of this shared client module are byte-for-byte unchanged."
+    }
+  ]
+}

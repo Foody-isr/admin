@@ -2,15 +2,15 @@
 
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/lib/auth-context';
+import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
 import { listCouriers, type StaffMember } from '@/lib/api';
 import { Button } from '@/components/ds';
 import CourierItineraryView from '@/components/delivery/CourierItineraryView';
 import styles from '@/components/delivery/CourierItinerary.module.css';
 
-/** Selects a restaurant courier without replacing the superadmin's session. */
-function SuperadminCourierMode({ rid }: { rid: number }) {
+/** Selects a restaurant courier without replacing the owner's or superadmin's session. */
+function SelectedCourierMode({ rid }: { rid: number }) {
   const { t } = useI18n();
   const [couriers, setCouriers] = useState<StaffMember[] | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -66,13 +66,16 @@ function SuperadminCourierMode({ rid }: { rid: number }) {
   );
 }
 
-/** Reuses the courier workflow, with courier switching reserved for superadmins. */
+/** Reuses the courier workflow, with courier switching for restaurant owners and superadmins. */
 export default function CourierModePage() {
   const { restaurantId } = useParams();
-  const { user } = useAuth();
+  const { isOwner, loading } = usePermissions();
+  const { t } = useI18n();
   const rid = Number(restaurantId);
 
-  return user?.role === 'superadmin'
-    ? <SuperadminCourierMode key={rid} rid={rid} />
+  if (loading) return <p role="status" className="p-4">{t('loading')}</p>;
+
+  return isOwner
+    ? <SelectedCourierMode key={rid} rid={rid} />
     : <CourierItineraryView key={rid} rid={rid} />;
 }

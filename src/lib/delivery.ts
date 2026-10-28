@@ -113,7 +113,7 @@ export async function listAvailableDeliveries(restaurantId: number): Promise<Ord
   return data.orders ?? [];
 }
 
-/** Start the current or superadmin-selected courier’s assigned route. */
+/** Start the current or owner- or superadmin-selected courier’s assigned route. */
 export async function startRoute(restaurantId: number, routeId: number, courierId?: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
     `/api/v1/delivery/routes/${routeId}/start?${courierQuery(restaurantId, courierId)}`, restaurantId,
@@ -122,7 +122,7 @@ export async function startRoute(restaurantId: number, routeId: number, courierI
   return data.route;
 }
 
-/** Record arrival on the current or superadmin-selected courier’s route. */
+/** Record arrival on the current or owner- or superadmin-selected courier’s route. */
 export async function markArrived(restaurantId: number, routeId: number, stopId: number, courierId?: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
     `/api/v1/delivery/routes/${routeId}/stops/${stopId}/arrived?${courierQuery(restaurantId, courierId)}`, restaurantId,
@@ -131,7 +131,7 @@ export async function markArrived(restaurantId: number, routeId: number, stopId:
   return data.route;
 }
 
-/** Confirm delivery on the current or superadmin-selected courier’s route. */
+/** Confirm delivery on the current or owner- or superadmin-selected courier’s route. */
 export async function markStopDelivered(restaurantId: number, routeId: number, stopId: number, courierId?: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
     `/api/v1/delivery/routes/${routeId}/stops/${stopId}/delivered?${courierQuery(restaurantId, courierId)}`, restaurantId,
