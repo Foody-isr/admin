@@ -1,0 +1,21 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "92d6219a060a9548dd7863a48e09efff9c9586c2ab19d7e7dc9754235e3ad44d",
+      "baseSha256": "53e1f82f0838ecb1fbccb7382be536359cae74c83e08ef2919942d8c57d2e91c",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-zones",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the three translated destination-verification departure warnings change: they ask the courier to contact the dispatcher rather than edit the address. The courier and dispatch procedures cover the change. Other shared translation keys, workflows, permissions, customer profiles, menus, zones, website, POS and WhatsApp behavior are unchanged."
+    }
+  ]
+}
