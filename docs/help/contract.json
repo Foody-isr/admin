@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "cde0636c6f1a788ae3d9e324bead6d961be1f9ba",
+  "documentationRef": "1f8ace09d37666f91c9415bd81fadee25a79522b",
   "documentationRevision": "205158249d83ceaca73e57f42b7a537bf666374b4fb8a7b735183a0a73af1b46",
   "articles": {
     "getting-started/first-login": {
@@ -4830,7 +4830,7 @@
       ]
     },
     "src/components/menu/publication/AvailabilityPopover.tsx": {
-      "sha256": "6b494fd72af2e6775c9ec35d51b9933283686a7a36c06064893ae9ccad555333",
+      "sha256": "1e0ce23e7a6765fc4f2bb35cad4fa242d696f40095a1f8eda0483421f263a981",
       "features": [
         "menu-menus-and-groups"
       ]
