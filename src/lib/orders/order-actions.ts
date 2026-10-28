@@ -10,6 +10,8 @@
 // Pure. No React, no i18n, no side effects.
 
 import type { Order } from '@/lib/api';
+import { readOrderLifecycle } from './lifecycle';
+import { lifecycleCollectionAllowed, lifecycleFinancialStateKnown } from './status-presentation';
 import { isProviderSettled } from '@/lib/orders/payment';
 
 /** The order's single next step. The component maps this to a literal label. */
@@ -20,6 +22,11 @@ export type PrimaryAction =
   | 'markServed'
   | 'markOutForDelivery'
   | 'markDelivered';
+
+/** Physical handoff confirmed by the existing order endpoint, never a check closure. */
+export function orderHandoffKind(orderType: Order['order_type']): 'service' | 'pickup' | 'delivery' {
+  return orderType === 'delivery' ? 'delivery' : orderType === 'pickup' ? 'pickup' : 'service';
+}
 
 /** Statuses from which there is nothing left to advance. */
 const TERMINAL_STATUSES = ['served', 'received', 'picked_up', 'delivered', 'rejected', 'cancelled', 'refunded'];
@@ -107,6 +114,9 @@ export function deriveOrderCapabilities(
   perms: OrderPermissions,
   handlers: OrderHandlerAvailability = {},
 ): OrderCapabilities {
+  const lifecycle = readOrderLifecycle(order.lifecycle, order.id);
+  const financialKnown = lifecycleFinancialStateKnown(order);
+  const financialPayment = lifecycle.kind === 'available' ? lifecycle.value.payment.state : order.payment_status;
   const isCancelled = order.status === 'rejected' || order.status === 'cancelled';
   const isScheduled = order.status === 'scheduled';
   const isTerminal = TERMINAL_STATUSES.includes(order.status);
@@ -120,18 +130,20 @@ export function deriveOrderCapabilities(
   // owed. Treat that state like `partially_paid` so the manual cash/card/
   // transfer dialog remains available alongside the hosted payment link.
   const canTakePayment =
+    financialKnown && lifecycleCollectionAllowed(order) &&
     !isCancelled &&
-    order.payment_status !== 'refunded' &&
-    (order.payment_status !== 'paid' || (order.balance_due ?? 0) > 0.01);
+    financialPayment !== 'refunded' &&
+    (financialPayment !== 'paid' || (order.balance_due ?? 0) > 0.01);
 
-  // "Close order" moves a paid in-progress order to served/delivered. Once
-  // terminal there is nothing to do, and clicking it was a silent no-op that
-  // read as a bug.
+  // The legacy capability name gates a physical handoff confirmation. It does
+  // not close a FinancialCheck or settle a payment. Preserve its paid/balance
+  // guards until the server advertises a separate commercial-close capability.
   const canCloseOrder =
+    financialKnown &&
     !isCancelled &&
     !isHeld &&
     !isTerminal &&
-    order.payment_status === 'paid' &&
+    order.payment_status === 'paid' && financialPayment === 'paid' &&
     (order.balance_due ?? 0) <= 0.01;
   const canCancelOrder = !isCancelled && !isTerminal;
 
@@ -144,12 +156,12 @@ export function deriveOrderCapabilities(
   // orders moved real money and must be refunded, never data-corrected. The
   // server rejects these anyway; this hides an option that would always fail.
   const providerSettled = isProviderSettled(order);
-  const canCorrectPayment = !!perms.canOverride && !isCancelled && !providerSettled;
+  const canCorrectPayment = financialKnown && !!perms.canOverride && !isCancelled && !providerSettled;
 
   // Relabelling HOW a settled order was paid is a separate correction from
   // moving its status. Only meaningful once something has actually settled.
   const canCorrectPaymentMethod =
-    !!perms.canOverride && !isCancelled && !providerSettled && order.payment_status === 'paid';
+    financialKnown && !!perms.canOverride && !isCancelled && !providerSettled && order.payment_status === 'paid' && financialPayment === 'paid';
 
   // Any manager can pin an order onto the production sheet, including a dead
   // order. The server restores a dead order when it is pinned.
@@ -175,7 +187,7 @@ export function deriveOrderCapabilities(
     canDelete;
 
   return {
-    primary: primaryFor(order),
+    primary: lifecycle.kind === 'unavailable' ? null : primaryFor(order),
     awaitingWeights: isHeld,
     isCancelled,
     isScheduled,

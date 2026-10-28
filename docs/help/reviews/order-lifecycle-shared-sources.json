@@ -1,0 +1,33 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "af2ba997c7c6066709a05a350d2cc2f34ad1f2e95c580ed99d43bac1da852f46",
+      "baseSha256": "ebe0c10e6f7cf9a831524d35426bcfe6018e3b22d4f3a2ff5c2b0d14735e588a",
+      "features": [
+        "customers-profiles",
+        "menu-product-photos",
+        "payments-how-payments-work"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The only diff is an imported OrderLifecycle type and optional read-only lifecycle property on Order. Customer-profile APIs, product-photo contracts and payment-provider setup/collection endpoints are unchanged; order badges and collection guards are documented separately."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "b4b8aa97144b74e8f0b654066ce3942efb8e312c803bc62c3ede373e3bc4663b",
+      "baseSha256": "0e637df2b52026a1df607e9dbcdb646e8c90a0b18872762ebf792d81b8425bf6",
+      "features": [
+        "customers-profiles",
+        "delivery-dispatch",
+        "google-account-setup",
+        "menu-menus-and-groups",
+        "menu-product-photos",
+        "pos-behavior",
+        "website-order-design",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff only adds FR/HE/EN lifecycle, payment-state and contextual order-handoff labels. All existing strings for these scoped profile, dispatch, Google, menu, photo, POS-mode, website-design and WhatsApp controls are unchanged; the changed order controls are covered by updated guides."
+    }
+  ]
+}

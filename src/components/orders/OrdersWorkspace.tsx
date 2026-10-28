@@ -28,6 +28,7 @@ import { OrderWhatsAppComposer } from '@/components/orders/OrderWhatsAppComposer
 import { Checkbox } from '@/components/ui/checkbox';
 import { OrderDetailModal } from '@/components/orders/detail/OrderDetailModal';
 import { localizeOrderType } from '@/lib/orders/status-presentation';
+import { orderHandoffKind } from '@/lib/orders/order-actions';
 import { buildCustomFieldLabels } from '@/lib/orders/checkout-fields';
 import { usePermissions } from '@/lib/permissions-context';
 import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
@@ -198,7 +199,7 @@ export default function OrdersWorkspace() {
   // its direction from the OS rather than the app (wrong in Hebrew), and gave
   // the destructive and the harmless button identical weight.
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
-  const [pendingClose, setPendingClose] = useState<{ id: number; type: string } | null>(null);
+  const [pendingClose, setPendingClose] = useState<{ id: number; type: Order['order_type'] } | null>(null);
 
   // The URL is the source of truth for the open order. A direct link may point
   // outside today's filtered page, so load that order independently from the
@@ -234,11 +235,11 @@ export default function OrdersWorkspace() {
     setDetailLoadFailed(false);
     getOrder(rid, detailId)
       .then((order) => {
-        if (active) setDirectOrder(order);
+        if (active) setDirectOrder(previous => previous?.id === order.id && previous.restaurant_id === order.restaurant_id && previous.lifecycle !== undefined && order.lifecycle === undefined ? { ...order, lifecycle: null } : order);
       })
       .catch(() => {
         if (!active) return;
-        setDirectOrder(null);
+        setDirectOrder(previous => previous?.lifecycle !== undefined ? { ...previous, lifecycle: null } : null);
         setDetailLoadFailed(true);
       })
       .finally(() => {
@@ -246,7 +247,9 @@ export default function OrdersWorkspace() {
       });
 
     return () => { active = false; };
-  }, [rid, detailId, detailRefreshKey]);
+  // List refreshes follow mutations and WS invalidations. Refresh the detail
+  // too: mutation/WS payloads do not carry the read-only lifecycle projection.
+  }, [rid, detailId, detailRefreshKey, lastUpdated]);
 
   // First day of the week + workdays for the date picker. Loaded with the
   // restaurant; both default to "everything on" until then so the picker
@@ -435,6 +438,7 @@ export default function OrdersWorkspace() {
       setOrders([]);
       setTotal(0);
       setLoadFailed(true);
+      setDirectOrder(previous => previous?.lifecycle !== undefined ? { ...previous, lifecycle: null } : previous);
     } finally {
       if (ordersRequest.current.isCurrent(request)) setLoading(false);
     }
@@ -453,10 +457,10 @@ export default function OrdersWorkspace() {
     prevEvent.current = lastEvent;
 
     const { type, payload } = lastEvent;
-    if (!type.startsWith('order.')) return;
+    if (!type.startsWith('order.') && type !== 'payment.completed') return;
 
     const wsOrder = payload as unknown as Order;
-    if (!wsOrder?.id) return;
+    if (!wsOrder?.id || wsOrder.restaurant_id != null && wsOrder.restaurant_id !== rid) return;
     if (isProcessing(wsOrder.id)) return;
 
     // balance_due is computed and omitted by the server once it returns to
@@ -465,7 +469,12 @@ export default function OrdersWorkspace() {
     const liveOrder: Order = { ...wsOrder, balance_due: wsOrder.balance_due };
 
     if (detailId === wsOrder.id) {
-      setDirectOrder((current) => current ? { ...current, ...liveOrder } : liveOrder);
+      setDirectOrder((current) => current ? {
+        ...current, ...liveOrder,
+        // Legacy WS has no projection. Invalidate until the scoped HTTP read.
+        lifecycle: current.lifecycle !== undefined ? null : undefined,
+      } : liveOrder);
+      setDetailRefreshKey(key => key + 1);
     }
 
     // Owner deleted an order elsewhere — drop it from the list and close the
@@ -487,7 +496,7 @@ export default function OrdersWorkspace() {
     // The API applies search, dates, statuses and pagination together. A live
     // order must pass the same filters before it can enter the visible list.
     void fetchOrders(false);
-  }, [lastEvent, isProcessing, playSound, notify, t, fetchOrders, setOrders, detailId, closeOrderDetail]);
+  }, [lastEvent, isProcessing, playSound, notify, t, fetchOrders, setOrders, detailId, closeOrderDetail, rid]);
 
   // ─── Actions ──────────────────────────────────────────────────────
 
@@ -506,6 +515,7 @@ export default function OrdersWorkspace() {
     } finally {
       removeProcessingGuard(orderId);
       await fetchOrders(false);
+      if (detailId === orderId) setDetailRefreshKey(key => key + 1);
       setActionLoading(null);
     }
   };
@@ -736,6 +746,11 @@ export default function OrdersWorkspace() {
     });
     closeOrderDetail();
   };
+  const pendingHandoffKind = pendingClose ? orderHandoffKind(pendingClose.type) : 'service';
+  const handoffLabel = pendingHandoffKind === 'delivery' ? t('confirmOrderDelivery')
+    : pendingHandoffKind === 'pickup' ? t('confirmOrderPickup') : t('confirmOrderService');
+  const handoffDescription = pendingHandoffKind === 'delivery' ? t('confirmOrderDeliveryDesc')
+    : pendingHandoffKind === 'pickup' ? t('confirmOrderPickupDesc') : t('confirmOrderServiceDesc');
 
   // ─── Tab / search ─────────────────────────────────────────────────
 
@@ -1021,6 +1036,7 @@ export default function OrdersWorkspace() {
         onMarkServed={() => detailOrder && handleMarkServed(detailOrder.id)}
         onOutForDelivery={() => detailOrder && handleOutForDelivery(detailOrder.id)}
         onMarkDelivered={() => detailOrder && handleMarkDelivered(detailOrder.id)}
+        onRetry={() => setDetailRefreshKey(key => key + 1)}
         onTakePayment={() => setPaymentOpen(true)}
         onCloseOrder={() =>
           detailOrder && setPendingClose({ id: detailOrder.id, type: detailOrder.order_type })
@@ -1099,9 +1115,9 @@ export default function OrdersWorkspace() {
       <ConfirmDialog
         open={pendingClose != null}
         onOpenChange={(v) => { if (!v) setPendingClose(null); }}
-        title={t('closeOrder')}
-        description={t('closeOrderConfirm')}
-        confirmLabel={t('confirm')}
+        title={handoffLabel}
+        description={handoffDescription}
+        confirmLabel={handoffLabel}
         cancelLabel={t('cancel')}
         onConfirm={() => {
           const p = pendingClose;
