@@ -1584,3 +1584,32 @@ holds, and does not close a financial check. QR orders remain distinct.
 
 Synthetic regressions: `npx tsx --test src/lib/orders/__tests__/lifecycle*.test.ts`
 and `npx playwright test -c playwright.lifecycle.config.ts` (FR/HE/EN).
+
+
+## Exact French postal delivery coverage (local preparation)
+
+Delivery settings adds Postal codes (France), with exact five-digit strings such
+as 75016 and 01000, separately from whole-department coverage (75, 2A, 971).
+Deploy API migration 281_delivery_zone_postal_codes.sql and the matching API
+before Admin. Postal rules take precedence over other zones, with oldest-ID
+precedence for equal types. A provider-verified French postcode supplies the
+match; caller coordinates/city text cannot bypass it. Missing postal metadata
+blocks broader fallback so its fees/minimum/calendar cannot bypass a postal rule.
+Existing zones and order snapshots are not converted. Web/POS use unchanged
+server delivery decisions and do not author zone models.
+
+Local regressions: API common/delivery tests cover all three providers, exact
+coverage, country scope, leading zeros, CRUD, fee/minimum/calendar persistence,
+precedence, metadata outages and tour checks. Admin delivery-zone-state tests and
+Playwright delivery-zones.spec.ts cover FR/HE/EN form save/edit/search and the
+postal-versus-department error. Publish the qualified three-language delivery
+procedure with the compatible product release; immutable documentation pins
+require an authorized documentation commit before remote CI.
+
+
+Postal lists also accept multiline pastes, spaces and semicolons. Compatible
+postal rules for the same exact code combine their weekdays when fee, nullable
+minimum, booking mode and pickup alternative agree. Original zone records remain
+separate; incompatible settings and overlapping windows keep oldest-zone priority.
+An order address change revalidates the effective calendar even if its priority
+zone ID stays the same. No business codes, days, fees or restaurant data are seeded.

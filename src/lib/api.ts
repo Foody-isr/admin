@@ -9788,7 +9788,7 @@ export async function confirmMenuItemImage(
 
 // --- Delivery Zones ---
 
-export type DeliveryZoneType = 'polygon' | 'radius' | 'cities' | 'departments';
+export type DeliveryZoneType = 'polygon' | 'radius' | 'cities' | 'departments' | 'postal_codes';
 
 export interface DeliverySchedule {
   mode: 'customer' | 'automatic' | 'restaurant';
@@ -9798,6 +9798,7 @@ export interface DeliverySchedule {
 
 export interface DeliveryZone {
   departments?: string[];
+  postal_codes?: string[];
   schedule?: DeliverySchedule | null;
   id: number;
   restaurant_id: number;
@@ -9822,6 +9823,7 @@ export interface DeliveryZone {
 
 export interface DeliveryZoneInput {
   departments?: string[];
+  postal_codes?: string[];
   schedule?: DeliverySchedule | null;
   name: string;
   type: DeliveryZoneType;

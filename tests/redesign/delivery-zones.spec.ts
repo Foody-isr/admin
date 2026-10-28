@@ -81,3 +81,54 @@ for (const mode of ['customer','automatic','restaurant'] as const) test(`deliver
  await page.getByRole('button',{name:'Val-de-Marne et Seine-Saint-Denis',exact:true}).click();await expect(dialog(page).getByRole('combobox',{name:'Choix du créneau de livraison',exact:true})).toHaveValue(mode);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+for (const locale of ['fr','en','he'] as const) test(`delivery exact postal coverage creates and edits in ${locale}`,async({page},info)=>{
+ const state=await install(page,{country:'FR',locale});
+ const copy={fr:{add:'Ajouter une zone',name:'Nom de la zone',type:'Type de zone',codes:'Codes postaux',fee:'Frais de livraison (₪)',save:'Enregistrer'},en:{add:'Add zone',name:'Zone name',type:'Zone type',codes:'Postal codes',fee:'Delivery fee (₪)',save:'Save'},he:{add:'הוסף אזור',name:'שם האזור',type:'סוג האזור',codes:'מיקודים',fee:'דמי משלוח (₪)',save:'שמור'}}[locale];
+ await page.setViewportSize({width:locale==='he'?375:1440,height:1000});await open(page);
+ await page.getByRole('button',{name:copy.add,exact:true}).click();const form=dialog(page);
+ await form.getByRole('textbox',{name:copy.name,exact:true}).fill('Paris 16');
+ await form.getByRole('combobox',{name:copy.type,exact:true}).selectOption('postal_codes');
+ await form.getByRole('textbox',{name:copy.codes,exact:true}).fill('7501');
+ await form.getByRole('button',{name:copy.save,exact:true}).click();await expect(form.getByRole('alert')).toBeVisible();expect(state.writes).toHaveLength(0);
+ await form.getByRole('textbox',{name:copy.codes,exact:true}).fill('75016, 01000; 75016');
+ await form.getByRole('textbox',{name:copy.fee,exact:true}).fill('10');
+ await form.getByRole('button',{name:copy.save,exact:true}).click();await expect(form).toHaveCount(0);
+ expect(state.writes).toHaveLength(1);expect(state.writes[0].rid).toBe('1');expect(state.writes[0].body).toMatchObject({type:'postal_codes',postal_codes:['75016','01000'],delivery_fee:10});
+ await page.getByRole('searchbox').fill('01000');await page.getByRole('button',{name:'Paris 16',exact:true}).click();
+ await expect(dialog(page).getByRole('textbox',{name:copy.codes,exact:true})).toHaveValue('75016, 01000');
+ await page.screenshot({path:info.outputPath(`delivery-postal-${locale}.png`),animations:'disabled'});
+ await dialog(page).getByRole('textbox',{name:copy.fee,exact:true}).fill('12');await dialog(page).getByRole('button',{name:copy.save,exact:true}).click();await expect(dialog(page)).toHaveCount(0);
+ expect(state.writes[1].body).toMatchObject({type:'postal_codes',postal_codes:['75016','01000'],delivery_fee:12});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('delivery department postal confusion explains the exact postal option',async({page})=>{
+ const state=await install(page,{country:'FR'});await open(page);await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();
+ await dialog(page).getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Paris 16');
+ await dialog(page).getByRole('combobox',{name:'Type de zone',exact:true}).selectOption('departments');
+ await dialog(page).getByRole('textbox',{name:'Codes des départements',exact:true}).fill('75016');await save(page).click();
+ await expect(dialog(page).getByRole('alert')).toContainText('Choisissez Codes postaux (France)');expect(state.writes).toHaveLength(0);
+});
+
+test('delivery postal day groups accept multiline lists and reuse a code with independent fees',async({page})=>{
+ const state=await install(page,{country:'FR'});await open(page);
+ const groups=[
+  {name:'Secteur semaine',codes:'75016 75015\n01000',expected:['75016','75015','01000'],days:['lundi','mardi','mercredi','jeudi'],weekdays:[1,2,3,4],fee:'10'},
+  {name:'Secteur fin de semaine',codes:'75016 75017\n01000',expected:['75016','75017','01000'],days:['vendredi','dimanche'],weekdays:[5,0],fee:'10'},
+  {name:'Secteur tarif distinct',codes:'75001\n75002',expected:['75001','75002'],days:['vendredi','dimanche'],weekdays:[5,0],fee:'15'},
+ ];
+ for(const group of groups){
+  await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();const form=dialog(page);
+  await form.getByRole('textbox',{name:'Nom de la zone',exact:true}).fill(group.name);
+  await form.getByRole('combobox',{name:'Type de zone',exact:true}).selectOption('postal_codes');
+  const codes=form.getByRole('textbox',{name:'Codes postaux',exact:true});await expect(codes).toHaveJSProperty('tagName','TEXTAREA');await codes.fill(group.codes);await expect(codes).toHaveValue(group.codes);
+  await form.getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill(group.fee);
+  await form.getByRole('combobox',{name:'Choix du créneau de livraison',exact:true}).selectOption('customer');
+  for(const day of group.days)await form.getByRole('checkbox',{name:day,exact:true}).check();
+  await save(page).click();await expect(dialog(page)).toHaveCount(0);
+  expect(state.writes.at(-1)?.body).toMatchObject({postal_codes:group.expected,delivery_fee:Number(group.fee),schedule:{mode:'customer',windows:[{days:group.weekdays,start:'14:00',end:'18:00'}]}});
+ }
+ expect(state.writes).toHaveLength(3);
+ await page.getByRole('button',{name:'Secteur semaine',exact:true}).click();await expect(dialog(page).getByRole('textbox',{name:'Codes postaux',exact:true})).toHaveValue('75016, 75015, 01000');
+});

@@ -1,0 +1,47 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "a27371044952521b502b59eecc6774a57e6ac48dd3739b864a3e3192c4d2a279",
+      "disposition": "no-user-impact",
+      "reason": "Only the additive postal_codes zone discriminator and optional string array are introduced; customer, payment and existing API authentication, endpoint and restaurant-context contracts are unchanged. Postal-zone authoring is documented in the translated delivery-zones operation.",
+      "baseSha256": "af2ba997c7c6066709a05a350d2cc2f34ad1f2e95c580ed99d43bac1da852f46",
+      "features": [
+        "customers-profiles",
+        "payments-how-payments-work",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos"
+      ]
+    },
+    {
+      "path": "src/lib/delivery-zone-state.ts",
+      "sha256": "9b146c979795be0a56de6776d792750d25e5982eab83fe337da4369d944e55b3",
+      "disposition": "no-user-impact",
+      "reason": "Only exact postal-list parsing, draft serialization and saved-data comparison change; the translated delivery-zones procedure documents multiline pasting, deduplication and compatible day groups. Courier routing, reminders, navigation and shared runtime controls retain their existing procedures.",
+      "baseSha256": "d5cb3852ab63d011c247056cbd4769cbfb950f072195c7388a4baf2d337ca647",
+      "features": [
+        "delivery-dispatch",
+        "shared-runtime"
+      ]
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "53e1f82f0838ecb1fbccb7382be536359cae74c83e08ef2919942d8c57d2e91c",
+      "disposition": "no-user-impact",
+      "reason": "Only exact postal-zone form translations, list-paste hints and compatible-calendar guidance change. The updated delivery-zones procedure covers those additions in FR/HE/EN. Customer, menu, Google setup, website, POS and WhatsApp wording and procedures remain unchanged.",
+      "baseSha256": "b4b8aa97144b74e8f0b654066ce3942efb8e312c803bc62c3ede373e3bc4663b",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos"
+      ]
+    }
+  ]
+}
