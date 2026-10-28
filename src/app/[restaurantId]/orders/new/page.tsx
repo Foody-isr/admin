@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  getMenu, listAllItems, createOrder, ApiError,
+  getMenu, listAllItems, createOrder, ApiError, getInternalCheckoutCapabilities,
   getStaffBatchFulfillmentConfig, listGroupMemberships,
   type Menu, type MenuItem, type PaymentStatus,
   type BatchFulfillmentConfigResponse, type MenuGroupMembership,
@@ -30,6 +30,7 @@ import {
 import {
   NewOrderCheckoutDrawer, type CheckoutData, type DrawerDraftState,
 } from '@/components/orders/NewOrderCheckoutDrawer';
+import { InternalOrderPayment } from '@/components/orders/InternalOrderPayment';
 import { NewOrderComboModal } from '@/components/orders/NewOrderComboModal';
 import {
   ArrowLeftIcon, SearchIcon, PlusIcon, MinusIcon, Trash2Icon,
@@ -136,6 +137,16 @@ export default function NewOrderPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [sumitCheckoutEnabled, setSumitCheckoutEnabled] = useState(false);
+  const [cardOrder, setCardOrder] = useState<{ id: number; token: string } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setSumitCheckoutEnabled(false);
+    getInternalCheckoutCapabilities(restaurantId).then(result => {
+      if (!cancelled) setSumitCheckoutEnabled(result.enabled === true);
+    }).catch(() => { if (!cancelled) setSumitCheckoutEnabled(false); });
+    return () => { cancelled = true; };
+  }, [restaurantId]);
 
   // Category filter: 'all' shows every section, otherwise a single group id.
   const [activeSection, setActiveSection] = useState<number | 'all'>('all');
@@ -498,8 +509,9 @@ export default function NewOrderPage() {
       // Cash / card → carry the method (so an uncollected cash order still shows
       // the cash badge) and mark paid or unpaid per the "déjà encaissé ?" toggle.
       const isLink = data.paymentMethod === 'link';
-      const paymentMethod = isLink ? undefined : data.paymentMethod;
-      const paymentStatus: PaymentStatus | undefined = isLink
+      const isSumit = isLink || data.paymentMethod === 'sumit_card';
+      const paymentMethod = isSumit ? undefined : data.paymentMethod;
+      const paymentStatus: PaymentStatus | undefined = isSumit
         ? undefined
         : data.paymentCollected
           ? 'paid'
@@ -511,7 +523,8 @@ export default function NewOrderPage() {
         customer_phone: data.customerPhone.trim(),
         payment_method: paymentMethod,
         payment_status: paymentStatus,
-        payment_required: isLink,
+        payment_required: false,
+        ...(isSumit ? { internal_checkout: isLink ? 'link' as const : 'card' as const } : {}),
         force_production: data.addToProduction,
         ...(data.fulfillment.timing === 'scheduled' && data.fulfillment.scheduledFor
           ? {
@@ -580,8 +593,10 @@ export default function NewOrderPage() {
       setCheckoutOpen(false);
       setDrawerResetKey((k) => k + 1);
 
-      if (res.payment_url) {
-        setPaymentUrl(res.payment_url);
+      if (data.paymentMethod === 'sumit_card' && res.order.receipt_token) {
+        setCardOrder({ id: res.order.id, token: res.order.receipt_token });
+      } else if (res.checkout_url || res.payment_url) {
+        setPaymentUrl(res.checkout_url || res.payment_url || null);
       } else {
         router.push(`/${restaurantId}/orders/all`);
       }
@@ -611,6 +626,10 @@ export default function NewOrderPage() {
     }
   }
 
+  if (cardOrder) {
+    return <InternalOrderPayment restaurantId={restaurantId} orderId={cardOrder.id} receiptToken={cardOrder.token} onOrders={() => router.push(`/${restaurantId}/orders/all`)} />;
+  }
+
   // ─── Post-create payment-link screen ───────────────────────────────────────
   if (paymentUrl) {
     return (
@@ -622,7 +641,7 @@ export default function NewOrderPage() {
           <div className="flex flex-col items-center gap-[var(--s-2)]">
             <Badge tone="success" dot>{t('orderCreated')}</Badge>
             <h1 className="text-fs-xl font-semibold">{t('paymentLinkReady')}</h1>
-            <p className="text-fs-sm text-[var(--fg-muted)]">{t('paymentLinkHint')}</p>
+            <p className="text-fs-sm text-[var(--fg-muted)]">{t('sumitCustomerLinkHint')}</p>
           </div>
           <div className="flex w-full items-center gap-2 rounded-lg border border-[var(--line-strong)] bg-[var(--surface-2)] p-[var(--s-2)] ps-[var(--s-3)]">
             <span className="flex-1 truncate text-start text-fs-xs text-[var(--fg-muted)]">{paymentUrl}</span>
@@ -1003,6 +1022,8 @@ export default function NewOrderPage() {
       />
 
       <NewOrderCheckoutDrawer
+        sumitCheckoutEnabled={sumitCheckoutEnabled}
+        sumitCardEnabled={sumitCheckoutEnabled && hasAnyPermission('payments.manage')}
         key={drawerResetKey}
         open={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
