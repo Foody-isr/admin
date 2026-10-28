@@ -2,15 +2,16 @@
   "files": [
     {
       "path": "src/lib/api.ts",
-      "sha256": "038d515bc01c087c3aa5a8cd51888e1ac84ecb752e0c5d590ab37b9225b2ab5f",
+      "sha256": "a27371044952521b502b59eecc6774a57e6ac48dd3739b864a3e3192c4d2a279",
       "disposition": "no-user-impact",
       "reason": "Only the additive postal_codes zone discriminator and optional string array are introduced; customer, payment and existing API authentication, endpoint and restaurant-context contracts are unchanged. Postal-zone authoring is documented in the translated delivery-zones operation.",
-      "baseSha256": "9da2fad72abf162cbb82ef9375d085a38b7ba9a56358b5609c12a532d830f06b",
+      "baseSha256": "af2ba997c7c6066709a05a350d2cc2f34ad1f2e95c580ed99d43bac1da852f46",
       "features": [
         "customers-profiles",
         "payments-how-payments-work",
         "pos-payments",
-        "shared-runtime"
+        "shared-runtime",
+        "menu-product-photos"
       ]
     },
     {
@@ -26,10 +27,10 @@
     },
     {
       "path": "src/lib/i18n.tsx",
-      "sha256": "aa9813a0a4f31513dba1db9c5d909590689255651aec1634ff0c92bf562ec0f4",
+      "sha256": "53e1f82f0838ecb1fbccb7382be536359cae74c83e08ef2919942d8c57d2e91c",
       "disposition": "no-user-impact",
       "reason": "Only exact postal-zone form translations, list-paste hints and compatible-calendar guidance change. The updated delivery-zones procedure covers those additions in FR/HE/EN. Customer, menu, Google setup, website, POS and WhatsApp wording and procedures remain unchanged.",
-      "baseSha256": "182f7a8096cb8ef8990e4fcbd8602b798623c6b76213a564482e909c4512ce98",
+      "baseSha256": "b4b8aa97144b74e8f0b654066ce3942efb8e312c803bc62c3ede373e3bc4663b",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -38,7 +39,8 @@
         "website-order-design",
         "pos-behavior",
         "whatsapp",
-        "shared-runtime"
+        "shared-runtime",
+        "menu-product-photos"
       ]
     }
   ]
