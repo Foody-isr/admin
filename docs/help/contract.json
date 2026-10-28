@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "0a9d326c2a90d601590080cd508f25c2c28319f4",
-  "documentationRevision": "7a7e8b861fac72455f3bfcb23d94f3324f6030a7a0cd339aef9caf0c9fee9719",
+  "documentationRef": "df33658103b66e67065798674dc624240cf09b2c",
+  "documentationRevision": "bada38415b1baf062628060880c869fe0189ec37157f6d6875a510ee4a685f99",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -12,15 +12,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/first-login.mdx",
-          "sha256": "3bcfe403ae8cd62e1bb7c6f1392ce1210f1fe2ec07dcf8029ff0ed5a8dd9d584"
+          "sha256": "eeed9904d0ea5b65cc4e36fcb3fa5f61d712763a39a607a635dc513bea8f4c39"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/first-login.mdx",
-          "sha256": "e724445f5173966dcbc74cda358b26943662352732daffdbf1b480a6f5fd0288"
+          "sha256": "e570d95a2bfbf632365d28ec551f86371a04773a514d6a1b734dea194f7de6a5"
         },
         "he": {
           "path": "src/content/help/he/getting-started/first-login.mdx",
-          "sha256": "3afa3d9330e4518bd29b5a4d746477d25a60caf2af390f863ada1da3b0de27d3"
+          "sha256": "95c1634a5edf901fa4bb81174dc5e4e7ad475d5f133fbffc8bce467ae2b41940"
         }
       }
     },
@@ -88,15 +88,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/staff/devices-and-shifts.mdx",
-          "sha256": "0ecc29d928d179ed1cf599ad325187170bdb299f3bdd4a3f0e4c72de496132fb"
+          "sha256": "573a91fec678779d96c95b3d75ad46ce8629bae8c64967395f8426974e5899dd"
         },
         "fr": {
           "path": "src/content/help/fr/staff/devices-and-shifts.mdx",
-          "sha256": "53e86ceeedac08ec8341988d2aa58de75c32f34b6a2acbcbda56b5cb9bdbac73"
+          "sha256": "63e38583798b5a763146d6c931316dc4b93ce8c26de59ea8b96738c850f2334a"
         },
         "he": {
           "path": "src/content/help/he/staff/devices-and-shifts.mdx",
-          "sha256": "abdc19fa5dce0ab37dcaa952c312665c8003a1078e43ca59cd6880ba17ca0bdf"
+          "sha256": "983a8df0cdb747f1d12c9551eb28791d1951df633c8e149c6c6dfc159fd02714"
         }
       }
     },
@@ -715,15 +715,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "eb7f875f40546ec8b29546c303dce749eea3c48911b6765cc46130cb9a86d91c"
+          "sha256": "11f07d8f942000a40dc1d02e470bce75a2266d1e0cdcf58127617f3f9c1cb771"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "e9eccbe2461248c9b0c4d2e08b34c59aecf830feaec0bad660486c4dfac5a7e1"
+          "sha256": "82447bacba7e573da9c272a3d361738f173de4cd34f52b22c0d7fa40caa27994"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "f58f93905bd7804b66f592ee7290d28ef4c8423af43708176ce7d698084f2976"
+          "sha256": "81b5392406ccf7f74f209376533222e8658d9e33a19053302858758bce0cf1fb"
         }
       }
     },
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/courier-workspace.mdx",
-          "sha256": "e05a83d38c3dbfcfcbd536d762604fe39f99120a996cf0fc38a0e9231007bafc"
+          "sha256": "b4bbb9440f9a027c4ca409387cf124d89208b418ee6edc7fac941c36529aeb81"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/courier-workspace.mdx",
-          "sha256": "b4c42af491af2ec885c158a4fa8e83d6d2149341a991dda16c0e4e218cd94652"
+          "sha256": "5ca655ecdf555e9458af9aeb7624de98b34a0312370f1414cdbec9ea762e190f"
         },
         "he": {
           "path": "src/content/help/he/delivery/courier-workspace.mdx",
-          "sha256": "80b7cd4495178f07605d5687bbc429c706f065952bc59014027373a17bfd1e0f"
+          "sha256": "2756f3699df8608a1c95cd3d5a2d00a8cb20cd896cddea3a86df10d933648906"
         }
       }
     },
@@ -2889,7 +2889,7 @@
       ]
     },
     "src/app/[restaurantId]/orders/courier-mode/page.tsx": {
-      "sha256": "a8425513b95d757d586c3f8d98fa9aed6ad8ad163cdea451d297bd67eb7e7d49",
+      "sha256": "022dd04d5853a6e115dbd4150c78a60e722dd025befaab2f2caceea8ad26b65e",
       "features": [
         "orders-managing-orders",
         "courier"
@@ -6334,7 +6334,7 @@
       ]
     },
     "src/lib/delivery.ts": {
-      "sha256": "0549e30d710adae1e5411cfce21bdbb8041f95e5071c6d9e496d46bdb662af30",
+      "sha256": "6b28dc003e0ff777b273b10f56907c2f6eccb9a66a3be75d5ac3591285402d7e",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
