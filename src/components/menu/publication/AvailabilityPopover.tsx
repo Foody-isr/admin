@@ -146,7 +146,10 @@ function AvailabilityForm({
   const [ruleEdited, setRuleEdited] = useState(false);
   const [availabilityEdited, setAvailabilityEdited] = useState(false);
   const storedMode =
-    row.config?.mode || row.stored_mode || row.item.stock_mode || "";
+    row.config?.mode ||
+    row.stored_mode ||
+    row.item.stock_mode ||
+    (row.item.stock_quantity != null ? "count" : "");
   const recipeSource =
     row.config?.stock_from_recipe || row.item.stock_from_recipe;
   const initialMode =

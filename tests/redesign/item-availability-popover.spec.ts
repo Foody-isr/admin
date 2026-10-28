@@ -300,3 +300,14 @@ test("Articles shared availability panel fits Hebrew mobile and supports stock i
     animations: "disabled",
   });
 });
+
+
+test("legacy quantity-only stock stays on the manual choice", async ({page}) => {
+ const f=await install(page);
+ f.item.stock_mode="";
+ await f.badge.click();
+ const dialog=page.getByRole("dialog");
+ await expect(dialog.getByRole("radio",{name:"Quantité définie manuellement",exact:true})).toBeChecked();
+ await expect(dialog.getByRole("radio",{name:"Quantité calculée depuis la recette",exact:true})).not.toBeChecked();
+ expect(f.writes).toHaveLength(0);
+});
