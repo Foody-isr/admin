@@ -2,7 +2,11 @@
 
 import { useId, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { stockInputUnits, stockInputValue, convertStockInput } from "@/lib/sale-stock-input";
+import {
+  stockInputUnits,
+  stockInputValue,
+  convertStockInput,
+} from "@/lib/sale-stock-input";
 import { X } from "lucide-react";
 import type {
   AvailabilityOverride,
@@ -19,7 +23,8 @@ import { AvailabilityPill } from "@/components/menu/AvailabilityPill";
 /** Synchronizes the product rule after the stock dialog confirms persistence. */
 export interface AvailabilityRuleSelection {
   value: number;
-  options: Pick<AvailabilityRule, "id" | "name">[];
+  options: AvailabilityRule[];
+  inheritedRuleId?: number;
   onSaved: (ruleId: number) => void;
 }
 
@@ -49,7 +54,13 @@ export function AvailabilityPopover(props: Props) {
   const { t, direction } = useI18n();
   const title = useId();
   const pill = props.triggerLabel ? (
-    <Button type="button" variant="secondary" disabled={!props.canEdit || props.busy}>{props.triggerLabel}</Button>
+    <Button
+      type="button"
+      variant="secondary"
+      disabled={!props.canEdit || props.busy}
+    >
+      {props.triggerLabel}
+    </Button>
   ) : (
     <AvailabilityPill
       state={props.row.availability.availability_state as AvailabilityState}
@@ -62,7 +73,11 @@ export function AvailabilityPopover(props: Props) {
       actionLabel={t("carteAvailabilityTitle")}
     />
   );
-  if (!props.canEdit || (props.row.item.is_active === false && !props.ruleSelection)) return pill;
+  if (
+    !props.canEdit ||
+    (props.row.item.is_active === false && !props.ruleSelection)
+  )
+    return pill;
   return (
     <Dialog.Root
       modal
@@ -95,7 +110,10 @@ export function AvailabilityPopover(props: Props) {
                 {props.loading ? t("loading") : props.error}
               </p>
               {!props.loading && (
-                <Button variant="secondary" onClick={() => void props.onReload()}>
+                <Button
+                  variant="secondary"
+                  onClick={() => void props.onReload()}
+                >
                   {t("carteReloadStock")}
                 </Button>
               )}
@@ -127,7 +145,13 @@ function AvailabilityForm({
   const [ruleId, setRuleId] = useState(ruleSelection?.value ?? 0);
   const [ruleEdited, setRuleEdited] = useState(false);
   const [availabilityEdited, setAvailabilityEdited] = useState(false);
-  const storedMode = row.config?.mode || row.item.stock_mode || "";
+  const storedMode =
+    row.config?.mode ||
+    row.stored_mode ||
+    row.item.stock_mode ||
+    (row.item.stock_quantity != null ? "count" : "");
+  const recipeSource =
+    row.config?.stock_from_recipe || row.item.stock_from_recipe;
   const initialMode =
     storedMode === "measure" || storedMode === "per_variant"
       ? storedMode
@@ -136,13 +160,25 @@ function AvailabilityForm({
     row.config?.override ??
     (row.managed ? "auto" : (row.item.availability_override ?? "auto"));
   const [choice, setChoice] = useState<AvailabilityOverride | "stock">(
-    override !== "auto" ? override : storedMode ? "stock" : "auto",
+    override !== "auto"
+      ? override
+      : recipeSource || !storedMode
+        ? "auto"
+        : "stock",
   );
   const [mode, setMode] = useState<SaleStockLimit["mode"]>(initialMode);
   const units = stockInputUnits(row.sizes);
-  const storedUnit = row.config?.unit || row.item.stock_unit || units[0] || "g";
-  const baseUnit = storedUnit === "kg" ? "g" : storedUnit === "l" ? "ml" : storedUnit;
-  const [unit, setUnit] = useState(initialMode === "per_variant" ? "" : baseUnit);
+  const storedUnit =
+    row.config?.unit ||
+    row.stored_unit ||
+    row.item.stock_unit ||
+    units[0] ||
+    "g";
+  const baseUnit =
+    storedUnit === "kg" ? "g" : storedUnit === "l" ? "ml" : storedUnit;
+  const [unit, setUnit] = useState(
+    initialMode === "per_variant" ? "" : baseUnit,
+  );
   const [quantities, setQuantities] = useState<Record<number, string>>(() =>
     Object.fromEntries(
       [0, ...row.sizes.map((s) => s.id)].map((id) => {
@@ -163,13 +199,15 @@ function AvailabilityForm({
   const variant = mode === "per_variant";
   const inputUnit = mode === "count" ? "" : unit;
   const fields = variant
-    ? row.sizes.map((size) => ({ id: size.id, label: size.name + (inputUnit ? ` (${inputUnit})` : "") }))
+    ? row.sizes.map((size) => ({
+        id: size.id,
+        label: size.name + (inputUnit ? ` (${inputUnit})` : ""),
+      }))
     : [
         {
           id: 0,
           label:
-            t("carteRestockQuantity") +
-            (inputUnit ? ` (${inputUnit})` : ""),
+            t("carteRestockQuantity") + (inputUnit ? ` (${inputUnit})` : ""),
         },
       ];
   const values = fields.map((field) =>
@@ -186,11 +224,22 @@ function AvailabilityForm({
       values.every((value) => value !== undefined) &&
       values.some((value) => value != null && value > 0) &&
       (mode !== "measure" || units.includes(unit)));
-  const hasCommitments = series && (row.config?.counters ?? []).some(
-    (counter) => counter.committed > 0,
-  );
+  const hasCommitments =
+    series &&
+    (row.config?.counters ?? []).some((counter) => counter.committed > 0);
   const ruleOnlyEdit = !!ruleSelection && ruleEdited && !availabilityEdited;
-  const canApply = ruleOnlyEdit || (row.item.is_active !== false && valid);
+  const recipeConflict = choice === "auto" && !!row.item.immediate_sale_mode;
+  const canApply =
+    ruleOnlyEdit || (row.item.is_active !== false && valid && !recipeConflict);
+  const profile =
+    ruleSelection?.options.find(
+      (rule) => rule.id === (ruleId || ruleSelection.inheritedRuleId),
+    ) ??
+    (ruleId === 0
+      ? ruleSelection?.options.find((rule) => rule.is_default)
+      : undefined);
+  const followsStock = choice === "stock" || choice === "auto";
+
   function changeUnit(next: string) {
     setQuantities((current) =>
       Object.fromEntries(
@@ -200,7 +249,9 @@ function AvailabilityForm({
             value,
             inputUnit,
             next,
-            variant ? row.sizes.find((size) => size.id === Number(id)) : undefined,
+            variant
+              ? row.sizes.find((size) => size.id === Number(id))
+              : undefined,
           ),
         ]),
       ),
@@ -214,26 +265,51 @@ function AvailabilityForm({
       if (await onApply(undefined, undefined, ruleId)) onOpenChange(false);
       return;
     }
+    const revision =
+      row.config?.revision ?? (series ? 0 : (row.item.stock_revision ?? 0));
     const remaining: SaleStockLimit | undefined =
-      choice === "stock"
+      choice === "auto"
         ? {
             menu_item_id: row.item.id,
-            mode,
-            unit: mode === "measure" ? (unit === "kg" ? "g" : unit === "l" ? "ml" : unit) : "",
+            mode: "",
+            unit: "",
             override: "auto",
-            expected_revision:
-              row.config?.revision ??
-              (series ? 0 : (row.item.stock_revision ?? 0)),
-            reason: t("carteRestockReason"),
-            quantity: variant ? null : values[0]!,
-            options: variant
-              ? Object.fromEntries(
-                  row.sizes.map((size, index) => [size.id, values[index]!]),
-                )
-              : undefined,
+            quantity: null,
+            expected_revision: revision,
+            reason: t("itemStockRecipeReason"),
           }
-        : undefined;
-    if (await onApply(choice === "stock" ? "auto" : choice, remaining, ruleEdited ? ruleId : undefined)) {
+        : choice === "stock"
+          ? {
+              menu_item_id: row.item.id,
+              mode,
+              unit:
+                mode === "measure"
+                  ? unit === "kg"
+                    ? "g"
+                    : unit === "l"
+                      ? "ml"
+                      : unit
+                  : "",
+              override: "auto",
+              expected_revision:
+                row.config?.revision ??
+                (series ? 0 : (row.item.stock_revision ?? 0)),
+              reason: t("carteRestockReason"),
+              quantity: variant ? null : values[0]!,
+              options: variant
+                ? Object.fromEntries(
+                    row.sizes.map((size, index) => [size.id, values[index]!]),
+                  )
+                : undefined,
+            }
+          : undefined;
+    if (
+      await onApply(
+        choice === "stock" ? "auto" : choice,
+        remaining,
+        ruleEdited ? ruleId : undefined,
+      )
+    ) {
       onOpenChange(false);
     }
   }
@@ -270,8 +346,15 @@ function AvailabilityForm({
           <X aria-hidden className="size-4" />
         </button>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-2 sm:px-6" data-availability-scroll>
-        <fieldset disabled={busy || row.item.is_active === false} aria-label={t("availability")} onChange={() => setAvailabilityEdited(true)}>
+      <div
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-2 sm:px-6"
+        data-availability-scroll
+      >
+        <fieldset
+          disabled={busy || row.item.is_active === false}
+          aria-label={t("availability")}
+          onChange={() => setAvailabilityEdited(true)}
+        >
           <ChoiceRow
             type="radio"
             name={name}
@@ -314,7 +397,11 @@ function AvailabilityForm({
                     <option value="count">{t("saleStockCount")}</option>
                     {row.sizes.length > 0 && (
                       <>
-                        {(units.length > 0 || mode === "measure") && <option value="measure">{t("saleStockMeasure")}</option>}
+                        {(units.length > 0 || mode === "measure") && (
+                          <option value="measure">
+                            {t("saleStockMeasure")}
+                          </option>
+                        )}
                         <option value="per_variant">
                           {t("saleStockPerVariant")}
                         </option>
@@ -334,12 +421,20 @@ function AvailabilityForm({
                     value={unit}
                     onChange={(event) => changeUnit(event.target.value)}
                   >
-                    {variant && <option value="">{t("availabilityPortions")}</option>}
-                    {units.map((value) => <option key={value} value={value}>{value}</option>)}
+                    {variant && (
+                      <option value="">{t("availabilityPortions")}</option>
+                    )}
+                    {units.map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
                   </Select>
                 </Field>
               )}
-              <div className={variant ? "grid gap-3 sm:grid-cols-2" : "space-y-3"}>
+              <div
+                className={variant ? "grid gap-3 sm:grid-cols-2" : "space-y-3"}
+              >
                 {fields.map((field, index) => (
                   <Field key={field.id} label={field.label}>
                     <Input
@@ -397,11 +492,36 @@ function AvailabilityForm({
             label={t("carteChoiceAutomatic")}
           />
         </fieldset>
+        {choice === "auto" && (
+          <p className="py-3 text-sm text-[var(--fg-muted)]">
+            {t(
+              row.recipe_configured === false
+                ? "itemStockRecipeMissing"
+                : "itemStockRecipeDescription",
+            )}
+          </p>
+        )}
+        {recipeConflict && (
+          <p role="status" className="py-2 text-sm">
+            {t("itemStockRecipePreparationConflict")}
+          </p>
+        )}
+        {followsStock && profile?.track === false && (
+          <p role="status" className="py-2 text-sm">
+            {t("itemStockProfileNoLimit")}
+          </p>
+        )}
         {ruleSelection && (
-          <div className="border-t border-[var(--line)] py-3">
-            <Field label={t("itemStockAvailabilityRule")}>
+          <details
+            className="border-t border-[var(--line)] py-3"
+            open={error ? true : undefined}
+          >
+            <summary className="cursor-pointer py-2 text-sm font-medium">
+              {t("itemStockAdvanced")}
+            </summary>
+            <Field label={t("itemStockProfile")}>
               <Select
-                aria-label={t("itemStockAvailabilityRule")}
+                aria-label={t("itemStockProfile")}
                 aria-describedby={ruleHintId}
                 disabled={busy}
                 value={ruleId}
@@ -410,14 +530,43 @@ function AvailabilityForm({
                   setRuleEdited(true);
                 }}
               >
-                <option value={0}>{t("none")}</option>
+                <option value={0}>{t("itemStockInheritedProfile")}</option>
                 {ruleSelection.options.map((rule) => (
-                  <option key={rule.id} value={rule.id}>{rule.name}</option>
+                  <option key={rule.id} value={rule.id}>
+                    {rule.name}
+                  </option>
                 ))}
               </Select>
-              <p id={ruleHintId} className="text-xs text-[var(--fg-muted)]">{t("itemStockRuleScopeHint")}</p>
+              <p id={ruleHintId} className="text-xs text-[var(--fg-muted)]">
+                {t("itemStockRuleScopeHint")}
+              </p>
             </Field>
-          </div>
+            {profile?.track && (
+              <p className="pt-2 text-xs text-[var(--fg-muted)]">
+                {t(
+                  profile.out_of_stock_behavior === "hide"
+                    ? "itemStockProfileHide"
+                    : "itemStockProfileSoldOut",
+                )}
+                {profile.low_stock_threshold > 0 && (
+                  <>
+                    {" "}
+                    ·{" "}
+                    {t("itemStockProfileLow").replace(
+                      "{count}",
+                      String(profile.low_stock_threshold),
+                    )}
+                  </>
+                )}{" "}
+                ·{" "}
+                {t(
+                  profile.show_count
+                    ? "itemStockProfileCount"
+                    : "itemStockProfileNoCount",
+                )}
+              </p>
+            )}
+          </details>
         )}
         {error && (
           <div className="py-3">
@@ -435,9 +584,18 @@ function AvailabilityForm({
           </div>
         )}
       </div>
-      <div className="shrink-0 border-t border-[var(--line)] p-4 sm:px-6" data-availability-actions>
+      <div
+        className="shrink-0 border-t border-[var(--line)] p-4 sm:px-6"
+        data-availability-actions
+      >
         <p className="mb-3 text-xs text-[var(--fg-muted)]">
-          {t(ruleSelection ? "itemStockRuleApplyHint" : series ? "carteApplyAvailabilityHint" : "itemApplyAvailabilityHint")}
+          {t(
+            ruleSelection
+              ? "itemStockRuleApplyHint"
+              : series
+                ? "carteApplyAvailabilityHint"
+                : "itemApplyAvailabilityHint",
+          )}
         </p>
         <div className="flex justify-end gap-2">
           <Button

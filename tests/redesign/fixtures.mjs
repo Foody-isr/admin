@@ -177,6 +177,14 @@ export function createFixture({ empty = false, denied = false, fail = false, per
         if(method==='PUT'){const wasDefault=availabilityRules[index].is_default;if(body.is_default)availabilityRules.forEach(rule=>rule.is_default=false);Object.assign(availabilityRules[index],body,{is_default:body.is_default||wasDefault});return {json:{rule:availabilityRules[index]}};}
       }
       if(p==='/api/v1/restaurants/1/settings') {settings={...settings,...body};return {json:{settings}};}
+      if(/^\/api\/v1\/menu\/items\/\d+\/sales-stock\/(restock|availability)$/.test(p) && method==='POST') {
+        const item=items.find(i=>i.id===Number(p.split('/')[5]));
+        if(!item)return {status:404,json:{}};
+        if(p.endsWith('/restock'))Object.assign(item,{stock_mode:body.mode,stock_quantity:body.quantity,stock_unit:body.unit,stock_from_recipe:body.stock_source==='recipe',stock_revision:(item.stock_revision??0)+1,availability_override:'auto'});
+        if(Object.hasOwn(body,'override'))item.availability_override=body.override;
+        if(Object.hasOwn(body,'availability_rule_id'))item.availability_rule_id=body.availability_rule_id;
+        return {json:{revision:item.stock_revision??0}};
+      }
       if(/^\/api\/v1\/menu\/items\/\d+$/.test(p) && method==='PUT') {const item=items.find(i=>i.id===Number(p.split('/').pop()));if(item)Object.assign(item,body);return {json:{item}};}
       unhandled.push(`${method} ${p}`);
       return {status:405,json:{error:'This operation is unavailable in the isolated UI fixture'}};

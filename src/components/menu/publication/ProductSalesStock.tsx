@@ -1,9 +1,6 @@
 "use client";
 import { useState } from "react";
-import {
-  getSalesStock,
-  type SaleStockRow,
-} from "@/lib/api";
+import { getSalesStock, type SaleStockRow } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { usePermissions } from "@/lib/permissions-context";
 import { Button } from "@/components/ds";
@@ -34,30 +31,68 @@ export function ProductSalesStock({
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const [history, setHistory] = useState(false);
-  const measured = row.config?.mode === "measure";
+  const recipe = row.config?.stock_from_recipe || row.item.stock_from_recipe;
+  const measured =
+    !recipe && (row.config?.mode || row.item.stock_mode) === "measure";
   const counter = row.config?.counters.find((value) => value.option_id === 0);
-  const unit = measured ? (row.config?.unit === "kg" ? "g" : row.config?.unit === "l" ? "ml" : row.config?.unit) : "";
-  const available = measured && counter
-    ? counter.initial_quantity == null ? "∞" : Math.max(0, counter.initial_quantity - counter.committed)
-    : row.availability.buildable_count ?? "∞";
+  const stockUnit = row.config?.unit || row.item.stock_unit;
+  const unit = measured
+    ? stockUnit === "kg"
+      ? "g"
+      : stockUnit === "l"
+        ? "ml"
+        : stockUnit
+    : "";
+  const available =
+    measured && counter
+      ? counter.initial_quantity == null
+        ? "∞"
+        : Math.max(0, counter.initial_quantity - counter.committed)
+      : measured
+        ? (row.item.stock_quantity ?? "∞")
+        : (row.availability.buildable_count ?? "∞");
   return (
     <div className="space-y-3 border rounded-lg p-4">
       <h3 className="font-semibold">
-        {t("saleStockSeries")} · {date}
+        {row.managed ? (
+          <>
+            {t("saleStockSeries")} · {date}
+          </>
+        ) : (
+          t("stock")
+        )}
       </h3>
       <p>
-        {t("saleStockAvailable")}: {available} {unit} ·{" "}
-        {t("saleStockCommitted")}:{" "}
-        {row.config?.counters.reduce((sum, c) => sum + c.committed, 0) ?? 0} {unit}
+        {t("saleStockAvailable")}: {available} {unit}
+        {row.managed && !recipe && (
+          <>
+            {" "}
+            · {t("saleStockCommitted")}:{" "}
+            {row.config?.counters.reduce((sum, c) => sum + c.committed, 0) ?? 0}{" "}
+            {unit}
+          </>
+        )}
       </p>
-      {row.config?.mode === "per_variant" && <ul className="space-y-1 text-sm">
-        {row.sizes.map((size) => {
-          const value = row.config?.counters.find((counter) => counter.option_id === size.id);
-          return <li key={size.id}>{size.name} · {t("saleStockAvailable")}: {value?.initial_quantity == null ? "∞" : Math.max(0, value.initial_quantity - value.committed)} · {t("saleStockCommitted")}: {value?.committed ?? 0}</li>;
-        })}
-      </ul>}
+      {!recipe && row.config?.mode === "per_variant" && (
+        <ul className="space-y-1 text-sm">
+          {row.sizes.map((size) => {
+            const value = row.config?.counters.find(
+              (counter) => counter.option_id === size.id,
+            );
+            return (
+              <li key={size.id}>
+                {size.name} · {t("saleStockAvailable")}:{" "}
+                {value?.initial_quantity == null
+                  ? "∞"
+                  : Math.max(0, value.initial_quantity - value.committed)}{" "}
+                · {t("saleStockCommitted")}: {value?.committed ?? 0}
+              </li>
+            );
+          })}
+        </ul>
+      )}
       <p className="text-sm text-[var(--fg-muted)]">
-        {t("saleStockProductHint")}
+        {t(row.managed ? "saleStockProductHint" : "itemApplyAvailabilityHint")}
       </p>
       <div className="flex flex-wrap gap-3 items-center">
         <ItemAvailabilityPopover
@@ -70,7 +105,9 @@ export function ProductSalesStock({
           ruleSelection={ruleSelection}
           onChanged={async () => {
             const latest = await getSalesStock(rid, date, row.item.id);
-            const current = latest.rows.find((value) => value.item.id === row.item.id);
+            const current = latest.rows.find(
+              (value) => value.item.id === row.item.id,
+            );
             if (!current) throw new Error("Missing refreshed stock");
             onUpdate(current);
           }}

@@ -402,7 +402,7 @@ function CarteEditor({
           prev
             ? {
                 ...prev,
-                stocks: (prev.stocks ?? []).map((s) =>
+                stocks: (prev.stocks ?? []).filter((s) => !remaining || s.menu_item_id !== id).map((s) =>
                   s.menu_item_id === id
                     ? {
                         ...s,
@@ -420,7 +420,7 @@ function CarteEditor({
                 ...prev,
                 payload: {
                   ...prev.payload,
-                  stocks: (prev.payload.stocks ?? []).map((s) =>
+                  stocks: (prev.payload.stocks ?? []).filter((s) => !remaining || s.menu_item_id !== id).map((s) =>
                     s.menu_item_id === id
                       ? {
                           ...s,

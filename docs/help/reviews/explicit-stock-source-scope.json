@@ -1,0 +1,60 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/menu/items/[itemId]/page.tsx",
+      "sha256": "2fd6db1afa123069b8c992b07740179413fa167161229489b40d50ef1b7e93e1",
+      "baseSha256": "88c32304a1d2be3852915223c846063510b364b3153dc2ca8116bdce08e9bbfd",
+      "features": [
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-product-photos",
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed change confines stock settings to immediate Apply, makes recipe calculation explicit, and collapses advanced stock profiles in the saved-product modal. The changed stock behavior is documented in the stock/product/carte guides. The explicit scope covers other features on these shared files: item creation, recipe and variant editing, prices, photo management, customer, delivery, POS, settings and other translations or workflows retain their behavior. Preparation and unrelated product drafts remain separate; they still require product Save."
+    },
+    {
+      "path": "src/components/menu-item/ItemAvailabilityPanel.tsx",
+      "sha256": "61daa66744a04bc2d99781a0eeb54341edea4e5a1f6c8f116104f58d6aa3a781",
+      "baseSha256": "ac6534875cbe0232ecd0040f5c99885cfb345c65dbe74676c4cfa2f4c62708a9",
+      "features": [
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed change confines stock settings to immediate Apply, makes recipe calculation explicit, and collapses advanced stock profiles in the saved-product modal. The changed stock behavior is documented in the stock/product/carte guides. The explicit scope covers other features on these shared files: item creation, recipe and variant editing, prices, photo management, customer, delivery, POS, settings and other translations or workflows retain their behavior. Preparation and unrelated product drafts remain separate; they still require product Save."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "ebe0c10e6f7cf9a831524d35426bcfe6018e3b22d4f3a2ff5c2b0d14735e588a",
+      "baseSha256": "fb5a3179343849324d1100f0fc9e460b6359ac57f8c8d04df675c85426b80dd6",
+      "features": [
+        "customers-profiles",
+        "menu-product-photos",
+        "payments-how-payments-work",
+        "pos-payments",
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed change confines stock settings to immediate Apply, makes recipe calculation explicit, and collapses advanced stock profiles in the saved-product modal. The changed stock behavior is documented in the stock/product/carte guides. The explicit scope covers other features on these shared files: item creation, recipe and variant editing, prices, photo management, customer, delivery, POS, settings and other translations or workflows retain their behavior. Preparation and unrelated product drafts remain separate; they still require product Save."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "0e637df2b52026a1df607e9dbcdb646e8c90a0b18872762ebf792d81b8425bf6",
+      "baseSha256": "97dd8b3384cb3cb189f927a9d9af9688dfd55cc55a21f53d139333c153e61c73",
+      "features": [
+        "customers-profiles",
+        "delivery-dispatch",
+        "google-account-setup",
+        "menu-product-photos",
+        "pos-behavior",
+        "shared-runtime",
+        "website-order-design",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed change confines stock settings to immediate Apply, makes recipe calculation explicit, and collapses advanced stock profiles in the saved-product modal. The changed stock behavior is documented in the stock/product/carte guides. The explicit scope covers other features on these shared files: item creation, recipe and variant editing, prices, photo management, customer, delivery, POS, settings and other translations or workflows retain their behavior. Preparation and unrelated product drafts remain separate; they still require product Save."
+    }
+  ]
+}

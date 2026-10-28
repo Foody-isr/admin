@@ -785,6 +785,8 @@ export interface MenuItem {
   recipe_steps?: RecipeStep[];
   /** Per-locale name/description overrides. Source-locale is never stored here. */
   translations?: TranslationMap;
+  /** Uses recipe availability while retaining dormant manual pools for frozen orders. */
+  stock_from_recipe?: boolean;
   /** Recipe-aware availability rule assignment (null = inherit category/default). */
   availability_rule_id?: number | null;
   /** Staff "86" switch: 'auto' | 'force_available' | 'force_sold_out'. */
@@ -9332,8 +9334,8 @@ export async function deleteAvailabilityRule(restaurantId: number, id: number): 
 }
 
 /** Live buildable count + bottleneck + resolved state for a single dish. */
-export async function previewItemAvailability(restaurantId: number, itemId: number): Promise<AvailabilityPreview> {
-  return apiFetch<AvailabilityPreview>(`/api/v1/availability/items/${itemId}/preview`, restaurantId);
+export async function previewItemAvailability(restaurantId: number, itemId: number, seriesKey = ''): Promise<AvailabilityPreview> {
+  return apiFetch<AvailabilityPreview>(`/api/v1/availability/items/${itemId}/preview${seriesKey ? `?serie_date=${encodeURIComponent(seriesKey)}` : ''}`, restaurantId);
 }
 
 // ─── WhatsApp Embedded Signup (ISV / Tech Provider) ────────────────────────────
@@ -11195,8 +11197,8 @@ export interface SaleStockLimit {
  expected_revision: number; reason?: string;
 }
 export interface SaleStockCounter { id: number; option_id: number; initial_quantity: number | null; committed: number }
-export interface SaleStockSeries { id: number; menu_item_id: number; series_key: string; mode: SaleStockLimit['mode']; unit: string; override: AvailabilityOverride; revision: number; counters: SaleStockCounter[] }
-export interface SaleStockRow { item: MenuItem; managed: boolean; config: SaleStockSeries | null; previous: SaleStockSeries | null; sizes: OptionSetOption[]; availability: {availability_state: string; buildable_count: number | null} }
+export interface SaleStockSeries { id: number; menu_item_id: number; series_key: string; mode: SaleStockLimit['mode']; stock_from_recipe?: boolean; unit: string; override: AvailabilityOverride; revision: number; counters: SaleStockCounter[] }
+export interface SaleStockRow { recipe_configured?: boolean; stored_mode?: SaleStockLimit['mode']; stored_unit?: string; item: MenuItem; managed: boolean; config: SaleStockSeries | null; previous: SaleStockSeries | null; sizes: OptionSetOption[]; availability: {availability_state: string; buildable_count: number | null} }
 export interface SaleStockOverview {series_key: string; rows: SaleStockRow[]}
 export interface SaleStockEvent {id: number; menu_item_id: number; item_name: string; option_name: string; series_key: string; kind: string; before_quantity: number | null; after_quantity: number | null; delta: number; actor_id: number; actor_name: string; order_id?: number; reason: string; created_at: string; previous_mode?: string; mode?: string; previous_override?: string; override?: string}
 export interface CarteDraftGroup {
@@ -11223,9 +11225,8 @@ export const setSalesStock = (rid: number,date: string,input: SaleStockLimit) =>
 /** Saves an operational override and/or product rule in one stock-locked transaction. */
 export const setSalesStockAvailability = (rid: number,date: string,itemId: number,override: AvailabilityOverride | undefined,ruleId?: number) => apiFetch<void>(`/api/v1/menu/items/${itemId}/sales-stock/availability?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify({override,availability_rule_id:ruleId})});
 
-/** Sets remaining quantities; committed orders are preserved by the API transaction. */
-/** Saves remaining stock and an optional product rule atomically without changing commitments. */
-export const restockSalesStock = (rid: number,date: string,input: SaleStockLimit & { availability_rule_id?: number }) => apiFetch<{revision: number}>(`/api/v1/menu/items/${input.menu_item_id}/sales-stock/restock?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify(input)});
+/** Saves remaining stock (empty mode selects recipe) and an optional profile atomically. */
+export const restockSalesStock = (rid: number,date: string,input: SaleStockLimit & { availability_rule_id?: number }) => apiFetch<{revision: number}>(`/api/v1/menu/items/${input.menu_item_id}/sales-stock/restock?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify({...input,...(input.mode===''?{stock_source:'recipe'}:{})})});
 
 /** Monthly tenant allowances supplement independent provider-wide protection. */
 export interface ExternalApiCounter { id: string; provider: string; unit: string; default_limit: number; used: number; requests: number; limit: number; remaining: number; status: 'available' | 'warning' | 'exhausted' }

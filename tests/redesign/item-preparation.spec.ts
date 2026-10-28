@@ -109,76 +109,32 @@ test('preparation modal cancels locally, applies a summary, then persists the ca
   });
 });
 
-test('stock dialog preserves cancelled values, warns when ready-stock sale becomes incompatible', async ({
-  page,
-}) => {
-  const fixture = await install(page);
-  await page
-    .locator('#item-availability')
-    .getByRole('button', { name: 'Actions' })
-    .click();
-  await page
-    .getByRole('button', { name: 'Stock tracking', exact: true })
-    .click();
-  let dialog = page.getByRole('dialog', {
-    name: 'Stock tracking',
-    exact: true,
-  });
-  await dialog
-    .getByRole('combobox', { name: 'Track availability using' })
-    .selectOption('count');
-  await dialog.getByRole('spinbutton').fill('12');
-  await page.keyboard.press('Escape');
-  await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole('alertdialog')).toHaveCount(0);
-  expect(fixture.writes).toEqual([]);
-  await page
-    .locator('#item-availability')
-    .getByRole('button', { name: 'Actions' })
-    .click();
-  await page
-    .getByRole('button', { name: 'Stock tracking', exact: true })
-    .click();
-  dialog = page.getByRole('dialog', { name: 'Stock tracking', exact: true });
-  await expect(
-    dialog.getByRole('combobox', { name: 'Track availability using' }),
-  ).toHaveValue('recipe');
-  await dialog
-    .getByRole('combobox', { name: 'Track availability using' })
-    .selectOption('count');
-  await dialog.getByRole('spinbutton').fill('12');
-  await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
-  await page
-    .locator('.item-execution-section')
-    .getByRole('button', { name: 'Edit', exact: true })
-    .click();
-  await preparationDialog(page)
-    .getByRole('combobox', { name: 'Items already prepared' })
-    .selectOption('surplus');
-  await preparationDialog(page)
-    .getByRole('button', { name: 'Apply', exact: true })
-    .click();
-  await page
-    .locator('#item-availability')
-    .getByRole('button', { name: 'Actions' })
-    .click();
-  await page
-    .getByRole('button', { name: 'Stock tracking', exact: true })
-    .click();
-  await dialog
-    .getByRole('combobox', { name: 'Track availability using' })
-    .selectOption('recipe');
-  await expect(dialog.getByRole('status')).toContainText(
-    'restore the preparation conditions',
-  );
-  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page).toHaveURL('/1/menu/items');
-  expect(fixture.items[0]).toMatchObject({
-    stock_quantity: 12,
-    stock_mode: 'count',
-    immediate_sale_mode: 'surplus',
-  });
+test('library stock Apply saves independently of a preparation draft and Cancel discards stock inputs', async ({page}) => {
+ const fixture=await install(page);
+ await page.locator('.item-execution-section').getByRole('button',{name:'Edit',exact:true}).click();
+ const preparation=preparationDialog(page);
+ await preparation.getByRole('switch').click();
+ await preparation.getByRole('combobox',{name:'Minimum preparation time',exact:true}).selectOption('240');
+ await preparation.getByRole('button',{name:'Apply',exact:true}).click();
+ const edit=page.getByRole('button',{name:'Edit stock and availability',exact:true});
+ await edit.click();
+ const dialog=page.getByRole('dialog',{name:'Availability',exact:true});
+ await dialog.getByRole('radio',{name:'Manually defined quantity',exact:true}).check();
+ await dialog.getByRole('spinbutton').fill('12');
+ await page.keyboard.press('Escape');
+ expect(fixture.writes).toEqual([]);
+ await edit.click();
+ await expect(dialog.getByRole('radio',{name:'Quantity calculated from recipe',exact:true})).toBeChecked();
+ await dialog.getByRole('radio',{name:'Manually defined quantity',exact:true}).check();
+ await dialog.getByRole('spinbutton').fill('12');
+ await dialog.getByRole('button',{name:'Apply',exact:true}).click();
+ await expect(dialog).toHaveCount(0);
+ expect(fixture.items[0]).toMatchObject({stock_quantity:12,stock_mode:'count'});
+ expect(fixture.items[0]).not.toHaveProperty('preparation_lead_time_minutes',240);
+ await expect(page.locator('.item-execution-section')).toContainText('4 hours');
+ await page.getByRole('button',{name:'Save',exact:true}).click();
+ await expect(page).toHaveURL('/1/menu/items');
+ expect(fixture.items[0]).toMatchObject({stock_quantity:12,stock_mode:'count',preparation_lead_time_minutes:240});
 });
 
 for (const locale of ['fr', 'he'])

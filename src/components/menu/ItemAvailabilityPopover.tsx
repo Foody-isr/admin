@@ -132,7 +132,7 @@ export function ItemAvailabilityPopover({
     <AvailabilityPopover
       row={row}
       triggerLabel={triggerLabel}
-      ruleSelection={ruleSelection}
+      ruleSelection={ruleSelection ? {...ruleSelection,value:row.item.availability_rule_id ?? 0} : undefined}
       series={snapshot?.series ?? false}
       open={open}
       canEdit={canEdit}
