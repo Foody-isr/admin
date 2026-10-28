@@ -50,7 +50,7 @@ export function InternalOrderPayment({ restaurantId, orderId, receiptToken, onOr
   return <section className="mx-auto flex w-full max-w-3xl flex-col gap-4 py-6">
     <h1 className="text-fs-xl font-semibold">{t(paid ? 'sumitPaymentConfirmed' : 'sumitAdminCard')}</h1>
     <p className="text-fs-sm text-[var(--fg-muted)]">{t('sumitAdminCardHint')}</p>
-    <p className="text-fs-sm">{t('order')} #{orderId}</p>
+    <p className="text-fs-sm">{t('orderNumber').replace('{id}', String(orderId))}</p>
     {error && <p role="alert" className="text-[var(--danger-500)]">{t('sumitPaymentError')}</p>}
     {closed && <p role="status">{t('sumitCheckoutClosed')}</p>}
     {!paid && !closed && !url && <Button onClick={openPayment} disabled={busy}>{t(busy ? 'loading' : 'sumitOpenPayment')}</Button>}
@@ -91,7 +91,7 @@ export function PreparedCheckoutActions({ order }: { order: Order }) {
   }
   async function copyLink() {
     const query = new URLSearchParams({ t: order.receipt_token || '' });
-    const url = `${RUNTIME_WEB_URL.replace(/\/$/, '')}/r/${order.restaurant_id}/checkout/${order.id}?${query}`;
+    const url = `${RUNTIME_WEB_URL.replace(/\/$/, '')}/r/${order.restaurant_id}/payment/checkout/${order.id}?${query}`;
     setLink(url);
     try { await navigator.clipboard.writeText(url); } catch { /* The complete link stays selectable below. */ }
   }

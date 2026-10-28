@@ -22,7 +22,7 @@ async function install(page: Page, enabled: boolean, paymentPermission = true) {
     if (path === '/api/v1/menu/items') return route.fulfill({ json: { items: fixture.items } });
     if (path === '/api/v1/orders' && req.method() === 'POST') {
       created.push(req.postDataJSON());
-      return route.fulfill({ json: { order: { id: 999, receipt_token: 'synthetic-order-token' }, checkout_url: 'http://localhost:3000/r/1/checkout/999?t=synthetic-order-token' } });
+      return route.fulfill({ json: { order: { id: 999, receipt_token: 'synthetic-order-token' }, checkout_url: 'http://localhost:3000/r/1/payment/checkout/999?t=synthetic-order-token' } });
     }
     if (path.endsWith('/orders/999/internal-checkout')) {
       expect(req.headers()['x-receipt-token']).toBe('synthetic-order-token');
@@ -60,7 +60,7 @@ test('staff can share a Foody basket without filling in customer details', async
   await expect(page.getByRole('heading', { name: 'Lien de paiement prêt' })).toBeVisible();
   expect(state.created).toHaveLength(1);
   expect(state.created[0]).toMatchObject({ internal_checkout: 'link', payment_required: false, force_production: false, customer_name: '', customer_phone: '' });
-  await expect(page.getByText('http://localhost:3000/r/1/checkout/999?t=synthetic-order-token', { exact: true })).toBeVisible();
+  await expect(page.getByText('http://localhost:3000/r/1/payment/checkout/999?t=synthetic-order-token', { exact: true })).toBeVisible();
   expect(state.paymentRequests()).toBe(0);
   await page.screenshot({ path: info.outputPath('sumit-customer-link.png') });
 });
