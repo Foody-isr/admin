@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "d8b242960de200474f1f3dff931ceb969a113434",
+  "documentationRef": "67b6e45f3124a92fcfb1d59cee73dafd58d20845",
   "documentationRevision": "ad29bdad77176da189926fbfb9d63e73da7c73dc572bd8064e66d6ce74f4476c",
   "articles": {
     "getting-started/first-login": {
@@ -3094,7 +3094,7 @@
       ]
     },
     "src/app/[restaurantId]/settings/delivery/SameDayDeliverySettings.tsx": {
-      "sha256": "66615d68fd7efaafc682296700cc3669c9c88079d4f123ee46016271b0f8b624",
+      "sha256": "1255a5a514b5a96ca77e01a39ab9b0f79065f4c6c2cf1859be1ecddcf0a8ea48",
       "features": [
         "delivery-zones"
       ]
@@ -12437,6 +12437,7 @@
         "deliveryVerifySaved",
         "discardChanges",
         "discardUnsavedChanges",
+        "inactive",
         "ordersAvailabilityTitle",
         "refresh",
         "sameDayAllowedDays",

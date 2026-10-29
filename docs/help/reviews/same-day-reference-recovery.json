@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/settings/delivery/SameDayDeliverySettings.tsx",
+      "sha256": "1255a5a514b5a96ca77e01a39ab9b0f79065f4c6c2cf1859be1ecddcf0a8ea48",
+      "baseSha256": "66615d68fd7efaafc682296700cc3669c9c88079d4f123ee46016271b0f8b624",
+      "disposition": "no-user-impact",
+      "features": [
+        "delivery-zones"
+      ],
+      "reason": "The published guide already instructs administrators to choose active reference zones. This restores the existing checkbox selection/deselection action for unavailable saved references, including disabled policies, and corrects native group labeling. It adds no setting, permission, delivery rule, price or customer step. Existing FR/HE/EN labels and the documented choose-active-zones procedure remain accurate; input changes remain explicit and require Save."
+    }
+  ]
+}
