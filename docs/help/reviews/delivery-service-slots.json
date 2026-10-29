@@ -1,0 +1,56 @@
+{
+  "files": [
+    {
+      "path": "src/components/delivery/ZoneScheduleFields.tsx",
+      "sha256": "958134748b4a23f0ccf306083916138d756c5d2c8cfc98f0d1fdfd6b0823e8e3",
+      "baseSha256": "5c23f2df3a43b89108e1c7159ef408f742347321f11210ea37731a3dea85b129",
+      "features": [
+        "delivery-dispatch"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The editor changes only delivery-zone booking weekdays. Courier route assignment, planner maps, dispatch state transitions and courier controls remain unchanged."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "cd95298f8c7c6ac7f869d67d50efe8db8ecf592511a4dab7af3a296b054db77c",
+      "baseSha256": "5226d7bec9471721c38d92827a27c8c90aee554b962910a6afbebe5953d4e6ce",
+      "features": [
+        "customers-profiles",
+        "payments-how-payments-work",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only DeliverySchedule gains optional weekdays and backwards-compatible legacy windows. The scoped customer, payment and photo API methods, request authorization, response handling and shared transport code are unchanged."
+    },
+    {
+      "path": "src/lib/delivery-zone-state.ts",
+      "sha256": "f73e658a3aa496a83774427e91d399cdc2c0b03c983286c51860b343aee5726d",
+      "baseSha256": "9b146c979795be0a56de6776d792750d25e5982eab83fe337da4369d944e55b3",
+      "features": [
+        "delivery-dispatch",
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The additional validation and helper concern zone booking weekdays and legacy calendar compatibility. Drawing geometry, courier dispatch operations and the shared API request layer retain their existing behavior."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "5b5f4f1a1bd2561abe469392a01b8aa67f794fc194d7eab659711f19ea949c6a",
+      "baseSha256": "5e7c53fe3872fc40c027aa247d94f42cc995d188e971b55a14763e244ef8edb3",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-dispatch",
+        "google-account-setup",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only zone-calendar weekday labels, validation and restaurant-hour explanations change in FR/HE/EN. The scoped translations for other modules, communications, map setup, customer profiles and POS controls are unchanged."
+    }
+  ]
+}
