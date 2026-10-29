@@ -236,11 +236,11 @@ for (const variant of [{locale:'fr',theme:'light',width:375,height:812},{locale:
     await expect(ticket).toContainText('96.00');
     expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
     await page.screenshot({path:testInfo.outputPath('new-order.png'),fullPage:true,animations:'disabled'});
-    await ticket.getByRole('button',{name:variant.locale==='fr'?/^Encaisser/:/^תשלום/}).click();
-    const dialog=page.getByRole('dialog');await expect(dialog).toBeVisible();
+    await ticket.getByRole('button',{name:variant.locale==='fr'?'Continuer':'המשך'}).click();
+    const dialog=page.getByRole('region',{name:variant.locale==='fr'?'Finaliser la commande':'סיום ההזמנה',exact:true});await expect(dialog).toBeVisible();
     await expect.poll(async()=>{const box=await dialog.boundingBox();return !!box && box.x>=-1 && box.x+box.width<=variant.width+1;}).toBe(true);
     await page.screenshot({path:testInfo.outputPath('checkout.png'),fullPage:true,animations:'disabled'});
-    await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);
+    await dialog.getByRole('button',{name:variant.locale==='fr'?'Retour aux articles':'חזרה לפריטים',exact:true}).click();await expect(dialog).toBeHidden();
     await expect(ticket).toContainText('96.00');
     expect(fixture.unhandled).toEqual([]);expect(fixture.writes).toEqual([]);
   });

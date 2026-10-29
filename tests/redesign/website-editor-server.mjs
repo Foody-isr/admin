@@ -4,6 +4,13 @@ import http from "node:http";
 import { readFileSync } from "node:fs";
 import { createFixture } from "./fixtures.mjs";
 const base = createFixture();
+if (process.env.FOODY_ITEM_MODAL === "1") {
+  Object.assign(base.items[0], {
+    image_url: "http://localhost:3000/assets/placeholder-item-lg.svg",
+    portion: "6 parts",
+    description: "Produit de démonstration. Informations de composition et de conservation.",
+  });
+}
 const headerChoices = ["1", "batch", "scheduled-pickup"].includes(process.env.FOODY_HEADER_CHOICES);
 const restaurantHeader = process.env.FOODY_RESTAURANT_HEADER === "1" || headerChoices;
 const crispyMenu = process.env.FOODY_CRISPY_MENU === "1";
@@ -224,7 +231,7 @@ const restaurant = () => ({
     cover_url:"https://foody-menu-images.s3.eu-north-1.amazonaws.com/restaurants/5/background/6b7dbb85-ccf7-417c-a09a-ba21150b5474.JPG",
   } : {}),
   ...(headerChoices ? {name: "Atelier — aperçu local", pickup_enabled: true, delivery_enabled: process.env.FOODY_HEADER_CHOICES !== "scheduled-pickup", scheduling_enabled: true, batch_fulfillment_enabled: process.env.FOODY_HEADER_CHOICES === "batch"} : {}),
-  ...(featuredRegression ? { opening_hours_config: Object.fromEntries(
+  ...((featuredRegression || process.env.FOODY_ITEM_MODAL === "1") ? { opening_hours_config: Object.fromEntries(
     ["dine_in", "pickup", "delivery"].map((service) => [service, Object.fromEntries(
       ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map((day) => [day, {closed: false, open: "00:00", close: "00:00"}]),
     )]),

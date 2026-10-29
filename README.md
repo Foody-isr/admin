@@ -409,6 +409,15 @@ Two sections, saved separately:
 
 ### Website (`/[restaurantId]/website-v3`)
 
+Item list → Item view offers **Compact presentation** for a 16:9 image, compact
+width and rounded corners, preserving assigned colors and saved image framing.
+Independent image ratio/fit, width and corner controls remain authoritative.
+The standard mobile layout is labelled **Full screen on mobile**. Both layouts
+start with a floating close control and group quantity/add in the persistent
+footer. Missing ratios default to 16:9 in editor and public rendering alike.
+Synthetic full-flow regression: `FOODY_ITEM_MODAL=1 FOODY_WEB_DIR=../foodyweb
+npx playwright test -c playwright.website-editor.config.ts item-modal.spec.ts`.
+
 **Foody online** opens the restaurant website editor directly, without a submenu or beta badge. It manages pages, sections, appearance and checkout settings with a live iframe preview. Draft autosaves remain separate from publication; the existing guest website and stored website data are unaffected by removal of the old admin editors.
 
 The legacy `/[restaurantId]/website` and `/[restaurantId]/website-v2` implementations have been removed. Their URLs redirect to Website V3, preserving the restaurant and query parameters. Components shared with V3 and QR customization remain in use.
@@ -1662,3 +1671,13 @@ offers a second debit. Existing cash collection records receipt and requests
 release, retaining normal POS drawer guards. Deploy API migration 282 first,
 then Admin/Web; verify Stancer sandbox cancellation before enabling a real tenant.
 Targeted browser coverage: payment-settings.spec.ts cash-guarantee cases.
+
+Internal order finalization stays inside the ticket after Continue. Staff explicitly
+choose a prepared Sumit link, hosted card collection, a received payment or pay later.
+Received payments require acknowledgement of the current amount; hosted flows trust
+API confirmation. Back keeps contact/date, and removed lines offer ten-second Undo
+including restored-draft warnings. Discounts and production controls are collapsible.
+The guest-facing prepared link continues to use the restaurant's existing Web cart.
+Synthetic regressions: `npx playwright test -c playwright.redesign.config.ts
+internal-sumit-checkout.spec.ts internal-order-library.spec.ts
+internal-combo-substitutions.spec.ts selection-controls.spec.ts`.

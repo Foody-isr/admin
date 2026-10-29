@@ -19,6 +19,7 @@ import {
   issueLabel, issueTone, issueCanBeAccepted, isSubmissionBlocked,
 } from '@/lib/orders/draftIssuePresentation';
 import { useI18n, useCurrency } from '@/lib/i18n';
+import { useSidebar } from '@/lib/sidebar-context';
 import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button } from '@/components/ds';
 import { BatchPicker } from '@/components/menu/BatchPicker';
@@ -28,14 +29,14 @@ import {
   NewOrderItemModal, lineUnitPrice, lineTotal, type NewOrderLine,
 } from '@/components/orders/NewOrderItemModal';
 import {
-  NewOrderCheckoutDrawer, type CheckoutData, type DrawerDraftState,
-} from '@/components/orders/NewOrderCheckoutDrawer';
+  NewOrderCheckoutPanel, type CheckoutData, type DrawerDraftState,
+} from '@/components/orders/NewOrderCheckoutPanel';
 import { InternalOrderPayment } from '@/components/orders/InternalOrderPayment';
 import { NewOrderComboModal } from '@/components/orders/NewOrderComboModal';
 import {
   ArrowLeftIcon, SearchIcon, PlusIcon, MinusIcon, Trash2Icon,
   CopyIcon, CheckIcon, ShoppingBagIcon, XIcon,
-  LayoutGridIcon, CreditCardIcon,
+  LayoutGridIcon, PanelLeftCloseIcon, PanelLeftOpenIcon,
 } from 'lucide-react';
 
 interface Section { id: number; name: string; items: MenuItem[] }
@@ -62,7 +63,7 @@ const EMPTY_CUSTOMER: DraftCustomer = {
 };
 
 // Categorical palette (from design tokens) used to colour-code sections in the
-// grid — colour the section header, the per-tile accent edge and the chip dot
+// grid — colour the section header and the chip dot
 // so staff can scan the catalog by category the way a real POS does.
 const CAT_TOKENS = ['--cat-1', '--cat-2', '--cat-3', '--cat-4', '--cat-5', '--cat-6', '--cat-7', '--cat-8'];
 function catColor(index: number): string {
@@ -88,6 +89,9 @@ export default function NewOrderPage() {
   const { t, direction } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('orders.manage');
+  const { collapsed, toggleCollapsed } = useSidebar();
+  const continueRef = useRef<HTMLButtonElement>(null);
+  const submittingRef = useRef(false);
   const params = useParams();
   const router = useRouter();
   const restaurantId = Number(params.restaurantId);
@@ -132,6 +136,13 @@ export default function NewOrderPage() {
   // draft kept customer A attached while the staff built customer B's cart, and
   // the next write-back saved B's lines under A's name and address.
   const [drawerResetKey, setDrawerResetKey] = useState(0);
+
+  const [removedLine, setRemovedLine] = useState<{ line: NewOrderLine; index: number; issue?: LineIssue; draftPrice?: number; restored: boolean } | null>(null);
+  useEffect(() => {
+    if (!removedLine) return;
+    const timer = setTimeout(() => setRemovedLine(null), 10000);
+    return () => clearTimeout(timer);
+  }, [removedLine]);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -435,26 +446,34 @@ export default function NewOrderPage() {
   }
 
   function changeQty(lineUid: string, delta: number) {
+    const line = lines.find(line => line.uid === lineUid);
+    if (line && line.quantity + delta <= 0) { removeLine(lineUid); return; }
     setDraftRestored(false);
-    setLines((prev) =>
-      prev
-        .map((l) => (l.uid === lineUid ? { ...l, quantity: l.quantity + delta } : l))
-        .filter((l) => l.quantity > 0),
-    );
+    setLines(prev => prev.map(line => line.uid === lineUid ? { ...line, quantity: line.quantity + delta } : line));
   }
 
   function removeLine(lineUid: string) {
-    // Removing a *flagged* line (the row's own "Retirer") is triage, not a
-    // cart edit — it should read the same as Accept below, or the two
-    // resolve actions would leave the banner in different states for doing
-    // the same job. The trash-can on an ordinary line is still a real edit
-    // and hides the banner as before. Either way the checkout gate itself
-    // never depends on this: it reads `issues.size`, pruned synchronously
-    // right here so the disabled button and its reason clear on this same
-    // paint rather than lagging a render behind the effect below.
+    const index = lines.findIndex(line => line.uid === lineUid);
+    if (index < 0) return;
+    setRemovedLine({ line: lines[index], index, issue: issues.get(lineUid), draftPrice: draftPrices.get(lineUid), restored: draftRestored });
     if (!issues.has(lineUid)) setDraftRestored(false);
-    setLines((prev) => prev.filter((l) => l.uid !== lineUid));
-    setIssues((prev) => dropIssue(prev, lineUid));
+    setLines(prev => prev.filter(line => line.uid !== lineUid));
+    setIssues(prev => dropIssue(prev, lineUid));
+  }
+
+  function undoRemove() {
+    if (!removedLine || lines.some(line => line.uid === removedLine.line.uid)) return;
+    const { line, index, issue, draftPrice, restored } = removedLine;
+    setLines(prev => [...prev.slice(0, index), line, ...prev.slice(index)]);
+    if (issue) setIssues(prev => new Map(prev).set(line.uid, issue));
+    if (draftPrice !== undefined) setDraftPrices(prev => new Map(prev).set(line.uid, draftPrice));
+    setDraftRestored(restored);
+    setRemovedLine(null);
+  }
+
+  function backToItems() {
+    setCheckoutOpen(false);
+    requestAnimationFrame(() => continueRef.current?.focus());
   }
 
   // Lifts the block on a `price_changed` line without touching it: the price
@@ -493,6 +512,8 @@ export default function NewOrderPage() {
    *  so the next order was silently composed under the wrong identity. The two
    *  halves of an order are discarded together or not at all. */
   function resetOrderComposition() {
+    setRemovedLine(null);
+    setCheckoutOpen(false);
     setLines([]);
     setIssues(new Map());
     setDraftPrices(new Map());
@@ -502,6 +523,8 @@ export default function NewOrderPage() {
   }
 
   async function handleConfirm(data: CheckoutData) {
+    if (submittingRef.current || !canManage || blockedByIssues || lines.length === 0) return;
+    submittingRef.current = true;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -611,6 +634,7 @@ export default function NewOrderPage() {
             : String(err);
       setSubmitError(msg);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
@@ -627,30 +651,27 @@ export default function NewOrderPage() {
   }
 
   if (cardOrder) {
-    return <InternalOrderPayment restaurantId={restaurantId} orderId={cardOrder.id} receiptToken={cardOrder.token} onOrders={() => router.push(`/${restaurantId}/orders/all`)} />;
+    return <InternalOrderPayment autoOpen restaurantId={restaurantId} orderId={cardOrder.id} receiptToken={cardOrder.token} onOrders={() => router.push(`/${restaurantId}/orders/all`)} />;
   }
 
   // ─── Post-create payment-link screen ───────────────────────────────────────
   if (paymentUrl) {
     return (
       <div className="flex items-center justify-center py-[var(--s-12)]">
-        <div className="mx-auto flex w-full max-w-md flex-col items-center gap-[var(--s-5)] rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-8)] text-center duration-150 animate-in fade-in zoom-in-95">
+        <div className="mx-auto flex w-full max-w-md flex-col items-center gap-[var(--s-5)] rounded-xl border border-[var(--line)] bg-[var(--surface)] p-[var(--s-8)] text-center duration-150 animate-in fade-in zoom-in-95">
           <span className="flex size-12 items-center justify-center rounded-full bg-[var(--success-50)] text-[var(--success-500)]">
             <CheckIcon className="size-6" />
           </span>
           <div className="flex flex-col items-center gap-[var(--s-2)]">
-            <Badge tone="success" dot>{t('orderCreated')}</Badge>
+            <Badge tone="warning" dot>{t('orderCheckoutPaymentPending')}</Badge>
             <h1 className="text-fs-xl font-semibold">{t('paymentLinkReady')}</h1>
             <p className="text-fs-sm text-[var(--fg-muted)]">{t('sumitCustomerLinkHint')}</p>
           </div>
-          <div className="flex w-full items-center gap-2 rounded-lg border border-[var(--line-strong)] bg-[var(--surface-2)] p-[var(--s-2)] ps-[var(--s-3)]">
-            <span className="flex-1 truncate text-start text-fs-xs text-[var(--fg-muted)]">{paymentUrl}</span>
-            <Button variant="secondary" size="sm" onClick={copyPaymentUrl}>
-              {copied ? <CheckIcon /> : <CopyIcon />}
-              {copied ? t('copied') : t('copyLink')}
-            </Button>
-          </div>
-          <Button variant="primary" size="lg" className="w-full justify-center" onClick={() => router.push(`/${restaurantId}/orders/all`)}>
+          <p className="w-full break-all select-all rounded-lg border border-[var(--line)] bg-[var(--surface-2)] p-3 text-start text-fs-xs text-[var(--fg-muted)]">{paymentUrl}</p>
+          <Button size="lg" className="w-full" onClick={copyPaymentUrl}>
+            {copied ? <CheckIcon /> : <CopyIcon />}{copied ? t('copied') : t('copyLink')}
+          </Button>
+          <Button variant="secondary" size="lg" className="w-full justify-center" onClick={() => router.push(`/${restaurantId}/orders/all`)}>
             {t('goToOrders')}
           </Button>
         </div>
@@ -661,12 +682,12 @@ export default function NewOrderPage() {
   return (
     <div className="flex min-h-[420px] flex-col" style={{ height: 'calc(100dvh - var(--topbar-total-h) - 64px)' }}>
       <div className="mb-3 flex shrink-0 gap-2 lg:hidden" role="group" aria-label={t('newOrder')}>
-        <Button className="flex-1" variant={mobilePane === 'catalogue' ? 'primary' : 'secondary'} aria-pressed={mobilePane === 'catalogue'} onClick={() => setMobilePane('catalogue')}>{t('items')}</Button>
+        <Button className="flex-1" variant={mobilePane === 'catalogue' ? 'primary' : 'secondary'} aria-pressed={mobilePane === 'catalogue'} disabled={submitting} onClick={() => { setCheckoutOpen(false); setMobilePane('catalogue'); }}>{t('items')}</Button>
         <Button className="flex-1" variant={mobilePane === 'ticket' ? 'primary' : 'secondary'} aria-pressed={mobilePane === 'ticket'} onClick={() => setMobilePane('ticket')}>{t('orderItems')} · {itemCount}</Button>
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--bg)] lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--bg)] lg:grid-cols-[minmax(0,1fr)_minmax(360px,410px)]">
         {/* ─── Catalog ──────────────────────────────────────────────────── */}
-        <div className={cn("min-h-0 min-w-0 flex-col border-[var(--line)] lg:flex lg:border-e", mobilePane === 'catalogue' ? 'flex' : 'hidden')}>
+        <fieldset disabled={checkoutOpen || submitting} className={cn("min-h-0 min-w-0 flex-col border-[var(--line)] lg:flex lg:border-e", mobilePane === 'catalogue' ? 'flex' : 'hidden')}>
           {/* Header: back + title + carte tabs + search + category chips */}
           <div className="shrink-0 border-b border-[var(--line)] bg-[var(--surface)] px-[var(--s-4)] pt-[var(--s-3)]">
             <div className="mb-[var(--s-3)] flex items-center gap-[var(--s-3)]">
@@ -675,10 +696,11 @@ export default function NewOrderPage() {
               </Button>
               <div className="min-w-0">
                 <h1 className="text-fs-lg font-semibold leading-tight">{t('newOrder')}</h1>
-                {activeMenuId !== null && (
-                  <p className="truncate text-fs-xs text-[var(--fg-muted)]">{activeMenu?.name ?? libraryLabel}</p>
-                )}
+
               </div>
+              <Button variant="ghost" size="sm" className="ms-auto hidden lg:inline-flex" aria-pressed={collapsed} onClick={toggleCollapsed}>
+                {collapsed ? <PanelLeftOpenIcon /> : <PanelLeftCloseIcon />}{t('orderCheckoutSaleMode')}
+              </Button>
             </div>
             <div className="no-scrollbar -mx-[var(--s-4)] mb-[var(--s-3)] flex gap-[var(--s-1)] overflow-x-auto border-b border-[var(--line)] px-[var(--s-4)]">
               {catalogSources.map((m) => {
@@ -811,7 +833,7 @@ export default function NewOrderPage() {
                               disabled={soldOut}
                               aria-disabled={soldOut}
                               className={cn(
-                                'group relative flex min-h-[112px] flex-col gap-3 justify-between overflow-hidden rounded-lg border bg-[var(--surface)] p-[var(--s-3)] ps-[var(--s-4)] text-start transition-colors duration-fast ease-out',
+                                'group relative flex min-h-[96px] flex-col gap-3 justify-between overflow-hidden rounded-lg border bg-[var(--surface)] p-[var(--s-3)] text-start transition-colors duration-fast ease-out',
                                 soldOut
                                   ? 'cursor-not-allowed border-[var(--line)] opacity-55'
                                   : 'active:scale-[0.97] ' +
@@ -820,11 +842,6 @@ export default function NewOrderPage() {
                                       : 'border-[var(--line)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)]'),
                               )}
                             >
-                              {/* category accent edge */}
-                              <span
-                                className="absolute inset-y-[var(--s-2)] start-0 w-[3px] rounded-full"
-                                style={{ backgroundColor: selected && !soldOut ? 'var(--brand-500)' : color }}
-                              />
                               {soldOut ? null : selected ? (
                                 <span className="absolute end-[var(--s-2)] top-[var(--s-2)] flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--action)] px-1.5 text-fs-xs font-bold text-[var(--action-fg)] duration-200 animate-in zoom-in-50">
                                   {qty}
@@ -859,10 +876,11 @@ export default function NewOrderPage() {
               </div>
             )}
           </div>
-        </div>
+        </fieldset>
 
         {/* ─── Ticket / receipt ─────────────────────────────────────────── */}
         <aside aria-label={t('orderItems')} className={cn("min-h-0 min-w-0 flex-col bg-[var(--surface)] lg:flex", mobilePane === 'ticket' ? 'flex' : 'hidden')}>
+          <div className={cn('min-h-0 flex-1 flex-col', checkoutOpen ? 'hidden' : 'flex')}>
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--line)] bg-[var(--summary-bg)] text-[var(--summary-fg)] px-[var(--s-4)] py-[var(--s-3)]">
             <div className="flex items-center gap-[var(--s-2)]">
@@ -972,6 +990,7 @@ export default function NewOrderPage() {
 
           {/* Footer: total + checkout (always visible) */}
           <div className="shrink-0 border-t border-[var(--line)] bg-[var(--surface)] p-[var(--s-4)]">
+            {removedLine && <div role="status" className="mb-3 flex items-center justify-between gap-2 text-fs-xs"><span>{t('orderCheckoutLineRemoved').replace('{name}', removedLine.line.item.name)}</span><Button variant="ghost" size="sm" onClick={undoRemove}>{t('orderCheckoutUndo')}</Button></div>}
             <div className="mb-[var(--s-3)] flex items-end justify-between">
               <span className="text-fs-sm font-medium text-[var(--fg-muted)]">{t('total')}</span>
               <span className="tabular-nums text-fs-2xl font-bold">{money(subtotal)}</span>
@@ -984,23 +1003,51 @@ export default function NewOrderPage() {
                   </p>
                 )}
                 <Button
+                  ref={continueRef}
                   variant="primary"
                   size="lg"
                   className="h-[52px] w-full text-fs-md font-semibold"
                   disabled={lines.length === 0 || blockedByIssues}
                   onClick={() => { setSubmitError(null); setCheckoutOpen(true); }}
                 >
-                  <span className="flex w-full items-center justify-between">
-                    <span className="inline-flex items-center gap-[var(--s-2)]">
-                      <CreditCardIcon />
-                      {t('checkout')}
-                    </span>
-                    <span className="tabular-nums">{money(subtotal)}</span>
-                  </span>
+                  {t('orderCheckoutContinue')}
                 </Button>
               </>
             )}
           </div>
+          </div>
+      <NewOrderCheckoutPanel
+        sumitCheckoutEnabled={sumitCheckoutEnabled}
+        sumitCardEnabled={sumitCheckoutEnabled && hasAnyPermission('payments.manage')}
+        key={drawerResetKey}
+        open={checkoutOpen}
+        onClose={backToItems}
+        itemsSummary={<ul className="space-y-3">{lines.map(line => <li key={line.uid} className="text-fs-xs">
+          <div className="flex justify-between gap-3"><span>{line.quantity} × {line.item.name}</span><span className="shrink-0 tabular-nums">{money(lineTotal(line))}</span></div>
+          {line.optionSelections?.map(option => <p key={`${option.option_set_id}@${option.selection_index}`} className="text-[var(--fg-muted)]">{option.group_name}: {option.name}</p>)}
+          {line.selectedVariantName && <p className="text-[var(--fg-muted)]">{line.selectedVariantName}</p>}
+          {line.comboSelections?.map((selection, index) => <p key={index} className="text-[var(--fg-muted)]">{selection.quantity} × {selection.menuItemName}</p>)}
+          {line.modifiers.length > 0 && <p className="text-[var(--fg-muted)]">{line.modifiers.map(modifier => modifier.name).join(', ')}</p>}
+          {line.notes && <p className="text-[var(--fg-muted)]">{line.notes}</p>}
+        </li>)}</ul>}
+
+        total={subtotal}
+        itemCount={itemCount}
+        submitting={submitting}
+        error={submitError}
+        onConfirm={handleConfirm}
+        batchConfig={fulfillmentBatchConfig}
+        defaultDate={selectedDay ?? undefined}
+        restaurantId={restaurantId}
+        discountItems={lines.map((l) => ({
+          item_id: l.item.id,
+          category_id: l.item.category_id ?? 0,
+          line_total: lineTotal(l),
+          quantity: l.quantity,
+        }))}
+        onStateChange={setDrawerState}
+        initialState={restoredState ?? undefined}
+      />
         </aside>
       </div>
 
@@ -1021,29 +1068,7 @@ export default function NewOrderPage() {
         onAdd={addLine}
       />
 
-      <NewOrderCheckoutDrawer
-        sumitCheckoutEnabled={sumitCheckoutEnabled}
-        sumitCardEnabled={sumitCheckoutEnabled && hasAnyPermission('payments.manage')}
-        key={drawerResetKey}
-        open={checkoutOpen}
-        onClose={() => setCheckoutOpen(false)}
-        total={subtotal}
-        itemCount={itemCount}
-        submitting={submitting}
-        error={submitError}
-        onConfirm={handleConfirm}
-        batchConfig={fulfillmentBatchConfig}
-        defaultDate={selectedDay ?? undefined}
-        restaurantId={restaurantId}
-        discountItems={lines.map((l) => ({
-          item_id: l.item.id,
-          category_id: l.item.category_id ?? 0,
-          line_total: lineTotal(l),
-          quantity: l.quantity,
-        }))}
-        onStateChange={setDrawerState}
-        initialState={restoredState ?? undefined}
-      />
+
     </div>
   );
 }

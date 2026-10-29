@@ -16,6 +16,8 @@ interface FulfillmentSectionProps {
   onChange: (v: FulfillmentValue) => void;
   /** Allow the Immédiate option (default true). */
   allowImmediate?: boolean;
+  /** Use customer handover labels in the new-order finalization panel. */
+  serviceLabels?: boolean;
 }
 
 function TimingTile({
@@ -25,6 +27,7 @@ function TimingTile({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
         'flex-1 rounded-md border p-[var(--s-3)] text-start text-fs-sm font-medium transition-colors',
         active
@@ -51,8 +54,9 @@ function formatTargetDay(iso: string, locale: string): string {
   }
 }
 
+/** Selects the handover date and window, preserving the shared staff series rules. */
 export function FulfillmentSection({
-  orderType, batchConfig, value, onChange, allowImmediate = true,
+  orderType, batchConfig, value, onChange, allowImmediate = true, serviceLabels = false,
 }: FulfillmentSectionProps) {
   const { t, locale } = useI18n();
   const targets = useMemo(
@@ -75,16 +79,14 @@ export function FulfillmentSection({
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
-        {t('fulfillment')}
-      </span>
+      {!serviceLabels && <span className="text-fs-xs font-medium uppercase text-[var(--fg-muted)]">{t('fulfillment')}</span>}
 
       {allowImmediate && (
         <div className="flex gap-2">
           <TimingTile
             active={value.timing === 'immediate'}
             onClick={() => onChange({ timing: 'immediate' })}
-            label={t('fulfillmentImmediate')}
+            label={t(serviceLabels ? 'orderCheckoutImmediate' : 'fulfillmentImmediate')}
           />
           <TimingTile
             active={value.timing === 'scheduled'}
@@ -93,18 +95,18 @@ export function FulfillmentSection({
                 ? selectTarget(value.scheduledFor ?? targets[0].id)
                 : onChange({ timing: 'scheduled', scheduledFor: value.scheduledFor })
             }
-            label={t('fulfillmentScheduled')}
+            label={t(serviceLabels ? 'orderCheckoutScheduled' : 'fulfillmentScheduled')}
           />
         </div>
       )}
 
-      {value.timing === 'immediate' && (
+      {value.timing === 'immediate' && !serviceLabels && (
         <p className="text-fs-xs text-[var(--fg-muted)]">{t('fulfillmentImmediateHint')}</p>
       )}
 
       {value.timing === 'scheduled' && hasTargets && (
         <label className="flex flex-col gap-1 text-fs-xs text-[var(--fg-muted)]">
-          {t('fulfillmentDay')}
+          {t(serviceLabels ? orderType === 'pickup' ? 'orderCheckoutPickupDay' : 'orderCheckoutDeliveryDay' : 'fulfillmentDay')}
           <select
             value={value.scheduledFor ?? targets[0].id}
             onChange={(e) => selectTarget(e.target.value)}
