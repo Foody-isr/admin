@@ -5242,6 +5242,8 @@ export interface CreateOrderInput {
   /** When true the server holds the order pending payment and returns a
    *  payment_url to forward to the customer. */
   payment_required?: boolean;
+  /** Staff-prepared Sumit checkout; the server enforces provider and payment authority. */
+  internal_checkout?: 'link' | 'card';
   // Delivery-only address fields.
   delivery_address?: string;
   delivery_city?: string;
@@ -5273,8 +5275,8 @@ export interface CreateOrderInput {
 export async function createOrder(
   restaurantId: number,
   input: CreateOrderInput,
-): Promise<{ order: Order; payment_url?: string }> {
-  return apiFetch<{ order: Order; payment_url?: string }>(
+): Promise<{ order: Order; payment_url?: string; checkout_url?: string }> {
+  return apiFetch<{ order: Order; payment_url?: string; checkout_url?: string }>(
     `/api/v1/orders?restaurant_id=${restaurantId}`,
     restaurantId,
     { method: 'POST', body: JSON.stringify(input) },
@@ -11291,4 +11293,16 @@ export function submitLifecycleV2(context: LifecycleActorContext, command: impor
 /** Verify the same request after an uncertain response; this never replays it. */
 export function verifyLifecycleV2(context: LifecycleActorContext, command: import('./orders/lifecycle-operations').LifecycleCommand): Promise<unknown> {
   return lifecycleScopedFetch(context, `/operations/${encodeURIComponent(command.request_id)}?${new URLSearchParams({ scope: command.scope.kind, id: command.scope.id })}`);
+}
+
+/** Reads the active restaurant's Sumit-only internal checkout capability. */
+export function getInternalCheckoutCapabilities(restaurantId: number): Promise<{ enabled: boolean }> {
+  return apiFetch(`/api/v1/public/internal-checkout-capabilities?restaurant_id=${restaurantId}`, restaurantId);
+}
+
+/** Opens or resumes the one hosted Sumit page bound to a prepared order. */
+export function payInternalCheckout(restaurantId: number, orderId: number, receiptToken: string): Promise<{ payment_url: string }> {
+  return apiFetch(`/api/v1/public/orders/${orderId}/internal-checkout?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', headers: { 'X-Receipt-Token': receiptToken }, body: '{}',
+  });
 }

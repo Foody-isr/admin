@@ -12,6 +12,7 @@ import { readOrderLifecycleV2 } from '@/lib/orders/lifecycle-v2';
 import { readOrderLifecycle } from '@/lib/orders/lifecycle';
 import { orderDetailUrl } from '@/lib/orders/routes';
 import styles from './order-detail.module.css';
+import { PreparedCheckoutActions } from '../InternalOrderPayment';
 
 /** Fixed drawer toolbar. Sharing retains Foody's canonical order link. */
 export function OrderDetailHead({ order, children }: { order: Order; children: ReactNode }) {
@@ -84,6 +85,7 @@ export function OrderDetailSummary({ order, isCancelled, onRetry }: { order: Ord
       </div>
       {lifecycle.kind === 'available' && lifecycle.value.handoff.tracking === 'not_tracked' && <p className={styles.orderReference}>{t('lifecycleHandoffNotTracked')}</p>}
       {lifecycle.kind === 'unavailable' && onRetry && <button type="button" onClick={onRetry} className="text-fs-xs underline">{t('retry')}</button>}
+      <PreparedCheckoutActions key={`${order.restaurant_id}:${order.id}`} order={order} />
       <p className={styles.orderReference}>
         {t('orderNumber').replace('{id}', String(order.id))}
         {showTiming && <> · {timing.minutes} {t('minShort')}</>}

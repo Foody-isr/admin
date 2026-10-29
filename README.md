@@ -1139,8 +1139,8 @@ Search filters addresses, contacts, order numbers and notes without changing the
 saved sequence; selecting a pin clears the filter and reveals its stop. The
 panel handle supports dragging, arrow keys and Home/End.
 
-Tap-to-call is available before departure. The fixed dock offers Adjust/Start for
-a draft, then navigation and delivery confirmation for the next unfinished stop,
+Tap-to-call is available before departure. The fixed dock offers Start for
+a draft, then navigation and delivery confirmation for the selected stop,
 identified above the actions. Another stop can be completed from its selected
 row. Completion requires an active route but no separate Arrived action. A current
 run must finish before another can start. Account, restaurant, language and theme
@@ -1156,11 +1156,18 @@ The courier preflights each changed set of destinations through an owner-scoped
 API call. Missing, imprecise or mismatched coordinates are warned before departure.
 Provider outages are visible and retryable without disabling call/completion.
 Waze receives a checked GPS point, avoiding language-dependent text matching.
-Unverified text searches require an explicit warning; the correction editor accepts
-local/Hebrew addresses or a manually checked point. This checks Foody's destination,
+Unverified text searches require an explicit warning; address problems must be
+reviewed by the dispatcher. This checks Foody's destination,
 not Waze's private address index, and never silently changes a saved destination.
 
-Isolated synthetic checks: `npx playwright test -c playwright.courier.config.ts` and
+Courier mode is execution-only for couriers, owners and superadmins. Route
+settings, reoptimization, address correction and stop reordering are unavailable.
+Total-duration details are read-only. Plan-warning Retry only reloads saved data.
+Authorized dispatchers change plans in Orders → Deliveries. The matching API
+rejects legacy courier planning writes and blocks Courier memberships from route
+planning even with a historical orders.manage grant.
+
+Isolated synthetic checks: `npx playwright test -c playwright.redesign.config.ts tests/redesign/courier-workflow.spec.ts tests/redesign/delivery-planner.spec.ts` and
 `npx tsx --test src/lib/__tests__/delivery-links.test.ts src/lib/__tests__/delivery-planning.test.ts`.
 
 ## Delivery maps and usage
@@ -1621,3 +1628,23 @@ courier and use the shared route view, like a superadmin. Selection does not
 replace the signed-in account or report its GPS for the courier. The API checks
 actual restaurant ownership and selected courier membership/route ownership.
 Deploy the matching API before this Admin; no migration is required.
+
+## Prepared Sumit internal checkout
+
+Compatible API/Admin/Web versions add staff-prepared pickup/delivery baskets:
+`internal_checkout: link` returns a private Foody basket URL, while `card` opens
+Sumit's hosted form in Admin. Both require the active configured Sumit provider;
+creation requires `orders.manage`, and Admin card entry additionally requires
+`payments.manage`. Recipient delivery uses the existing server-resolved zones,
+minimum and retained service date, reviews recalculated fees/discounts/total, and
+compares `expected_total_minor` again before payment. Admin card orders keep the
+staff delivery quote. No PAN/CVV enters a Foody form or API in these flows.
+
+One durable claim binds contacts and the hosted URL; retries resume the same
+page. Uncertain creation blocks another attempt. The order stays pending and
+immutable until provider confirmation; unpaid baskets expire after 24 hours via
+the cancellation/stock-release path. Saved Admin orders expose recovery actions.
+No schema or environment change is needed. See the FR/HE/EN prepared Sumit guide
+in Landing and `docs/help/reviews/sumit-internal-checkout.json`. Release requires an immutable reviewed documentation pin and coordinated
+API-first development verification. Synthetic regression tests replace Sumit;
+provider acceptance is verified separately before production promotion.

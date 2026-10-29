@@ -81,13 +81,6 @@ export interface RouteSettingsInput {
   end_address: string;
 }
 
-export interface StopAddressInput {
-  address: string;
-  city: string;
-  lat?: number;
-  lng?: number;
-}
-
 function q(restaurantId: number, extra?: Record<string, string>): string {
   const sp = new URLSearchParams({ restaurant_id: String(restaurantId), ...(extra ?? {}) });
   return sp.toString();
@@ -140,22 +133,6 @@ export async function markStopDelivered(restaurantId: number, routeId: number, s
   return data.route;
 }
 
-export async function addStops(restaurantId: number, routeId: number, orderIds: number[]): Promise<DeliveryRoute> {
-  const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/stops?${q(restaurantId)}`, restaurantId,
-    { method: 'POST', body: JSON.stringify({ order_ids: orderIds }) },
-  );
-  return data.route;
-}
-
-export async function removeStop(restaurantId: number, routeId: number, stopId: number): Promise<DeliveryRoute> {
-  const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/stops/${stopId}?${q(restaurantId)}`, restaurantId,
-    { method: 'DELETE' },
-  );
-  return data.route;
-}
-
 /** Manager action: return one pending stop to the unplanned delivery pool. */
 export async function unassignRouteStop(restaurantId: number, routeId: number, stopId: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
@@ -166,10 +143,10 @@ export async function unassignRouteStop(restaurantId: number, routeId: number, s
   return data.route;
 }
 
-/** Save stop order, checking the selected courier when supplied. */
-export async function reorderStops(restaurantId: number, routeId: number, stopIds: number[], courierId?: number): Promise<DeliveryRoute> {
+/** Save stop order, from the dispatcher. */
+export async function reorderStops(restaurantId: number, routeId: number, stopIds: number[]): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/stops/reorder?${courierQuery(restaurantId, courierId)}`, restaurantId,
+    `/api/v1/delivery/routes/${routeId}/stops/reorder?${q(restaurantId)}`, restaurantId,
     { method: 'PATCH', body: JSON.stringify({ stop_ids: stopIds }) },
   );
   return data.route;
@@ -179,45 +156,22 @@ export async function optimizeRoute(
   restaurantId: number,
   routeId: number,
   from?: { lat: number; lng: number },
-  ownRoute = false,
-  courierId?: number,
 ): Promise<DeliveryRoute> {
-  const action = ownRoute ? 'my-optimize' : 'optimize';
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/${action}?${courierQuery(restaurantId, courierId)}`, restaurantId,
+    `/api/v1/delivery/routes/${routeId}/optimize?${q(restaurantId)}`, restaurantId,
     { method: 'POST', body: JSON.stringify(from ? { from } : {}) },
   );
   return data.route;
 }
 
-/** Correct and locate a stop on the current courier's own route. The server
- * persists the order correction and safely recalculates the remaining route. */
-export async function updateMyStopAddress(
-  restaurantId: number,
-  routeId: number,
-  stopId: number,
-  input: StopAddressInput,
-  courierId?: number,
-): Promise<DeliveryRoute> {
-  const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/my-address?${courierQuery(restaurantId, courierId)}`,
-    restaurantId,
-    { method: 'PATCH', body: JSON.stringify(input) },
-  );
-  return data.route;
-}
-
-/** Update a draft route's time and optional endpoints as manager or owner courier. */
+/** Update a draft route's time and optional endpoints from the dispatcher. */
 export async function updateRouteSettings(
   restaurantId: number,
   routeId: number,
   input: RouteSettingsInput,
-  ownRoute = false,
-  courierId?: number,
 ): Promise<DeliveryRoute> {
-  const endpoint = ownRoute ? 'my-settings' : 'settings';
   const data = await apiFetch<{ route: DeliveryRoute }>(
-    `/api/v1/delivery/routes/${routeId}/${endpoint}?${courierQuery(restaurantId, courierId)}`,
+    `/api/v1/delivery/routes/${routeId}/settings?${q(restaurantId)}`,
     restaurantId,
     { method: 'PATCH', body: JSON.stringify(input) },
   );

@@ -43,7 +43,6 @@ async function install(page: Page, options: { active?: boolean; missing?: boolea
         if (selected.stops.every(stop => stop.status === 'delivered' || stop.status === 'skipped')) selected.status = 'completed';
       }
       if (path.endsWith('/start')) selected.status = 'active';
-      if (path.endsWith('/my-settings')) Object.assign(selected, body);
       return intercepted.fulfill({ json: { route: selected } });
     }
     const result = fixture.response(request.url(), request.method(), request.postDataJSON() ?? {}, Number(rid) || 1);
@@ -189,22 +188,6 @@ test('unlocated address is warned before departure and before Waze text search',
   expect(state.errors).toEqual([]);
 });
 
-test('courier saves a per-stop duration including an explicit zero', async ({ page }) => {
-  const state = await install(page); await page.goto('/2/orders/deliveries');
-  if (!await page.getByRole('dialog').isVisible()) await run(page).getByRole('button', { name: 'Ajuster', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Modifier', exact: true }).click();
-  const input = page.getByRole('dialog').getByRole('spinbutton', { name: 'Temps à chaque arrêt (minutes)' });
-  await input.fill('8'); await page.getByRole('dialog').getByRole('button', { name: 'Enregistrer', exact: true }).click();
-  await expect(page.getByRole('dialog').getByText('8 min à chaque arrêt')).toBeVisible();
-  if (!await page.getByRole('dialog').isVisible()) await run(page).getByRole('button', { name: 'Ajuster', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Modifier', exact: true }).click();
-  await input.fill('0'); await page.getByRole('dialog').getByRole('button', { name: 'Enregistrer', exact: true }).click();
-  await expect(page.getByRole('dialog').getByText('0 min à chaque arrêt')).toBeVisible();
-  expect(state.writes.map(write => write.body.stop_service_minutes)).toEqual([8, 0]);
-  expect(state.writes.every(write => write.rid === '2')).toBe(true);
-  expect(state.errors).toEqual([]);
-});
-
 test('Hebrew mobile keeps call and delivered actions visible without overflow', async ({ page }, info) => {
   const state = await install(page, { active: true, locale: 'he' }); await page.setViewportSize({ width: 375, height: 812 }); await page.goto('/1/orders/deliveries');
   await expect(card(page).getByRole('link', { name: 'התקשר', exact: true })).toBeVisible();
@@ -246,66 +229,6 @@ test('finishing the last delivery preserves the final destination without retain
   await run(page).getByTestId('courier-action-dock').getByRole('button', { name: 'Marquer livrée', exact: true }).click();
   await expect(card(page)).toHaveCount(0);
   await expect(page.getByText('Dépôt retour', { exact: true })).toBeVisible();
-  expect(state.errors).toEqual([]);
-});
-
-test('courier selects endpoint suggestions and saves a 90-minute communication range', async ({ page }, info) => {
-  const state = await install(page);
-  const lookups: Array<{ path: string; body: any; rid?: string }> = [];
-  await page.route('**/api/v1/public/address-autocomplete**', async intercepted => {
-    const request = intercepted.request(), path = new URL(request.url()).pathname;
-    lookups.push({ path, body: request.postDataJSON(), rid: request.headers()['x-restaurant-id'] });
-    if (path.endsWith('/resolve')) {
-      await new Promise(resolve => setTimeout(resolve, 250));
-      return intercepted.fulfill({ json: { suggestion: { id: 'demo-home', address: 'Herzl 10', city: 'Netanya', token: 'synthetic' } } });
-    }
-    return intercepted.fulfill({ json: { suggestions: [{ id: 'demo-home', address: 'Herzl 10', city: 'Netanya', kind: 'prediction', lookup_token: 'synthetic-lookup' }] } });
-  });
-  await page.goto('/2/orders/deliveries');
-  if (!await page.getByRole('dialog').isVisible()) await run(page).getByRole('button', { name: 'Ajuster', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Modifier', exact: true }).click();
-  await page.getByRole('dialog').getByRole('combobox', { name: 'Adresse de départ' }).fill('Herzl');
-  await page.getByRole('dialog').getByRole('option', { name: /Herzl 10/ }).click();
-  await page.getByRole('dialog').getByRole('combobox', { name: 'Destination finale' }).fill('Netanya');
-  await page.getByRole('dialog').getByRole('combobox', { name: 'Destination finale' }).press('ArrowDown');
-  await expect(page.getByRole('dialog').getByRole('option', { name: /Herzl 10/ })).toBeVisible();
-  await page.getByRole('dialog').getByRole('combobox', { name: 'Destination finale' }).press('Enter');
-  await page.getByRole('dialog').getByRole('textbox', { name: 'Marge du créneau communiqué au client' }).fill('1h30');
-  await expect(page.getByRole('dialog').getByRole('button', { name: 'Enregistrer', exact: true })).toBeDisabled();
-  await expect(page.getByRole('dialog').getByRole('combobox', { name: 'Adresse de départ' })).toHaveValue('Herzl 10, Netanya');
-  await expect(page.getByRole('dialog').getByRole('combobox', { name: 'Destination finale' })).toHaveValue('Herzl 10, Netanya');
-  await page.screenshot({ path: info.outputPath('courier-route-endpoints-fr.png'), fullPage: true });
-  await page.getByRole('dialog').getByRole('button', { name: 'Enregistrer', exact: true }).click();
-  await expect.poll(() => state.writes.length).toBe(1);
-  expect(state.writes[0].body).toMatchObject({ start_address: 'Herzl 10, Netanya', end_address: 'Herzl 10, Netanya', customer_window_minutes: 90 });
-  expect(lookups.every(row => row.rid === '2')).toBe(true);
-  expect(lookups.filter(row => row.path.endsWith('/resolve'))).toHaveLength(2);
-  expect(state.errors).toEqual([]);
-});
-
-test('unresolved final address shows recovery and keeps the saved route intact', async ({ page }) => {
-  const state = await install(page);
-  let rejected = false;
-  await page.route('**/api/v1/delivery/routes/1/my-settings**', async intercepted => {
-    if (!rejected) {
-      rejected = true;
-      return intercepted.fulfill({ status: 422, json: { error: 'address not located' } });
-    }
-    return intercepted.fallback();
-  });
-  await page.goto('/1/orders/deliveries');
-  if (!await page.getByRole('dialog').isVisible()) await run(page).getByRole('button', { name: 'Ajuster', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Modifier', exact: true }).click();
-  const destination = page.getByRole('dialog').getByRole('combobox', { name: 'Destination finale' });
-  await destination.fill('Demo Street 14, Test City');
-  await page.getByRole('dialog').getByRole('button', { name: 'Enregistrer', exact: true }).click();
-  await expect(page.getByRole('dialog').getByRole('alert')).toContainText('Adresse introuvable. Vérifiez le numéro et la ville');
-  await expect(destination).toHaveValue('Demo Street 14, Test City');
-  expect(state.routes[0].end_address).toBeUndefined();
-  expect(state.writes).toHaveLength(0);
-  await destination.fill('14 Demo, Test City');
-  await page.getByRole('dialog').getByRole('button', { name: 'Enregistrer', exact: true }).click();
-  await expect.poll(() => state.routes[0].end_address).toBe('14 Demo, Test City');
   expect(state.errors).toEqual([]);
 });
 
@@ -411,19 +334,6 @@ test('switching the viewed route keeps the active GPS reporter running', async (
   await page.getByRole('combobox', { name: 'Choisir une tournée' }).selectOption('1');
   expect(await page.evaluate(() => (window as any).courierGpsFixture)).toEqual(before);
   expect(state.writes).toEqual([]); expect(state.errors).toEqual([]);
-});
-
-test('stop options retain address correction and manual ordering', async ({ page }) => {
-  const state = await install(page); await page.goto('/1/orders/deliveries');
-  await card(page).getByRole('button', { name: 'Options de l’arrêt' }).click();
-  await page.getByRole('menuitem', { name: 'Corriger l’adresse' }).click();
-  await expect(page.getByRole('dialog', { name: 'Corriger l’adresse' })).toBeVisible();
-  await page.getByRole('dialog').getByRole('button', { name: 'Fermer', exact: true }).click();
-  await card(page).getByRole('button', { name: 'Options de l’arrêt' }).click();
-  await page.getByRole('menuitem', { name: 'Descendre', exact: true }).click();
-  await expect.poll(() => state.writes.length).toBe(1);
-  expect(state.writes[0].body).toEqual({ stop_ids: [2, 1] });
-  expect(state.writes[0].rid).toBe('1'); expect(state.errors).toEqual([]);
 });
 
 test('manager courier preview fits inside the administration shell', async ({ page }) => {
@@ -575,4 +485,41 @@ test('a global owner cannot select couriers in a restaurant managed by another o
   expect(state.requests).not.toContain('/api/v1/restaurants/1/staff');
   expect(state.courierRequests.filter(request => request.path.includes('/delivery/routes/')).every(request => request.courierId === null)).toBe(true);
   expect(state.errors).toEqual([]);
+});
+
+for (const role of ['courier', 'owner', 'superadmin'] as const) {
+  for (const locale of ['fr', 'en', 'he']) {
+    test(`${role} executes the saved itinerary without planning controls (${locale})`, async ({ page }) => {
+      const state = await install(page, { role, locale });
+      const before = JSON.stringify(state.routes);
+      await page.goto('/1/orders/courier-mode');
+      await expect(card(page)).toBeVisible();
+      for (const title of ['Ajuster', 'Options de la tournée', 'Options de l’arrêt', 'Corriger l’adresse', 'Réoptimiser', 'Refine', 'Route options', 'Stop options', 'Correct address', 'Reoptimize', 'התאמה', 'אפשרויות מסלול', 'אפשרויות עצירה']) {
+        await expect(run(page).getByRole('button', { name: title, exact: true })).toHaveCount(0);
+      }
+      await expect(run(page).getByRole('spinbutton')).toHaveCount(0);
+      await expect(run(page).getByRole('menuitem')).toHaveCount(0);
+      await run(page).locator('summary').click();
+      await expect(run(page).locator('details')).toHaveAttribute('open', '');
+      await card(page, 2).locator('button[aria-expanded]').click();
+      await expect(card(page, 2).getByRole('link', { name: locale === 'he' ? 'התקשר' : locale === 'fr' ? 'Appeler' : 'Call', exact: true })).toBeVisible();
+      expect(JSON.stringify(state.routes)).toBe(before);
+      expect(state.writes).toEqual([]);
+      expect(state.errors).toEqual([]);
+      // Starting and delivery remain real operations; existing action tests cover them.
+    });
+  }
+}
+
+test('refreshing a saved route warning does not recalculate or write the plan', async ({ page }) => {
+  const state = await install(page);
+  Object.assign(state.routes[0], { routing_warning: 'quota_exceeded', needs_recalculation: true });
+  const before = JSON.stringify(state.routes);
+  await page.goto('/1/orders/courier-mode');
+  await expect(card(page)).toBeVisible();
+  const reads = state.requests.filter(path => path.endsWith('/mine/all')).length;
+  await run(page).getByRole('button', { name: 'Réessayer', exact: true }).click();
+  await expect.poll(() => state.requests.filter(path => path.endsWith('/mine/all')).length).toBeGreaterThan(reads);
+  expect(state.writes).toEqual([]);
+  expect(JSON.stringify(state.routes)).toBe(before);
 });

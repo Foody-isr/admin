@@ -1,0 +1,44 @@
+{
+  "files": [
+    {
+      "path": "src/components/orders/detail/OrderDetailHead.tsx",
+      "sha256": "968a1d462836d5a9690113a9cde28625e214c51be96f12dd2f5e9cce08a3f7a4",
+      "baseSha256": "85149218c1c3584e40381a006b9ba9aa78be5abee81d7288ca50b83e5163513c",
+      "features": [
+        "order-lifecycle"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff adds a recovery action for the explicit prepared Sumit marker. Existing lifecycle status badges, timing, order sharing and lifecycle interpretation retain the same code and merchant meaning."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "5226d7bec9471721c38d92827a27c8c90aee554b962910a6afbebe5953d4e6ce",
+      "baseSha256": "a27371044952521b502b59eecc6774a57e6ac48dd3739b864a3e3192c4d2a279",
+      "features": [
+        "customers-profiles",
+        "delivery-zones",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff adds only prepared Sumit checkout request/response types and client methods. The unrelated customer-profile, delivery-zone settings, POS collection, product gallery and other classified API methods keep their implementations."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "2b8a2cd06feecc9467f6c77d32e9aa82511a4df8388530dd131c305653543a07",
+      "baseSha256": "53e1f82f0838ecb1fbccb7382be536359cae74c83e08ef2919942d8c57d2e91c",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only newly introduced prepared Sumit checkout copy and its address-based delivery wording are added. Existing unrelated customer, map, stock, POS and other classified labels and controls are unchanged."
+    }
+  ]
+}

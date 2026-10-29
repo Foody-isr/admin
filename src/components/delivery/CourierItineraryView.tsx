@@ -10,14 +10,8 @@ import {
   startRoute,
   markArrived,
   markStopDelivered,
-  reorderStops,
-  optimizeRoute,
-  updateRouteSettings,
-  updateMyStopAddress,
   type DeliveryRoute,
-  type RouteSettingsInput,
   type RouteStop,
-  type StopAddressInput,
 } from '@/lib/delivery';
 import {
   deliveryRoutingError,
@@ -30,38 +24,25 @@ import {
 } from '@/lib/delivery-planning';
 import { callUrl, whatsappUrl } from '@/lib/delivery-links';
 import { NavigationAppMenu } from '@/components/delivery/NavigationAppMenu';
-import { RouteSettingsEditor } from '@/components/delivery/RouteSettingsEditor';
-import { CourierAddressEditor } from '@/components/delivery/CourierAddressEditor';
 import { DeliveryDuration } from '@/components/delivery/DeliveryDuration';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
 import { useLocationReporter } from '@/lib/useLocationReporter';
 import {
   Button,
   ConfirmDialog,
-  Drawer,
   Input,
-  Menu,
-  MenuContent,
-  MenuItem,
-  MenuTrigger,
 } from '@/components/ds';
 import {
   PhoneIcon,
   CheckCircle2Icon,
   CheckIcon,
-  ChevronUpIcon,
-  ChevronDownIcon,
   RouteIcon,
-  ZapIcon,
   AlertCircleIcon,
   MapPinIcon,
   FlagIcon,
   PackageIcon,
   MessageCircleIcon,
-  PencilIcon,
   SearchIcon,
-  MoreVerticalIcon,
-  SlidersHorizontalIcon,
   XIcon,
   StickyNoteIcon,
   HomeIcon,
@@ -144,11 +125,7 @@ function TimelineStop({
   current,
   selected,
   busy,
-  index,
-  total,
   onSelect,
-  onEdit,
-  onMove,
   onArrived,
   onDelivered,
 }: {
@@ -157,11 +134,7 @@ function TimelineStop({
   current: boolean;
   selected: boolean;
   busy: boolean;
-  index: number;
-  total: number;
   onSelect: () => void;
-  onEdit: () => void;
-  onMove: (direction: -1 | 1) => void;
   onArrived: () => void;
   onDelivered: () => void;
 }) {
@@ -261,27 +234,7 @@ function TimelineStop({
                       </a>
                     </Button>
                   )}
-                  <Menu>
-                    <MenuTrigger asChild>
-                      <Button variant="ghost" size="md" icon aria-label={t('courierStopOptions')}>
-                        <MoreVerticalIcon />
-                      </Button>
-                    </MenuTrigger>
-                    <MenuContent side="top">
-                      <MenuItem disabled={busy} onSelect={onEdit}>
-                        <PencilIcon />
-                        {t('correctAddress')}
-                      </MenuItem>
-                      <MenuItem disabled={busy || index === 0} onSelect={() => onMove(-1)}>
-                        <ChevronUpIcon />
-                        {t('moveUp')}
-                      </MenuItem>
-                      <MenuItem disabled={busy || index === total - 1} onSelect={() => onMove(1)}>
-                        <ChevronDownIcon />
-                        {t('moveDown')}
-                      </MenuItem>
-                    </MenuContent>
-                  </Menu>
+
                   {canDeliver && current && stop.status !== 'arrived' && (
                     <Button variant="ghost" size="md" disabled={busy} onClick={onArrived}>
                       <MapPinIcon />
@@ -338,11 +291,9 @@ function CourierRouteView({
   const [selectedStopId, setSelectedStopId] = useState<number | null>(null);
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const dragStart = useRef<number | null>(null);
-  const [addressEditorStop, setAddressEditorStop] = useState<RouteStop | null>(null);
   const [startConfirmOpen, setStartConfirmOpen] = useState(false);
   const { denied: locationDenied } = useLocationReporter(
     rid,
@@ -432,12 +383,6 @@ function CourierRouteView({
     }
   }
 
-  const onReoptimize = () =>
-    withBusy(async () => {
-      if (!route) return;
-      setRoute(await optimizeRoute(rid, route.id, undefined, true, courierId));
-    });
-
   const startNow = () =>
     withBusy(async () => {
       if (!route) return;
@@ -451,27 +396,6 @@ function CourierRouteView({
       return;
     }
     void startNow();
-  };
-
-  const onSaveStopAddress = async (input: StopAddressInput) => {
-    if (!route || !addressEditorStop) return;
-    setError(null);
-    const updated = await updateMyStopAddress(rid, route.id, addressEditorStop.id, input, courierId);
-    setRoute(updated);
-  };
-
-  const onSaveSettings = async (input: RouteSettingsInput) => {
-    if (!route) return;
-    setBusy(true);
-    setError(null);
-    try {
-      setRoute(await updateRouteSettings(rid, route.id, input, true, courierId));
-    } catch (cause) {
-      setError(deliveryRoutingError(cause, t) ?? t('routeSettingsSaveFailed'));
-      throw cause;
-    } finally {
-      setBusy(false);
-    }
   };
 
   const onArrived = (stop: RouteStop) =>
@@ -489,18 +413,6 @@ function CourierRouteView({
       if (updated.status === 'completed') onCompleted(updated);
       await onReload();
     }, 'courierDeliveryFailed');
-
-  // Move a stop up/down in the sequence and persist the new order.
-  const move = (stop: RouteStop, dir: -1 | 1) =>
-    withBusy(async () => {
-      if (!route) return;
-      const ids = stops.map((s) => s.id);
-      const i = ids.indexOf(stop.id);
-      const j = i + dir;
-      if (j < 0 || j >= ids.length) return;
-      [ids[i], ids[j]] = [ids[j], ids[i]];
-      setRoute(await reorderStops(rid, route.id, ids, courierId));
-    });
 
   const selectedId = stops.some((stop) => stop.id === selectedStopId)
     ? selectedStopId
@@ -686,32 +598,13 @@ function CourierRouteView({
               >
                 <SearchIcon />
               </button>
-              <Menu>
-                <MenuTrigger asChild>
-                  <button
-                    type="button"
-                    className={styles.iconButton}
-                    aria-label={t('courierRouteOptions')}
-                  >
-                    <MoreVerticalIcon />
-                  </button>
-                </MenuTrigger>
-                <MenuContent align="end">
-                  <MenuItem onSelect={() => setSettingsOpen(true)}>
-                    <SlidersHorizontalIcon />
-                    {t('routeSettingsTitle')}
-                  </MenuItem>
-                  <MenuItem
-                    disabled={busy || stops.length === 0}
-                    onSelect={() => void onReoptimize()}
-                  >
-                    <ZapIcon />
-                    {t('reoptimize')}
-                  </MenuItem>
-                </MenuContent>
-              </Menu>
+
             </div>
           </div>
+          <details className="mt-2 text-fs-xs text-[var(--fg-muted)]">
+            <summary className="cursor-pointer py-2">{t('deliveryPlanTotalDuration')}</summary>
+            <DeliveryDuration route={route} t={t} />
+          </details>
           {error && (
             <div role="alert" className={`${styles.notice} ${styles.error}`}>
               <p>{error}</p>
@@ -774,7 +667,7 @@ function CourierRouteView({
                   variant="ghost"
                   size="sm"
                   disabled={busy}
-                  onClick={() => void onReoptimize()}
+                  onClick={() => void onReload()}
                 >
                   {t('retry')}
                 </Button>
@@ -821,12 +714,8 @@ function CourierRouteView({
               route={route}
               current={stop.id === currentStop?.id}
               selected={stop.id === selectedId}
-              index={stops.indexOf(stop)}
-              total={stops.length}
               busy={busy}
               onSelect={() => selectStop(stop)}
-              onEdit={() => setAddressEditorStop(stop)}
-              onMove={(direction) => void move(stop, direction)}
               onArrived={() => void onArrived(stop)}
               onDelivered={() => void onDelivered(stop)}
             />
@@ -870,27 +759,16 @@ function CourierRouteView({
           </div>
           <div className={styles.dockActions}>
             {route.status === 'draft' ? (
-              <>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  disabled={busy}
-                  onClick={() => setSettingsOpen(true)}
-                >
-                  <SlidersHorizontalIcon />
-                  {t('courierRefineRoute')}
-                </Button>
-                <Button
-                  variant="primary"
-                  size="lg"
-                  disabled={busy || !canStart || navigationLoading || stops.length === 0}
-                  onClick={onStart}
-                  aria-label={t('startRoute')}
-                >
-                  <RouteIcon />
-                  {t('courierStartAction')}
-                </Button>
-              </>
+              <Button
+                variant="primary"
+                size="lg"
+                disabled={busy || !canStart || navigationLoading || stops.length === 0}
+                onClick={onStart}
+                aria-label={t('startRoute')}
+              >
+                <RouteIcon />
+                {t('courierStartAction')}
+              </Button>
             ) : actionStop && route.status === 'active' ? (
               <>
                 <NavigationAppMenu
@@ -918,43 +796,6 @@ function CourierRouteView({
           )}
         </div>
       </div>
-      <Drawer
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        title={t('routeSettingsTitle')}
-        width={480}
-        closeDisabled={busy}
-      >
-        <RouteSettingsEditor
-          route={route}
-          locale={locale}
-          disabled={busy || route.status !== 'draft'}
-          onSave={onSaveSettings}
-          t={t}
-        />
-        <div className="mt-5">
-          <DeliveryDuration route={route} t={t} />
-        </div>
-        <Button
-          variant="secondary"
-          className="mt-5"
-          disabled={busy || stops.length === 0}
-          onClick={() => void onReoptimize()}
-        >
-          <ZapIcon />
-          {t('reoptimize')}
-        </Button>
-      </Drawer>
-      <CourierAddressEditor
-        open={addressEditorStop != null}
-        onOpenChange={(open) => {
-          if (!open) setAddressEditorStop(null);
-        }}
-        restaurantId={rid}
-        stop={addressEditorStop}
-        onSave={onSaveStopAddress}
-        t={t}
-      />
       <ConfirmDialog
         open={startConfirmOpen}
         onOpenChange={setStartConfirmOpen}
