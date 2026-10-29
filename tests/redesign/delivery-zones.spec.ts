@@ -72,12 +72,13 @@ for (const mode of ['customer','automatic','restaurant'] as const) test(`deliver
  await form.getByRole('combobox',{name:'Type de zone',exact:true}).selectOption('departments');
  await form.getByRole('textbox',{name:'Codes des départements',exact:true}).fill('94, 93');
  await form.getByRole('combobox',{name:'Choix du créneau de livraison',exact:true}).selectOption(mode);
+ await expect(form.locator('input[type=time]')).toHaveCount(0);
  await form.getByRole('checkbox',{name:'lundi',exact:true}).check();await form.getByRole('checkbox',{name:'vendredi',exact:true}).check();
  await form.getByRole('checkbox',{name:'Proposer le retrait en alternative lorsqu’il est activé',exact:true}).check();
  await page.screenshot({path:info.outputPath(`delivery-route-${mode}.png`)});
  await save(page).click();await expect(dialog(page)).toHaveCount(0);
  expect(state.writes).toHaveLength(1);expect(state.writes[0].rid).toBe('1');
- expect(state.writes[0].body).toMatchObject({type:'departments',departments:['94','93'],schedule:{mode,windows:[{days:[1,5],start:'14:00',end:'18:00'}],offer_pickup:true}});
+ expect(state.writes[0].body).toMatchObject({type:'departments',departments:['94','93'],schedule:{mode,days:[1,5],offer_pickup:true}});
  await page.getByRole('button',{name:'Val-de-Marne et Seine-Saint-Denis',exact:true}).click();await expect(dialog(page).getByRole('combobox',{name:'Choix du créneau de livraison',exact:true})).toHaveValue(mode);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
@@ -127,7 +128,7 @@ test('delivery postal day groups accept multiline lists and reuse a code with in
   await form.getByRole('combobox',{name:'Choix du créneau de livraison',exact:true}).selectOption('customer');
   for(const day of group.days)await form.getByRole('checkbox',{name:day,exact:true}).check();
   await save(page).click();await expect(dialog(page)).toHaveCount(0);
-  expect(state.writes.at(-1)?.body).toMatchObject({postal_codes:group.expected,delivery_fee:Number(group.fee),schedule:{mode:'customer',windows:[{days:group.weekdays,start:'14:00',end:'18:00'}]}});
+  expect(state.writes.at(-1)?.body).toMatchObject({postal_codes:group.expected,delivery_fee:Number(group.fee),schedule:{mode:'customer',days:group.weekdays}});
  }
  expect(state.writes).toHaveLength(3);
  await page.getByRole('button',{name:'Secteur semaine',exact:true}).click();await expect(dialog(page).getByRole('textbox',{name:'Codes postaux',exact:true})).toHaveValue('75016, 75015, 01000');

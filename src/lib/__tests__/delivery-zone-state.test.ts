@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { checkedDeliveryZones, deliveryZoneDraft, deliveryZoneDraftError, deliveryZonePayload, deliveryZoneSignature, deliveryZoneCanDraw, validZoneCoordinate, parseDeliveryPostalCodes } from '../delivery-zone-state';
+import { checkedDeliveryZones, deliveryZoneDraft, deliveryZoneDraftError, deliveryZonePayload, deliveryZoneSignature, deliveryZoneCanDraw, validZoneCoordinate, parseDeliveryPostalCodes, validDeliverySchedule, deliveryScheduleWeekdays } from '../delivery-zone-state';
 import type { DeliveryZone } from '../api';
 const zone: DeliveryZone={id:1,restaurant_id:2,name:'Centre',type:'radius',is_active:true,center_lat:32,center_lng:34,radius_m:5000,delivery_fee:0,min_order:null,created_at:''};
 test('delivery radius edits keep the stored centre instead of moving to the restaurant address',()=>{const draft=deliveryZoneDraft(zone,{lat:31,lng:35});draft.deliveryFee='12.5';const payload=deliveryZonePayload(draft,zone);assert.equal(payload.center_lat,32);assert.equal(payload.center_lng,34);assert.equal(payload.delivery_fee,12.5);assert.equal(payload.min_order,null);assert.equal(payload.tour_only,undefined);});
@@ -37,4 +37,15 @@ test('postal lists accept multiline pastes and retain each exact code once',()=>
  assert.deepEqual(parseDeliveryPostalCodes('  \n,;\t'),[]);
  assert.deepEqual(parseDeliveryPostalCodes('75016 heading'),['75016','heading']);
  draft.postalCodes=parseDeliveryPostalCodes('75016 heading');assert.equal(deliveryZoneDraftError(draft),'deliveryPostalCodesRequired');
+});
+
+
+test('delivery zones accept weekdays without times and retain legacy days when editing',()=>{
+ const policy={mode:'customer' as const, days:[5,0],offer_pickup:false};
+ assert.equal(validDeliverySchedule(policy),true);
+ const draft=deliveryZoneDraft({...zone,schedule:policy});assert.deepEqual(deliveryZonePayload(draft).schedule,policy);
+ assert.deepEqual(checkedDeliveryZones([{...zone,schedule:policy}],2)[0].schedule,policy);
+ assert.deepEqual(deliveryScheduleWeekdays({mode:'customer',windows:[{days:[5],start:'10:00',end:'18:00'},{days:[0,5],start:'19:00',end:'20:00'}],offer_pickup:false}),[5,0]);
+ for(const days of [[],[7],[-1],[5,5],[1.5]])assert.equal(validDeliverySchedule({...policy,days}),false);
+ assert.equal(validDeliverySchedule({...policy,windows:[{days:[5],start:'10:00',end:'18:00'}]}),false);
 });
