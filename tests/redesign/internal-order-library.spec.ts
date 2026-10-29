@@ -65,8 +65,9 @@ test('library adds off-menu items alongside carte items and submits the existing
   await page.getByRole('button', { name: 'Carte du jour', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Autre groupe', exact: true })).toBeVisible();
   await expect(ticket(page)).toContainText('Article hors carte');
-  await ticket(page).getByRole('button', { name: /^Encaisser/ }).click();
-  const dialog = page.getByRole('dialog');
+  await ticket(page).getByRole('button', { name: 'Continuer', exact: true }).click();
+  const dialog = page.getByRole('region', { name: 'Finaliser la commande', exact: true });
+  await dialog.getByRole('radio', { name: 'Payer plus tard', exact: true }).check();
   await dialog.getByRole('combobox', { name: 'Nom du client', exact: true }).fill('Client démo');
   await dialog.getByRole('combobox', { name: 'Numéro de téléphone', exact: true }).fill('0500000000');
   await dialog.getByRole('button', { name: /^Créer la commande/ }).click();

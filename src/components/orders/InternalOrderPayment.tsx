@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getOrder, payInternalCheckout, getInternalCheckoutCapabilities, type Order } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Button } from '@/components/ds';
@@ -8,8 +8,8 @@ import { usePermissions } from '@/lib/permissions-context';
 import { RUNTIME_WEB_URL } from '@/lib/runtime-origins';
 
 /** Collects card details inside Sumit's hosted frame and trusts only API settlement. */
-export function InternalOrderPayment({ restaurantId, orderId, receiptToken, onOrders }: {
-  restaurantId: number; orderId: number; receiptToken: string; onOrders: () => void;
+export function InternalOrderPayment({ restaurantId, orderId, receiptToken, onOrders, autoOpen = false }: {
+  restaurantId: number; orderId: number; receiptToken: string; onOrders: () => void; autoOpen?: boolean;
 }) {
   const { t } = useI18n();
   const [url, setURL] = useState<string | null>(null);
@@ -35,7 +35,11 @@ export function InternalOrderPayment({ restaurantId, orderId, receiptToken, onOr
     return () => { stopped = true; clearTimeout(timer); };
   }, [restaurantId, orderId, url, paid, closed]);
 
-  async function openPayment() {
+  const openingRef = useRef(false);
+  const startedRef = useRef(false);
+  const openPayment = useCallback(async () => {
+    if (openingRef.current) return;
+    openingRef.current = true;
     setBusy(true); setError(false);
     try {
       const result = await payInternalCheckout(restaurantId, orderId, receiptToken);
@@ -44,8 +48,13 @@ export function InternalOrderPayment({ restaurantId, orderId, receiptToken, onOr
         !(parsed.hostname === 'sumit.co.il' || parsed.hostname.endsWith('.sumit.co.il'))) throw new Error('Invalid payment URL');
       setURL(result.payment_url);
     } catch { setError(true); }
-    finally { setBusy(false); }
-  }
+    finally { openingRef.current = false; setBusy(false); }
+  }, [restaurantId, orderId, receiptToken]);
+  useEffect(() => {
+    if (!autoOpen || startedRef.current) return;
+    startedRef.current = true;
+    void openPayment();
+  }, [autoOpen, openPayment]);
 
   return <section className="mx-auto flex w-full max-w-3xl flex-col gap-4 py-6">
     <h1 className="text-fs-xl font-semibold">{t(paid ? 'sumitPaymentConfirmed' : 'sumitAdminCard')}</h1>

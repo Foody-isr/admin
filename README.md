@@ -1648,3 +1648,13 @@ No schema or environment change is needed. See the FR/HE/EN prepared Sumit guide
 in Landing and `docs/help/reviews/sumit-internal-checkout.json`. Release requires an immutable reviewed documentation pin and coordinated
 API-first development verification. Synthetic regression tests replace Sumit;
 provider acceptance is verified separately before production promotion.
+
+Internal order finalization stays inside the ticket after Continue. Staff explicitly
+choose a prepared Sumit link, hosted card collection, a received payment or pay later.
+Received payments require acknowledgement of the current amount; hosted flows trust
+API confirmation. Back keeps contact/date, and removed lines offer ten-second Undo
+including restored-draft warnings. Discounts and production controls are collapsible.
+The guest-facing prepared link continues to use the restaurant's existing Web cart.
+Synthetic regressions: `npx playwright test -c playwright.redesign.config.ts
+internal-sumit-checkout.spec.ts internal-order-library.spec.ts
+internal-combo-substitutions.spec.ts selection-controls.spec.ts`.

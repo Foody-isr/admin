@@ -42,10 +42,11 @@ async function start(page:Page){await page.goto('/1/orders/new');await page.getB
 async function submit(page:Page,state:Awaited<ReturnType<typeof install>>){
  const ticket=page.getByRole('complementary',{name:'Articles de la commande',exact:true});
  await expect(ticket).toContainText('100.00');
- await ticket.getByRole('button',{name:/^Encaisser/}).click();
- await modal(page).getByRole('combobox',{name:'Nom du client',exact:true}).fill('Client démo');
- await modal(page).getByRole('combobox',{name:'Numéro de téléphone',exact:true}).fill('0500000000');
- await modal(page).getByRole('button',{name:/^Créer la commande/}).click();
+ await ticket.getByRole('button',{name:'Continuer',exact:true}).click();
+ await page.getByRole('region',{name:'Finaliser la commande',exact:true}).getByRole('radio',{name:'Payer plus tard',exact:true}).check();
+ await page.getByRole('region',{name:'Finaliser la commande',exact:true}).getByRole('combobox',{name:'Nom du client',exact:true}).fill('Client démo');
+ await page.getByRole('region',{name:'Finaliser la commande',exact:true}).getByRole('combobox',{name:'Numéro de téléphone',exact:true}).fill('0500000000');
+ await page.getByRole('region',{name:'Finaliser la commande',exact:true}).getByRole('button',{name:/^Créer la commande/}).click();
  await expect.poll(()=>state.orders.length).toBe(1);
  return state.orders[0].combos[0].selections;
 }

@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { Chip, Drawer, Field, Input, Textarea } from '@/components/ds';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Badge, Button, Chip, Field, Input } from '@/components/ds';
 import { useI18n, useCurrency } from '@/lib/i18n';
-import { Switch } from '@/components/ui/switch';
-import { SelectionIndicator } from '@/components/ds/Selection';
+import { ChoiceRow } from '@/components/ds/Selection';
 import { cn } from '@/lib/utils';
 import {
-  ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, LinkIcon, CheckIcon, TagIcon, XIcon,
+  ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, LinkIcon, CheckIcon, TagIcon, XIcon, ArrowLeftIcon, ClockIcon, ChevronDownIcon,
 } from 'lucide-react';
 import { FulfillmentSection } from './FulfillmentSection';
 import {
@@ -25,15 +24,12 @@ import { usePermissions } from '@/lib/permissions-context';
 import { CustomerPicker } from './CustomerPicker';
 import { CustomerDeliveryFields } from '@/components/customers/CustomerDeliveryFields';
 import type { DraftCustomer } from '@/lib/orders/orderDraft';
+import styles from './order-checkout.module.css';
+import { internalOrderPayment, type InternalPaymentIntent, type InternalPaymentMethod } from '@/lib/orders/internal-order-payment';
 
 export type OrderType = 'pickup' | 'delivery';
-// Payment is captured as two axes: the method (cash / card / payment link) and
-// whether it has already been collected ("déjà encaissé ?"). This lets staff
-// mark a cash order that will be collected on pickup — it stays UNPAID and still
-// carries the cash badge — instead of forcing a choice between "already paid" and
-// an ambiguous method-less "unpaid". `paymentCollected` is ignored for `link`
-// (the customer pays via the provider; the order is created pending).
-export type PaymentMethodChoice = 'cash' | 'card' | 'link' | 'sumit_card';
+/** Existing payment choices sent to the restaurant-scoped create endpoint. */
+export type PaymentMethodChoice = InternalPaymentMethod;
 
 export interface CheckoutData {
   customerName: string;
@@ -67,7 +63,7 @@ export interface DiscountItem {
   quantity: number;
 }
 
-/** La part du drawer qui entre dans le brouillon. Le paiement, les remises et
+/** La part de la finalisation qui entre dans le brouillon. Le paiement, les remises et
  *  les frais de livraison en sont volontairement absents : les restaurer
  *  périmés créerait une commande faussement payée ou facturée au mauvais tarif. */
 export interface DrawerDraftState {
@@ -77,7 +73,7 @@ export interface DrawerDraftState {
   fulfillment: FulfillmentValue;
 }
 
-interface NewOrderCheckoutDrawerProps {
+interface NewOrderCheckoutPanelProps {
   open: boolean;
   onClose: () => void;
   total: number;
@@ -92,39 +88,26 @@ interface NewOrderCheckoutDrawerProps {
   /** Cart lines in the shape required by POST /discounts/validate. */
   discountItems: DiscountItem[];
   /** Appelé quand la part brouillonnable de l'état change. La page compose
-   *  l'enregistrement complet ; le drawer n'écrit rien lui-même. */
+   *  l'enregistrement complet ; le panneau n'écrit rien lui-même. */
   onStateChange?: (state: DrawerDraftState) => void;
   /** État repris d'un brouillon, appliqué une seule fois au montage. */
   initialState?: DrawerDraftState;
+  itemsSummary?: React.ReactNode;
   sumitCheckoutEnabled?: boolean;
   sumitCardEnabled?: boolean;
 }
 
-// A single selectable tile (used for order type + payment choices).
-function OptionTile({
-  active, onClick, icon, label, hint,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-  hint?: string;
-}) {
-  return <button type="button" onClick={onClick} aria-pressed={active} className="selection-button">
-    <span className="shrink-0 [&_svg]:size-5">{icon}</span>
-    <span className="choice-copy"><span className="choice-title">{label}</span>{hint && <span className="choice-description">{hint}</span>}</span>
-    <SelectionIndicator checked={active} />
-  </button>;
-}
-
-export function NewOrderCheckoutDrawer({
+/** Finalizes the current basket inline, preserving its draft and explicit payment intent. */
+export function NewOrderCheckoutPanel({
   open, onClose, total, itemCount, submitting, error, onConfirm, batchConfig, defaultDate,
-  restaurantId, discountItems, onStateChange, initialState, sumitCheckoutEnabled = false, sumitCardEnabled = false,
-}: NewOrderCheckoutDrawerProps) {
+  restaurantId, discountItems, onStateChange, initialState, itemsSummary, sumitCheckoutEnabled = false, sumitCardEnabled = false,
+}: NewOrderCheckoutPanelProps) {
   const { money } = useCurrency();
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canManualDiscount = hasAnyPermission('orders.discount');
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { if (open) headingRef.current?.focus(); }, [open]);
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -148,10 +131,12 @@ export function NewOrderCheckoutDrawer({
   // from overwriting it.
   const [deliveryFee, setDeliveryFee] = useState('');
   const [feeTouched, setFeeTouched] = useState(false);
-  const [payMethod, setPayMethod] = useState<PaymentMethodChoice>('cash');
-  // "déjà encaissé ?" — has the payment already been collected. Defaults to yes
-  // (the common POS case: staff take payment in hand). Ignored for `link`.
-  const [collected, setCollected] = useState(true);
+  const [intent, setIntent] = useState<InternalPaymentIntent | null>(null);
+  const [recordedMethod, setRecordedMethod] = useState<'cash' | 'card'>('cash');
+  const [received, setReceived] = useState(false);
+  const [optionalCustomer, setOptionalCustomer] = useState(false);
+  const payment = internalOrderPayment(intent, recordedMethod, received);
+  const payMethod = payment?.paymentMethod ?? 'cash';
   // "Ajouter au plan de production" override: pins the order onto the production
   // sheet even when it wouldn't normally qualify (unscheduled / unpaid).
   const [addToProduction, setAddToProduction] = useState(false);
@@ -165,14 +150,7 @@ export function NewOrderCheckoutDrawer({
   // guarantees a late-arriving prop never re-applies over what the staff has
   // since typed — this is the WhatsApp-recap-dialog bug, avoided on purpose.
   const didApplyInitial = useRef(false);
-  // Le créneau repris attend d'être consommé par la première ouverture. Sans
-  // ce drapeau, la branche d'ouverture ci-dessous écrasait le créneau restauré
-  // par le créneau par défaut (la première série à venir, ou « Immédiat ») :
-  // `didInitFulfillment` est remis à false à chaque rendu fermé, y compris le
-  // tout premier, donc la première ouverture se croyait toujours la première
-  // ouverture d'un formulaire vierge. L'effet de remontée persistait ensuite le
-  // créneau écrasé dans le brouillon, si bien que le créneau était capturé,
-  // restauré, puis jeté sur le seul chemin qui le consomme.
+  // A restored service date is consumed on first opening before any default.
   const draftFulfillmentPending = useRef<FulfillmentValue | null>(null);
   useEffect(() => {
     if (didApplyInitial.current || !initialState) return;
@@ -213,6 +191,8 @@ export function NewOrderCheckoutDrawer({
       deliveryNotes, linked, orderType, fulfillment, onStateChange]);
 
   // ── Discount state ────────────────────────────────────────────────────────
+  const discountRequest = useRef(0);
+  const discountContext = JSON.stringify([restaurantId, discountItems, orderType, payMethod === 'link' ? 0 : deliveryFee, customerPhone]);
   const [coupons, setCoupons] = useState<Discount[]>([]);
   const [couponCode, setCouponCode] = useState('');
   const [discountValidating, setDiscountValidating] = useState(false);
@@ -226,13 +206,20 @@ export function NewOrderCheckoutDrawer({
   // Applied manual discount (computed locally; server is authoritative on create).
   const [appliedManual, setAppliedManual] = useState<{ type: 'fixed' | 'percent'; value: number; reason: string; amount: number } | null>(null);
 
-  // Default to Programmée on the first batch target when batch mode is on; falls
-  // back to Immédiate otherwise. Runs once per drawer-open (ref-guarded).
-  const targets = buildFulfillmentTargets(batchConfig, orderType);
-  const didInitFulfillment = useRef(false);
+  // A quote belongs to the basket, delivery fee and customer it was requested for.
+  useEffect(() => {
+    discountRequest.current += 1;
+    setDiscountValidating(false);
+    setAppliedCoupon(null);
+    setDiscountError(null);
+  }, [open, discountContext]);
+
+  // Preserve the chosen date while returning to articles; refresh changed series windows.
+  const targets = useMemo(() => buildFulfillmentTargets(batchConfig, orderType), [batchConfig, orderType]);
+  const fulfillmentContext = useRef<string | null>(null);
   useEffect(() => {
     if (!open) {
-      didInitFulfillment.current = false;
+      setReceived(false);
       // Reset discount state when the drawer closes so it starts fresh next time.
       // Deliberately does NOT touch customer-sheet fields (name, phone, address,
       // city, floor, apt, entryCode, deliveryNotes, linked): those are meant to
@@ -250,8 +237,18 @@ export function NewOrderCheckoutDrawer({
       setFeeTouched(false);
       return;
     }
-    if (didInitFulfillment.current) return;
-    didInitFulfillment.current = true;
+    const context = `${orderType}:${defaultDate ?? ''}`;
+    if (fulfillmentContext.current === context) {
+      if (fulfillment.timing === 'immediate' || targets.length === 0) return;
+      const current = targets.find(target => target.date === fulfillment.scheduledFor);
+      if (current) {
+        if (current.windowStart !== fulfillment.windowStart || current.windowEnd !== fulfillment.windowEnd) {
+          setFulfillment({ timing: 'scheduled', scheduledFor: current.date, windowStart: current.windowStart, windowEnd: current.windowEnd });
+        }
+        return;
+      }
+    }
+    fulfillmentContext.current = context;
     // Un créneau repris d'un brouillon a déjà été posé au montage : le défaut
     // ne doit pas passer par-dessus. Consommé une fois, pour que les
     // ouvertures suivantes retrouvent le comportement habituel.
@@ -286,7 +283,7 @@ export function NewOrderCheckoutDrawer({
         ? { timing: 'scheduled', scheduledFor: preferred.date, windowStart: preferred.windowStart, windowEnd: preferred.windowEnd }
         : defaultFulfillment(targets),
     );
-  }, [open, targets, defaultDate]);
+  }, [open, targets, defaultDate, orderType, fulfillment]);
 
   // Load active coupons once per restaurant (silently; no error shown on failure).
   useEffect(() => {
@@ -298,7 +295,7 @@ export function NewOrderCheckoutDrawer({
   // when the address resolves inside a zone with a fee — otherwise the field is
   // left for staff to fill in. Staff can always override the prefilled value.
   useEffect(() => {
-    if (orderType !== 'delivery' || feeTouched) return;
+    if (!open || !intent || payMethod === 'link' || orderType !== 'delivery' || feeTouched) return;
     const addr = address.trim();
     if (!addr) return;
     let cancelled = false;
@@ -316,12 +313,13 @@ export function NewOrderCheckoutDrawer({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [orderType, address, city, feeTouched, restaurantId]);
+  }, [open, intent, payMethod, orderType, address, city, feeTouched, restaurantId]);
 
   // ── Discount helpers ──────────────────────────────────────────────────────
   async function applyDiscountCode() {
     const code = couponCode.trim();
     if (!code) return;
+    const request = ++discountRequest.current;
     setDiscountValidating(true);
     setDiscountError(null);
     setAppliedCoupon(null);
@@ -330,24 +328,25 @@ export function NewOrderCheckoutDrawer({
       const res = await validateDiscount(restaurantId, {
         code,
         items: discountItems,
-        delivery_fee: orderType === 'delivery' ? Math.max(0, parseFloat(deliveryFee) || 0) : 0,
+        delivery_fee: orderType === 'delivery' && payMethod !== 'link' ? Math.max(0, parseFloat(deliveryFee) || 0) : 0,
         phone: customerPhone.trim() || undefined,
       });
+      if (request !== discountRequest.current) return;
       if (res.valid && res.discount) {
         setAppliedCoupon({ code, amount: res.discount.amount, newTotal: res.discount.new_total });
       } else {
         setDiscountError(t(reasonKey(res.reason ?? 'not_found')));
       }
     } catch {
-      setDiscountError(t('invalidCode'));
+      if (request === discountRequest.current) setDiscountError(t('invalidCode'));
     } finally {
-      setDiscountValidating(false);
+      if (request === discountRequest.current) setDiscountValidating(false);
     }
   }
 
   function applyManualDiscount() {
     const val = parseFloat(manualValue);
-    if (!val || val <= 0 || !manualReason.trim()) return;
+    if (!Number.isFinite(val) || val <= 0 || (manualType === 'percent' && val > 100) || !manualReason.trim()) return;
     const amount =
       manualType === 'fixed'
         ? Math.min(val, total)
@@ -358,6 +357,10 @@ export function NewOrderCheckoutDrawer({
   }
 
   function clearDiscount() {
+    discountRequest.current += 1;
+    setDiscountValidating(false);
+    setManualValue('');
+    setManualReason('');
     setAppliedCoupon(null);
     setAppliedManual(null);
     setDiscountError(null);
@@ -392,17 +395,39 @@ export function NewOrderCheckoutDrawer({
   const appliedAmount = appliedCoupon?.amount ?? effectiveManual?.amount ?? 0;
   const discountedTotal = Math.max(0, total + feeValue - appliedAmount);
 
-  const canConfirm =
-    (payMethod === 'link' || (customerName.trim().length > 0 &&
-      customerPhone.trim().length > 0 && (orderType !== 'delivery' || address.trim().length > 0))) &&
-    (payMethod !== 'link' || sumitCheckoutEnabled) && (payMethod !== 'sumit_card' || sumitCardEnabled) && !submitting;
-
-  const payMethods: { key: PaymentMethodChoice; icon: React.ReactNode; label: string }[] = [
-    { key: 'cash', icon: <BanknoteIcon />, label: t('payMethodCash') },
-    { key: 'card', icon: <CreditCardIcon />, label: t('payMethodCard') },
-    ...(sumitCheckoutEnabled ? [{ key: 'link' as const, icon: <LinkIcon />, label: t('sumitCustomerLink') }] : []),
-    ...(sumitCardEnabled ? [{ key: 'sumit_card' as const, icon: <CreditCardIcon />, label: t('sumitAdminCard') }] : []),
+  const hosted = payMethod === 'link' || payMethod === 'sumit_card';
+  const capabilityReady = intent !== 'link' || sumitCheckoutEnabled;
+  const cardReady = intent !== 'charge_card' || sumitCardEnabled;
+  const contactReady = intent === 'link' || !!(customerName.trim() && customerPhone.trim());
+  const addressReady = intent === 'link' || orderType !== 'delivery' || !!address.trim();
+  const fulfillmentReady = fulfillment.timing === 'immediate' || !!(fulfillment.scheduledFor && /^\d{4}-\d{2}-\d{2}$/.test(fulfillment.scheduledFor) &&
+    ((!fulfillment.windowStart && !fulfillment.windowEnd) || (fulfillment.windowStart && fulfillment.windowEnd && fulfillment.windowStart < fulfillment.windowEnd)));
+  const manualStarted = canManualDiscount && !appliedCoupon && !appliedManual && !!(manualValue.trim() || manualReason.trim());
+  const manualReady = !manualStarted || (Number.isFinite(manualValNum) && manualValNum > 0 && (manualType !== 'percent' || manualValNum <= 100) && !!manualReason.trim());
+  const validationHint = !intent || !capabilityReady || !cardReady ? t('orderCheckoutChoose')
+    : !fulfillmentReady ? t('orderCheckoutFulfillmentRequired')
+    : !contactReady ? t('orderCheckoutContactRequired')
+    : !addressReady ? t('orderCheckoutAddressRequired')
+    : !manualReady ? t('orderCheckoutDiscountInvalid')
+    : hosted && discountedTotal <= 0 ? t('orderCheckoutPositiveTotal')
+    : intent === 'record' && !received ? t('orderCheckoutReceivedRequired') : '';
+  const canConfirm = !validationHint && !submitting && !discountValidating && total > 0;
+  const showCustomer = intent && (intent !== 'link' || optionalCustomer || customerName || customerPhone);
+  const actionLabel = intent === 'link' ? t('orderCheckoutCreateLink') : intent === 'charge_card' ? t('orderCheckoutOpenCard')
+    : intent === 'record' ? t('orderCheckoutRecordAction') : t('createOrder');
+  const intents: { key: InternalPaymentIntent; icon: React.ReactNode; label: string; hint: string }[] = [
+    ...(sumitCheckoutEnabled ? [{ key: 'link' as const, icon: <LinkIcon />, label: t('orderCheckoutLink'), hint: t('orderCheckoutLinkHint') }] : []),
+    ...(sumitCardEnabled ? [{ key: 'charge_card' as const, icon: <CreditCardIcon />, label: t('orderCheckoutCard'), hint: t('orderCheckoutCardHint') }] : []),
+    { key: 'record', icon: <BanknoteIcon />, label: t('orderCheckoutRecord'), hint: t('orderCheckoutRecordHint') },
+    { key: 'later', icon: <ClockIcon />, label: t('orderCheckoutLater'), hint: t('orderCheckoutLaterHint') },
   ];
+  function chooseIntent(value: InternalPaymentIntent) {
+    setIntent(value);
+    setReceived(false);
+    setAddToProduction(false);
+  }
+  // Any amount or recorded-method change needs a fresh receipt acknowledgement.
+  useEffect(() => { setReceived(false); }, [discountedTotal, recordedMethod]);
 
   // Fill the sheet from an existing customer. The most recent address is
   // prefilled; the others stay reachable under the Address field. Arms both
@@ -428,47 +453,50 @@ export function NewOrderCheckoutDrawer({
     setFeeTouched(false);
   };
 
-  return (
-    <Drawer
-      open={open}
-      onOpenChange={(o) => !o && onClose()}
-      title={t('checkout')}
-      subtitle={`${itemCount} ${t('orderItems').toLowerCase()} · ${money(discountedTotal)}`}
-      width={480}
-      onSave={() =>
-        onConfirm({
-          customerName, customerPhone, orderType, address, city, floor, apt, entryCode,
-          deliveryNotes, deliveryFee: feeValue, paymentMethod: payMethod, paymentCollected: collected,
-          fulfillment, addToProduction: payMethod === 'link' || payMethod === 'sumit_card' ? false : addToProduction,
-          ...(appliedCoupon ? { discountCode: appliedCoupon.code } : {}),
-          ...(effectiveManual
-            ? { manualDiscount: { type: effectiveManual.type, value: effectiveManual.value, reason: effectiveManual.reason } }
-            : {}),
-        })
-      }
-      saveLabel={submitting ? `${t('creating')}…` : `${t('createOrder')} · ${money(discountedTotal)}`}
-      saveDisabled={!canConfirm}
-    >
-      <div className="flex flex-col gap-[var(--s-5)]">
-        {/* Order type */}
-        <div className="flex flex-col gap-2">
-          <span className="text-fs-sm font-medium text-[var(--fg-muted)]">
-            {t('orderType')}
-          </span>
-          <div className="flex gap-2">
-            <OptionTile active={orderType === 'pickup'} onClick={() => setOrderType('pickup')} icon={<ShoppingBagIcon />} label={t('pickup')} />
-            <OptionTile active={orderType === 'delivery'} onClick={() => setOrderType('delivery')} icon={<TruckIcon />} label={t('delivery')} />
+  function confirm() {
+    if (!canConfirm || !payment) return;
+    onConfirm({
+      customerName, customerPhone, orderType,
+      address: intent === 'link' ? '' : address, city: intent === 'link' ? '' : city,
+      floor: intent === 'link' ? '' : floor, apt: intent === 'link' ? '' : apt,
+      entryCode: intent === 'link' ? '' : entryCode, deliveryNotes: intent === 'link' ? '' : deliveryNotes,
+      deliveryFee: feeValue, ...payment, fulfillment, addToProduction: hosted ? false : addToProduction,
+      ...(appliedCoupon ? { discountCode: appliedCoupon.code } : {}),
+      ...(effectiveManual ? { manualDiscount: { type: effectiveManual.type, value: effectiveManual.value, reason: effectiveManual.reason } } : {}),
+    });
+  }
+
+  return <section aria-labelledby="order-finalization-title" data-order-finalization className={cn(styles.panel, 'min-h-0 flex-1 flex-col', open ? 'flex' : 'hidden')}>
+    <header className="flex shrink-0 items-center gap-3 border-b border-[var(--line)] px-4 py-4">
+      <Button variant="ghost" icon size="sm" onClick={onClose} disabled={submitting} aria-label={t('orderCheckoutBack')}><ArrowLeftIcon className="rtl:rotate-180" /></Button>
+      <div className="flex min-w-0 items-center gap-2"><h2 ref={headingRef} tabIndex={-1} id="order-finalization-title" className="text-fs-md font-semibold focus:outline-none">{t('orderCheckoutTitle')}</h2><Badge>{itemCount}</Badge></div>
+    </header>
+    <div className="min-h-0 flex-1 overflow-y-auto px-4">
+      <fieldset disabled={submitting} className="min-w-0 divide-y divide-[var(--line)]">
+        {itemsSummary && <details className="py-4"><summary className="flex cursor-pointer list-none items-center justify-between text-fs-sm font-medium">{t('orderItems')}<ChevronDownIcon className="size-4" /></summary><div className="pt-3">{itemsSummary}</div></details>}
+        <section className="space-y-4 py-5">
+          <h3 className="text-fs-sm font-semibold">{t('orderCheckoutFulfillmentTitle')}</h3>
+          <div className={cn(styles.paired, 'grid grid-cols-2 gap-2')}>
+            <ChoiceRow type="radio" name="order-reception" checked={orderType === 'pickup'} onChange={() => setOrderType('pickup')} label={<span className="inline-flex items-center gap-2"><ShoppingBagIcon className="size-4" />{t('pickup')}</span>} />
+            <ChoiceRow type="radio" name="order-reception" checked={orderType === 'delivery'} onChange={() => setOrderType('delivery')} label={<span className="inline-flex items-center gap-2"><TruckIcon className="size-4" />{t('delivery')}</span>} />
           </div>
-        </div>
-
-        <FulfillmentSection
-          orderType={orderType}
-          batchConfig={batchConfig}
-          value={fulfillment}
-          onChange={setFulfillment}
-        />
-
-        {/* Customer */}
+          <FulfillmentSection serviceLabels orderType={orderType} batchConfig={batchConfig} value={fulfillment} onChange={setFulfillment} />
+        </section>
+        <fieldset className="min-w-0 py-5">
+          <legend className="float-start mb-2 w-full text-fs-sm font-semibold">{t('orderCheckoutIntent')}</legend>
+          <div className="clear-both divide-y divide-[var(--line)]">{intents.map(option => <ChoiceRow key={option.key} type="radio" name="order-payment-intent" aria-label={option.label} checked={intent === option.key} onChange={() => chooseIntent(option.key)}
+            label={<span className="flex items-center gap-2"><span className="shrink-0 [&_svg]:size-4">{option.icon}</span>{option.label}</span>} description={option.hint} />)}</div>
+          {(intent === 'record' || intent === 'later') && <div className="mt-4 space-y-3 rounded-lg bg-[var(--surface-2)] p-3">
+            <p className="text-fs-xs font-medium text-[var(--fg-muted)]">{t(intent === 'record' ? 'orderCheckoutReceivedMethod' : 'orderCheckoutExpectedMethod')}</p>
+            <div className={cn(styles.paired, 'grid grid-cols-2 gap-2')}>
+              <ChoiceRow type="radio" name="order-recorded-method" checked={recordedMethod === 'cash'} onChange={() => setRecordedMethod('cash')} label={t('payMethodCash')} />
+              <ChoiceRow type="radio" name="order-recorded-method" checked={recordedMethod === 'card'} onChange={() => setRecordedMethod('card')} label={t(intent === 'record' ? 'orderCheckoutExternalCard' : 'payMethodCard')} />
+            </div>
+            {intent === 'record' && <ChoiceRow type="checkbox" checked={received} onChange={event => setReceived(event.target.checked)} label={t('orderCheckoutReceived').replace('{amount}', money(discountedTotal))} />}
+          </div>}
+        </fieldset>
+        {intent === 'link' && !showCustomer && <div className="py-4"><Button variant="ghost" size="sm" onClick={() => setOptionalCustomer(true)}>{t('orderCheckoutOptionalCustomer')}</Button></div>}
+        {showCustomer && <section className="space-y-3 py-5"><h3 className="text-fs-sm font-semibold">{t('customer')}</h3>
         <div className="flex flex-col gap-[var(--s-3)]">
           <Field label={t('customerName')}>
             <CustomerPicker
@@ -478,7 +506,6 @@ export function NewOrderCheckoutDrawer({
               onChange={(v) => { setCustomerName(v); setLinked(null); }}
               onPick={applyCustomer}
               placeholder={t('customerNamePlaceholder')}
-              autoFocus
               skipNextSearchRef={nameSkipSearchRef}
             />
           </Field>
@@ -507,7 +534,7 @@ export function NewOrderCheckoutDrawer({
             </Chip>
           )}
 
-          {orderType === 'delivery' && (
+          {orderType === 'delivery' && payMethod !== 'link' && (
             <>
               <CustomerDeliveryFields
                 value={{ address, city, floor, apt, entryCode, deliveryNotes }}
@@ -541,44 +568,18 @@ export function NewOrderCheckoutDrawer({
                 <Input
                   value={deliveryFee}
                   onChange={(e) => { setDeliveryFee(e.target.value); setFeeTouched(true); }}
-                  disabled={payMethod === 'link'}
                   inputMode="decimal"
                   placeholder="0.00"
                 />
               </Field>
-              {payMethod === 'link' && <p className="text-fs-sm text-[var(--fg-muted)]">{t('sumitDeliveryCalculated')}</p>}
             </>
           )}
         </div>
 
-        {/* Payment: method + "déjà encaissé ?" */}
-        <div className="flex flex-col gap-2">
-          <span className="text-fs-sm font-medium text-[var(--fg-muted)]">
-            {t('payment')}
-          </span>
-          <div className="grid grid-cols-3 gap-2">
-            {payMethods.map((p) => (
-              <OptionTile key={p.key} active={payMethod === p.key} onClick={() => setPayMethod(p.key)} icon={p.icon} label={p.label} />
-            ))}
-          </div>
 
-          {(payMethod === 'link' || payMethod === 'sumit_card') && <p className="text-fs-sm text-[var(--fg-muted)]">{t(payMethod === 'link' ? 'sumitCustomerLinkHint' : 'sumitAdminCardHint')}</p>}
-          {/* The payment link is always paid by the customer via the provider, so
-              the collected toggle only applies to cash / card. */}
-          {(payMethod === 'cash' || payMethod === 'card') && (
-            <div className="flex items-center justify-between gap-2 rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] py-2">
-              <span className="text-fs-sm font-medium text-[var(--fg)]">{t('payAlreadyCollected')}</span>
-              <Switch checked={collected} onCheckedChange={setCollected} aria-label={t('payAlreadyCollected')} />
-            </div>
-          )}
-        </div>
-
-        {/* Discount: coupon code picker + manual discount (permission-gated) */}
+        </section>}
+        <details className="py-4"><summary className="flex cursor-pointer list-none items-center gap-2 text-fs-sm font-medium"><TagIcon className="size-4" /><span className="flex-1">{t('applyDiscount')}</span>{appliedAmount > 0 && <span className="tabular-nums">−{money(appliedAmount)}</span>}<ChevronDownIcon className="size-4" /></summary><div className="pt-4">
         <div className="flex flex-col gap-2">
-          <span className="flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--fg-muted)]">
-            <TagIcon className="size-3.5" />
-            {t('applyDiscount')}
-          </span>
 
           {/* Applied discount summary */}
           {(appliedCoupon || appliedManual) ? (
@@ -681,6 +682,10 @@ export function NewOrderCheckoutDrawer({
           )}
         </div>
 
+
+        </div></details>
+        {hosted ? <p className="flex items-center gap-2 py-4 text-fs-xs text-[var(--fg-muted)]"><ClockIcon className="size-4 shrink-0" />{t('orderCheckoutProductionAfterPayment')}</p>
+          : <details className="py-4"><summary className="flex cursor-pointer list-none items-center justify-between text-fs-sm font-medium">{t('orderCheckoutProduction')}<ChevronDownIcon className="size-4" /></summary><div className="pt-4">
         {/* Force onto the production sheet, bypassing the scheduled/paid gates. */}
         <button
           type="button"
@@ -705,12 +710,18 @@ export function NewOrderCheckoutDrawer({
           </span>
         </button>
 
-        {fulfillment.timing === 'scheduled' && (payMethod === 'cash' || payMethod === 'card') && !collected && (
-          <p className="text-fs-xs text-[var(--fg-muted)]">{t('fulfillmentScheduledUnpaidHint')}</p>
-        )}
 
-        {error && <p className="text-fs-sm text-[var(--danger-500)]">{error}</p>}
-      </div>
-    </Drawer>
-  );
+          </div></details>}
+      </fieldset>
+    </div>
+    <footer className="shrink-0 space-y-3 border-t border-[var(--line)] bg-[var(--surface)] p-4">
+      {feeValue > 0 && <div className="flex justify-between text-fs-xs text-[var(--fg-muted)]"><span>{t('deliveryFee')}</span><span className="tabular-nums">{money(feeValue)}</span></div>}
+      {appliedAmount > 0 && <div className="flex justify-between text-fs-xs text-[var(--fg-muted)]"><span>{t('discountLine')}</span><span className="tabular-nums">−{money(appliedAmount)}</span></div>}
+      <div className="flex items-center justify-between gap-3"><span className="text-fs-sm text-[var(--fg-muted)]">{t(intent === 'link' && orderType === 'delivery' ? 'subtotal' : 'total')}</span><strong className="tabular-nums text-fs-xl">{money(discountedTotal)}</strong></div>
+      {intent === 'link' && orderType === 'delivery' && <p className="text-fs-xs text-[var(--fg-muted)]">{t('sumitDeliveryCalculated')}</p>}
+      {error && <p role="alert" className="text-fs-sm text-[var(--danger-500)]">{error}</p>}
+      {validationHint && !submitting && <p id="order-finalization-hint" role="status" className="text-fs-xs text-[var(--fg-muted)]">{validationHint}</p>}
+      <Button className="min-h-12 w-full whitespace-normal text-center" onClick={confirm} disabled={!canConfirm} aria-describedby={validationHint ? 'order-finalization-hint' : undefined}>{submitting ? `${t('creating')}…` : actionLabel}</Button>
+    </footer>
+  </section>;
 }
