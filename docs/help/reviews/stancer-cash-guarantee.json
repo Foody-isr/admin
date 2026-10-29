@@ -25,25 +25,6 @@
       "reason": "The reviewed patch adds only the opt-in Stancer cash guarantee, with its own FR/HE/EN procedure. The named existing menu, identity, Sumit, POS and ordinary cash controls retain their prior behavior. The review uses the immutable task starting HEAD; an already absent source path is only removed from the stale inventory and no application implementation is deleted here."
     },
     {
-      "path": "src/lib/i18n.tsx",
-      "sha256": "2a3fd21c86144225fa02e5ac3242ccfe3db20bb522c257ac8db6ee76bc147892",
-      "baseSha256": "c12dca1253eabbd8721cc8aaa6e540ce4afe6e97ba12ff992c2e1621f8344ecf",
-      "features": [
-        "menu-menus-and-groups",
-        "delivery-zones",
-        "delivery-dispatch",
-        "google-account-setup",
-        "website-order-design",
-        "pos-behavior",
-        "whatsapp",
-        "shared-runtime",
-        "menu-product-photos",
-        "orders-internal-sumit-checkout"
-      ],
-      "disposition": "no-user-impact",
-      "reason": "The reviewed patch adds only the opt-in Stancer cash guarantee, with its own FR/HE/EN procedure. The named existing menu, identity, Sumit, POS and ordinary cash controls retain their prior behavior. The review uses the immutable task starting HEAD; an already absent source path is only removed from the stale inventory and no application implementation is deleted here."
-    },
-    {
       "path": "src/lib/orders/order-actions.ts",
       "sha256": "535282a3beff09c2420996c2b82bf744c596626e267c06f12bb3bd63559359a5",
       "baseSha256": "2479ec10717bf386cc2943ffa13f3c466e1c46aecab37097bc5667db7738cd29",
@@ -53,6 +34,24 @@
       ],
       "disposition": "no-user-impact",
       "reason": "The reviewed patch adds only the opt-in Stancer cash guarantee, with its own FR/HE/EN procedure. The named existing menu, identity, Sumit, POS and ordinary cash controls retain their prior behavior. The review uses the immutable task starting HEAD; an already absent source path is only removed from the stale inventory and no application implementation is deleted here."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "c741114a0aefad84d467ae21e97111bdc6b1872c62391705f00f8af924e696b0",
+      "baseSha256": "5e7c53fe3872fc40c027aa247d94f42cc995d188e971b55a14763e244ef8edb3",
+      "features": [
+        "delivery-dispatch",
+        "delivery-zones",
+        "google-account-setup",
+        "menu-menus-and-groups",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "pos-behavior",
+        "website-order-design",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Review against current develop: this translation patch adds only the Stancer cash-guarantee settings, consent, reservation status and explicit capture wording. Existing menu, route, location, stock, table, customer and support labels and procedures remain unchanged for the explicitly listed features. The cash behavior is covered by its separate three-language guide."
     }
   ]
 }
