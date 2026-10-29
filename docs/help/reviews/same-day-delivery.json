@@ -1,0 +1,76 @@
+{
+  "scope": "same-day-delivery",
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/settings/orders/PreorderSettings.tsx",
+      "sha256": "51d6d239182198bbf553c13ecf9abb30be6427dbf8865ddaf228d4dfcb19db39",
+      "baseSha256": "cb37b7061669dcf406da4c7d42bbc98df9a5ae3888076759671ce2720c2df241",
+      "disposition": "no-user-impact",
+      "features": [
+        "order-types",
+        "fulfillment-policy"
+      ],
+      "reason": "Scope reviewed against the delivery changes: only same-day intake, delivery estimates, configuration conflict protection and the generated public help corpus change. Other feature classifications sharing this file retain their existing controls, permissions, payment lifecycle, routes and behavior; the four affected delivery/order guides are updated in French, Hebrew and English."
+    },
+    {
+      "path": "src/components/orders/DeliverySlotAssignment.tsx",
+      "sha256": "8ceeb0f06bc76c0c11fc63ff658015c685da09665f963745825fb16c12c2dd86",
+      "baseSha256": "a96624cc05e7cc409327982a1bd6c99fdba12e7f02eb8bd813d36566b3303b7d",
+      "disposition": "no-user-impact",
+      "features": [
+        "orders-managing-orders"
+      ],
+      "reason": "Scope reviewed against the delivery changes: only same-day intake, delivery estimates, configuration conflict protection and the generated public help corpus change. Other feature classifications sharing this file retain their existing controls, permissions, payment lifecycle, routes and behavior; the four affected delivery/order guides are updated in French, Hebrew and English."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "9cd0e572a8c56386cf06d9a3b14029fa2e9a1d3847b3bdc1a54af12080051fdc",
+      "baseSha256": "4b75cda1e9080628be3593aafb5af1e2dc0f0578122246774c12168527ea62c0",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "reason": "Scope reviewed against the delivery changes: only same-day intake, delivery estimates, configuration conflict protection and the generated public help corpus change. Other feature classifications sharing this file retain their existing controls, permissions, payment lifecycle, routes and behavior; the four affected delivery/order guides are updated in French, Hebrew and English."
+    },
+    {
+      "path": "src/lib/delivery-zone-state.ts",
+      "sha256": "18c3d543f39d67db0eeab1603779b94008d2bdbcf7a00429b54a1175eb9e2b83",
+      "baseSha256": "f73e658a3aa496a83774427e91d399cdc2c0b03c983286c51860b343aee5726d",
+      "disposition": "no-user-impact",
+      "features": [
+        "delivery-dispatch",
+        "shared-runtime"
+      ],
+      "reason": "Scope reviewed against the delivery changes: only same-day intake, delivery estimates, configuration conflict protection and the generated public help corpus change. Other feature classifications sharing this file retain their existing controls, permissions, payment lifecycle, routes and behavior; the four affected delivery/order guides are updated in French, Hebrew and English."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "948bb49e260b3b8bf8443b5cc1ef18b6419c28af4892ac2112d6772a8a9d1436",
+      "baseSha256": "185621f4ac4f048e79297c57fb0e6d834af65c062b9589338e458286fb8301e7",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "reason": "Scope reviewed against the delivery changes: only same-day intake, delivery estimates, configuration conflict protection and the generated public help corpus change. Other feature classifications sharing this file retain their existing controls, permissions, payment lifecycle, routes and behavior; the four affected delivery/order guides are updated in French, Hebrew and English."
+    }
+  ]
+}

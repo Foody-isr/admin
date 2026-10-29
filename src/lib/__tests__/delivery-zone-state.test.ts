@@ -16,7 +16,7 @@ test('delivery calendar rejects overlapping windows and corrupt server calendars
 test('postal coverage keeps exact five-digit strings, fees and calendars through edits',()=>{
  const saved:DeliveryZone={...zone,type:'postal_codes',postal_codes:['75016','01000'],departments:['75'],schedule:{mode:'automatic',windows:[{days:[1,4],start:'14:00',end:'18:00'}],offer_pickup:false}};
  const draft=deliveryZoneDraft(saved);assert.equal(draft.postalCodesText,'75016, 01000');draft.deliveryFee='10';
- assert.deepEqual(deliveryZonePayload(draft,saved),{name:'Centre',type:'postal_codes',is_active:true,delivery_fee:10,min_order:null,departments:['75'],postal_codes:['75016','01000'],schedule:saved.schedule,center_lat:32,center_lng:34,radius_m:5000});
+ assert.deepEqual(JSON.parse(JSON.stringify(deliveryZonePayload(draft,saved))),{name:'Centre',type:'postal_codes',is_active:true,delivery_fee:10,min_order:null,departments:['75'],postal_codes:['75016','01000'],schedule:saved.schedule,center_lat:32,center_lng:34,radius_m:5000});
  assert.notEqual(deliveryZoneSignature(saved),deliveryZoneSignature({...saved,postal_codes:['75015']}));
  assert.equal(checkedDeliveryZones([saved],2)[0],saved);
  for(const invalid of [[],['75'],['7501'],['750160'],['75A16'],['７５０１６'],Array(1001).fill('75016')]){draft.postalCodes=invalid;assert.equal(deliveryZoneDraftError(draft),'deliveryPostalCodesRequired');}
@@ -48,4 +48,13 @@ test('delivery zones accept weekdays without times and retain legacy days when e
  assert.deepEqual(deliveryScheduleWeekdays({mode:'customer',windows:[{days:[5],start:'10:00',end:'18:00'},{days:[0,5],start:'19:00',end:'20:00'}],offer_pickup:false}),[5,0]);
  for(const days of [[],[7],[-1],[5,5],[1.5]])assert.equal(validDeliverySchedule({...policy,days}),false);
  assert.equal(validDeliverySchedule({...policy,windows:[{days:[5],start:'10:00',end:'18:00'}]}),false);
+});
+
+
+test('zone writes carry the loaded revision without changing the content signature',()=>{
+ const saved={...zone,updated_at:'2026-10-29T10:00:00.123456Z'};
+ const payload=deliveryZonePayload(deliveryZoneDraft(saved),saved);
+ assert.equal(payload.expected_updated_at,saved.updated_at);
+ assert.equal(deliveryZoneSignature(saved),deliveryZoneSignature({...saved,updated_at:'2026-10-29T11:00:00Z'}));
+ assert.equal('expected_updated_at' in JSON.parse(JSON.stringify(deliveryZonePayload(deliveryZoneDraft(zone),zone))),false);
 });

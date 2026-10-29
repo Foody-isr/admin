@@ -48,7 +48,7 @@ export function deliveryZoneDraftError(draft: DeliveryZoneDraft): string | null 
 /** Serialize the active geometry while keeping every original inactive field intact. */
 export function deliveryZonePayload(draft: DeliveryZoneDraft, original?: DeliveryZone): DeliveryZoneInput {
   const problem = deliveryZoneDraftError(draft); if (problem) throw new Error(problem);
-  const input: DeliveryZoneInput = { name:draft.name.trim(),type:draft.type,is_active:draft.isActive,delivery_fee:parsePrice(draft.deliveryFee)!,min_order:parsePrice(draft.minOrder)!,departments:draft.departments,postal_codes:draft.postalCodes,schedule:draft.schedule };
+  const input: DeliveryZoneInput = { expected_updated_at:original?.updated_at,name:draft.name.trim(),type:draft.type,is_active:draft.isActive,delivery_fee:parsePrice(draft.deliveryFee)!,min_order:parsePrice(draft.minOrder)!,departments:draft.departments,postal_codes:draft.postalCodes,schedule:draft.schedule };
   if (original?.polygon != null || draft.type === 'polygon') input.polygon = draft.polygon;
   if (original?.cities != null || draft.type === 'cities') input.cities = draft.cities;
   if (draft.center && (original?.center_lat != null || draft.type === 'radius')) { input.center_lat=draft.center.lat;input.center_lng=draft.center.lng; }

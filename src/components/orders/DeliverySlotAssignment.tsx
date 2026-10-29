@@ -33,6 +33,7 @@ export function DeliverySlotAssignment({ order, onSaved }: { order: Order; onSav
   };
   if (saved) return <p role="status" className="p-4">{t('deliverySlotSaved')}</p>;
   return <section className="mb-4 space-y-4 rounded-r-lg border border-[var(--line)] p-4">
+    {order.delivery_slot_pending && order.delivery_estimate && <p className="text-fs-sm">{t('deliveryEstimatedArrival')} : <bdi>{order.delivery_estimate.windows.map(window => `${window.start}–${window.end}`).join(' / ')}</bdi></p>}
     <h3 className="font-semibold">{t(order.delivery_slot_pending ? 'deliverySlotPending' : 'deliveryAssignSlot')}</h3>
     <p className="text-fs-sm text-[var(--fg-muted)]">{t('deliveryAssignmentHint')}</p>
     <p className="text-fs-sm">{order.delivery_schedule?.windows?.length ? order.delivery_schedule.windows.map(window => `${window.days.map(day => t(`weekday_${day}`)).join(', ')} : ${window.start}–${window.end}`).join(' ; ') : order.delivery_schedule && deliveryScheduleWeekdays(order.delivery_schedule).map(day => t(`weekday_${day}`)).join(', ')}</p>

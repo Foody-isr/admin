@@ -269,7 +269,21 @@ export interface FullServiceSettings {
  void_reasons: string[];
 }
 
+export interface DeliverySameDayPolicy {
+  enabled: boolean;
+  allowed_days: number[];
+  restricted_days: number[];
+  coverage_zone_ids: number[];
+  transit_minutes: number;
+  time_mode: 'inherit' | 'restaurant';
+}
+export interface DeliveryEstimate { date: string; windows: { start: string; end: string }[] }
+
 export interface RestaurantSettings {
+  ordering_settings_merge_supported?: boolean;
+  opening_hours_config_base?: OpeningHoursConfig | null;
+  delivery_same_day_policy?: DeliverySameDayPolicy;
+  delivery_same_day_policy_base?: DeliverySameDayPolicy;
   /** Supports conflict-safe three-way saves of restaurant and assigned POS policies. */
   pos_settings_merge_supported?: boolean;
   pos_custom_dining_supported?: boolean;
@@ -931,6 +945,7 @@ export interface Order {
   delivery_zone_id?: number;
   delivery_schedule?: DeliverySchedule;
   delivery_slot_pending?: boolean;
+  delivery_estimate?: DeliveryEstimate | null;
   check_id?: string | null;
   course_name?: string;
   kitchen_held?: boolean;
@@ -9806,6 +9821,7 @@ export interface DeliverySchedule {
 }
 
 export interface DeliveryZone {
+  updated_at?: string;
   departments?: string[];
   postal_codes?: string[];
   schedule?: DeliverySchedule | null;
@@ -9831,6 +9847,7 @@ export interface DeliveryZone {
 }
 
 export interface DeliveryZoneInput {
+  expected_updated_at?: string;
   departments?: string[];
   postal_codes?: string[];
   schedule?: DeliverySchedule | null;
@@ -9872,9 +9889,9 @@ export async function updateDeliveryZone(restaurantId: number, id: number, input
   );
 }
 
-export async function deleteDeliveryZone(restaurantId: number, id: number): Promise<void> {
+export async function deleteDeliveryZone(restaurantId: number, id: number, expectedUpdatedAt?: string): Promise<void> {
   await apiFetch<void>(
-    `/api/v1/delivery/zones/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    `/api/v1/delivery/zones/${id}?restaurant_id=${restaurantId}${expectedUpdatedAt ? `&expected_updated_at=${encodeURIComponent(expectedUpdatedAt)}` : ''}`, restaurantId,
     { method: 'DELETE' }
   );
 }
