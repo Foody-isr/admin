@@ -409,6 +409,15 @@ Two sections, saved separately:
 
 ### Website (`/[restaurantId]/website-v3`)
 
+Item list → Item view offers **Compact presentation** for a 16:9 image, compact
+width and rounded corners, preserving assigned colors and saved image framing.
+Independent image ratio/fit, width and corner controls remain authoritative.
+The standard mobile layout is labelled **Full screen on mobile**. Both layouts
+start with a floating close control and group quantity/add in the persistent
+footer. Missing ratios default to 16:9 in editor and public rendering alike.
+Synthetic full-flow regression: `FOODY_ITEM_MODAL=1 FOODY_WEB_DIR=../foodyweb
+npx playwright test -c playwright.website-editor.config.ts item-modal.spec.ts`.
+
 **Foody online** opens the restaurant website editor directly, without a submenu or beta badge. It manages pages, sections, appearance and checkout settings with a live iframe preview. Draft autosaves remain separate from publication; the existing guest website and stored website data are unaffected by removal of the old admin editors.
 
 The legacy `/[restaurantId]/website` and `/[restaurantId]/website-v2` implementations have been removed. Their URLs redirect to Website V3, preserving the restaurant and query parameters. Components shared with V3 and QR customization remain in use.
