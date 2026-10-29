@@ -1648,3 +1648,17 @@ No schema or environment change is needed. See the FR/HE/EN prepared Sumit guide
 in Landing and `docs/help/reviews/sumit-internal-checkout.json`. Release requires an immutable reviewed documentation pin and coordinated
 API-first development verification. Synthetic regression tests replace Sumit;
 provider acceptance is verified separately before production promotion.
+
+## Cash eligibility and Stancer card guarantees
+
+Settings → Payments adds Disabled / Trusted customers / All customers for public
+pickup/delivery cash payments. Require a card guarantee appears only for supported
+restaurants (initially configured Stancer in EUR), or to explicitly turn off a
+previously enabled rule that became unsupported. Online-only remains prioritary.
+The option defaults off and requires settings.edit. Order payment details show
+the reservation independently from cash owed/received. payments.manage permits
+explicit confirmed full capture and read-only verification; uncertainty never
+offers a second debit. Existing cash collection records receipt and requests
+release, retaining normal POS drawer guards. Deploy API migration 282 first,
+then Admin/Web; verify Stancer sandbox cancellation before enabling a real tenant.
+Targeted browser coverage: payment-settings.spec.ts cash-guarantee cases.
