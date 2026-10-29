@@ -1,0 +1,20 @@
+{
+  "impact": "Renamed saved variant groups resolve their choices within the new set, allowing two flavour groups with distinct titles to save and reload. The FR/EN/HE variants guide documents the procedure.",
+  "validation": "The synthetic browser regression reproduced the stale option IDs before the change, then verified successful save and reload, both descriptive groups and the unchanged format IDs and price.",
+  "releasePreparation": "The user explicitly authorized push, development deployment and production promotion on 29 October 2026. Pin the reviewed immutable Landing commit before PR checks; verify development and promote the exact same artifacts without rebuilding.",
+  "files": [
+    {
+      "path": "src/components/menu-item/VariantsEditor.tsx",
+      "sha256": "81e56b3de306355b99e410c8ac91e4e35b4cac0d2a69a022cccc9b3ef02bc176",
+      "baseSha256": "97c0b39f0b38aceede5f067154b0107d439197c99f67a444dcd2bee72ab8b40f",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only detached variant-group option IDs are omitted from the atomic variants payload. Item creation fields and permissions, category/menu membership, recipe quantities, ingredient controls and portions are unchanged. The changed saved-group procedure is documented in the variants guide in French, English and Hebrew."
+    }
+  ]
+}
