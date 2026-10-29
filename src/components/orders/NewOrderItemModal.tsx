@@ -127,7 +127,9 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
   const activeItem = item;
 
   const positions = itemOptionPositions(activeItem, variantId);
-  const optionsValid = positions.every(position => position.set.options?.some(option => option.id === optionChoices[position.key] && option.is_active && !option.is_combo_only));
+  const optionsValid = positions.every(position => !optionChoices[position.key]
+    ? !position.required
+    : position.set.options?.some(option => option.id === optionChoices[position.key] && option.is_active && !option.is_combo_only));
   const selectedVariant: ItemSizeOption | undefined = variants.find((v) => v.id === variantId);
   // Block adding a sold-out size — the order-time guard would reject it anyway.
   const selectedSoldOut = !!selectedVariant && !isSizeOrderable(selectedVariant);
@@ -158,7 +160,7 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
       item: activeItem,
       quantity: Math.max(1, quantity),
       notes: notes.trim(),
-      optionSelections: positions.map(position => ({ option_set_id: position.set.id, option_id: optionChoices[position.key], selection_index: position.index, group_name: position.label, name: position.set.options?.find(option => option.id === optionChoices[position.key])?.name })),
+      optionSelections: positions.filter(position => optionChoices[position.key]).map(position => ({ option_set_id: position.set.id, option_id: optionChoices[position.key], selection_index: position.index, group_name: position.label, name: position.set.options?.find(option => option.id === optionChoices[position.key])?.name })),
       selectedVariantId: selectedVariant?.id,
       selectedVariantName: selectedVariant?.name,
       selectedVariantPrice: selectedVariant?.price,
@@ -222,7 +224,7 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
           </div>
         )}
 
-        {positions.map(position => <Field key={position.key} label={position.label}>
+        {positions.map(position => <Field key={position.key} label={`${position.label}${position.required ? ` · ${t('required')}` : ''}`}>
           <select className="input" value={optionChoices[position.key] ?? ''} onChange={event => setOptionChoices(previous => ({ ...previous, [position.key]: Number(event.target.value) }))}>
             <option value="">{t('variantChoose')}</option>
             {(position.set.options ?? []).filter(option => option.is_active && !option.is_combo_only).map(option => <option key={option.id} value={option.id}>{option.name}</option>)}

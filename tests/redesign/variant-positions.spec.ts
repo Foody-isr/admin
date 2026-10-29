@@ -91,13 +91,23 @@ test('configure descriptive variant positions in the variants editor and keep th
   await page.route('**/api/v1/**', async route => {
     const request = route.request(), path = new URL(request.url()).pathname;
     if (path === '/api/v1/menu/option-sets') return route.fulfill({ json: { option_sets: sets } });
-    if (path.endsWith('/variants-sync') && request.method() === 'PUT') { writes.push(request.postDataJSON()); return route.fulfill({ json: { option_sets: sets, overrides: [] } }); }
+    if (path.endsWith('/variants-sync') && request.method() === 'PUT') {
+      const body = request.postDataJSON();
+      writes.push(body);
+      body.groups.forEach((group: VariantGroupSyncInput) => {
+        const set = sets.find(set => set.id === group.option_set_id);
+        if (set) Object.assign(set, { selection_role: group.selection_role, selection_config: group.selection_config });
+      });
+      return route.fulfill({ json: { option_sets: sets, overrides: [] } });
+    }
     const result = fixture.response(request.url(), request.method(), request.postDataJSON() ?? {}, 1);
     return route.fulfill({ status: result.status ?? 200, json: result.json ?? {} });
   });
   await page.goto('/1/menu/items/1');
   const character = page.getByRole('region', { name: 'Caractère', exact: true });
   await character.getByLabel('Rôle du groupe').selectOption('identity');
+  await expect(character.getByLabel('Choix obligatoire', { exact: true })).toBeChecked();
+  await character.getByLabel('Choix obligatoire', { exact: true }).uncheck();
   await character.getByLabel('Afficher ce groupe selon').selectOption('1');
   await character.getByLabel('1 caractère — Positions à remplir', { exact: true }).fill('1');
   await character.getByLabel('2 caractères — Positions à remplir', { exact: true }).fill('2');
@@ -109,7 +119,14 @@ test('configure descriptive variant positions in the variants editor and keep th
   await expect.poll(() => writes.length).toBe(1);
   expect(writes[0].groups[0].variants.map(option => option.price)).toEqual([55, 110]);
   expect(writes[0].groups[1].selection_role).toBe('identity');
-  expect(writes[0].groups[1].selection_config).toEqual({ source: 'option', source_id: 1, presentation: 'characters', choices: [{ id: 101, count: 1 }, { id: 102, count: 2 }] });
+  expect(writes[0].groups[1].selection_config).toEqual({ required: false, source: 'option', source_id: 1, presentation: 'characters', choices: [{ id: 101, count: 1 }, { id: 102, count: 2 }] });
   expect(writes[0].groups[1].variants).toHaveLength(36);
   expect(writes[0].groups[1].variants.every(option => option.price === 0)).toBe(true);
+  await expect(page).toHaveURL(/\/1\/menu\/items$/);
+  await page.goto('/1/menu/items/1');
+  await expect(character.getByLabel('Choix obligatoire', { exact: true })).not.toBeChecked();
+  await character.getByLabel('Choix obligatoire', { exact: true }).check();
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).first().click();
+  await expect.poll(() => writes.length).toBe(2);
+  expect(writes[1].groups[1].selection_config).toMatchObject({ required: true });
 });

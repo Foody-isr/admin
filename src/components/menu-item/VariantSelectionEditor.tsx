@@ -22,6 +22,13 @@ export function VariantSelectionEditor({ group, groups, disabled, onChange }: Pr
     </label>
     {identity && <>
       <p className="text-sm text-fg-secondary">{t('variantIdentityHint')}</p>
+      <label className="flex min-h-11 items-center gap-3 text-sm">
+        <input type="checkbox" checked={config.required !== false}
+          onChange={event => onChange({ selectionConfig: { ...config, required: event.target.checked } })}
+          className="size-4 accent-[var(--brand-500)]" />
+        <span>{t('variantSelectionRequired')}</span>
+      </label>
+      <p className="text-sm text-fg-secondary">{t('variantSelectionScopeHint')}</p>
       <button type="button" className="text-sm font-medium underline underline-offset-4" onClick={() => {
         const existing = new Set(group.rows.map(row => row.name));
         onChange({ selectionConfig: { ...config, presentation: 'characters' }, rows: [...group.rows, ...'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').filter(name => !existing.has(name)).map(name => ({ key: crypto.randomUUID(), name, price: 0, portion: '', isActive: true, isComboOnly: false }))] });
@@ -42,7 +49,7 @@ export function VariantSelectionEditor({ group, groups, disabled, onChange }: Pr
         </label>
       </div>
       {!sources.length && <p className="text-sm text-fg-secondary">{t('variantSavedSourceHint')}</p>}
-      {source && <><p className="text-sm text-fg-secondary">{t('modifierRuleHelp')}</p>
+      {source && <><p className="text-sm text-fg-secondary">{t('variantRuleHelp')}</p>
         <div className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
           {choices.map(choice => <label key={choice.key} className="flex min-h-14 items-center justify-between gap-4 py-2 text-sm"><span>{choice.name}</span>
             <span className="flex items-center gap-2"><span>{t('modifierPositions')}</span><input className="input w-20" type="number" min={0} max={12} step={1} aria-label={`${choice.name} — ${t('modifierPositions')}`}
