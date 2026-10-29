@@ -10,10 +10,10 @@ import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Button, ConfirmDialog, Field, NumberField, PageHead, Section, Select } from '@/components/ds';
 
-type Draft = { vat_rate: number; tips_enabled: boolean; online_payment_only: boolean | undefined; weight_hold_buffer_percent: number | undefined };
+type Draft = { cash_payment_policy: RestaurantSettings["cash_payment_policy"]; cash_card_guarantee_required: boolean | undefined; vat_rate: number; tips_enabled: boolean; online_payment_only: boolean | undefined; weight_hold_buffer_percent: number | undefined };
 function draftFrom(settings: RestaurantSettings): Draft {
   if (!Number.isFinite(settings.vat_rate) || typeof settings.tips_enabled !== 'boolean') throw new Error('Incomplete payment settings');
-  return { vat_rate: settings.vat_rate!, tips_enabled: settings.tips_enabled, online_payment_only: typeof settings.online_payment_only === 'boolean' ? settings.online_payment_only : undefined, weight_hold_buffer_percent: Number.isFinite(settings.weight_hold_buffer_percent) ? settings.weight_hold_buffer_percent : undefined };
+  return { cash_payment_policy: settings.cash_payment_policy, cash_card_guarantee_required: settings.cash_card_guarantee_required, vat_rate: settings.vat_rate!, tips_enabled: settings.tips_enabled, online_payment_only: typeof settings.online_payment_only === 'boolean' ? settings.online_payment_only : undefined, weight_hold_buffer_percent: Number.isFinite(settings.weight_hold_buffer_percent) ? settings.weight_hold_buffer_percent : undefined };
 }
 const equal = (first: unknown, second: unknown) => JSON.stringify(first) === JSON.stringify(second);
 
@@ -30,6 +30,7 @@ function PaymentsWorkspace({ rid }: { rid: number }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [baseline, setBaseline] = useState<Draft | null>(null);
   const [loading, setLoading] = useState(true);
+  const [guaranteeSupported, setGuaranteeSupported] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
@@ -44,7 +45,7 @@ function PaymentsWorkspace({ rid }: { rid: number }) {
     setLoading(true); setLoadError(false);
     try {
       const settings = await getRestaurantSettings(rid), next = draftFrom(settings);
-      if (current()) { setDraft(next); setBaseline(next); }
+      if (current()) { setDraft(next); setBaseline(next); setGuaranteeSupported(settings.cash_card_guarantee_supported === true); }
     } catch { if (current()) setLoadError(true); }
     finally { if (current()) setLoading(false); }
   }, [rid]);
@@ -68,6 +69,8 @@ function PaymentsWorkspace({ rid }: { rid: number }) {
     // Never rewrite an unknown online-payment policy while changing VAT or tips.
     // Omitted fields stay unknown, including on an older API deployment.
     const input: Partial<RestaurantSettings> = {};
+    if (draft.cash_payment_policy !== undefined && draft.cash_payment_policy !== baseline.cash_payment_policy) input.cash_payment_policy = draft.cash_payment_policy;
+    if (draft.cash_card_guarantee_required !== undefined && draft.cash_card_guarantee_required !== baseline.cash_card_guarantee_required) input.cash_card_guarantee_required = draft.cash_card_guarantee_required;
     if (draft.vat_rate !== baseline.vat_rate) input.vat_rate = draft.vat_rate;
     if (draft.tips_enabled !== baseline.tips_enabled) input.tips_enabled = draft.tips_enabled;
     if (draft.online_payment_only !== undefined && draft.online_payment_only !== baseline.online_payment_only) input.online_payment_only = draft.online_payment_only;
@@ -95,6 +98,14 @@ function PaymentsWorkspace({ rid }: { rid: number }) {
         </Select></Field>
         {baseline?.online_payment_only === undefined && <p className="mt-3 text-sm leading-6 text-[var(--fg-muted)]">{t('paymentPolicyUnknownHint')}</p>}
       </Section>
+      {draft.cash_payment_policy !== undefined && <Section title={t('cashPaymentSettings')} desc={t('cashPaymentSettingsHelp')}>
+        <Field label={t('cashPaymentEligibility')}><Select aria-label={t('cashPaymentEligibility')} value={draft.cash_payment_policy} disabled={!canEdit || saving || draft.online_payment_only !== false} onChange={event => patch({ cash_payment_policy: event.target.value as Draft['cash_payment_policy'] })}>
+          <option value="disabled">{t('cashPolicyDisabled')}</option><option value="trusted_only">{t('cashPolicyTrusted')}</option><option value="all">{t('cashPolicyAll')}</option>
+        </Select></Field>
+        {draft.online_payment_only !== false && <p className="mt-3 text-sm text-[var(--fg-muted)]">{t('cashOnlineOnlyHint')}</p>}
+        {(guaranteeSupported || baseline?.cash_card_guarantee_required === true || draft.cash_card_guarantee_required === true) && draft.cash_card_guarantee_required !== undefined && <label className="mt-5 flex items-start gap-4"><span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{t('cashGuaranteeRequired')}</span><span id="cash-guarantee-hint" className="mt-1 block text-sm leading-6 text-[var(--fg-muted)]">{t(guaranteeSupported ? 'cashGuaranteeSettingsHelp' : 'cashGuaranteeUnsupported')}</span></span><BooleanInput aria-label={t('cashGuaranteeRequired')} aria-describedby="cash-guarantee-hint" checked={draft.cash_card_guarantee_required} disabled={!canEdit || saving || (!draft.cash_card_guarantee_required && (!guaranteeSupported || draft.online_payment_only !== false || draft.cash_payment_policy === 'disabled'))} onChange={event => patch({ cash_card_guarantee_required: event.target.checked })} /></label>}
+        {draft.cash_payment_policy === 'trusted_only' && <Link className="mt-3 inline-block text-sm underline" href={`/${rid}/customers`}>{t('cashTrustedCustomersLink')}</Link>}
+      </Section>}
       <Section title={t('vatRatesTitle')} desc={t('paymentVatHint')}>
         <div className="max-w-xs"><Field label={t('paymentDefaultVat')}><NumberField required min={Math.min(0, baseline?.vat_rate ?? 0)} max={Math.max(100, baseline?.vat_rate ?? 100)} value={draft.vat_rate} format={String} readOnly={!canEdit || saving} onChange={vat_rate => patch({ vat_rate })} dir="ltr" /></Field></div>
       </Section>

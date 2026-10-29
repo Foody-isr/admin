@@ -352,3 +352,17 @@ test("handoff shortcut keeps weight holds, partial balances and refunded payment
     assert.equal(deriveOrderCapabilities(makeOrder({ status: "in_kitchen", ...over }), OWNER).canCloseOrder, false);
   }
 });
+
+test("an active cash guarantee keeps its order and journal intact", () => {
+ const order = makeOrder({ status: 'accepted', payment_status: 'unpaid', external_metadata: { cash_guarantee: { status: 'authorized' } } });
+ const caps = deriveOrderCapabilities(order, { canManage: true, canOverride: true, canDelete: true }, { onDelete: true, onCorrectPayment: true });
+ assert.equal(caps.canEditOrder, false);
+ assert.equal(caps.canDelete, false);
+ assert.equal(caps.canCorrectPayment, false);
+ assert.equal(caps.canCancelOrder, true);
+});
+
+test("an uncertain cash guarantee debit never offers parallel cash collection", () => {
+ const order = makeOrder({ status: 'accepted', payment_status: 'unpaid', external_metadata: { cash_guarantee: { status: 'capture_pending' } } });
+ assert.equal(deriveOrderCapabilities(order, { canManage: true }).canTakePayment, false);
+});

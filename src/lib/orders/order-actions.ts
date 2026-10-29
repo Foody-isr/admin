@@ -123,6 +123,9 @@ export function deriveOrderCapabilities(
 
   // By-weight orders sit on a card hold until staff enter the measured weights.
   const isHeld = order.settlement_status === 'held';
+  const cashGuarantee = order.external_metadata?.cash_guarantee as { status?: string } | undefined;
+  const activeCashGuarantee = !!cashGuarantee && !['released', 'expired', 'captured'].includes(cashGuarantee.status ?? '');
+  const cashCollectionReady = !cashGuarantee || ['authorized', 'released', 'expired', 'captured'].includes(cashGuarantee.status ?? '');
   const canConfirmWeights = isHeld && !!handlers.onConfirmWeights && !isCancelled;
 
   // A paid order can become collectible again after staff add items: the raw
@@ -132,7 +135,7 @@ export function deriveOrderCapabilities(
   const internalCheckout = order.external_metadata?.internal_checkout as { mode?: string } | undefined;
   const prepared = internalCheckout?.mode === 'link' || internalCheckout?.mode === 'card';
   const preparedPending = prepared && order.payment_status === 'pending';
-  const canTakePayment =
+  const canTakePayment = cashCollectionReady &&
     !preparedPending && financialKnown && lifecycleCollectionAllowed(order) &&
     !isCancelled &&
     financialPayment !== 'refunded' &&
@@ -159,7 +162,7 @@ export function deriveOrderCapabilities(
   // orders moved real money and must be refunded, never data-corrected. The
   // server rejects these anyway; this hides an option that would always fail.
   const providerSettled = isProviderSettled(order);
-  const canCorrectPayment = !prepared && financialKnown && !!perms.canOverride && !isCancelled && !providerSettled;
+  const canCorrectPayment = !cashGuarantee && !prepared && financialKnown && !!perms.canOverride && !isCancelled && !providerSettled;
 
   // Relabelling HOW a settled order was paid is a separate correction from
   // moving its status. Only meaningful once something has actually settled.
@@ -171,11 +174,11 @@ export function deriveOrderCapabilities(
   const canForceProduction =
     perms.canManage && !preparedPending && !(prepared && isCancelled) && !!handlers.onToggleForceProduction;
 
-  const canDelete = !!perms.canDelete && !!handlers.onDelete;
+  const canDelete = !activeCashGuarantee && !!perms.canDelete && !!handlers.onDelete;
   const canReactivate = !prepared && perms.canManage && isCancelled && !!handlers.onReactivate;
 
   // Items can be edited while the order is still in progress.
-  const canEditOrder = !preparedPending && !isCancelled && !isTerminal;
+  const canEditOrder = !activeCashGuarantee && !preparedPending && !isCancelled && !isTerminal;
 
   // The ⋯ button renders only when something is inside it. Without this guard
   // the production page — which supplies none of the correction handlers —
