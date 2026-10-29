@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "bcc750805254d5434ace4e44f415397d10c41ea9",
+  "documentationRef": "0afce5a105af2ced928f7f56af70227b41a91c70",
   "documentationRevision": "aa8cdaead3aa0e4940797e0721db58c7d99d2c8e1384f0a5056d9781551eef9f",
   "articles": {
     "getting-started/first-login": {
@@ -3101,7 +3101,7 @@
       ]
     },
     "src/app/[restaurantId]/settings/delivery/page.tsx": {
-      "sha256": "6cad80a53b5673de798e50d89fe31b683a8b7b29c35118225c69036a16b92dea",
+      "sha256": "2dedc9d8c84a6405153f02815289012e41e14401d114264cd425b791321c71ac",
       "features": [
         "delivery-zones"
       ]
@@ -4003,7 +4003,7 @@
       ]
     },
     "src/components/delivery/ZoneScheduleFields.tsx": {
-      "sha256": "5c23f2df3a43b89108e1c7159ef408f742347321f11210ea37731a3dea85b129",
+      "sha256": "958134748b4a23f0ccf306083916138d756c5d2c8cfc98f0d1fdfd6b0823e8e3",
       "features": [
         "delivery-zones",
         "delivery-dispatch"
@@ -4983,7 +4983,7 @@
       ]
     },
     "src/components/orders/DeliverySlotAssignment.tsx": {
-      "sha256": "676e18b9cbd07af0561c92c4382249ee1bc4b8ee0bb620e4cf33d1e31d1dded7",
+      "sha256": "a96624cc05e7cc409327982a1bd6c99fdba12e7f02eb8bd813d36566b3303b7d",
       "features": [
         "orders-managing-orders",
         "order-detail"
@@ -6258,7 +6258,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "c8f4824ae680ef2ca186e0be59b56c08632cb3d0ca2374ced87449f705f38aa7",
+      "sha256": "7b826b13fbc066997a31e3e30af7d9fa56226082512096876854f2d4ac060bd3",
       "features": [
         "customers-profiles",
         "payments-how-payments-work",
@@ -6385,7 +6385,7 @@
       ]
     },
     "src/lib/delivery-zone-state.ts": {
-      "sha256": "9b146c979795be0a56de6776d792750d25e5982eab83fe337da4369d944e55b3",
+      "sha256": "f73e658a3aa496a83774427e91d399cdc2c0b03c983286c51860b343aee5726d",
       "features": [
         "delivery-zones",
         "delivery-dispatch",
@@ -6450,7 +6450,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "c741114a0aefad84d467ae21e97111bdc6b1872c62391705f00f8af924e696b0",
+      "sha256": "01dfa41584a2bb6936f5ef78803fde92fb9d204677d3afec8e841e553263d1af",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -12481,6 +12481,7 @@
         "zoneMinGlobalPlaceholder",
         "zoneMinOrder",
         "zoneName",
+        "zoneScheduleHoursHint",
         "zoneTypeHint_cities",
         "zoneType_cities",
         "zoneType_departments",
@@ -15825,17 +15826,19 @@
         "delivery-dispatch"
       ],
       "labels": [
-        "deliveryAddWindow",
         "deliveryOfferPickup",
         "deliveryScheduleAutomatic",
         "deliveryScheduleCustomer",
         "deliveryScheduleLegacy",
+        "deliverySchedulePendingHint",
         "deliveryScheduleRestaurant",
         "deliveryScheduleTitle",
-        "deliveryWindow",
-        "remove"
+        "zoneDeliveryDays",
+        "zoneScheduleHint"
       ],
-      "actions": []
+      "actions": [
+        "update"
+      ]
     },
     {
       "id": "foodyadmin:src/components/ds/Drawer.tsx:ui-controls:1",

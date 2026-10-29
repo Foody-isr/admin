@@ -12,8 +12,8 @@
     },
     {
       "path": "src/lib/api.ts",
-      "sha256": "c8f4824ae680ef2ca186e0be59b56c08632cb3d0ca2374ced87449f705f38aa7",
-      "baseSha256": "5226d7bec9471721c38d92827a27c8c90aee554b962910a6afbebe5953d4e6ce",
+      "sha256": "7b826b13fbc066997a31e3e30af7d9fa56226082512096876854f2d4ac060bd3",
+      "baseSha256": "cd95298f8c7c6ac7f869d67d50efe8db8ecf592511a4dab7af3a296b054db77c",
       "features": [
         "delivery-zones",
         "pos-payments",
@@ -37,8 +37,8 @@
     },
     {
       "path": "src/lib/i18n.tsx",
-      "sha256": "c741114a0aefad84d467ae21e97111bdc6b1872c62391705f00f8af924e696b0",
-      "baseSha256": "5e7c53fe3872fc40c027aa247d94f42cc995d188e971b55a14763e244ef8edb3",
+      "sha256": "01dfa41584a2bb6936f5ef78803fde92fb9d204677d3afec8e841e553263d1af",
+      "baseSha256": "5b5f4f1a1bd2561abe469392a01b8aa67f794fc194d7eab659711f19ea949c6a",
       "features": [
         "delivery-dispatch",
         "delivery-zones",
