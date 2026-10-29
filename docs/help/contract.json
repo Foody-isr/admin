@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "WORKSPACE",
-  "documentationRevision": "001d35dec5a796434a700198845d8c0c1e7226d7e6e25d9bd00d37166386269f",
+  "documentationRef": "3d27a29e34509a6bc86a91072bc3c890ea8b9c65",
+  "documentationRevision": "37ab699e4c9abb6498efbfe9bef7217b5fe2bb6a8ec2296911297545bbf9ac8c",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -1000,15 +1000,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/order-page.mdx",
-          "sha256": "595fae2edd93c6d87b0e8ff1ea995e602446ef28e1ba32d71477e49b3c48f576"
+          "sha256": "2d71255db460db6837134fda2df264859dc1ce3add63c061786b6baf39cec738"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/order-page.mdx",
-          "sha256": "6d02d9107afc1c1ed3e5919e33901237650af8c4da6a5ca340eaa97875a93834"
+          "sha256": "a13a6056a8245f70d712e93e1885bc00aaa38b18d62811ac4de11b042ff10ba6"
         },
         "he": {
           "path": "src/content/help/he/website-qr/order-page.mdx",
-          "sha256": "591c862dfe34bca9ed0a769381b76ef970ea7d4b2311f3b49e899a033eb2a045"
+          "sha256": "dc2b0db4f41191053acce01f0b288c71394d722cadbe7703b796a90080ffadc5"
         }
       }
     },
@@ -1570,15 +1570,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "edf85a93383c17816312c1ed5acf7674b46985e37887620bbafb1f8e7e92cf87"
+          "sha256": "b838eb8105a67ea5516f88f2e02fa1d71d9a76ad54e89025fd095dad11821bdc"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "ade6aabd1809ec399a380da83f979ae6635b124f6df7f877a05253fb048d5590"
+          "sha256": "506e8d08428cf8d84a1f0bc9a1c9745e99ba614fa2b1035731c5b33cd02a5e5f"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "761227c3f5a62c47d82c37b5339099fc3192ae5faa597e1f7a4cf21c96200b09"
+          "sha256": "1b4f4ad630774db35faea11abc53fd0c20a2b65075ef6855a621aac03e9fb790"
         }
       }
     },
@@ -7223,6 +7223,7 @@
       "sha256": "ee2b229ec970a3e9bfed7f484ab6bbad8fef9f0075fa5f070aa2898a7cf68e8a",
       "features": [
         "website-qr-customize-your-site",
+        "website-order-design",
         "shared-runtime"
       ]
     },
