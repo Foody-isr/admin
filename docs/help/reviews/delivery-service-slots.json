@@ -37,8 +37,8 @@
     },
     {
       "path": "src/lib/i18n.tsx",
-      "sha256": "2937176fd34e2ae0d91109c019cafb31ebcf97fa536554503d41a68cf49f63cc",
-      "baseSha256": "3fe22ab1ed241134aa4280eab547287ab892273f16db3b1d5fa1b7ade106906c",
+      "sha256": "5b5f4f1a1bd2561abe469392a01b8aa67f794fc194d7eab659711f19ea949c6a",
+      "baseSha256": "5e7c53fe3872fc40c027aa247d94f42cc995d188e971b55a14763e244ef8edb3",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
