@@ -9794,7 +9794,9 @@ export type DeliveryZoneType = 'polygon' | 'radius' | 'cities' | 'departments' |
 
 export interface DeliverySchedule {
   mode: 'customer' | 'automatic' | 'restaurant';
-  windows: { days: number[]; start: string; end: string }[];
+  days?: number[];
+  /** Legacy policies retain their weekdays; restaurant settings supply slot hours. */
+  windows?: { days: number[]; start: string; end: string }[];
   offer_pickup: boolean;
 }
 

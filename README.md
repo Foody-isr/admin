@@ -1073,9 +1073,12 @@ API's `preparation-preview` endpoint before Admin.
 
 Settings → Ordering & delivery → Delivery zones supports multiple cities and,
 for restaurants with country France, multiple department codes. Each zone can
-inherit the restaurant calendar, offer customer-selected weekly windows, assign
-the next window automatically, or reserve the next delivery day for staff to
-confirm its time after ordering. Days and windows are saved with the zone.
+inherit the restaurant calendar, restrict delivery to selected weekdays, assign
+the next slot automatically, or reserve the next delivery day for staff to
+confirm its time after ordering. Zone editors save weekdays without hours.
+Orders & availability supplies delivery hours, preparation clocks, slot duration
+and booking horizon. Legacy zone windows retain their weekdays for new bookings;
+existing orders keep their frozen promised calendar.
 An optional pickup suggestion respects the restaurant's enabled pickup service.
 
 The order detail displays pending delivery confirmation and an explicit window

@@ -64,9 +64,16 @@ export function deliveryZoneCanDraw(zone: DeliveryZone): boolean {
   return zone.type === 'radius' ? validZoneCoordinate({lat:zone.center_lat!,lng:zone.center_lng!}) && Number.isFinite(zone.radius_m) && zone.radius_m! > 0 : zone.type === 'polygon' && !!zone.polygon && zone.polygon.length >= 3 && zone.polygon.every(([lng,lat]) => validZoneCoordinate({lat,lng}));
 }
 
-/** Validate route calendars before rendering or persisting their window controls. */
+/** Return saved delivery weekdays, including policies authored with legacy hours. */
+export function deliveryScheduleWeekdays(value: DeliverySchedule): number[] {
+  return value.days ?? Array.from(new Set((value.windows ?? []).flatMap(window => window.days)));
+}
+
+/** Validate zone weekdays and backwards-compatible legacy calendars. */
 export function validDeliverySchedule(value: DeliverySchedule): boolean {
-  if (!value || !['customer','automatic','restaurant'].includes(value.mode) || typeof value.offer_pickup !== 'boolean' || !Array.isArray(value.windows) || !value.windows.length || value.windows.length > 28) return false;
+  if (!value || !['customer','automatic','restaurant'].includes(value.mode) || typeof value.offer_pickup !== 'boolean') return false;
+  if (value.days !== undefined) return Array.isArray(value.days) && value.days.length > 0 && value.days.length <= 7 && new Set(value.days).size === value.days.length && value.days.every(day => Number.isInteger(day) && day >= 0 && day <= 6) && (value.windows === undefined || Array.isArray(value.windows) && value.windows.length === 0);
+  if (!Array.isArray(value.windows) || !value.windows.length || value.windows.length > 28) return false;
   const days = new Map<number, { start: string; end: string }[]>();
   for (const window of value.windows) {
     if (!window || !Array.isArray(window.days) || !window.days.length || new Set(window.days).size !== window.days.length || !/^([01]\d|2[0-3]):[0-5]\d$/.test(window.start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(window.end) || window.start >= window.end) return false;
