@@ -151,3 +151,24 @@ test('same-day policy saves only its block with a baseline and retains conflicts
  expect(await section.evaluate(node=>node.scrollWidth<=node.clientWidth)).toBe(true);
  await page.screenshot({path:info.outputPath('same-day-policy-fr-mobile.png'),animations:'disabled'});
 });
+
+
+test('disabled same-day policy can remove inactive and deleted references without enabling delivery',async({page})=>{
+ const state=await install(page);state.control.policy.coverage_zone_ids=[2,999];await open(page);
+ const section=page.getByRole('region',{name:'Livraison le jour même',exact:true});
+ await expect(section.getByRole('checkbox',{name:'Activer les règles du jour même',exact:true})).not.toBeChecked();
+ const inactive=section.getByRole('checkbox',{name:/Villes et codes postaux/});const deleted=section.getByRole('checkbox',{name:/#999/});
+ await expect(inactive).toBeEnabled();await expect(deleted).toBeEnabled();await inactive.click();await expect(inactive).toHaveCount(0);await deleted.click();await expect(deleted).toHaveCount(0);
+ await section.getByRole('button',{name:'Enregistrer',exact:true}).click();await expect(section.getByRole('status')).toContainText('Enregistré');
+ expect(state.writes[0].body.delivery_same_day_policy).toMatchObject({enabled:false,coverage_zone_ids:[]});
+ expect(Object.keys(state.writes[0].body).sort()).toEqual(['delivery_same_day_policy','delivery_same_day_policy_base']);
+});
+
+
+test('same-day day labels toggle only their own checkbox in an accessible group',async({page})=>{
+ await install(page);await open(page);const section=page.getByRole('region',{name:'Livraison le jour même',exact:true});
+ await section.getByRole('checkbox',{name:'Activer les règles du jour même',exact:true}).check();
+ const days=section.getByRole('group',{name:'Jours autorisant la livraison le jour même',exact:true});
+ await days.getByText(/^mardi$/i).click();await expect(days.getByRole('checkbox',{name:/^mardi$/i})).not.toBeChecked();
+ await expect(days.getByRole('checkbox',{name:/^lundi$/i})).toBeChecked();
+});
