@@ -3,7 +3,7 @@
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
   "documentationRef": "WORKSPACE",
-  "documentationRevision": "1b4e1386878c3e0b07cebf2c1267bbb7b004c5530e14723cfcc5197a1adef380",
+  "documentationRevision": "fa93748b676a0fb6fc849d7a59ef136f0a61a34822e58997ec869451dd1a9a4b",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -1950,15 +1950,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/payment-preparation-and-handoff.mdx",
-          "sha256": "939405a34a59b8ce77b34c7c495ab2f6e9a8431c25aff091499e8e63f8fc5ee2"
+          "sha256": "08049682761f04cff7a1e499f46552bc23d710622d88791190154696864130d9"
         },
         "fr": {
           "path": "src/content/help/fr/orders/payment-preparation-and-handoff.mdx",
-          "sha256": "cd320478892fd7aa8fb63b2e7e1025d15fccb70f271099cc61461a928fc4b16e"
+          "sha256": "267b5d4e4ca9a5ec21043e8fb1982991457710cca43ed56b3d8ef4f32660c760"
         },
         "he": {
           "path": "src/content/help/he/orders/payment-preparation-and-handoff.mdx",
-          "sha256": "52fb5a238db2e83c6fd7a005c2725bcfa8c56c4fea352d4bf7fd90fc975509ce"
+          "sha256": "99f029a7616b84767baf6b8a7c3c6b364cf99f25804a28f0582574535a85537b"
         }
       }
     },
