@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ApiError, getRestaurantSettings, updateRestaurantSettings, type DeliverySameDayPolicy, type DeliveryZone, type RestaurantSettings } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -15,6 +15,10 @@ function policyFrom(settings: RestaurantSettings, rid: number): DeliverySameDayP
 const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const toggle = (values: number[], value: number) => values.includes(value) ? values.filter(day => day !== value) : [...values,value].sort((a,b)=>a-b);
 
+function OptionGroup({label,children}:{label:string;children:ReactNode}) {
+  return <fieldset className="min-w-0 space-y-2"><legend className="text-fs-sm font-medium text-[var(--fg)]">{label}</legend>{children}</fieldset>;
+}
+
 /** Configure one optional same-day policy without copying calendars or tariffs. */
 export function SameDayDeliverySettings({ rid, zones, zonesLoaded }: { rid: number; zones: DeliveryZone[]; zonesLoaded: boolean }) {
   const { t } = useI18n(), { hasAnyPermission } = usePermissions();
@@ -25,6 +29,11 @@ export function SameDayDeliverySettings({ rid, zones, zonesLoaded }: { rid: numb
   const alive = useRef(true), lock = useRef(false);
   const dirty = !!draft && !!base && (!equal(draft,base) || transit !== String(base.transit_minutes));
   const frozen = busy || uncertain;
+  const references = [
+    ...zones.filter(zone=>zone.is_active||draft?.coverage_zone_ids.includes(zone.id)).map(zone=>({id:zone.id,name:zone.name,is_active:zone.is_active,schedule:zone.schedule})),
+    ...(zonesLoaded ? (draft?.coverage_zone_ids ?? []) : []).filter(id=>!zones.some(zone=>zone.id===id)).map(id=>({id,name:`#${id}`,is_active:false,schedule:undefined})),
+  ];
+  const unavailableReferences = zonesLoaded && references.some(zone=>!zone.is_active && draft?.coverage_zone_ids.includes(zone.id));
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
   useEffect(()=>{if(!dirty&&!uncertain)return;const guard=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue='';};window.addEventListener('beforeunload',guard);return()=>window.removeEventListener('beforeunload',guard);},[dirty,uncertain]);
   const load = useCallback(async()=>{
@@ -55,10 +64,10 @@ export function SameDayDeliverySettings({ rid, zones, zonesLoaded }: { rid: numb
     <p className="text-fs-sm text-[var(--fg-muted)]">{t('deliverySettingsPriority')} <Link className="underline" href={`/${rid}/settings/orders`}>{t('ordersAvailabilityTitle')}</Link></p>
     {draft&&<fieldset disabled={!canEdit||frozen||!zonesLoaded} className="space-y-5">
       <label className="flex items-center gap-3"><input type="checkbox" checked={draft.enabled} onChange={event=>patch({enabled:event.target.checked})}/><span>{t('sameDayEnable')}</span></label>
-      {draft.enabled && <>
-      <div className="grid gap-5 md:grid-cols-2"><Field label={t('sameDayAllowedDays')}><div className="flex flex-wrap gap-3">{[1,2,3,4,5,6,0].map(day=><label key={day} className="flex items-center gap-2"><input type="checkbox" checked={draft.allowed_days.includes(day)} onChange={()=>{const days=toggle(draft.allowed_days,day);patch({allowed_days:days,restricted_days:draft.restricted_days.filter(value=>days.includes(value))});}}/>{t(`weekday_${day}`)}</label>)}</div></Field>
-      <Field label={t('sameDayRestrictedDays')}><div className="flex flex-wrap gap-3">{draft.allowed_days.map(day=><label key={day} className="flex items-center gap-2"><input type="checkbox" checked={draft.restricted_days.includes(day)} onChange={()=>patch({restricted_days:toggle(draft.restricted_days,day)})}/>{t(`weekday_${day}`)}</label>)}</div></Field></div>
-      {draft.restricted_days.length>0&&<Field label={t('sameDayCoverage')}><p className="mb-2 text-fs-sm text-[var(--fg-muted)]">{t('sameDayCoverageHint')}</p><div className="space-y-2">{zones.filter(zone=>zone.is_active||draft.coverage_zone_ids.includes(zone.id)).map(zone=><label key={zone.id} className="flex items-start gap-3"><input type="checkbox" className="mt-1" disabled={!zone.is_active} checked={draft.coverage_zone_ids.includes(zone.id)} onChange={()=>patch({coverage_zone_ids:toggle(draft.coverage_zone_ids,zone.id)})}/><span><span dir="auto">{zone.name}</span>{!zone.schedule&&<span className="block text-fs-xs text-[var(--fg-muted)]">{t('zoneCalendarInherited')}</span>}</span></label>)}</div></Field>}
+      {(draft.enabled || unavailableReferences) && <>
+      <div className="grid gap-5 md:grid-cols-2"><OptionGroup label={t('sameDayAllowedDays')}><div className="flex flex-wrap gap-3">{[1,2,3,4,5,6,0].map(day=><label key={day} className="flex items-center gap-2"><input type="checkbox" checked={draft.allowed_days.includes(day)} onChange={()=>{const days=toggle(draft.allowed_days,day);patch({allowed_days:days,restricted_days:draft.restricted_days.filter(value=>days.includes(value))});}}/>{t(`weekday_${day}`)}</label>)}</div></OptionGroup>
+      <OptionGroup label={t('sameDayRestrictedDays')}><div className="flex flex-wrap gap-3">{draft.allowed_days.map(day=><label key={day} className="flex items-center gap-2"><input type="checkbox" checked={draft.restricted_days.includes(day)} onChange={()=>patch({restricted_days:toggle(draft.restricted_days,day)})}/>{t(`weekday_${day}`)}</label>)}</div></OptionGroup></div>
+      {(draft.restricted_days.length>0||draft.coverage_zone_ids.length>0)&&<OptionGroup label={t('sameDayCoverage')}><p className="mb-2 text-fs-sm text-[var(--fg-muted)]">{t('sameDayCoverageHint')}</p><div className="space-y-2">{references.map(zone=><label key={zone.id} className="flex items-start gap-3"><input type="checkbox" className="mt-1" disabled={!zone.is_active&&!draft.coverage_zone_ids.includes(zone.id)} checked={draft.coverage_zone_ids.includes(zone.id)} onChange={()=>patch({coverage_zone_ids:toggle(draft.coverage_zone_ids,zone.id)})}/><span><span dir="auto">{zone.name}</span>{!zone.is_active&&<span className="ms-2 text-fs-xs text-[var(--fg-muted)]">{t('inactive')}</span>}{zone.is_active&&!zone.schedule&&<span className="block text-fs-xs text-[var(--fg-muted)]">{t('zoneCalendarInherited')}</span>}</span></label>)}</div></OptionGroup>}
       <div className="grid gap-4 md:grid-cols-2"><Field label={t('sameDayTransit')}><Input type="number" min="0" max="1440" step="1" value={transit} onChange={event=>{setTransit(event.target.value);setSaved(false);}}/></Field><Field label={t('sameDayTimeMode')}><Select value={draft.time_mode} onChange={event=>patch({time_mode:event.target.value as DeliverySameDayPolicy['time_mode']})}><option value="inherit">{t('sameDayTimeInherit')}</option><option value="restaurant">{t('sameDayTimeRestaurant')}</option></Select></Field></div>
       <p className="text-fs-sm text-[var(--fg-muted)]">{t('sameDayEstimateHint')}</p>
       </>}
