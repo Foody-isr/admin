@@ -1,5 +1,7 @@
 "use client";
 import { ItemImageFramingEditor } from "./ItemImageFramingEditor";
+import { ItemImageBackgroundEditor } from "./ItemImageBackgroundEditor";
+import {BoundedNumberInput} from "./BoundedNumberInput";
 import { useCampaignCapability } from "./CampaignRuntimeContext";
 import { ColorStylePicker } from "./ColorStylePicker";
 
@@ -20,6 +22,7 @@ import type { DraftSectionPayload, StatePath } from "@/lib/website-v3/types";
 import {
   featuredPickerItems,
   moveFeaturedItem,
+  selectAllFeaturedItems,
   toggleFeaturedItem,
 } from "@/lib/website-v3/featured-items";
 import {
@@ -49,6 +52,7 @@ export function FeaturedItemsEditor({
   const { t } = useI18n();
   const campaignSupported = useCampaignCapability("campaign_products");
   const displaySupported = useCampaignCapability("display_typography");
+  const layoutControlsSupported = useCampaignCapability("campaign_layout_controls");
   const { money } = useCurrency();
   const menu = section.section_type === "featured_menu";
   const settings = section.settings;
@@ -119,6 +123,9 @@ export function FeaturedItemsEditor({
   const selectedItem = (id: number) =>
     items.find((item) => item.id === id)?.name ??
     `${t("featuredUnavailableItem")} (${id})`;
+  const displayedItems = settings.auto_select_items === true || settings.item_source === "popular"
+    ? items.slice(0, Math.max(1, Math.min(12, Number(settings.max_items ?? 10))))
+    : ids.map(id => items.find(item => item.id === id)).filter((item): item is MenuItem => Boolean(item));
 
   return (
     <div className="sqe-featured-editor">
@@ -256,6 +263,12 @@ export function FeaturedItemsEditor({
               {settings.card_presentation === "campaign" && <fieldset disabled={!campaignSupported} className="min-w-0 space-y-4">
                 <InspectorField label={t("campaignMobileColumns")}><select className={controlClass} data-field-id="section.settings.mobile_columns" value={Number(settings.mobile_columns) === 2 ? 2 : 1} onChange={event => set("mobile_columns",Number(event.target.value))}><option value={1}>1</option><option value={2}>2</option></select></InspectorField>
                 {([['image_bg_color','campaignImageBackground','#ffb9cd'],['alternate_image_bg_color','campaignAlternateBackground','#f6f6f6']] as const).map(([key,label,fallback]) => <ColorField key={key} fieldId={`section.settings.${key}`} label={t(label)} value={String(settings[key] || "")} fallback={fallback} onChange={value => set(key,value)}/>)}
+                <fieldset disabled={!layoutControlsSupported} className="min-w-0 space-y-4">
+                  {!layoutControlsSupported && <p role="status" className="text-xs">{t("campaignRuntimeUnavailable")}</p>}
+                  <InspectorField label={t("featuredContentMaxWidth")}><BoundedNumberInput fieldId="section.settings.content_max_width" min={640} max={1800} value={Number(settings.content_max_width ?? 1440)} onChange={value=>set("content_max_width",value)}/></InspectorField>
+                  <InspectorField label={t("featuredRowSpacing")}><BoundedNumberInput fieldId="section.settings.row_spacing" min={0} max={100} value={Number(settings.row_spacing ?? Number(settings.column_spacing ?? 2) * 10)} onChange={value=>set("row_spacing",value)}/></InspectorField>
+                  <ItemImageBackgroundEditor items={displayedItems} value={settings.item_image_backgrounds} fallback={String(settings.image_bg_color || "#ffb9cd")} alternateFallback={String(settings.alternate_image_bg_color || "#f6f6f6")} onChange={value => set("item_image_backgrounds", value)}/>
+                </fieldset>
               </fieldset>}
             </>}
             <div className="sqe-layout-picker">
@@ -503,6 +516,10 @@ export function FeaturedItemsEditor({
             </button>
           </div>
           <DialogDescription>{t("featuredSelectionHelp")}</DialogDescription>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" className="sqe-text-button" data-field-id="section.featured.select_all" disabled={loading || loadError} onClick={() => setDraftIds(current => selectAllFeaturedItems(current, visibleItems))}>{t("featuredSelectAllVisible")}</button>
+            <button type="button" className="sqe-text-button" data-field-id="section.featured.clear_selection" onClick={() => setDraftIds([])}>{t("featuredClearSelection")}</button>
+          </div>
           <div className="flex gap-3">
             <label className="flex flex-1 items-center gap-3 rounded-full border border-neutral-300 px-4">
               <Search size={20} />

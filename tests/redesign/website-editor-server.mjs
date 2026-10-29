@@ -136,8 +136,9 @@ if (process.env.FOODY_THEME_REGRESSION === "1") {
   draft.config.nav_layout = { content: { desktop: "hidden" }, links: [{ id: "old", label: "Old theme", page_slug: "missing" }] };
 }
 const featuredRegression = process.env.FOODY_FEATURED_REGRESSION === "1";
-const featuredItems = Array.from({length: 6}, (_, index) => ({
-  id: index + 1, category_id: 1, name: ["Double Espresso", "Tall Cold Brew", "Cappuccino", "Drip Coffee", "Croissant", "Apple cake"][index],
+const campaignLayoutRegression = process.env.FOODY_CAMPAIGN_LAYOUT_REGRESSION === "1";
+const featuredItems = Array.from({length: campaignLayoutRegression ? 12 : 6}, (_, index) => ({
+  id: index + 1, category_id: 1, name: ["Double Espresso", "Tall Cold Brew", "Cappuccino", "Drip Coffee", "Croissant", "Apple cake"][index] || `Coffee ${index + 1}`,
   description: "Prepared fresh in our kitchen.", price: 5 + index, is_active: true,
   image_url: "", item_type: "regular", availability_state: index === 5 ? "sold_out" : "available",
   ...(index === 0 ? {option_sets: [{id: 1, name: "Size", is_active: true, options: [{id: 11, name: "Small", price: 5, is_active: true}, {id: 12, name: "Large", price: 9, is_active: true}]}]} : {}),

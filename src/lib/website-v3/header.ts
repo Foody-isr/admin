@@ -18,6 +18,9 @@ export type WebsiteHeader = {
   navigation: {
     enabled: boolean;
     mode: "dropdown" | "mega";
+    hamburger_style: "standard" | "staggered";
+    hamburger_size: number;
+    hamburger_stroke: number;
     uppercase: boolean;
     color: string;
     links: HeaderLink[];
@@ -187,6 +190,9 @@ export function normalizeWebsiteHeader(value: unknown): WebsiteHeader {
     navigation: {
       enabled: bool(nav.enabled, true),
       mode: choice(nav.mode, ["dropdown", "mega"] as const, "dropdown"),
+      hamburger_style: choice(nav.hamburger_style, ["standard", "staggered"] as const, "standard"),
+      hamburger_size: range(nav.hamburger_size, 16, 40, 24),
+      hamburger_stroke: range(nav.hamburger_stroke, 1, 4, 1.5),
       uppercase: bool(nav.uppercase, false),
       color: color(nav.color),
       links: links(nav.links),

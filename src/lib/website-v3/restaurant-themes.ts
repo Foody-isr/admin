@@ -431,8 +431,9 @@ function applyThemeHeader(state: DraftStatePayload, theme: RestaurantTheme, rest
     header.layout = "center"; header.scroll = "sticky"; header.color_style = "style-2";
     header.background = {...header.background,mode:"color",color:"#ffb9cd"};
     header.logo = {...header.logo,size:48,custom_background:false};
+    header.navigation = {...header.navigation,hamburger_style:"staggered",hamburger_size:28,hamburger_stroke:2.5};
     header.button = {...header.button,enabled:true,style:"filled",color:"#000000"};
-    header.icons = {...header.icons,search:false,color:"#000000"};
+    header.icons = {...header.icons,cart:false,search:false,color:"#000000"};
   }
   return {...state, config: {...state.config, nav_layout: {...record(state.config.nav_layout), header}}};
 }

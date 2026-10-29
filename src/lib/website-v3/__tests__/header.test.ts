@@ -7,6 +7,19 @@ import {
   headerSafeUrl,
 } from "../header";
 
+test("menu icon presentation retains legacy defaults and bounds authored controls", () => {
+  const legacy=normalizeWebsiteHeader({});
+  assert.equal(legacy.navigation.hamburger_style,"standard");
+  assert.equal(legacy.navigation.hamburger_size,24);
+  assert.equal(legacy.navigation.hamburger_stroke,1.5);
+  const authored=normalizeWebsiteHeader({navigation:{hamburger_style:"staggered",hamburger_size:90,hamburger_stroke:0},icons:{cart:false}});
+  assert.equal(authored.navigation.hamburger_style,"staggered");
+  assert.equal(authored.navigation.hamburger_size,40);
+  assert.equal(authored.navigation.hamburger_stroke,1);
+  assert.equal(authored.icons.cart,false);
+  assert.deepEqual(normalizeWebsiteHeader(JSON.parse(JSON.stringify(authored))),authored);
+});
+
 test("editing a migrated Header preserves explicit empty links, logo removal and disabled controls", () => {
   const initial = headerFromLegacy(
     {

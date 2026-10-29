@@ -63,7 +63,8 @@ export function SiteDesign({
   const campaignHero = useCampaignCapability("campaign_hero");
   const campaignProducts = useCampaignCapability("campaign_products");
   const displayTypography = useCampaignCapability("display_typography");
-  const campaignSupported = campaignHero && campaignProducts && displayTypography;
+  const campaignLayoutControls = useCampaignCapability("campaign_layout_controls");
+  const campaignSupported = campaignHero && campaignProducts && displayTypography && campaignLayoutControls;
   const [screen, setScreen] = useState<Screen>(initialScreen);
   const [candidate, setCandidate] = useState<RestaurantTheme | null>(null);
   const [styleCandidate, setStyleCandidate] = useState<SiteStyle | null>(null);
@@ -112,6 +113,7 @@ export function SiteDesign({
       welcome: t("editorWelcome"), discover: t("editorDiscover"), fresh: t("editorThemeFresh"),
       starters: t("editorThemeStarters"), mains: t("editorThemeMains"), drinks: t("editorThemeDrinks"),
       send: t("editorThemeSend"), name: t("editorThemeName"), email: t("editorThemeEmail"), message: t("editorThemeMessage"),
+      coffee_title: t("editorThemeCoffeeTitle"), coffee_subtitle: t("editorThemeCoffeeSubtitle"),
     },
     createId: () => `section-${crypto.randomUUID()}`,
   }), [allPages, compose, ordering, restaurantName, description, image, logo, t]);

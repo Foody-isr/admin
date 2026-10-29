@@ -8,6 +8,7 @@ export type ThemeCopy = {
   headline: string; welcome: string; discover: string; fresh: string;
   starters: string; mains: string; drinks: string; send: string;
   name: string; email: string; message: string;
+  coffee_title?: string; coffee_subtitle?: string;
 };
 
 /** Defaults for non-UI callers; the editor supplies its localized copy. */
@@ -18,6 +19,7 @@ export const DEFAULT_THEME_COPY: ThemeCopy = {
   discover: "Discover our menu", fresh: "Freshly prepared • Made to share •",
   starters: "Starters", mains: "Mains", drinks: "Drinks", send: "Send",
   name: "Name", email: "Email", message: "Message",
+  coffee_title: "Coffee for the moment", coffee_subtitle: "Iced coffee, indulgent recipes and a little pause.",
 };
 
 /** Reference media observed in the public Square restaurant theme previews. */
@@ -61,15 +63,18 @@ export function restaurantThemeSection(
         headline_size:"display", headline_weight:"extrabold", headline_color:"#000000",
         subheadline_color:"#000000", cta_bg_color:"#000000", cta_color:"#ffffff",
         autoplay:false, slide_duration_seconds:10, image_fit:"contain", bg_overlay:false,
+        controls_alignment:"right",show_counter:false,show_playback_control:false,
+        card_width_percent:96,card_width_percent_mobile:90,
         show_headline:true, show_subheadline:true, show_image_url:true, show_cta_text:true},
     };
     if (type === "menu_highlights") return {
-      layout:"grid", content:{title:copy.menu,subtitle:copy.discover,item_ids:[],cta_text:context.cta,cta_link:links.order || "/order"},
+      layout:"grid", content:{title:copy.coffee_title || copy.menu,subtitle:copy.coffee_subtitle || copy.discover,item_ids:[],cta_text:context.cta,cta_link:links.order || "/order"},
       settings:{...settings,card_presentation:"campaign",columns:4,mobile_columns:2,
-        title_size:"display",title_weight:"extrabold",auto_select_items:true,max_items:8,
+        title_size:"display",title_weight:"extrabold",auto_select_items:true,max_items:12,
+        content_max_width:1200,row_spacing:56,column_spacing:3,
         image_bg_color:"#ffb9cd",alternate_image_bg_color:"#f4f4f4",image_fit:"contain",
-        image_ratio:"1/1",show_images:true,show_item_titles:true,show_prices:true,
-        show_descriptions:true,show_buttons:true,show_cta_text:false},
+        image_ratio:"1/1",show_images:true,show_item_titles:true,show_prices:false,
+        show_descriptions:true,show_buttons:false,show_cta_text:false},
     };
     if (type === "text_and_image") return {
       layout:"default",content:{title:copy.story,body:context.description || copy.welcome,

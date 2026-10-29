@@ -1713,3 +1713,14 @@ the unsupported presentation; existing websites remain editable. No migration or
 new endpoint is required. Regression: `FOODY_FEATURED_REGRESSION=1
 FOODY_PREVIEW_LOW_DISK=1 npx playwright test -c playwright.website-editor.config.ts
 campaign-editor.spec.ts` (synthetic local APIs only).
+
+The optional `campaign_layout_controls: 1` renderer capability enables carousel
+control alignment, counter/playback visibility, desktop/mobile card widths and
+slide gaps. Autoplay always retains a pause control. Header navigation offers
+standard or staggered menu lines with size/thickness controls; the existing cart
+icon checkbox remains independent. Legacy sites retain their original defaults.
+Campaign grids also expose content width, row spacing and a background per real
+product ID, alongside existing per-item framing and price/button/description
+visibility. Select all visible products prepares a manual picker selection;
+Save applies those explicit IDs. The Pink Coffee preset prepares up to twelve
+products, descriptions on, prices/buttons off, and right-aligned hero controls.

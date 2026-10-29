@@ -22,6 +22,8 @@ import { InspectorField, ToggleField, controlClass } from "./controls";
 import { HeaderMedia } from "./HeaderMedia";
 import { HeaderLinksEditor, HeaderTargetDialog } from "./HeaderLinkEditor";
 import { headerCopy } from "./header-copy";
+import { useCampaignCapability } from "./CampaignRuntimeContext";
+import {BoundedNumberInput} from "./BoundedNumberInput";
 
 /** Edits the versioned Header component using the same controls as the public renderer. */
 export function HeaderInspector({
@@ -51,6 +53,7 @@ export function HeaderInspector({
   page?: DraftPagePayload | null;
   onOrderHeaderChange?: (header: ReturnType<typeof orderHeaderPresentation> | null, shared: WebsiteHeader) => void;
 }) {
+  const layoutControlsSupported = useCampaignCapability("campaign_layout_controls");
   const { locale, t } = useI18n(),
     c = headerCopy(locale);
   const root = useRef<HTMLDivElement>(null);
@@ -135,11 +138,13 @@ export function HeaderInspector({
     label: string,
     checked: boolean,
     change: (v: boolean) => void,
+    fieldId?: string,
   ) => (
     <label className="sqh-check selection-row">
       {label}
       <input
         type="checkbox"
+        data-field-id={fieldId}
         checked={checked}
         onChange={(e) => change(e.target.checked)}
       />
@@ -509,6 +514,12 @@ export function HeaderInspector({
             "navigation",
             c.navigation,
             <>
+              <fieldset disabled={!layoutControlsSupported} className="min-w-0 space-y-4">
+                {!layoutControlsSupported && <p role="status" className="text-xs">{t("campaignRuntimeUnavailable")}</p>}
+                <InspectorField label={t("headerHamburgerStyle")}><select className={controlClass} data-field-id="site.header.navigation.hamburger_style" value={header.navigation.hamburger_style} onChange={event => patch("navigation", {hamburger_style:event.target.value as "standard" | "staggered"})}><option value="standard">{t("headerHamburgerStandard")}</option><option value="staggered">{t("headerHamburgerStaggered")}</option></select></InspectorField>
+                <InspectorField label={t("headerHamburgerSize")}><BoundedNumberInput fieldId="site.header.navigation.hamburger_size" min={16} max={40} value={header.navigation.hamburger_size} onChange={value=>patch("navigation",{hamburger_size:value})}/></InspectorField>
+                <InspectorField label={t("headerHamburgerStroke")}><BoundedNumberInput fieldId="site.header.navigation.hamburger_stroke" min={1} max={4} step={0.5} value={header.navigation.hamburger_stroke} onChange={value=>patch("navigation",{hamburger_stroke:value})}/></InspectorField>
+              </fieldset>
               {check(c.caps, header.navigation.uppercase, (value) =>
                 patch("navigation", { uppercase: value }),
               )}
@@ -569,7 +580,7 @@ export function HeaderInspector({
               )}
               {check(c.cart, header.icons.cart, (value) =>
                 patch("icons", { cart: value }),
-              )}
+              "site.header.icons.cart")}
               {onOpenOrderJourney && <button className="sqe-text-button" onClick={onOpenOrderJourney}>{t("editorOrderJourney")}</button>}
               {check(c.search, header.icons.search, (value) =>
                 patch("icons", { search: value }),

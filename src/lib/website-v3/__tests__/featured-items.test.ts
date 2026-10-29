@@ -3,6 +3,8 @@ import test from "node:test";
 import {
   featuredPickerItems,
   moveFeaturedItem,
+  normalizeFeaturedImageBackgrounds,
+  selectAllFeaturedItems,
   toggleFeaturedItem,
 } from "../featured-items";
 import {
@@ -47,6 +49,17 @@ test("selection drafts preserve order and never mutate the saved list", () => {
   assert.deepEqual(toggleFeaturedItem(draft, 1), [3, 99, 2]);
   assert.deepEqual(moveFeaturedItem(original, 2, -1), [3, 99, 1]);
   assert.deepEqual(moveFeaturedItem(original, 0, -1), original);
+});
+test("select all adds only the visible picker results and retains unavailable selections", () => {
+  const original=[99,3];
+  assert.deepEqual(selectAllFeaturedItems(original,[item(3),item(1),item(2)]),[99,3,1,2]);
+  assert.deepEqual(original,[99,3]);
+  assert.deepEqual(selectAllFeaturedItems(original,[]),original);
+});
+test("individual image backgrounds accept only positive item IDs and hex colors", () => {
+  assert.deepEqual(normalizeFeaturedImageBackgrounds({"1":"#abc","12":"#FFB9CD","0":"#000","-2":"#fff","x":"#fff","3":"transparent","4":"url(unsafe)"}),{"1":"#abc","12":"#FFB9CD"});
+  assert.deepEqual(normalizeFeaturedImageBackgrounds(null),{});
+  assert.deepEqual(normalizeFeaturedImageBackgrounds([]),{});
 });
 test("new menu sections use text cards and preserve the section button", () => {
   const settings = squareDefaultSettings("featured_menu");
