@@ -7,6 +7,8 @@
 // eight useState hooks sitting in a component that never read them, so the
 // modal is that much thinner and nothing else can touch them.
 //
+import { readOrderLifecycleV2 } from '@/lib/orders/lifecycle-v2';
+import { LifecycleFacts } from './LifecycleFacts';
 import { useEffect, useState } from 'react';
 import {
   AlertTriangleIcon, CheckIcon, CopyIcon, LinkIcon, MessageCircleIcon, RotateCcwIcon,
@@ -23,6 +25,7 @@ import {
   displayedPaymentStatus as getDisplayedPaymentStatus,
   lifecycleFinancialStateKnown,
   lifecycleCollectionAllowed,
+  manualCollectionAmount,
   localizePaymentStatus,
 } from '@/lib/orders/status-presentation';
 import { localizePaymentMethod, paymentReference, settledPaymentMethod } from '@/lib/orders/payment';
@@ -52,7 +55,8 @@ export function MoneyPanel({
   totalsLine: number;
   t: (k: string) => string;
 }) {
-  const { symbol } = useCurrency();
+  const { symbol, code: currencyCode } = useCurrency();
+  const v2 = readOrderLifecycleV2(order.lifecycle_v2, order.id);
   const financialKnown = lifecycleFinancialStateKnown(order);
   const collectionAllowed = lifecycleCollectionAllowed(order);
 
@@ -148,8 +152,8 @@ export function MoneyPanel({
   const editedAfterPayment = meta[ORDER_META_EDITED_AFTER_PAYMENT] === true;
   const stockOversold = meta[ORDER_META_STOCK_OVERSOLD] === true;
   const chargedAmount = Number(meta[ORDER_META_PAID_AMOUNT]);
-  const hasChargedAmount = editedAfterPayment && Number.isFinite(chargedAmount);
-  const hasPartialPaidAmount = order.payment_status === 'partially_paid' && Number.isFinite(chargedAmount);
+  const hasChargedAmount = v2.kind === 'legacy' && editedAfterPayment && Number.isFinite(chargedAmount);
+  const hasPartialPaidAmount = v2.kind === 'legacy' && order.payment_status === 'partially_paid' && Number.isFinite(chargedAmount);
   const paymentDrift = hasChargedAmount ? totalsLine - chargedAmount : 0;
   const balanceDue = order.balance_due ?? 0;
   const hasBalanceDue = balanceDue > 0.01;
@@ -207,7 +211,7 @@ export function MoneyPanel({
                 <Money value={order.hold_amount} className="text-end text-[var(--fg-muted)]" />
               </>
             )}
-            {(order.captured_amount ?? 0) > 0 && (
+            {v2.kind === 'legacy' && (order.captured_amount ?? 0) > 0 && (
               <>
                 <span className="text-[var(--fg-subtle)]">{t('capturedAmount')}</span>
                 <Money value={order.captured_amount} className="text-end text-[var(--fg-muted)]" />
@@ -228,6 +232,8 @@ export function MoneyPanel({
 
           </div>
 
+          {v2.kind === 'available' && <LifecycleFacts value={v2.value} showProgress={false} />}
+          {v2.kind === 'available' && lifecycleCollectionAllowed(order) && manualCollectionAmount(order, currencyCode) === undefined && <p role="status" className="text-fs-sm">{t('lifecycleManualCurrencyUnsupported')}</p>}
           <h3 id={`order-${order.id}-payment-summary`}>{t('permDomain_payments')}</h3>
           {financialKnown && <PaymentAdjustments key={`${order.restaurant_id}:${order.id}`} order={order} />}
           <div className={styles.paymentHead}>
@@ -237,7 +243,7 @@ export function MoneyPanel({
               ) : localizePaymentMethod(settledPaymentMethod(order) === 'card' ? 'credit_card' : settledPaymentMethod(order), t)}
             </div>
             <div className={styles.paymentAmount}>
-              <Money value={totalsLine} />
+              {v2.kind === 'legacy' && <Money value={totalsLine} />}
               <span>{localizePaymentStatus(displayedPaymentStatus, t)}</span>
             </div>
           </div>

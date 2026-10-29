@@ -4,7 +4,7 @@ import type { FullServiceSettings } from '../../src/lib/api';
 const modeId='4d3db2c3-b29a-4d8d-94f5-0a231d85bc22';
 const otherId='4d3db2c3-b29a-4d8d-94f5-0a231d85bc23';
 const deviceId='5d3db2c3-b29a-4d8d-94f5-0a231d85bc22';
-async function install(page:Page,locale='fr',theme='light',permissions?:string[],options:{supported?:boolean; mergeSupported?:boolean; savedMergeSupported?:boolean; customerInformationSupported?:boolean; savedCustomerInformationSupported?:boolean; restaurantIds?:number[]; initialPolicy?:Partial<FullServiceSettings>; beforeResponse?:(method:string)=>Promise<void>; loadedPolicy?:(policy:FullServiceSettings)=>unknown; savedPolicy?:(policy:FullServiceSettings)=>FullServiceSettings}={}) {
+async function install(page:Page,locale='fr',theme='light',permissions?:string[],options:{supported?:boolean; mergeSupported?:boolean; savedMergeSupported?:boolean; trackingSupported?:boolean; savedTrackingSupported?:boolean; customerInformationSupported?:boolean; savedCustomerInformationSupported?:boolean; restaurantIds?:number[]; initialPolicy?:Partial<FullServiceSettings>; beforeResponse?:(method:string)=>Promise<void>; loadedPolicy?:(policy:FullServiceSettings)=>unknown; savedPolicy?:(policy:FullServiceSettings)=>FullServiceSettings}={}) {
  const fixtureOptions={library:true,permissions};
  const fixture=createFixture(fixtureOptions);
  let policy:FullServiceSettings={seating_mode:'optionalSeats',send_and_stay:false,coursing_enabled:true,courses:['Entrées','Plats principaux','Desserts'],show_held_on_kds:false,sort_cart:'course',comp_reasons:['Geste commercial'],void_reasons:['Erreur'],auto_progression:true,order_entry:{tile_size:'tall',return_to_menu:'home'},modes:[{id:modeId,name:'Service complet',device_ids:[],seating_mode:'requiredSeats',send_and_stay:true,coursing_enabled:true,auto_progression:true,tile_size:'wide',sort_cart:'seat'},{id:otherId,name:'Comptoir',device_ids:[deviceId],seating_mode:'disabled',send_and_stay:false,coursing_enabled:false,auto_progression:false,tile_size:'tall',sort_cart:'entry'}]};
@@ -21,7 +21,7 @@ async function install(page:Page,locale='fr',theme='light',permissions?:string[]
    const returned=r.method()==='PUT'&&options.savedPolicy?options.savedPolicy(structuredClone(policy)):r.method()==='GET'&&options.loadedPolicy?options.loadedPolicy(structuredClone(policy)):structuredClone(policy);
    await options.beforeResponse?.(r.method());
    const customerSupported=r.method()==='PUT'?options.savedCustomerInformationSupported??options.customerInformationSupported:options.customerInformationSupported;
-   return route.fulfill({json:{settings:{full_service:returned,pos_custom_dining_supported:options.supported??true,pos_settings_merge_supported:(r.method()==='PUT'?options.savedMergeSupported??options.mergeSupported:options.mergeSupported)??true,...(customerSupported!==false?{pos_fulfillment_customer_information_supported:true}:{})}}});
+   return route.fulfill({json:{settings:{full_service:returned,pos_custom_dining_supported:options.supported??true,pos_fulfillment_tracking_supported:(r.method()==='PUT'?options.savedTrackingSupported??options.trackingSupported:options.trackingSupported)??true,pos_settings_merge_supported:(r.method()==='PUT'?options.savedMergeSupported??options.mergeSupported:options.mergeSupported)??true,...(customerSupported!==false?{pos_fulfillment_customer_information_supported:true}:{})}}});
   }
   if(path==='/api/v1/restaurants/1/devices')return route.fulfill({json:{devices:[{id:deviceId,restaurant_id:1,kind:'tablet',display_name:'iPad Salle',system_name:'iPad',capabilities:[]}]}});
   if(path==='/api/v1/menu/item-categories')return route.fulfill({json:{categories:[{id:10,name:'Boissons'}]}});
@@ -523,4 +523,20 @@ for(const lost of ['false','capability'] as const)test(`customer preference save
  const writes=await install(page,'fr','light',undefined,{...(lost==='false'?{savedPolicy:(policy:FullServiceSettings)=>({...policy,fulfillment:{...policy.fulfillment!,methods:policy.fulfillment!.methods!.map(({show_customer_information,...method})=>method)}})}:{savedCustomerInformationSupported:false})});
  await page.goto('/1/settings/fulfillment');await page.getByRole('button',{name:'Gérer par point de vente'}).click();const editor=page.locator('.pos-fulfillment-editor').first(),method=page.locator('.pos-fulfillment-method-editor');await editor.getByRole('button',{name:'Livraison',exact:true}).click();await method.getByRole('switch').check();await method.getByRole('switch').uncheck();await method.getByRole('button',{name:'Enregistrer',exact:true}).click();await editor.getByRole('button',{name:'Enregistrer',exact:true}).click();
  await expect(editor.getByRole('alert')).toContainText('n’a pas confirmé');await expect(editor).toBeVisible();expect(writes).toHaveLength(1);expect(writes[0].fulfillment?.methods?.find(method=>method.id==='delivery')?.show_customer_information).toBe(false);
+});
+
+
+test('fulfillment tracking saves explicit false independently and survives a fresh read',async({page},info)=>{
+ const writes=await install(page);await page.goto('/1/settings/fulfillment');
+ await page.locator('.pos-fulfillment-card').first().getByRole('button',{name:'Modifier',exact:true}).click();
+ const editor=page.getByRole('dialog').last();
+ await expect(editor.getByRole('switch',{name:'Suivre la préparation',exact:true})).toBeChecked();
+ await expect(editor.getByRole('switch',{name:'Suivre la remise',exact:true})).toBeChecked();
+ await editor.getByRole('switch',{name:'Suivre la remise',exact:true}).uncheck();
+ await editor.getByRole('button',{name:'Enregistrer',exact:true}).click();await expect.poll(()=>writes.length).toBe(1);
+ expect(writes[0].fulfillment?.methods?.[0]).toMatchObject({track_handoff:false});
+ expect(writes[0].fulfillment?.methods?.[0].track_preparation).toBeUndefined();
+ await page.reload();await page.locator('.pos-fulfillment-card').first().getByRole('button',{name:'Modifier',exact:true}).click();
+ await expect(page.getByRole('dialog').last().getByRole('switch',{name:'Suivre la remise',exact:true})).not.toBeChecked();
+ await page.screenshot({path:info.outputPath('fulfillment-tracking-fr.png')});
 });

@@ -1,3 +1,4 @@
+import { readOrderLifecycleV2, lifecycleV2Allows } from './lifecycle-v2';
 // How an order's status, payment status, source and type are presented.
 //
 // These maps used to live inside OrderDetailDrawer.tsx, and the orders table
@@ -63,6 +64,7 @@ export const PAYMENT_TONE: Record<string, BadgeTone> = {
 const PAYMENT_KEY: Record<string, string> = {
   paid: 'paid',
   partially_paid: 'partiallyPaid',
+  partially_refunded: 'paymentPartiallyRefunded',
   pending: 'pending',
   unpaid: 'unpaid',
   refunded: 'refunded',
@@ -78,6 +80,8 @@ const PAYMENT_KEY: Record<string, string> = {
  * collected.
  */
 export function displayedPaymentStatus(order: Order, isCancelled = false): string {
+  const v2 = readOrderLifecycleV2(order.lifecycle_v2, order.id);
+  if (v2.kind !== 'legacy') return v2.kind === 'available' ? v2.value.payment.state : 'unknown';
   const lifecycle = readOrderLifecycle(order.lifecycle, order.id);
   if (lifecycle.kind === 'unavailable') return 'unknown';
   if (lifecycle.kind === 'available') {
@@ -117,6 +121,7 @@ const STATUS_KEY: Record<string, string> = {
   lifecycle_held: 'lifecyclePreparationHeld',
   lifecycle_not_sent: 'lifecyclePreparationNotSent',
   lifecycle_partially_ready: 'lifecyclePartiallyReady',
+  lifecycle_partially_handed: 'lifecycleV2HandoffPartial',
 };
 
 /** `t()` returns the key itself when missing — treat that as "not translated". */
@@ -157,6 +162,21 @@ export function localizeOrderType(type: Order['order_type'], t: (k: string) => s
 
 /** Present operational facts without treating commercial closure or payment as food progress. */
 export function displayedOrderStatus(order: Order): string {
+  const v2 = readOrderLifecycleV2(order.lifecycle_v2, order.id);
+  if (v2.kind === 'unavailable') return 'lifecycle_unknown';
+  if (v2.kind === 'available') {
+    const { preparation, handoff, commercial } = v2.value;
+    if (commercial.state === 'cancelled') return 'cancelled';
+    if (handoff.state === 'complete') return order.order_type === 'delivery' ? 'delivered' : order.order_type === 'pickup' ? 'picked_up' : 'served';
+    if (handoff.state === 'in_transit') return 'out_for_delivery';
+    if (handoff.state === 'partially_complete') return 'lifecycle_partially_handed';
+    if (preparation.state === 'ready') return order.order_type === 'delivery' ? 'ready_for_delivery' : order.order_type === 'pickup' ? 'ready_for_pickup' : 'ready';
+    if (preparation.state === 'partially_ready') return 'lifecycle_partially_ready';
+    if (preparation.state === 'in_progress') return 'in_kitchen';
+    if (preparation.state === 'held') return 'lifecycle_held';
+    if (preparation.state === 'not_sent') return 'lifecycle_not_sent';
+    return preparation.state === 'not_tracked' && handoff.tracking === 'not_tracked' ? 'lifecycle_not_tracked' : 'lifecycle_unknown';
+  }
   const lifecycle = readOrderLifecycle(order.lifecycle, order.id);
   if (lifecycle.kind === 'legacy') return order.status;
   if (lifecycle.kind === 'unavailable') return 'lifecycle_unknown';
@@ -174,6 +194,8 @@ export function displayedOrderStatus(order: Order): string {
 
 /** Missing or unsupported advertised facts cannot unlock collection or financial correction. */
 export function lifecycleFinancialStateKnown(order: Order): boolean {
+  const v2 = readOrderLifecycleV2(order.lifecycle_v2, order.id);
+  if (v2.kind !== 'legacy') return v2.kind === 'available' && !['unknown', 'mixed'].includes(v2.value.payment.state);
   const lifecycle = readOrderLifecycle(order.lifecycle, order.id);
   return lifecycle.kind === 'legacy' || lifecycle.kind === 'available' && !['unknown', 'mixed'].includes(lifecycle.value.payment.state);
 }
@@ -181,9 +203,23 @@ export function lifecycleFinancialStateKnown(order: Order): boolean {
 
 /** Pending is an expected payment, not proof of an active attempt; retain existing collection eligibility. */
 export function lifecycleCollectionAllowed(order: Order): boolean {
+  const v2 = readOrderLifecycleV2(order.lifecycle_v2, order.id);
+  if (v2.kind !== 'legacy') return v2.kind === 'available' && lifecycleV2Allows(v2, 'collect_payment') && ['unpaid', 'pending', 'partially_paid', 'paid'].includes(v2.value.payment.state) && (v2.value.payment.amounts.balance_due_minor ?? 0) > 0;
   const lifecycle = readOrderLifecycle(order.lifecycle, order.id);
   if (lifecycle.kind === 'legacy') return true;
   if (lifecycle.kind === 'unavailable') return false;
   const payment = lifecycle.value.payment.state;
   return payment === 'unpaid' || payment === 'pending' || payment === 'partially_paid' || payment === 'paid' && (order.balance_due ?? 0) > 0.01;
+}
+
+
+/** The existing manual dialog supports two decimals in the active restaurant currency. */
+export function manualCollectionAmount(order: Order, currencyCode: string): number | undefined {
+  const v2 = readOrderLifecycleV2(order.lifecycle_v2, order.id);
+  if (v2.kind === 'unavailable') return undefined;
+  if (v2.kind === 'legacy') return order.balance_due ?? order.total_amount;
+  const amounts = v2.value.payment.amounts;
+  if (amounts.currency !== currencyCode || amounts.minor_unit_exponent !== 2 || amounts.balance_due_minor === null) return undefined;
+  const major = amounts.balance_due_minor / 100;
+  return Math.round(major * 100) === amounts.balance_due_minor ? major : undefined;
 }

@@ -10,6 +10,7 @@ import { OrderWhatsAppComposer } from '@/components/orders/OrderWhatsAppComposer
 import type { WhatsAppMessageKind, WhatsAppChannel } from '@/lib/orders/whatsapp-composer';
 import type { AcceptOrderResult, CheckoutConfig, Order } from '@/lib/api';
 
+import { LifecycleOperations } from './LifecycleOperations';
 import { OrderDetailShell } from './OrderDetailShell';
 import { OrderDetailHead, OrderDetailSummary, OrderDetailLoadingHead } from './OrderDetailHead';
 import { CommandBar } from './CommandBar';
@@ -90,7 +91,7 @@ export function OrderDetailModal({
   onEditCustomer, onToggleForceProduction, restaurantName, restaurantDefaultLocale, customFieldLabels, checkoutConfig,
 }: OrderDetailModalProps) {
   const { t, direction } = useI18n();
-  const { symbol: currencySign } = useCurrency();
+  const { symbol: currencySign, code: currencyCode } = useCurrency();
 
   const [message, setMessage] = useState<{ kind: WhatsAppMessageKind; channel: WhatsAppChannel } | null>(null);
   const [referenceView, setReferenceView] = useState<OrderReferenceView | null>(null);
@@ -123,7 +124,7 @@ export function OrderDetailModal({
 
   const caps = deriveOrderCapabilities(
     order,
-    { canManage, canOverride, canDelete },
+    { canManage, canOverride, canDelete, currencyCode },
     {
       onConfirmWeights: !!onConfirmWeights,
       onOverride: !!onOverride,
@@ -261,6 +262,7 @@ export function OrderDetailModal({
                 <CancellationCallout order={order} t={t} />
               </div>
             )}
+            <LifecycleOperations order={order} canManage={canManage} disabled={isLoading} onChanged={onRetry} />
             <TicketItems
               order={order}
               categoryGroups={categoryGroups}

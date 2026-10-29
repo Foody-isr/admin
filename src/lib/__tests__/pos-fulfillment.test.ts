@@ -59,3 +59,29 @@ test('customer screen preferences preserve absent, true and explicit false throu
  assert.equal(fulfillmentSaveConfirmed(disabled,renamed),false);
  assert.equal(validFulfillment({...disabled,methods:disabled.methods!.map(method=>({...method,show_customer_information:'yes' as unknown as boolean}))}),false);
 });
+
+
+test('tracking controls preserve absent, true and explicit false by stable method ID', () => {
+ const methods=[{id,name:'Counter',order_type:'pickup' as const,track_preparation:false,track_handoff:true},...fulfillmentCatalog(legacy)];
+ const value=withFulfillmentCatalog(legacy,methods,[id,...legacy.enabled]);
+ const renamed=withFulfillmentCatalog(value,fulfillmentCatalog(value).map(method=>method.id===id?{...method,name:'Collection'}:method));
+ assert.equal((renamed.methods![0] as unknown as Record<string,unknown>).track_preparation,false);
+ assert.equal((renamed.methods![0] as unknown as Record<string,unknown>).track_handoff,true);
+ assert.equal(Object.hasOwn(renamed.methods![1],'track_preparation'),false);
+ assert.equal(Object.hasOwn(renamed.methods![1],'track_handoff'),false);
+ assert.equal(validFulfillment(renamed),true);
+ assert.equal(fulfillmentSaveConfirmed(renamed,structuredClone(renamed)),true);
+ for(const field of ['track_preparation','track_handoff']) {
+  const truncated={...renamed,methods:renamed.methods!.map(method=>{const copy={...method} as unknown as Record<string,unknown>;delete copy[field];return copy;})};
+  assert.equal(fulfillmentSaveConfirmed(renamed,truncated as unknown as POSFulfillment),false);
+ }
+});
+
+test('tracking configuration rejects malformed values instead of silently treating them as tracked', () => {
+ const base=withFulfillmentCatalog(legacy,fulfillmentCatalog(legacy));
+ for(const field of ['track_preparation','track_handoff'])
+  for(const invalid of ['false',0,1,null,{},[]]) {
+   const methods=base.methods!.map((method,index)=>index===0?{...method,[field]:invalid}:method);
+   assert.equal(validFulfillment({...base,methods}),false,`${field}:${JSON.stringify(invalid)}`);
+  }
+});

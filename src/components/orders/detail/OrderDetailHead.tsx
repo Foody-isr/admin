@@ -8,6 +8,7 @@ import { useI18n } from '@/lib/i18n';
 import type { Order } from '@/lib/api';
 import { ORDER_STATUS_BADGE_TONE, displayedOrderStatus, displayedPaymentStatus as getDisplayedPaymentStatus, localizePaymentStatus, localizeStatus } from '@/lib/orders/status-presentation';
 import { getOrderTiming, isOperationalOrder } from '@/lib/orders/operations-board';
+import { readOrderLifecycleV2 } from '@/lib/orders/lifecycle-v2';
 import { readOrderLifecycle } from '@/lib/orders/lifecycle';
 import { orderDetailUrl } from '@/lib/orders/routes';
 import styles from './order-detail.module.css';
@@ -67,7 +68,8 @@ export function OrderDetailHead({ order, children }: { order: Order; children: R
 /** Customer title and compact workflow/payment badges, matching the order list. */
 export function OrderDetailSummary({ order, isCancelled, onRetry }: { order: Order; isCancelled: boolean; onRetry?: () => void }) {
   const { t } = useI18n();
-  const lifecycle = readOrderLifecycle(order.lifecycle, order.id);
+  const v2 = readOrderLifecycleV2(order.lifecycle_v2, order.id);
+  const lifecycle = v2.kind !== 'legacy' ? v2 : readOrderLifecycle(order.lifecycle, order.id);
   const displayedStatus = displayedOrderStatus(order);
   const timing = getOrderTiming(order);
   const showTiming = isOperationalOrder(order) && !timing.scheduledForFuture;
