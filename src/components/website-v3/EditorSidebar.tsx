@@ -908,6 +908,7 @@ export function EditorSidebar({
               sectionContentOpen &&
               sectionPanel === "content" &&
               selectedSection.section_type !== "text_and_image" &&
+              !(selectedSection.section_type === "hero_banner" && selectedSection.layout === "campaign") &&
               EDITOR_ELEMENTS[selectedSection.section_type] ? (
               <SectionElements
                 section={selectedSection}

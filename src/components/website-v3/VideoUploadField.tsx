@@ -11,6 +11,7 @@ export function VideoUploadField({
   currentUrl,
   posterUrl,
   cover = true,
+  fieldId = "section.content.video_url",
   onUploaded,
   onRemove,
 }: {
@@ -18,6 +19,7 @@ export function VideoUploadField({
   currentUrl: string;
   posterUrl: string;
   cover?: boolean;
+  fieldId?: string;
   onUploaded: (url: string) => void;
   onRemove: () => void;
 }) {
@@ -120,7 +122,7 @@ export function VideoUploadField({
       <InspectorField label={t("editorField_video_url")}>
         <input
           type="url"
-          data-field-id="section.content.video_url"
+          data-field-id={fieldId}
           value={currentUrl}
           disabled={uploading}
           onChange={(event) => {

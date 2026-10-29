@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { acceptsInlineEdit, isEditorElement } from "../editor-elements";
+import { acceptsInlineEdit, isEditorElement, editorElementContentPath } from "../editor-elements";
 
 const section = {
   section_type: "hero_banner",
@@ -32,6 +32,17 @@ test("canvas text edits accept only a known field with the current base value", 
     }),
     false,
   );
+});
+
+test("campaign canvas fields target only an existing bounded slide and retain stale-edit protection", () => {
+  const campaign={section_type:"hero_banner",content:{slides:[{headline:"Slide one"},{headline:"Slide two"}]}};
+  assert.deepEqual(editorElementContentPath("hero_banner","slides.1.headline"),["slides",1,"headline"]);
+  assert.equal(acceptsInlineEdit(campaign,{field:"slides.1.headline",previousValue:"Slide two",value:"Updated"}),true);
+  assert.equal(acceptsInlineEdit(campaign,{field:"slides.1.headline",previousValue:"Old",value:"Updated"}),false);
+  for (const field of ["slides.6.headline","slides.-1.headline","slides.0.__proto__","slides.0.image_url","slides.5.headline"]) {
+    assert.equal(acceptsInlineEdit(campaign,{field,previousValue:"",value:"Changed"}),false);
+  }
+  assert.equal(isEditorElement("text","slides.1.headline"),false);
 });
 
 test("preview messages cannot replace media, settings, prototypes or another section's fields", () => {

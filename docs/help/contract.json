@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "76d1d1597b8049077bd12b6932b1c1d418adfbc2",
-  "documentationRevision": "37a09408ec8a180df6fa79d21cbacf6c07ca8d115e8ff5838789251e846f2c99",
+  "documentationRef": "d06cd24cba730bd94a9e2aca4bc2d5144a21f037",
+  "documentationRevision": "c4a1fa02f04bc29db914caeaa58335e80b7461dd3ed83b21ffaddcededcdaa02",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -487,15 +487,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/customize-your-site.mdx",
-          "sha256": "da1f829ec2c7ed0fa43e81f0428b0cc38c2252339739893df224e62a6d52b48e"
+          "sha256": "69c10c8cbfe857f17925dede61c2cab35733b078b8fcea63a789e39eb2bf9e2a"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/customize-your-site.mdx",
-          "sha256": "c238299de78263338633186e4a4598c13a8ddc1e5d3f702c12311f4772f2db79"
+          "sha256": "9f64b4f06faf2416f978b0261189a9f7769b424bf06f3a6e6124fd41648db89f"
         },
         "he": {
           "path": "src/content/help/he/website-qr/customize-your-site.mdx",
-          "sha256": "45d331b44da4ec969c6986e3a2e2788d672ab66dcd7a997159d95df780e49851"
+          "sha256": "21fc32f9cddfae94a465f0a448c1de6b54a14cfc665656e02730703466cd5904"
         }
       }
     },
@@ -677,15 +677,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/production-planning.mdx",
-          "sha256": "431ac6095eda15a88717582208edb5553b45db6351c7e3900a6ef602daf8d9d0"
+          "sha256": "87b9d0f14c56bb501ee6abaa6a9f4837aad3fe22d2e256efa89137c39ef4e921"
         },
         "fr": {
           "path": "src/content/help/fr/orders/production-planning.mdx",
-          "sha256": "73e097bf747ac23da6c3fd42162699b3531a028d6256275e4f946bca68db0ca1"
+          "sha256": "c06528f00c507a5cd702d3db97e89baa88a862f1c9c6a2be161e1ccd0011a3c5"
         },
         "he": {
           "path": "src/content/help/he/orders/production-planning.mdx",
-          "sha256": "01a5ce994fd64086f0a5248943e52c90f7f50a2cc553496c7190e5ffa287ddb9"
+          "sha256": "294e38afbb96d7bfa87ff1a524527fa1c5fae41d168687bc62d2839103dbb517"
         }
       }
     },
@@ -943,15 +943,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/design-and-branding.mdx",
-          "sha256": "00a5447a24723edec148f100b60b1359f3cc31a3a1e2fdbf94d7fb3f8422ab69"
+          "sha256": "734d17988294d7a094bb8cc7ae7f5a19788d4055c3575076577f438ccf6c07fd"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/design-and-branding.mdx",
-          "sha256": "a65159d9f62e704d0c6c21b9c0eec487d69c6efd34cf30818e0c02881cb9da7e"
+          "sha256": "3494ef73e04da9e4630823a6be6c5074937d1053cc33dd97a24918e5a8ee3e84"
         },
         "he": {
           "path": "src/content/help/he/website-qr/design-and-branding.mdx",
-          "sha256": "f4272ac0f304174218611863ad7d068db4a7f2c1329e0422c7f0a9508419a365"
+          "sha256": "2f7764fbb9561e3454ae52848763db7c656f7d3cc999c039c9c5f6925e6aaad1"
         }
       }
     },
@@ -981,15 +981,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/sections-and-media.mdx",
-          "sha256": "1f3b33849c08249bed14522ed0f7fe12706065fe07d1c34a43a635b61c30ec58"
+          "sha256": "a6e5067ca9f0f198ab2a5e5db0859f6780f516e5b0a36cd24e1f0e6a50b6480d"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/sections-and-media.mdx",
-          "sha256": "52d5be575e537dd09530b00958d921a97c279180886f96ec583714019a9bf428"
+          "sha256": "bf1d28c05cfcd7946fca2df037e0839e6f65015d79fa17b70514235ba44aa567"
         },
         "he": {
           "path": "src/content/help/he/website-qr/sections-and-media.mdx",
-          "sha256": "fc1389db3813eca4bc3d0261986445b75c9b8ccc4cb801b2a9c685e816e904b8"
+          "sha256": "66a4b84b6250052967b2fd39c04065411d7094857f3f4805bb83047068df778e"
         }
       }
     },
@@ -5864,6 +5864,20 @@
         "website-pages"
       ]
     },
+    "src/components/website-v3/CampaignRuntimeContext.tsx": {
+      "sha256": "aebe8b88a328627cca7d7c32c4e94644b50cdfac56c46b4c050cc803b1386f5d",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-sections"
+      ]
+    },
+    "src/components/website-v3/CampaignSlidesEditor.tsx": {
+      "sha256": "fb49aac367fe76beb267925c1e8f7a459f77a3b79cb58b61eaae98b3b8b70e99",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-sections"
+      ]
+    },
     "src/components/website-v3/CategoryNavigationEditor.tsx": {
       "sha256": "e84d4012bb96ba62ad86adfdcb0b68af1d7d342b8a0903836842b0700ac9ca16",
       "features": [
@@ -5908,9 +5922,10 @@
       ]
     },
     "src/components/website-v3/EditorSidebar.tsx": {
-      "sha256": "c88b51dc92c972eb51f17442ae4323ab4e4924a8e35f431a388b78b98e93bffd",
+      "sha256": "48816ce3c9684419408aa26c6453ef1ed56b2a97525c1603eed6965cae8c2b48",
       "features": [
-        "website-qr-customize-your-site"
+        "website-qr-customize-your-site",
+        "website-sections"
       ]
     },
     "src/components/website-v3/EditorialAppearanceFields.tsx": {
@@ -5927,9 +5942,11 @@
       ]
     },
     "src/components/website-v3/ElementInspector.tsx": {
-      "sha256": "6f6b5d5a628a8451d3078d44c9763165ac91a80f90e41e7ea4971ad3b68aff00",
+      "sha256": "e91e5ad24ba3c5436c28ddd7edf1e420c6a6d3b151d1d6b35a847b6c5fcd7761",
       "features": [
-        "website-qr-customize-your-site"
+        "website-qr-customize-your-site",
+        "website-design",
+        "website-sections"
       ]
     },
     "src/components/website-v3/FeatureCardsAppearanceEditor.tsx": {
@@ -5940,7 +5957,7 @@
       ]
     },
     "src/components/website-v3/FeaturedItemsEditor.tsx": {
-      "sha256": "f3ce571d591aa44fd6890718259a15024c1a4341898c49d5df4df013a7703654",
+      "sha256": "92f6eb728324c70fccc47c4e567ffcc5774419cd400c37d6eb156b725972f9c1",
       "features": [
         "website-qr-customize-your-site",
         "website-sections"
@@ -6112,14 +6129,14 @@
       ]
     },
     "src/components/website-v3/SectionContentEditors.tsx": {
-      "sha256": "935df212ecfc74695ea9ac4fd97f6c475339b975d0b4e2e181b67b93cd4ff5d7",
+      "sha256": "a4fd54e351b3fc3d473036b16fc82443f273afb2434319d79a9106833ffb40bb",
       "features": [
         "website-qr-customize-your-site",
         "website-sections"
       ]
     },
     "src/components/website-v3/SectionInspector.tsx": {
-      "sha256": "209a1bb746cd736603cec8a4dba83b6cc61c8ea39b0a00337b7ab4162e30c4df",
+      "sha256": "8e19b077656a0ec228c820d3b1cec7000d54b9a37fd9c803daf80e52c0d30fb8",
       "features": [
         "website-qr-customize-your-site",
         "website-sections"
@@ -6134,7 +6151,7 @@
       ]
     },
     "src/components/website-v3/SiteDesign.tsx": {
-      "sha256": "b195c06ec65605427ffe7ff6aa50cae4b495f252bd5235dffcab7164d355ced2",
+      "sha256": "88f451212f941a0de426fedfae71c4d5d7709a315903c820375cd35eb27ed850",
       "features": [
         "website-qr-customize-your-site",
         "website-design"
@@ -6189,16 +6206,17 @@
       ]
     },
     "src/components/website-v3/VideoUploadField.tsx": {
-      "sha256": "142d541ed8d5d937dd6680c6acca35cc181e7a8fa787fd175d633130fa48d0df",
+      "sha256": "3ca8bbb3c7b61a845549c80f5d71ab6c299dfdd943ddd98a012f0d5450e7ffd1",
       "features": [
         "website-qr-customize-your-site",
         "website-sections"
       ]
     },
     "src/components/website-v3/WebsiteV3Builder.tsx": {
-      "sha256": "503a09c98cce8e57ac917bc78ad6a604dabcd28cb16688ac88764b18ccbc0d8d",
+      "sha256": "48d59371d52cb31bf97fa04a2788d88987dc7d638c41c817e86115375786293e",
       "features": [
         "website-qr-customize-your-site",
+        "website-sections",
         "website-pages"
       ]
     },
@@ -6215,7 +6233,7 @@
       ]
     },
     "src/components/website-v3/field-contracts.ts": {
-      "sha256": "7611430df62886655d901f9acf898fe904f9b7505035762d7e6462aa63335b56",
+      "sha256": "c87ef3381dc458392fab6b116a3eb56f310905d14994aecb47f98e6714431421",
       "features": [
         "website-qr-customize-your-site"
       ]
@@ -6451,7 +6469,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "89aab34cff8735085446a04efca33c803db953bf8dcae08bca29767fb41db890",
+      "sha256": "17bde8c2f586e62fae4d33c452f853cdcfa3c29a3d4d757e2d97159d2d6f70d1",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -6459,6 +6477,7 @@
         "delivery-zones",
         "delivery-dispatch",
         "google-account-setup",
+        "website-sections",
         "website-order-design",
         "pos-behavior",
         "whatsapp",
@@ -7153,6 +7172,14 @@
         "shared-runtime"
       ]
     },
+    "src/lib/website-v3/campaign.ts": {
+      "sha256": "a3637c77a7a6e07907f942e3b1105eb863e4594bcaacc3013a1201b984bea889",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-sections",
+        "shared-runtime"
+      ]
+    },
     "src/lib/website-v3/catering-catalog.ts": {
       "sha256": "e8d6870f67d64888e1d55d6c5dc24fca41d5477b79d81f7559cd7562174df52c",
       "features": [
@@ -7175,9 +7202,10 @@
       ]
     },
     "src/lib/website-v3/editor-elements.ts": {
-      "sha256": "ceb1e4d49917b2ae990ec4992dd4286544c11231fab3de50d24ecc18a7d2452e",
+      "sha256": "c653ace1d93f8b813a1674f5427d2beed121b082b8066c71d37561149c81a4d3",
       "features": [
         "website-qr-customize-your-site",
+        "website-sections",
         "shared-runtime"
       ]
     },
@@ -7310,9 +7338,10 @@
       ]
     },
     "src/lib/website-v3/restaurant-theme-blueprints.ts": {
-      "sha256": "0f8d75d3cb4d2da26c1dd5a89fd4a288357ed3bed8be2869b1aae1c3982807d2",
+      "sha256": "9711bf770027abb00c243690bdf2d82dca5ab1838692e1adf2f782d5d9df2481",
       "features": [
         "website-qr-customize-your-site",
+        "website-design",
         "shared-runtime"
       ]
     },
@@ -7324,16 +7353,18 @@
       ]
     },
     "src/lib/website-v3/restaurant-themes.ts": {
-      "sha256": "e7354248615585d0fe76f8cdf5fe06e9f3848e43b688c9e579859e07dded7a74",
+      "sha256": "1aa98b5cf9afd3d6cff0aa7e00c424f0c9f22c8bcb2a0e67fd98deccb06cb7b3",
       "features": [
         "website-qr-customize-your-site",
+        "website-design",
         "shared-runtime"
       ]
     },
     "src/lib/website-v3/runtime-capabilities.ts": {
-      "sha256": "265adc673d39de6d15f50dbf544e766925b60094cb2fd90728cc54ffbbdae442",
+      "sha256": "3d135149d8d40ad85b0e6fc0d0a214d488da686c94b72ab19e8a654d321b60fb",
       "features": [
         "website-qr-customize-your-site",
+        "website-sections",
         "shared-runtime"
       ]
     },
@@ -7367,16 +7398,18 @@
       ]
     },
     "src/lib/website-v3/square-components.ts": {
-      "sha256": "6b6b5af2e9c08599389c8c60e4fc8c06b1dbecb66862c6d7d8e908c0e6b7c1d5",
+      "sha256": "7b41f4006ead29678ba48aab9a41ac438a5d34069ccd14dea745e52704a56290",
       "features": [
         "website-qr-customize-your-site",
+        "website-sections",
         "shared-runtime"
       ]
     },
     "src/lib/website-v3/state.ts": {
-      "sha256": "6dd05db4ae7cfc05f25123b26aa264a0f40da2e146371fec86f238f06f937470",
+      "sha256": "49cccfa5901f1d8f76c94d3ccbf022c81c22c3403341cc27d376593ba3b02f08",
       "features": [
         "website-qr-customize-your-site",
+        "website-sections",
         "shared-runtime"
       ]
     },
@@ -20983,6 +21016,39 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/website-v3/CampaignSlidesEditor.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/website-v3/CampaignSlidesEditor.tsx",
+      "line": 1,
+      "features": [
+        "website-qr-customize-your-site",
+        "website-sections"
+      ],
+      "labels": [
+        "campaignAddSlide",
+        "campaignAutoplay",
+        "campaignContain",
+        "campaignCover",
+        "campaignDeleteSlide",
+        "campaignDuration",
+        "campaignImageFit",
+        "campaignRuntimeUnavailable",
+        "campaignSlide",
+        "campaignSlideBackground",
+        "campaignSlides",
+        "campaignSlidesHelp",
+        "campaignVideoFraming",
+        "editorBackgroundMedia",
+        "editorMoveDown",
+        "editorMoveUp",
+        "editorTextStyle"
+      ],
+      "actions": [
+        "save",
+        "update"
+      ]
+    },
+    {
       "id": "foodyadmin:src/components/website-v3/CategoryNavigationEditor.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/website-v3/CategoryNavigationEditor.tsx",
@@ -21154,7 +21220,8 @@
       "source": "src/components/website-v3/EditorSidebar.tsx",
       "line": 1,
       "features": [
-        "website-qr-customize-your-site"
+        "website-qr-customize-your-site",
+        "website-sections"
       ],
       "labels": [
         "chain_selector_surface",
@@ -21233,7 +21300,9 @@
       "source": "src/components/website-v3/ElementInspector.tsx",
       "line": 1,
       "features": [
-        "website-qr-customize-your-site"
+        "website-qr-customize-your-site",
+        "website-design",
+        "website-sections"
       ],
       "labels": [
         "editorAllCaps",
@@ -21260,11 +21329,17 @@
         "website-sections"
       ],
       "labels": [
+        "campaignCardPresentation",
+        "campaignMobileColumns",
+        "campaignRuntimeUnavailable",
+        "campaignStandard",
         "editorColor_custom",
         "editorContent",
         "editorCustomize",
         "editorLayout",
         "editorLayoutColor",
+        "editorLayout_campaign",
+        "editorTextStyle",
         "featuredAllItems",
         "featuredAutomaticSelection",
         "featuredAvailable",
@@ -21720,6 +21795,7 @@
         "website-sections"
       ],
       "labels": [
+        "campaignRuntimeUnavailable",
         "editorAlignment",
         "editorBackgroundMedia",
         "editorLayout",
@@ -21788,6 +21864,7 @@
         "website-design"
       ],
       "labels": [
+        "campaignRuntimeUnavailable",
         "editorApplyStyle",
         "editorBack",
         "editorBody",
@@ -22005,6 +22082,7 @@
       "line": 1,
       "features": [
         "website-qr-customize-your-site",
+        "website-sections",
         "website-pages"
       ],
       "labels": [
@@ -22035,156 +22113,6 @@
       ]
     },
     {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:648",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 648,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.website_order.modal_cover_url"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:649",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 649,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.tagline"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:650",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 650,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.navbar_style"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:651",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 651,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.navbar_color"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:652",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 652,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.navbar_overlay_text_color"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:658",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 658,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.navbar_text_color"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:659",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 659,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.logo_size"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:660",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 660,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.hide_navbar_name"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:661",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 661,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.navbar_logo_position"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:662",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 662,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.navbar_scrolled_logo_url"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:663",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 663,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.hero_logo_size"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:664",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 664,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.hide_hero_logo"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:665",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 665,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.navbar_show_links"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:666",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 666,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.navbar_hamburger"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:667",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 667,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.compact-navigation.icon"
-    },
-    {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:668",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
@@ -22192,7 +22120,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.compact-navigation.button-background"
+      "field": "page.appearance_overrides.website_order.modal_cover_url"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:669",
@@ -22202,7 +22130,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.navbar_cta.enabled"
+      "field": "site.tagline"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:670",
@@ -22212,7 +22140,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.navbar_cta.text"
+      "field": "site.navbar_style"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:671",
@@ -22222,7 +22150,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.navbar_cta.link"
+      "field": "site.navbar_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:672",
@@ -22232,57 +22160,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.navbar_cta.shape"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:673",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 673,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.navbar_cta.size"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:674",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 674,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.navbar_cta.transparent.variant"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:675",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 675,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.navbar_cta.transparent.bg"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:676",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 676,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.navbar_cta.transparent.text_color"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:677",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 677,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "site.navbar_cta.transparent.border_color"
+      "field": "site.navbar_overlay_text_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:678",
@@ -22292,7 +22170,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.navbar_cta.solid.variant"
+      "field": "site.navbar_text_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:679",
@@ -22302,7 +22180,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.navbar_cta.solid.bg"
+      "field": "site.logo_size"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:680",
@@ -22312,7 +22190,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.navbar_cta.solid.text_color"
+      "field": "site.hide_navbar_name"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:681",
@@ -22322,7 +22200,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.navbar_cta.solid.border_color"
+      "field": "site.navbar_logo_position"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:682",
@@ -22332,7 +22210,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.favicon_url"
+      "field": "site.navbar_scrolled_logo_url"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:683",
@@ -22342,7 +22220,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.show_orders_link"
+      "field": "site.hero_logo_size"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:684",
@@ -22352,7 +22230,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer_branding.enabled"
+      "field": "site.hide_hero_logo"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:685",
@@ -22362,7 +22240,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer_branding.background"
+      "field": "site.navbar_show_links"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:686",
@@ -22372,7 +22250,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.is_visible"
+      "field": "site.navbar_hamburger"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:687",
@@ -22382,7 +22260,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.content.custom_text"
+      "field": "site.compact-navigation.icon"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:688",
@@ -22392,7 +22270,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.content.show_logo"
+      "field": "site.compact-navigation.button-background"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:689",
@@ -22402,7 +22280,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.content.show_description"
+      "field": "site.navbar_cta.enabled"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:690",
@@ -22412,7 +22290,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.content.show_address"
+      "field": "site.navbar_cta.text"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:691",
@@ -22422,7 +22300,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.content.show_phone"
+      "field": "site.navbar_cta.link"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:692",
@@ -22432,7 +22310,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.content.show_hours"
+      "field": "site.navbar_cta.shape"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:693",
@@ -22442,7 +22320,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.content.social_links.instagram"
+      "field": "site.navbar_cta.size"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:694",
@@ -22452,7 +22330,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.content.social_links.facebook"
+      "field": "site.navbar_cta.transparent.variant"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:695",
@@ -22462,7 +22340,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.content.social_links.tiktok"
+      "field": "site.navbar_cta.transparent.bg"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:696",
@@ -22472,7 +22350,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.content.social_links.whatsapp"
+      "field": "site.navbar_cta.transparent.text_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:697",
@@ -22482,7 +22360,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.layout"
+      "field": "site.navbar_cta.transparent.border_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:698",
@@ -22492,7 +22370,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.settings.color_style"
+      "field": "site.navbar_cta.solid.variant"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:699",
@@ -22502,7 +22380,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.settings.custom_bg"
+      "field": "site.navbar_cta.solid.bg"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:700",
@@ -22512,7 +22390,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.settings.custom_text"
+      "field": "site.navbar_cta.solid.text_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:701",
@@ -22522,7 +22400,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.settings.custom_muted"
+      "field": "site.navbar_cta.solid.border_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:702",
@@ -22532,7 +22410,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.settings.custom_accent"
+      "field": "site.favicon_url"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:703",
@@ -22542,7 +22420,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "site.footer.settings.custom_divider"
+      "field": "site.show_orders_link"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:704",
@@ -22552,7 +22430,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.title"
+      "field": "site.footer_branding.enabled"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:705",
@@ -22562,7 +22440,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.slug"
+      "field": "site.footer_branding.background"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:706",
@@ -22572,7 +22450,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.type"
+      "field": "site.footer.is_visible"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:707",
@@ -22582,7 +22460,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.sort_order"
+      "field": "site.footer.content.custom_text"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:708",
@@ -22592,7 +22470,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.nav_visible"
+      "field": "site.footer.content.show_logo"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:709",
@@ -22602,7 +22480,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.is_homepage"
+      "field": "site.footer.content.show_description"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:710",
@@ -22612,7 +22490,67 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.is_default"
+      "field": "site.footer.content.show_address"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:711",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 711,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "site.footer.content.show_phone"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:712",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 712,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "site.footer.content.show_hours"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:713",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 713,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "site.footer.content.social_links.instagram"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:714",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 714,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "site.footer.content.social_links.facebook"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:715",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 715,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "site.footer.content.social_links.tiktok"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:716",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 716,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "site.footer.content.social_links.whatsapp"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:717",
@@ -22622,7 +22560,57 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.appearance_overrides.hide_navbar_name"
+      "field": "site.footer.layout"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:718",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 718,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "site.footer.settings.color_style"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:719",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 719,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "site.footer.settings.custom_bg"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:720",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 720,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "site.footer.settings.custom_text"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:721",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 721,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "site.footer.settings.custom_muted"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:722",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 722,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "site.footer.settings.custom_accent"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:723",
@@ -22632,7 +22620,57 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.appearance_overrides.navbar_logo_position"
+      "field": "site.footer.settings.custom_divider"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:724",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 724,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.title"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:725",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 725,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.slug"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:726",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 726,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.type"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:727",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 727,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.sort_order"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:728",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 728,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.nav_visible"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:729",
@@ -22642,17 +22680,27 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.seo.title"
+      "field": "page.is_homepage"
     },
     {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:734",
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:730",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
-      "line": 734,
+      "line": 730,
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.seo.description"
+      "field": "page.is_default"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:737",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 737,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.appearance_overrides.hide_navbar_name"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:743",
@@ -22662,157 +22710,137 @@
       "features": [
         "website-qr-customize-your-site"
       ],
+      "field": "page.appearance_overrides.navbar_logo_position"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:749",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 749,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.seo.title"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:754",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 754,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.seo.description"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:763",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 763,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
       "field": "page.seo.share_image_url"
     },
     {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:752",
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:772",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
-      "line": 752,
+      "line": 772,
       "features": [
         "website-qr-customize-your-site"
       ],
       "field": "page.appearance_overrides.bg"
     },
     {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:758",
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:778",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
-      "line": 758,
+      "line": 778,
       "features": [
         "website-qr-customize-your-site"
       ],
       "field": "page.appearance_overrides.ink"
     },
     {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:764",
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:784",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
-      "line": 764,
+      "line": 784,
       "features": [
         "website-qr-customize-your-site"
       ],
       "field": "page.appearance_overrides.accent"
     },
     {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:770",
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:790",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
-      "line": 770,
+      "line": 790,
       "features": [
         "website-qr-customize-your-site"
       ],
       "field": "page.appearance_overrides.headingFont"
     },
     {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:776",
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:796",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
-      "line": 776,
+      "line": 796,
       "features": [
         "website-qr-customize-your-site"
       ],
       "field": "page.appearance_overrides.bodyFont"
     },
     {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:801",
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:821",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
-      "line": 801,
+      "line": 821,
       "features": [
         "website-qr-customize-your-site"
       ],
       "field": "page.appearance_overrides.chain_order_entry.logo_url"
     },
     {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:808",
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:828",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
-      "line": 808,
+      "line": 828,
       "features": [
         "website-qr-customize-your-site"
       ],
       "field": "page.appearance_overrides.chain_order_entry.layout"
     },
     {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:815",
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:835",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
-      "line": 815,
+      "line": 835,
       "features": [
         "website-qr-customize-your-site"
       ],
       "field": "page.appearance_overrides.chain_order_entry.surface_color"
     },
     {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:822",
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:842",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
-      "line": 822,
+      "line": 842,
       "features": [
         "website-qr-customize-your-site"
       ],
       "field": "page.appearance_overrides.chain_order_entry.overlay_opacity"
     },
     {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:848",
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:868",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
-      "line": 848,
+      "line": 868,
       "features": [
         "website-qr-customize-your-site"
       ],
       "field": "page.appearance_overrides.navbar_style"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:854",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 854,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.navbar_color"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:860",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 860,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.navbar_text_color"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:866",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 866,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.navbar_overlay_text_color"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:872",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 872,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.navbar_cta"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:873",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 873,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.navbar_cta.transparent.variant"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:874",
@@ -22822,57 +22850,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.appearance_overrides.navbar_cta.transparent.bg"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:875",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 875,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.navbar_cta.transparent.text_color"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:876",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 876,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.navbar_cta.transparent.border_color"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:877",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 877,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.navbar_cta.solid.variant"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:878",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 878,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.navbar_cta.solid.bg"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:879",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 879,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.navbar_cta.solid.text_color"
+      "field": "page.appearance_overrides.navbar_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:880",
@@ -22882,57 +22860,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.appearance_overrides.navbar_cta.solid.border_color"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:881",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 881,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.order_type_selector.shape"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:882",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 882,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.order_type_selector.variant"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:883",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 883,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.order_type_selector.size"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:884",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 884,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.order_type_selector.bg"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:885",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 885,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.order_type_selector.text_color"
+      "field": "page.appearance_overrides.navbar_text_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:886",
@@ -22942,57 +22870,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.appearance_overrides.order_type_selector.border_color"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:887",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 887,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.section_colors.categoryBar.bg"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:888",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 888,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.section_colors.categoryBar.text"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:889",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 889,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.section_colors.categoryBar.accent"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:890",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 890,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.section_colors.categoryBar.divider"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:891",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 891,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.appearance_overrides.section_colors.categoryBar.activeBg"
+      "field": "page.appearance_overrides.navbar_overlay_text_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:892",
@@ -23002,7 +22880,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.appearance_overrides.section_colors.categoryBar.activeText"
+      "field": "page.appearance_overrides.navbar_cta"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:893",
@@ -23012,7 +22890,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.appearance_overrides.section_colors.categoryBar.searchBg"
+      "field": "page.appearance_overrides.navbar_cta.transparent.variant"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:894",
@@ -23022,7 +22900,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.appearance_overrides.section_colors.categoryBar.searchText"
+      "field": "page.appearance_overrides.navbar_cta.transparent.bg"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:895",
@@ -23032,7 +22910,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.appearance_overrides.section_colors.categoryBar.iconBg"
+      "field": "page.appearance_overrides.navbar_cta.transparent.text_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:896",
@@ -23042,7 +22920,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.appearance_overrides.section_colors.categoryBar.icon"
+      "field": "page.appearance_overrides.navbar_cta.transparent.border_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:897",
@@ -23052,7 +22930,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.appearance_overrides.section_colors.categoryBar.cartBg"
+      "field": "page.appearance_overrides.navbar_cta.solid.variant"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:898",
@@ -23062,7 +22940,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.appearance_overrides.section_colors.categoryBar.cartText"
+      "field": "page.appearance_overrides.navbar_cta.solid.bg"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:899",
@@ -23072,7 +22950,67 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.settings.menu_ids"
+      "field": "page.appearance_overrides.navbar_cta.solid.text_color"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:900",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 900,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.appearance_overrides.navbar_cta.solid.border_color"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:901",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 901,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.appearance_overrides.order_type_selector.shape"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:902",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 902,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.appearance_overrides.order_type_selector.variant"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:903",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 903,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.appearance_overrides.order_type_selector.size"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:904",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 904,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.appearance_overrides.order_type_selector.bg"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:905",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 905,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.appearance_overrides.order_type_selector.text_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:906",
@@ -23082,7 +23020,67 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.settings.service_ids"
+      "field": "page.appearance_overrides.order_type_selector.border_color"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:907",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 907,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.appearance_overrides.section_colors.categoryBar.bg"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:908",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 908,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.appearance_overrides.section_colors.categoryBar.text"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:909",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 909,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.appearance_overrides.section_colors.categoryBar.accent"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:910",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 910,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.appearance_overrides.section_colors.categoryBar.divider"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:911",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 911,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.appearance_overrides.section_colors.categoryBar.activeBg"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:912",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 912,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "page.appearance_overrides.section_colors.categoryBar.activeText"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:913",
@@ -23092,7 +23090,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.create"
+      "field": "page.appearance_overrides.section_colors.categoryBar.searchBg"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:914",
@@ -23102,7 +23100,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.create.title"
+      "field": "page.appearance_overrides.section_colors.categoryBar.searchText"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:915",
@@ -23112,7 +23110,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.create.type"
+      "field": "page.appearance_overrides.section_colors.categoryBar.iconBg"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:916",
@@ -23122,7 +23120,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.create.slug"
+      "field": "page.appearance_overrides.section_colors.categoryBar.icon"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:917",
@@ -23132,7 +23130,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.create.menu_ids"
+      "field": "page.appearance_overrides.section_colors.categoryBar.cartBg"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:918",
@@ -23142,7 +23140,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.create.service_ids"
+      "field": "page.appearance_overrides.section_colors.categoryBar.cartText"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:919",
@@ -23152,47 +23150,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "page.create.is_default"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:920",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 920,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.duplicate"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:921",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 921,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "page.delete"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:924",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 924,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.sort_order"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:925",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 925,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.layout"
+      "field": "page.settings.menu_ids"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:926",
@@ -23202,67 +23160,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.page_id"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:927",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 927,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.content.headline"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:928",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 928,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.content.subheadline"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:929",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 929,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.content.title"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:930",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 930,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.content.heading_eyebrow"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:931",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 931,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.content.heading"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:932",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 932,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.content.show_heading"
+      "field": "page.settings.service_ids"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:933",
@@ -23272,7 +23170,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.content.body"
+      "field": "page.create"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:934",
@@ -23282,7 +23180,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.content.text"
+      "field": "page.create.title"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:935",
@@ -23292,7 +23190,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.content.phrases"
+      "field": "page.create.type"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:936",
@@ -23302,7 +23200,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.show_text"
+      "field": "page.create.slug"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:937",
@@ -23312,7 +23210,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.rotating_color"
+      "field": "page.create.menu_ids"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:938",
@@ -23322,7 +23220,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.speed"
+      "field": "page.create.service_ids"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:939",
@@ -23332,7 +23230,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.content.cta_text"
+      "field": "page.create.is_default"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:940",
@@ -23342,7 +23240,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.content.cta_link"
+      "field": "page.duplicate"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:941",
@@ -23352,27 +23250,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.content.image_url"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:942",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 942,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.content.video_url"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:943",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 943,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.settings.video_controls"
+      "field": "page.delete"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:944",
@@ -23382,7 +23260,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.video_height"
+      "field": "section.sort_order"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:945",
@@ -23392,7 +23270,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.video_autoplay"
+      "field": "section.layout"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:946",
@@ -23402,7 +23280,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.video_loop"
+      "field": "section.page_id"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:947",
@@ -23412,7 +23290,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.video_muted"
+      "field": "section.content.headline"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:948",
@@ -23422,7 +23300,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.padding"
+      "field": "section.content.subheadline"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:949",
@@ -23432,7 +23310,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.height"
+      "field": "section.settings.headline_size"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:950",
@@ -23442,7 +23320,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.width"
+      "field": "section.settings.autoplay"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:951",
@@ -23452,7 +23330,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.content.custom_text"
+      "field": "section.settings.slide_duration_seconds"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:952",
@@ -23462,7 +23340,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.content.show_address"
+      "field": "section.settings.image_fit"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:953",
@@ -23472,7 +23350,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.content.show_phone"
+      "field": "section.settings.title_size"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:954",
@@ -23482,7 +23360,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.content.show_hours"
+      "field": "section.settings.card_presentation"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:955",
@@ -23492,7 +23370,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.content.social_links"
+      "field": "section.settings.mobile_columns"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:956",
@@ -23502,7 +23380,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.color_style"
+      "field": "section.settings.alternate_image_bg_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:957",
@@ -23512,7 +23390,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.custom_bg"
+      "field": "section.content.title"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:958",
@@ -23522,7 +23400,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.custom_text"
+      "field": "section.content.heading_eyebrow"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:959",
@@ -23532,7 +23410,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.card_bg"
+      "field": "section.content.heading"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:960",
@@ -23542,7 +23420,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.card_text"
+      "field": "section.content.show_heading"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:961",
@@ -23552,7 +23430,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.card_muted"
+      "field": "section.content.body"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:962",
@@ -23562,7 +23440,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.price_color"
+      "field": "section.content.text"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:963",
@@ -23572,7 +23450,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.accent_color"
+      "field": "section.content.phrases"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:964",
@@ -23582,7 +23460,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.button_bg_color"
+      "field": "section.settings.show_text"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:965",
@@ -23592,7 +23470,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.button_text_color"
+      "field": "section.settings.rotating_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:966",
@@ -23602,7 +23480,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.button_border_color"
+      "field": "section.settings.speed"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:967",
@@ -23612,7 +23490,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.button_shape"
+      "field": "section.content.cta_text"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:968",
@@ -23622,7 +23500,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.image_position"
+      "field": "section.content.cta_link"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:969",
@@ -23632,7 +23510,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.card_height"
+      "field": "section.content.image_url"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:970",
@@ -23642,7 +23520,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.card_radius"
+      "field": "section.content.video_url"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:971",
@@ -23652,7 +23530,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.heading_eyebrow_color"
+      "field": "section.settings.video_controls"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:972",
@@ -23662,7 +23540,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.heading_color"
+      "field": "section.settings.video_height"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:973",
@@ -23672,7 +23550,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.panel_style"
+      "field": "section.settings.video_autoplay"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:974",
@@ -23682,7 +23560,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.panel_bg_color"
+      "field": "section.settings.video_loop"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:975",
@@ -23692,7 +23570,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.panel_bg_color_end"
+      "field": "section.settings.video_muted"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:976",
@@ -23702,7 +23580,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.panel_text_color"
+      "field": "section.settings.padding"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:977",
@@ -23712,7 +23590,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.panel_muted_color"
+      "field": "section.settings.height"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:978",
@@ -23722,7 +23600,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.mobile_text_color"
+      "field": "section.settings.width"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:979",
@@ -23732,7 +23610,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.mobile_overlay_opacity"
+      "field": "section.content.custom_text"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:980",
@@ -23742,7 +23620,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.section_bg_color"
+      "field": "section.content.show_address"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:981",
@@ -23752,7 +23630,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.show_dividers"
+      "field": "section.content.show_phone"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:982",
@@ -23762,7 +23640,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.divider_color"
+      "field": "section.content.show_hours"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:983",
@@ -23772,7 +23650,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.placement_mode"
+      "field": "section.content.social_links"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:984",
@@ -23782,7 +23660,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.placement_group_id"
+      "field": "section.settings.color_style"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:985",
@@ -23792,7 +23670,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.placement_edge"
+      "field": "section.settings.custom_bg"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:986",
@@ -23802,7 +23680,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.insert_after_items"
+      "field": "section.settings.custom_text"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:987",
@@ -23812,7 +23690,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.bg_image"
+      "field": "section.settings.card_bg"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:988",
@@ -23822,7 +23700,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.bg_overlay"
+      "field": "section.settings.card_text"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:989",
@@ -23832,7 +23710,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.image_only"
+      "field": "section.settings.card_muted"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:990",
@@ -23842,7 +23720,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.text_bg_color"
+      "field": "section.settings.price_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:991",
@@ -23852,7 +23730,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.image_bg_color"
+      "field": "section.settings.accent_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:992",
@@ -23862,7 +23740,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.word_animation"
+      "field": "section.settings.button_bg_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:993",
@@ -23872,7 +23750,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.resize_width"
+      "field": "section.settings.button_text_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:994",
@@ -23882,7 +23760,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.carousel_autoplay"
+      "field": "section.settings.button_border_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:995",
@@ -23892,7 +23770,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.carousel_interval"
+      "field": "section.settings.button_shape"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:996",
@@ -23902,7 +23780,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.carousel_duration"
+      "field": "section.settings.image_position"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:997",
@@ -23912,7 +23790,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.motion.enabled"
+      "field": "section.settings.card_height"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:998",
@@ -23922,7 +23800,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.motion.entrance"
+      "field": "section.settings.card_radius"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:999",
@@ -23932,7 +23810,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.motion.mobile_entrance"
+      "field": "section.settings.heading_eyebrow_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1000",
@@ -23942,7 +23820,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.motion.duration_ms"
+      "field": "section.settings.heading_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1001",
@@ -23952,7 +23830,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.motion.delay_ms"
+      "field": "section.settings.panel_style"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1002",
@@ -23962,7 +23840,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.motion.replay"
+      "field": "section.settings.panel_bg_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1003",
@@ -23972,7 +23850,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.motion.media_hover"
+      "field": "section.settings.panel_bg_color_end"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1004",
@@ -23982,7 +23860,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.motion.button_hover"
+      "field": "section.settings.panel_text_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1005",
@@ -23992,7 +23870,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.motion.parallax"
+      "field": "section.settings.panel_muted_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1006",
@@ -24002,7 +23880,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.motion.parallax_amount"
+      "field": "section.settings.mobile_text_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1007",
@@ -24012,7 +23890,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.motion.mobile"
+      "field": "section.settings.mobile_overlay_opacity"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1008",
@@ -24022,7 +23900,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.motion.parallax_mobile"
+      "field": "section.settings.section_bg_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1009",
@@ -24032,7 +23910,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.motion.parallax_target"
+      "field": "section.settings.show_dividers"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1010",
@@ -24042,7 +23920,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.motion.mobile_parallax"
+      "field": "section.settings.divider_color"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1011",
@@ -24052,7 +23930,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.motion.mobile_parallax_target"
+      "field": "section.settings.placement_mode"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1012",
@@ -24062,7 +23940,7 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.settings.motion.mobile_parallax_amount"
+      "field": "section.settings.placement_group_id"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1013",
@@ -24072,13 +23950,293 @@
       "features": [
         "website-qr-customize-your-site"
       ],
-      "field": "section.create"
+      "field": "section.settings.placement_edge"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1014",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
       "line": 1014,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.insert_after_items"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1015",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1015,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.bg_image"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1016",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1016,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.bg_overlay"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1017",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1017,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.image_only"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1018",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1018,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.text_bg_color"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1019",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1019,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.image_bg_color"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1020",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1020,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.word_animation"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1021",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1021,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.resize_width"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1022",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1022,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.carousel_autoplay"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1023",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1023,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.carousel_interval"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1024",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1024,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.carousel_duration"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1025",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1025,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.motion.enabled"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1026",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1026,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.motion.entrance"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1027",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1027,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.motion.mobile_entrance"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1028",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1028,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.motion.duration_ms"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1029",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1029,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.motion.delay_ms"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1030",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1030,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.motion.replay"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1031",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1031,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.motion.media_hover"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1032",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1032,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.motion.button_hover"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1033",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1033,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.motion.parallax"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1034",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1034,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.motion.parallax_amount"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1035",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1035,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.motion.mobile"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1036",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1036,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.motion.parallax_mobile"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1037",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1037,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.motion.parallax_target"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1038",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1038,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.motion.mobile_parallax"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1039",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1039,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.motion.mobile_parallax_target"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1040",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1040,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.settings.motion.mobile_parallax_amount"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1041",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1041,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.create"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:1042",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 1042,
       "features": [
         "website-qr-customize-your-site"
       ],
@@ -25007,6 +25165,7 @@
       "line": 1,
       "features": [
         "website-qr-customize-your-site",
+        "website-sections",
         "shared-runtime"
       ],
       "labels": [],
@@ -25049,6 +25208,7 @@
       "line": 1,
       "features": [
         "website-qr-customize-your-site",
+        "website-sections",
         "shared-runtime"
       ],
       "labels": [],

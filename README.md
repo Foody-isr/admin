@@ -1687,3 +1687,29 @@ The guest-facing prepared link continues to use the restaurant's existing Web ca
 Synthetic regressions: `npx playwright test -c playwright.redesign.config.ts
 internal-sumit-checkout.spec.ts internal-order-library.spec.ts
 internal-combo-substitutions.spec.ts selection-controls.spec.ts`.
+
+## Pink Coffee website theme
+
+Site design → Website themes → **Pink Coffee** composes an editable home page
+and retains the existing order page, menu links and checkout policy. Its pink
+header uses the restaurant's original logo. The public renderer presents that
+logo in black only while this theme is selected. Existing unrelated pages remain
+saved and can be restored; the theme does not delete catalogue content.
+
+The main banner's **Campaign** layout supports up to six image/video slides with
+independent title, description, button, background and image framing. Slides can
+be added, reordered and removed. Autoplay defaults to off; slide duration is
+5–30 seconds (10 by default). Image/video uploads reuse the existing scoped media
+endpoints. Image framing also previews video framing when a poster is available.
+The featured-item grid offers **Card presentation → Campaign**, one/two mobile
+columns and alternating image backgrounds. Titles expose a **Display** size.
+All controls use the same draft for autosave, undo, reload, iframe preview and
+publication. Existing layouts keep their previous defaults.
+
+Deploy Web capabilities `campaign_hero: 1`, `campaign_products: 1` and
+`display_typography: 1` before enabling their editor controls. Missing capabilities
+disable only the new controls/theme and block publication only for drafts using
+the unsupported presentation; existing websites remain editable. No migration or
+new endpoint is required. Regression: `FOODY_FEATURED_REGRESSION=1
+FOODY_PREVIEW_LOW_DISK=1 npx playwright test -c playwright.website-editor.config.ts
+campaign-editor.spec.ts` (synthetic local APIs only).

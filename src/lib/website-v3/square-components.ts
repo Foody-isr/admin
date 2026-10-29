@@ -284,7 +284,7 @@ export function squareLayouts(type: string) {
   const values =
     SQUARE_COMPONENTS[type]?.layouts ??
     (type === "hero_banner"
-      ? ["centered", "left_aligned", "split", "inset"]
+      ? ["centered", "left_aligned", "split", "inset", "campaign"]
       : type === "footer"
         ? ["columns", "centered", "minimal"]
         : ["default"]);

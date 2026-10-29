@@ -155,6 +155,44 @@ test("animated text contracts target its content controls and persisted phrase l
   );
 });
 
+test("campaign contracts target their persisted settings and reachable editor controls", () => {
+  const contracts = new Map(FIELD_CONTRACTS.map((contract) => [contract.id, contract]));
+  const hero = {
+    headline_size: "display",
+    autoplay: true,
+    slide_duration_seconds: 15,
+    image_fit: "contain",
+  };
+  const featured = {
+    title_size: "display",
+    card_presentation: "campaign",
+    mobile_columns: 2,
+    alternate_image_bg_color: "#f6f6f6",
+  };
+  for (const [fields, sectionLabel, sectionPanel] of [
+    [hero, "Hero banner", "content"],
+    [featured, "Menu highlights", "appearance"],
+  ] as const) {
+    for (const [field, testValue] of Object.entries(fields)) {
+      const id = `section.settings.${field}`;
+      const contract = contracts.get(id)!;
+      assert.ok(contract, id);
+      assert.deepEqual(contract.statePath, ["settings", field], id);
+      assert.equal(contract.testValue, testValue, id);
+      assert.equal(contract.editor.pageTitle, "Home", id);
+      assert.equal(contract.editor.sectionLabel, sectionLabel, id);
+      assert.equal(contract.editor.sectionPanel, sectionPanel, id);
+      if (sectionLabel === "Hero banner") {
+        assert.deepEqual(contract.editor.prerequisite, { id: "section.layout", value: "campaign" }, id);
+      } else if (field === "mobile_columns" || field === "alternate_image_bg_color") {
+        assert.deepEqual(contract.editor.prerequisite, { id: "section.settings.card_presentation", value: "campaign" }, id);
+      }
+      assert.equal(contract.preview.expected, String(testValue), id);
+      assert.deepEqual(contract.public, contract.preview, id);
+    }
+  }
+});
+
 test("page navigation visuals have editor-to-renderer contracts", () => {
   const contracts = new Map(
     FIELD_CONTRACTS.map((contract) => [contract.id, contract]),

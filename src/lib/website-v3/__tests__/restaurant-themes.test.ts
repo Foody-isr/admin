@@ -354,7 +354,7 @@ test("a complete theme resets the hidden legacy hero and header rather than savi
     assert.equal(hero.settings.headline_uppercase, undefined);
     assert.equal(hero.settings.image_only, undefined);
     assert.equal(hero.settings.bg_image, undefined);
-    assert.ok(String(hero.content.image_url).startsWith("https://"));
+    if (theme.id !== "pink-coffee") assert.ok(String(hero.content.image_url).startsWith("https://"));
     assert.equal(hero.content.cta_link, "/order");
     assert.equal(hero.content.headline, DEFAULT_THEME_COPY.headline);
     assert.equal(next.pages[0].appearance_overrides.navigation_mode, "inherit");
@@ -373,7 +373,7 @@ test("switching complete themes produces only the new navigation, resolves reser
     draft = applyRestaurantTheme(draft, theme, { ...options, compose: true });
     const nav = record(draft.config.nav_layout).links as { page_slug: string; label: string }[];
     const roles = record(record(draft.config.nav_layout).theme_pages);
-    assert.deepEqual(nav.map(link => link.page_slug), [draft.pages.find(page => page.is_homepage)!.slug, ...theme.pages.map(role => roles[role])]);
+    assert.deepEqual(nav.map(link => link.page_slug), [draft.pages.find(page => page.is_homepage)!.slug, ...theme.pages.map(role => roles[role]), ...(theme.id === "pink-coffee" ? [draft.pages.find(page => page.type === "order")!.slug] : [])]);
     for (const link of nav) assert.ok(draft.pages.some(page => page.slug === link.page_slug));
     const addresses = new Set(draft.pages.map(publicAddressForPage));
     for (const section of draft.sections.filter(s => s.is_visible)) {
@@ -405,7 +405,47 @@ test("full theme application uses reference media even when the restaurant alrea
   for (const theme of RESTAURANT_THEMES) {
     const next = applyRestaurantTheme(state(), theme, { ...options, compose: true, image: "/existing-restaurant-cover.jpg" });
     const hero = next.sections.find((section) => section.section_type === "hero_banner" && !section.settings.theme_retired)!;
-    assert.ok(String(hero.content.image_url).startsWith("https://"));
-    assert.notEqual(hero.content.image_url, "/existing-restaurant-cover.jpg");
+    if (theme.id === "pink-coffee") assert.equal(hero.content.image_url, "/existing-restaurant-cover.jpg");
+    else {
+      assert.ok(String(hero.content.image_url).startsWith("https://"));
+      assert.notEqual(hero.content.image_url, "/existing-restaurant-cover.jpg");
+    }
   }
+});
+
+test("Pink Coffee composes an editable two-page campaign while preserving restaurant commerce and section identity", () => {
+  const before=state(), theme=RESTAURANT_THEMES.find(theme => theme.id === "pink-coffee")!;
+  before.config.nav_layout={header:{version:1,logo:{image:"https://cdn.example.test/original-mark.png"}}};
+  before.config.restaurant_logo_url="";
+  before.config.typography={roles:{itemName:{font:"Lilita One",color:"#501d04"},categoryTitle:{font:"Lilita One"}}};
+  const next=applyRestaurantTheme(before,theme,{...options,compose:true});
+  assert.equal(record(record(record(next.config.nav_layout).header).logo).image,"https://cdn.example.test/original-mark.png");
+  assert.equal(record(record(record(next.config.nav_layout).header).background).color,"#ffb9cd");
+  assert.equal(next.pages.length,2);
+  assert.equal(record(record(record(next.config.typography).roles).itemName).font,"Poppins");
+  assert.equal(record(record(record(next.config.typography).roles).categoryTitle).color,"#000000");
+  assert.equal(next.pages[0].id,1);
+  assert.equal(next.pages[0].type,"landing");
+  assert.deepEqual(next.pages[1].settings,before.pages[1].settings);
+  assert.deepEqual(record(next.config.checkout_config),record(before.config.checkout_config));
+  const hero=next.sections.find(section => section.id === 8)!;
+  assert.equal(hero.layout,"campaign");
+  assert.equal(hero.settings.autoplay,false);
+  assert.equal((hero.content.slides as unknown[]).length,3);
+  assert.equal(record((hero.content.slides as unknown[])[0]).image_url,options.image);
+  assert.equal(hero.settings.headline_size,"display");
+  const products=next.sections.find(section => section.section_type === "menu_highlights")!;
+  assert.equal(products.layout,"grid");
+  assert.equal(products.settings.columns,4);
+  assert.equal(products.settings.mobile_columns,2);
+  assert.equal(products.settings.card_presentation,"campaign");
+  assert.deepEqual(applyRestaurantTheme(next,theme,{...options,compose:true}),next);
+  const fresh=applyRestaurantTheme(state(),theme,{...options,compose:true,logo:"https://cdn.example.test/restaurant-logo.png"});
+  assert.equal(record(record(record(fresh.config.nav_layout).header).logo).image,"https://cdn.example.test/restaurant-logo.png");
+  const withContentHome=state();
+  withContentHome.pages.push({...withContentHome.pages[0],id:3,type:"content",slug:"welcome",is_homepage:true,settings:{}});
+  withContentHome.pages[0].is_homepage=false;
+  const preserved=applyRestaurantTheme(withContentHome,theme,{...options,compose:true});
+  assert.equal(preserved.pages.filter(page => page.type === "landing").length,1);
+  assert.equal(preserved.pages.find(page => page.is_homepage)?.id,3);
 });

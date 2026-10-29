@@ -9,6 +9,7 @@ import type {
 } from "./types";
 import { pageKey, sectionKey } from "./types";
 import { isReservedPublicWebsiteSlug } from "./public-route-segments";
+import { normalizeCampaignSection } from "./campaign";
 
 export type NavbarStyle = "solid" | "transparent" | "overlay";
 
@@ -820,7 +821,7 @@ function compareHomepageCandidates(
 
 function normalizeSection(value: unknown): DraftSectionPayload {
   const section = isRecord(value) ? value : {};
-  return {
+  return normalizeCampaignSection({
     id: positiveInteger(section.id),
     tmp_id: typeof section.tmp_id === "string" ? section.tmp_id : undefined,
     section_type:
@@ -839,7 +840,7 @@ function normalizeSection(value: unknown): DraftSectionPayload {
     layout: typeof section.layout === "string" ? section.layout : "default",
     content: isRecord(section.content) ? { ...section.content } : {},
     settings: isRecord(section.settings) ? { ...section.settings } : {},
-  };
+  });
 }
 
 function sectionBelongsToPage(

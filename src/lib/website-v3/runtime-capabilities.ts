@@ -1,4 +1,4 @@
-import type { DraftStatePayload } from "./types";
+import {sectionKey, type DraftStatePayload, type FieldError} from "./types";
 
 const REQUIRED_PROTOCOL = "foody.website-v3";
 const REQUIRED_VERSION = 1;
@@ -13,6 +13,9 @@ const REQUIRED_PAGE_TYPES = [
 const REQUIRED_SURFACES = ["page", "checkout"] as const;
 
 export type WebsiteV3RuntimeCapabilities = {
+  campaign_hero?: 1;
+  campaign_products?: 1;
+  display_typography?: 1;
   protocol: typeof REQUIRED_PROTOCOL;
   version: number;
   editor_catalog: 2;
@@ -32,6 +35,25 @@ export type WebsiteV3RuntimeCapabilities = {
     version: typeof REQUIRED_RENDERER_VERSION;
   };
 };
+
+/** Rejects only drafts using a campaign feature absent from the selected renderer. */
+export function campaignRuntimeErrors(state: DraftStatePayload, capabilities: WebsiteV3RuntimeCapabilities | null, translate?: (key: string) => string): FieldError[] {
+  return state.sections.flatMap(section => {
+    if (!section.is_visible) return [];
+    const missing = section.section_type === "hero_banner" && section.layout === "campaign" && capabilities?.campaign_hero !== 1
+      ? "campaign_hero"
+      : section.section_type === "menu_highlights" && section.settings.card_presentation === "campaign" && capabilities?.campaign_products !== 1
+        ? "campaign_products"
+        : Object.entries(section.settings).some(([key,value]) => key.endsWith("_size") && value === "display") && capabilities?.display_typography !== 1
+          ? "display_typography" : null;
+    const messages = {
+      campaign_hero:["campaignUnsupportedHero","Le rendu public doit être mis à jour avant de publier ce diaporama."],
+      campaign_products:["campaignUnsupportedProducts","Le rendu public doit être mis à jour avant de publier ces cartes."],
+      display_typography:["campaignUnsupportedDisplay","Le rendu public doit être mis à jour avant de publier ces grands titres."],
+    };
+    return missing ? [{fieldId: "section.layout", message: translate ? translate(messages[missing][0]) : messages[missing][1],sectionKey:sectionKey(section),sectionPanel:"appearance" as const}] : [];
+  });
+}
 
 /** Ensures the selected public storefront can render every Website V3 draft the Admin can publish. */
 export async function requireWebsiteV3RuntimeCapabilities(
