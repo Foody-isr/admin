@@ -3305,7 +3305,7 @@
       ]
     },
     "src/app/[restaurantId]/settings/payments/page.tsx": {
-      "sha256": "66a8726a8daba437144eec30c1f50a073cd4093e7f2fde82245220fb5efd8002",
+      "sha256": "ed8547e364f4f96754a5bb5e4283b4a2dd199b574da58ed3b498d021b2517fd5",
       "features": [
         "payments-how-payments-work",
         "payment-configuration",
@@ -4948,6 +4948,12 @@
         "order-detail"
       ]
     },
+    "src/components/orders/CashGuaranteePanel.tsx": {
+      "sha256": "f9bcc4d52e9de1952a764d4830f579c84100c13e720b8981bc5101fa2e188576",
+      "features": [
+        "stancer-cash-guarantee"
+      ]
+    },
     "src/components/orders/CashTag.tsx": {
       "sha256": "91cf5f7bfb6da9a92719c0930097b5e228fe3980bf15701f41b1f6f41cfa5728",
       "features": [
@@ -5190,7 +5196,7 @@
       ]
     },
     "src/components/orders/detail/context/MoneyPanel.tsx": {
-      "sha256": "812a717cc1b7ce698dea110db1a3e3e256f905a8720872f2a39a059409de2d55",
+      "sha256": "9ddd9e6be75765b7024d09fa32d1644f93fb33527ee749a8b2d3e6562cd2a225",
       "features": [
         "orders-managing-orders",
         "order-detail",
@@ -6252,17 +6258,17 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "c532e98ff1a4715b54beef3a3c83bfd034c258f3dcf8355bc43b729cd8b7f0d5",
+      "sha256": "4b75cda1e9080628be3593aafb5af1e2dc0f0578122246774c12168527ea62c0",
       "features": [
         "customers-profiles",
-        "menu-variants-and-sizes",
         "payments-how-payments-work",
         "delivery-zones",
         "pos-payments",
         "shared-runtime",
         "menu-product-photos",
         "orders-internal-sumit-checkout",
-        "stancer-cash-guarantee"
+        "stancer-cash-guarantee",
+        "menu-variants-and-sizes"
       ]
     },
     "src/lib/auth-context.tsx": {
@@ -6445,11 +6451,10 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "7e7bf9b326ff0c2517d3e67134b168964f32c5491a019db2a55622c60d2193b5",
+      "sha256": "1bbbca9035b953f07729d59a709a6393c4b2b76478eb2b9c0452198e721c3e66",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
-        "menu-variants-and-sizes",
         "delivery-zones",
         "delivery-dispatch",
         "google-account-setup",
@@ -6459,7 +6464,8 @@
         "shared-runtime",
         "menu-product-photos",
         "orders-internal-sumit-checkout",
-        "stancer-cash-guarantee"
+        "stancer-cash-guarantee",
+        "menu-variants-and-sizes"
       ]
     },
     "src/lib/israel-cities.ts": {
@@ -6691,7 +6697,7 @@
       ]
     },
     "src/lib/orders/order-actions.ts": {
-      "sha256": "2479ec10717bf386cc2943ffa13f3c466e1c46aecab37097bc5667db7738cd29",
+      "sha256": "535282a3beff09c2420996c2b82bf744c596626e267c06f12bb3bd63559359a5",
       "features": [
         "order-detail",
         "shared-runtime",
@@ -11211,64 +11217,6 @@
       ]
     },
     {
-      "id": "foodyadmin:src/app/[restaurantId]/menu/options/[optionSetId]/page.tsx:next-page:1",
-      "kind": "next-page",
-      "source": "src/app/[restaurantId]/menu/options/[optionSetId]/page.tsx",
-      "line": 1,
-      "features": [
-        "menu-categories-and-items",
-        "menu-creating-a-menu-item",
-        "menu-ingredients-and-portions",
-        "menu-menus-and-groups",
-        "menu-variants-and-sizes",
-        "menu-modifiers"
-      ],
-      "route": "/[restaurantId]/menu/options/[optionSetId]"
-    },
-    {
-      "id": "foodyadmin:src/app/[restaurantId]/menu/options/[optionSetId]/page.tsx:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/app/[restaurantId]/menu/options/[optionSetId]/page.tsx",
-      "line": 1,
-      "features": [
-        "menu-categories-and-items",
-        "menu-creating-a-menu-item",
-        "menu-ingredients-and-portions",
-        "menu-menus-and-groups",
-        "menu-variants-and-sizes",
-        "menu-modifiers"
-      ],
-      "labels": [
-        "add",
-        "addOption",
-        "available",
-        "back",
-        "delete",
-        "deleteOption",
-        "details",
-        "items",
-        "languageSourceLabel",
-        "optionSetName",
-        "optionSetSelectionRulesHint",
-        "options",
-        "price",
-        "status",
-        "unavailable",
-        "variantName"
-      ],
-      "actions": [
-        "handleActiveChange",
-        "handleAddOption",
-        "handleDelete",
-        "handleNameBlur",
-        "handlePriceBlur",
-        "handleSave",
-        "handleSkuBlur",
-        "handleTranslatedNameBlur",
-        "loadData"
-      ]
-    },
-    {
       "id": "foodyadmin:src/app/[restaurantId]/menu/options/new/page.tsx:next-page:1",
       "kind": "next-page",
       "source": "src/app/[restaurantId]/menu/options/new/page.tsx",
@@ -13379,6 +13327,15 @@
       ],
       "labels": [
         "cancel",
+        "cashGuaranteeRequired",
+        "cashOnlineOnlyHint",
+        "cashPaymentEligibility",
+        "cashPaymentSettings",
+        "cashPaymentSettingsHelp",
+        "cashPolicyAll",
+        "cashPolicyDisabled",
+        "cashPolicyTrusted",
+        "cashTrustedCustomersLink",
         "discardChanges",
         "discardUnsavedChanges",
         "enableTips",
@@ -17218,38 +17175,6 @@
       "actions": []
     },
     {
-      "id": "foodyadmin:src/components/menu-item/VariantSelectionEditor.tsx:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/components/menu-item/VariantSelectionEditor.tsx",
-      "line": 1,
-      "features": [
-        "menu-categories-and-items",
-        "menu-creating-a-menu-item",
-        "menu-ingredients-and-portions",
-        "menu-menus-and-groups",
-        "menu-variants-and-sizes"
-      ],
-      "labels": [
-        "modifierAlways",
-        "modifierAuto",
-        "modifierCharacters",
-        "modifierPositions",
-        "modifierPresentation",
-        "modifierSource",
-        "modifierVisibleList",
-        "variantCharactersFill",
-        "variantIdentityHint",
-        "variantIdentityRole",
-        "variantPriceRole",
-        "variantRole",
-        "variantRuleHelp",
-        "variantSavedSourceHint",
-        "variantSelectionRequired",
-        "variantSelectionScopeHint"
-      ],
-      "actions": []
-    },
-    {
       "id": "foodyadmin:src/components/menu-item/VariantsEditor.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/menu-item/VariantsEditor.tsx",
@@ -18410,6 +18335,23 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/orders/CashGuaranteePanel.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/orders/CashGuaranteePanel.tsx",
+      "line": 1,
+      "features": [
+        "stancer-cash-guarantee"
+      ],
+      "labels": [
+        "cancel",
+        "cashGuaranteeCapture",
+        "cashGuaranteeConfirm",
+        "cashGuaranteeError",
+        "cashGuaranteeRefresh"
+      ],
+      "actions": []
+    },
+    {
       "id": "foodyadmin:src/components/orders/CashTag.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/orders/CashTag.tsx",
@@ -18760,30 +18702,6 @@
         "loading",
         "outOfStock",
         "save"
-      ],
-      "actions": [
-        "handleAdd"
-      ]
-    },
-    {
-      "id": "foodyadmin:src/components/orders/NewOrderItemModal.tsx:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/components/orders/NewOrderItemModal.tsx",
-      "line": 1,
-      "features": [
-        "menu-variants-and-sizes",
-        "orders-managing-orders",
-        "order-detail"
-      ],
-      "labels": [
-        "addToOrder",
-        "itemNotes",
-        "itemNotesPlaceholder",
-        "outOfStock",
-        "quantity",
-        "required",
-        "size",
-        "variantChoose"
       ],
       "actions": [
         "handleAdd"
@@ -24122,7 +24040,6 @@
       "line": 1,
       "features": [
         "customers-profiles",
-        "menu-variants-and-sizes",
         "payments-how-payments-work",
         "delivery-zones",
         "pos-payments",
@@ -24416,20 +24333,6 @@
       "actions": [
         "printer",
         "printerConnections"
-      ]
-    },
-    {
-      "id": "foodyadmin:src/lib/item-options.ts:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/lib/item-options.ts",
-      "line": 1,
-      "features": [
-        "menu-variants-and-sizes",
-        "shared-runtime"
-      ],
-      "labels": [],
-      "actions": [
-        "repeated"
       ]
     },
     {
@@ -25052,6 +24955,134 @@
       "labels": [],
       "actions": [
         "removeProcessingGuard"
+      ]
+    },
+    {
+      "id": "foodyadmin:src/app/[restaurantId]/menu/options/[optionSetId]/page.tsx:next-page:1",
+      "kind": "next-page",
+      "source": "src/app/[restaurantId]/menu/options/[optionSetId]/page.tsx",
+      "line": 1,
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "menu-modifiers"
+      ],
+      "route": "/[restaurantId]/menu/options/[optionSetId]"
+    },
+    {
+      "id": "foodyadmin:src/app/[restaurantId]/menu/options/[optionSetId]/page.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/app/[restaurantId]/menu/options/[optionSetId]/page.tsx",
+      "line": 1,
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "menu-modifiers"
+      ],
+      "labels": [
+        "add",
+        "addOption",
+        "available",
+        "back",
+        "delete",
+        "deleteOption",
+        "details",
+        "items",
+        "languageSourceLabel",
+        "optionSetName",
+        "optionSetSelectionRulesHint",
+        "options",
+        "price",
+        "status",
+        "unavailable",
+        "variantName"
+      ],
+      "actions": [
+        "handleActiveChange",
+        "handleAddOption",
+        "handleDelete",
+        "handleNameBlur",
+        "handlePriceBlur",
+        "handleSave",
+        "handleSkuBlur",
+        "handleTranslatedNameBlur",
+        "loadData"
+      ]
+    },
+    {
+      "id": "foodyadmin:src/components/menu-item/VariantSelectionEditor.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/menu-item/VariantSelectionEditor.tsx",
+      "line": 1,
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes"
+      ],
+      "labels": [
+        "modifierAlways",
+        "modifierAuto",
+        "modifierCharacters",
+        "modifierPositions",
+        "modifierPresentation",
+        "modifierSource",
+        "modifierVisibleList",
+        "variantCharactersFill",
+        "variantIdentityHint",
+        "variantIdentityRole",
+        "variantPriceRole",
+        "variantRole",
+        "variantRuleHelp",
+        "variantSavedSourceHint",
+        "variantSelectionRequired",
+        "variantSelectionScopeHint"
+      ],
+      "actions": []
+    },
+    {
+      "id": "foodyadmin:src/components/orders/NewOrderItemModal.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/orders/NewOrderItemModal.tsx",
+      "line": 1,
+      "features": [
+        "menu-variants-and-sizes",
+        "orders-managing-orders",
+        "order-detail"
+      ],
+      "labels": [
+        "addToOrder",
+        "itemNotes",
+        "itemNotesPlaceholder",
+        "outOfStock",
+        "quantity",
+        "required",
+        "size",
+        "variantChoose"
+      ],
+      "actions": [
+        "handleAdd"
+      ]
+    },
+    {
+      "id": "foodyadmin:src/lib/item-options.ts:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/lib/item-options.ts",
+      "line": 1,
+      "features": [
+        "menu-variants-and-sizes",
+        "shared-runtime"
+      ],
+      "labels": [],
+      "actions": [
+        "repeated"
       ]
     }
   ]

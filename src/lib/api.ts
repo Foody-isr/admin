@@ -354,6 +354,9 @@ export interface RestaurantSettings {
    * a restaurant, since a client can always be bypassed.
    */
   online_payment_only?: boolean;
+  cash_payment_policy?: 'disabled' | 'trusted_only' | 'all';
+  cash_card_guarantee_required?: boolean;
+  cash_card_guarantee_supported?: boolean;
   // Stock management
   // Auto-deactivate a menu item when its linked ingredients reach 0.
   auto_disable_soldout?: boolean;
@@ -11254,4 +11257,9 @@ export function payInternalCheckout(restaurantId: number, orderId: number, recei
   return apiFetch(`/api/v1/public/orders/${orderId}/internal-checkout?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST', headers: { 'X-Receipt-Token': receiptToken }, body: '{}',
   });
+}
+
+/** Capture a cash guarantee only on explicit staff confirmation, or verify its state. */
+export function cashGuaranteeAction(restaurantId: number, orderId: number, action: 'capture' | 'refresh'): Promise<{ order: Order }> {
+  return apiFetch(`/api/v1/orders/${orderId}/cash-guarantee/${action}`, restaurantId, { method: 'POST', body: JSON.stringify(action === 'capture' ? { confirm: true } : {}) });
 }
