@@ -16,8 +16,8 @@ export const EDITOR_ELEMENTS: Record<string, readonly string[]> = {
 export function isEditorElement(type: string, field: unknown): field is string {
   return (
     typeof field === "string" &&
-    Array.isArray(EDITOR_ELEMENTS[type]) &&
-    EDITOR_ELEMENTS[type].includes(field)
+    ((type === "hero_banner" && /^slides\.[0-5]\.(headline|subheadline|cta_text|image_url)$/.test(field)) ||
+    (Array.isArray(EDITOR_ELEMENTS[type]) && EDITOR_ELEMENTS[type].includes(field)))
   );
 }
 
@@ -26,7 +26,14 @@ export function isInlineTextElement(
   type: string,
   field: unknown,
 ): field is string {
-  return isEditorElement(type, field) && field !== "image_url";
+  return isEditorElement(type, field) && field !== "image_url" && !field.endsWith(".image_url");
+}
+
+/** Resolves only whitelisted campaign fields to bounded array paths. */
+export function editorElementContentPath(type: string, field: string): (string | number)[] {
+  if (!isEditorElement(type,field)) return [];
+  const nested = /^slides\.([0-5])\.(headline|subheadline|cta_text|image_url)$/.exec(field);
+  return nested ? ["slides",Number(nested[1]),nested[2]] : [field];
 }
 
 /** Validates a canvas edit against the latest value, preventing stale edits from overwriting undo or reload. */
@@ -34,11 +41,14 @@ export function acceptsInlineEdit(
   section: { section_type: string; content: Record<string, unknown> },
   data: { field?: unknown; value?: unknown; previousValue?: unknown },
 ): data is { field: string; value: string; previousValue: string } {
+  const path = typeof data.field === "string" ? editorElementContentPath(section.section_type,data.field) : [];
+  const current = path.reduce<unknown>((value,key) => value && typeof value === "object" ? (value as Record<string | number, unknown>)[key] : undefined,section.content);
   return (
     isInlineTextElement(section.section_type, data.field) &&
     typeof data.value === "string" &&
     data.value.length <= 10000 &&
     typeof data.previousValue === "string" &&
-    String(section.content[data.field] ?? "") === data.previousValue
+    (path.length === 1 || current !== undefined) &&
+    String(current ?? "") === data.previousValue
   );
 }

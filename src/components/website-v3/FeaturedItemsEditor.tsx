@@ -1,5 +1,6 @@
 "use client";
 import { ItemImageFramingEditor } from "./ItemImageFramingEditor";
+import { useCampaignCapability } from "./CampaignRuntimeContext";
 import { ColorStylePicker } from "./ColorStylePicker";
 
 import { useEffect, useState } from "react";
@@ -46,6 +47,8 @@ export function FeaturedItemsEditor({
   onChange: (path: StatePath, value: unknown) => void;
 }) {
   const { t } = useI18n();
+  const campaignSupported = useCampaignCapability("campaign_products");
+  const displaySupported = useCampaignCapability("display_typography");
   const { money } = useCurrency();
   const menu = section.section_type === "featured_menu";
   const settings = section.settings;
@@ -246,6 +249,15 @@ export function FeaturedItemsEditor({
       {customize && (
         <>
           <InspectorGroup title={t("editorLayoutColor")}>
+            <InspectorField label={t("editorTextStyle")}><select className={controlClass} data-field-id="section.settings.title_size" value={String(settings.title_size || "md")} onChange={event => set("title_size",event.target.value)}>{["sm","md","lg","xl","display"].map(size => <option key={size} value={size} disabled={size === "display" && !displaySupported}>{t(`editorSize_${size}`)}</option>)}</select></InspectorField>
+            {!menu && <>
+              <InspectorField label={t("campaignCardPresentation")}><select className={controlClass} data-field-id="section.settings.card_presentation" value={String(settings.card_presentation || "standard")} onChange={event => set("card_presentation",event.target.value)}><option value="standard">{t("campaignStandard")}</option><option value="campaign" disabled={!campaignSupported}>{t("editorLayout_campaign")}</option></select></InspectorField>
+              {!campaignSupported && <p className="text-xs text-slate-500">{t("campaignRuntimeUnavailable")}</p>}
+              {settings.card_presentation === "campaign" && <fieldset disabled={!campaignSupported} className="min-w-0 space-y-4">
+                <InspectorField label={t("campaignMobileColumns")}><select className={controlClass} data-field-id="section.settings.mobile_columns" value={Number(settings.mobile_columns) === 2 ? 2 : 1} onChange={event => set("mobile_columns",Number(event.target.value))}><option value={1}>1</option><option value={2}>2</option></select></InspectorField>
+                {([['image_bg_color','campaignImageBackground','#ffb9cd'],['alternate_image_bg_color','campaignAlternateBackground','#f6f6f6']] as const).map(([key,label,fallback]) => <ColorField key={key} fieldId={`section.settings.${key}`} label={t(label)} value={String(settings[key] || "")} fallback={fallback} onChange={value => set(key,value)}/>)}
+              </fieldset>}
+            </>}
             <div className="sqe-layout-picker">
               <span>{t("editorLayout")}</span>
               <div className="sqe-layout-choices">

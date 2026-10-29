@@ -2,6 +2,7 @@
 
 import { MotionTextContentFields } from "./MotionTextContentFields";
 import { TextImageContentEditor } from "./TextImageContentEditor";
+import { CampaignSlidesEditor } from "./CampaignSlidesEditor";
 import { useRef, useState } from "react";
 import { ImageFramingControl } from "./ImageFramingControl";
 import { normalizeImageFraming } from "@/lib/website-v3/image-framing";
@@ -216,6 +217,7 @@ function HeroEditor({
   section,
   onChange,
 }: SectionContentEditorsProps) {
+  if (section.layout === "campaign") return <CampaignSlidesEditor restaurantId={restaurantId} section={section} onChange={onChange}/>;
   const content = section.content;
   const settings = section.settings;
   const contentImage = text(content.image_url);

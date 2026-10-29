@@ -4,6 +4,7 @@ import { EditorialLayoutPreview } from "./EditorialLayoutPreview";
 import { VideoSettingsFields } from "./VideoSettingsFields";
 import { ColorStylePicker } from "./ColorStylePicker";
 import { TextImageBackgroundFields } from "./TextImageBackgroundFields";
+import {useCampaignCapability} from "./CampaignRuntimeContext";
 
 import { useI18n } from "@/lib/i18n";
 import {
@@ -52,6 +53,7 @@ export function SectionInspector({
   onChange: (path: StatePath, value: unknown) => void;
 }) {
   const { t } = useI18n();
+  const campaignSupported = useCampaignCapability("campaign_hero");
   const meta = SQUARE_COMPONENTS[section.section_type];
   const configuredPlacementGroupId = stableId(
     section.settings.placement_group_id,
@@ -122,6 +124,8 @@ export function SectionInspector({
                 return (
                   <button
                     type="button"
+                    disabled={layout.value === "campaign" && !campaignSupported}
+                    title={layout.value === "campaign" && !campaignSupported ? t("campaignRuntimeUnavailable") : undefined}
                     key={layout.value}
                     className="sqe-layout-choice"
                     data-field-id="section.layout"

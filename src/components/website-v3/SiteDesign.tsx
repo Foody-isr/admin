@@ -10,6 +10,7 @@ import type { TypographyOverrides, ThemeCatalog } from "@/lib/api";
 import type { SiteColorEditTarget } from "./ColorStylePicker";
 import { SiteColorsEditor } from "./SiteColorsEditor";
 import { PreviewCanvas } from "./PreviewCanvas";
+import { useCampaignCapability } from "./CampaignRuntimeContext";
 import { SITE_STYLES, applySiteStyle, defaultThemeStyle, type SiteStyle } from "@/lib/website-v3/site-styles";
 import type { ApplyRestaurantThemeOptions } from "@/lib/website-v3/restaurant-themes";
 import { pageKey } from "@/lib/website-v3/types";
@@ -34,6 +35,7 @@ export function SiteDesign({
   restaurantName,
   description,
   image,
+  logo = "",
   onChange,
   onPreview,
   onApplied,
@@ -49,6 +51,7 @@ export function SiteDesign({
   restaurantName: string;
   description: string;
   image: string;
+  logo?: string;
   onChange: (state: DraftStatePayload) => void;
   onPreview: (state: DraftStatePayload | null) => void;
   onEditShared: () => void;
@@ -57,6 +60,10 @@ export function SiteDesign({
   previewPageKey?: string | null;
 }) {
   const { t } = useI18n();
+  const campaignHero = useCampaignCapability("campaign_hero");
+  const campaignProducts = useCampaignCapability("campaign_products");
+  const displayTypography = useCampaignCapability("display_typography");
+  const campaignSupported = campaignHero && campaignProducts && displayTypography;
   const [screen, setScreen] = useState<Screen>(initialScreen);
   const [candidate, setCandidate] = useState<RestaurantTheme | null>(null);
   const [styleCandidate, setStyleCandidate] = useState<SiteStyle | null>(null);
@@ -96,7 +103,7 @@ export function SiteDesign({
   useEffect(() => () => onPreview(null), [onPreview]);
   const themeOptions = useMemo<ApplyRestaurantThemeOptions>(() => ({
     allPages, compose, orderingOnly: ordering,
-    title: restaurantName, description, image, cta: t("editorOrderNow"),
+    title: restaurantName, description, image, logo, cta: t("editorOrderNow"),
     copy: {
       home: t("editorTemplateHome"), about: t("editorTemplateAbout"),
       locations: t("editorLocationHours"), contact: t("editorTemplateContact"),
@@ -107,13 +114,14 @@ export function SiteDesign({
       send: t("editorThemeSend"), name: t("editorThemeName"), email: t("editorThemeEmail"), message: t("editorThemeMessage"),
     },
     createId: () => `section-${crypto.randomUUID()}`,
-  }), [allPages, compose, ordering, restaurantName, description, image, t]);
+  }), [allPages, compose, ordering, restaurantName, description, image, logo, t]);
   const compositionDraft = useMemo(() => candidate ? applyRestaurantTheme(state, candidate, themeOptions) : null, [candidate, state, themeOptions]);
   const candidateDraft = useMemo(() => styleCandidate ? applySiteStyle(compositionDraft ?? state, styleCandidate) : compositionDraft, [compositionDraft, state, styleCandidate]);
   useEffect(() => onPreview(candidateDraft), [candidateDraft, onPreview]);
   const patch = (value: Record<string, unknown>) =>
     onChange({ ...state, config: { ...state.config, ...value } });
   const previewTheme = (theme: RestaurantTheme, withLayout = false) => {
+    if (theme.id === "pink-coffee" && !campaignSupported) return;
     setApplied(false);
     if (!withLayout) setOrdering(false);
     setCompose(withLayout);
@@ -369,11 +377,12 @@ export function SiteDesign({
               ).map((theme) => (
                 <article className="sqe-theme-card" key={theme.id}>
                   <div className="sqe-theme-art">
-                    <ThemeThumbnail theme={theme} state={state} options={themeOptions} context={previewContext} />
+                    {theme.id === "pink-coffee" && !campaignSupported ? <p className="p-5 text-sm">{t("campaignRuntimeUnavailable")}</p> : <ThemeThumbnail theme={theme} state={state} options={themeOptions} context={previewContext} />}
                   </div>
                   <footer>
                     <strong>{theme.name}</strong>
                     <button
+                      disabled={theme.id === "pink-coffee" && !campaignSupported}
                       className="sqe-button"
                       onClick={() => previewTheme(theme, true)}
                     >

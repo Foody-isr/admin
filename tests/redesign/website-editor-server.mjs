@@ -374,3 +374,16 @@ http
   .listen(18081, "127.0.0.1", () =>
     console.log("Website editor synthetic fixture: http://127.0.0.1:18081"),
   );
+
+// Opt-in alias for the separately built public renderer's local-only API origin.
+// Both ports share this process's synthetic draft/publication state.
+if (process.env.FOODY_BUILT_WEB_API_ALIAS === "1") {
+  http.createServer((req,res) => {
+    const upstream=http.request({hostname:"127.0.0.1",port:18081,path:req.url,method:req.method,headers:req.headers},response => {
+      res.writeHead(response.statusCode || 502,response.headers);
+      response.pipe(res);
+    });
+    upstream.on("error",() => {res.writeHead(502);res.end("Local fixture unavailable");});
+    req.pipe(upstream);
+  }).listen(43261,"127.0.0.1");
+}

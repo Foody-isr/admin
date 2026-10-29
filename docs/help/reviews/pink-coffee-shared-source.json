@@ -1,0 +1,35 @@
+{
+  "files": [
+    {
+      "path": "src/components/website-v3/WebsiteV3Builder.tsx",
+      "sha256": "48d59371d52cb31bf97fa04a2788d88987dc7d638c41c817e86115375786293e",
+      "baseSha256": "503a09c98cce8e57ac917bc78ad6a604dabcd28cb16688ac88764b18ccbc0d8d",
+      "features": [
+        "website-pages"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff adds opt-in campaign capability context, new-feature publication checks, the current restaurant logo and bounded nested slide text updates. The listed page creation, address, SEO, navigation and existing-page publication procedures are unchanged; new campaign availability and recovery are documented in the updated website editor, design and section guides."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "17bde8c2f586e62fae4d33c452f853cdcfa3c29a3d4d757e2d97159d2d6f70d1",
+      "baseSha256": "89aab34cff8735085446a04efca33c803db953bf8dcae08bca29767fb41db890",
+      "features": [
+        "customers-profiles",
+        "delivery-dispatch",
+        "delivery-zones",
+        "google-account-setup",
+        "menu-menus-and-groups",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-internal-sumit-checkout",
+        "pos-behavior",
+        "stancer-cash-guarantee",
+        "website-order-design",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff only adds Campaign, Display, slideshow, framing, card-presentation and compatible-renderer labels in English, Hebrew and French. Existing strings and controls for the listed customer, menu, delivery, Google, order-page, POS, WhatsApp, photo, Sumit and cash-guarantee features are byte-identical. The new campaign controls are covered by the updated website guides."
+    }
+  ]
+}
