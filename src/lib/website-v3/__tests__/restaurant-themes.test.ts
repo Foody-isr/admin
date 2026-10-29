@@ -443,7 +443,7 @@ test("Pink Coffee composes an editable two-page campaign while preserving restau
   const fresh=applyRestaurantTheme(state(),theme,{...options,compose:true,logo:"https://cdn.example.test/restaurant-logo.png"});
   assert.equal(record(record(record(fresh.config.nav_layout).header).logo).image,"https://cdn.example.test/restaurant-logo.png");
   const withContentHome=state();
-  withContentHome.pages.push({...withContentHome.pages[0],id:3,type:"content",slug:"welcome",is_homepage:true});
+  withContentHome.pages.push({...withContentHome.pages[0],id:3,type:"content",slug:"welcome",is_homepage:true,settings:{}});
   withContentHome.pages[0].is_homepage=false;
   const preserved=applyRestaurantTheme(withContentHome,theme,{...options,compose:true});
   assert.equal(preserved.pages.filter(page => page.type === "landing").length,1);
