@@ -8,7 +8,7 @@
         "orders-managing-orders"
       ],
       "disposition": "no-user-impact",
-      "reason": "The reviewed patch adds only the opt-in Stancer cash guarantee, with its own FR/HE/EN procedure. The named existing menu, identity, Sumit, POS and ordinary cash controls retain their prior behavior. The review uses the immutable task starting HEAD; an already absent source path is only removed from the stale inventory and no application implementation is deleted here."
+      "reason": "The reviewed patch adds only the opt-in Stancer cash guarantee, with its own FR/HE/EN procedure. The named existing menu, identity, Sumit, POS and ordinary cash controls retain their prior behavior. The review uses the current integrated develop base; an already absent source path is only removed from the stale inventory and no application implementation is deleted here."
     },
     {
       "path": "src/lib/api.ts",
@@ -22,7 +22,7 @@
         "orders-internal-sumit-checkout"
       ],
       "disposition": "no-user-impact",
-      "reason": "The reviewed patch adds only the opt-in Stancer cash guarantee, with its own FR/HE/EN procedure. The named existing menu, identity, Sumit, POS and ordinary cash controls retain their prior behavior. The review uses the immutable task starting HEAD; an already absent source path is only removed from the stale inventory and no application implementation is deleted here."
+      "reason": "The reviewed patch adds only the opt-in Stancer cash guarantee, with its own FR/HE/EN procedure. The named existing menu, identity, Sumit, POS and ordinary cash controls retain their prior behavior. The review uses the current integrated develop base; an already absent source path is only removed from the stale inventory and no application implementation is deleted here."
     },
     {
       "path": "src/lib/orders/order-actions.ts",
@@ -33,7 +33,7 @@
         "orders-internal-sumit-checkout"
       ],
       "disposition": "no-user-impact",
-      "reason": "The reviewed patch adds only the opt-in Stancer cash guarantee, with its own FR/HE/EN procedure. The named existing menu, identity, Sumit, POS and ordinary cash controls retain their prior behavior. The review uses the immutable task starting HEAD; an already absent source path is only removed from the stale inventory and no application implementation is deleted here."
+      "reason": "The reviewed patch adds only the opt-in Stancer cash guarantee, with its own FR/HE/EN procedure. The named existing menu, identity, Sumit, POS and ordinary cash controls retain their prior behavior. The review uses the current integrated develop base; an already absent source path is only removed from the stale inventory and no application implementation is deleted here."
     },
     {
       "path": "src/lib/i18n.tsx",
