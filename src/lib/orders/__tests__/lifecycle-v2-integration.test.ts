@@ -56,3 +56,28 @@ test('manual collection uses the recorded due only, with exact dialog currency a
  assert.equal(manualCollectionAmount(value,'ILS'),undefined);
  assert.equal(manualCollectionAmount({...value,lifecycle_v2:undefined,balance_due:3},'ILS'),3);
 });
+
+test('prepared Sumit checkout keeps its provider guards when lifecycle v2 otherwise allows normal editing and collection',()=>{
+ const value=order();
+ value.status='accepted';
+ value.payment_status='pending';
+ value.lifecycle_v2!.commercial={state:'open',evidence:[],editable:true,closed_at:null};
+ value.lifecycle_v2!.payment.state='pending';
+ value.lifecycle_v2!.payment.amounts={availability:'known',currency:'ILS',minor_unit_exponent:2,total_minor:1000,captured_minor:0,refunded_minor:0,net_received_minor:0,balance_due_minor:1000};
+ value.lifecycle_v2!.actions=[{key:'edit',allowed:true,reason:''},{key:'collect_payment',allowed:true,reason:''}];
+ const permissions={canManage:true,canOverride:true,currencyCode:'ILS'};
+ const handlers={onToggleForceProduction:true,onCorrectPayment:true,onReactivate:true};
+ const ordinary=deriveOrderCapabilities(value,permissions,handlers);
+ assert.equal(ordinary.canEditOrder,true);
+ assert.equal(ordinary.canTakePayment,true);
+ for(const mode of ['link','card']) {
+  const prepared={...value,external_metadata:{internal_checkout:{mode}}};
+  const caps=deriveOrderCapabilities(prepared,permissions,handlers);
+  assert.equal(caps.canEditOrder,false,mode);
+  assert.equal(caps.canTakePayment,false,mode);
+  assert.equal(caps.canCorrectPayment,false,mode);
+  assert.equal(caps.canForceProduction,false,mode);
+  const cancelled={...prepared,status:'rejected',lifecycle_v2:{...value.lifecycle_v2!,commercial:{state:'cancelled' as const,evidence:[],editable:false,closed_at:null}}} as Order;
+  assert.equal(deriveOrderCapabilities(cancelled,permissions,handlers).canReactivate,false,mode);
+ }
+});
