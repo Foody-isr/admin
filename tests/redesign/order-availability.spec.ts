@@ -8,8 +8,8 @@ async function install(page: Page, options: { locale?: string; permissions?: str
   const fixture = createFixture(fixtureOptions);
   const control = {
     values: { pickup_enabled: true, dine_in_enabled: false, delivery_enabled: true, catering_only: true, timezone: 'Asia/Jerusalem', week_start_day: 1, workdays: [] as number[], opening_hours_config: options.noHours ? undefined : { pickup: week(), dine_in: week(), delivery: week() } } as Record<string, any>,
-    settings: { preorders_only: !!options.strictBatch, scheduling_enabled: false, batch_fulfillment_enabled: !!options.strictBatch, scheduling_max_days_ahead: 7, scheduling_slot_duration_minutes: 30, scheduling_require_prepayment: false, batch_require_prepayment: false, batch_order_open_day: 0, batch_order_open_time: '09:00', batch_cutoff_day: 3, batch_cutoff_time: '22:00', batch_fulfillment_days: [{ day: 5, pickup_start: '10:00', pickup_end: '14:00', delivery_start: '14:00', delivery_end: '18:00' }] } as Record<string, any>,
-    failRead: false, failSave: false,
+    settings: { ordering_settings_merge_supported: true, preorders_only: !!options.strictBatch, scheduling_enabled: false, batch_fulfillment_enabled: !!options.strictBatch, scheduling_max_days_ahead: 7, scheduling_slot_duration_minutes: 30, scheduling_require_prepayment: false, batch_require_prepayment: false, batch_order_open_day: 0, batch_order_open_time: '09:00', batch_cutoff_day: 3, batch_cutoff_time: '22:00', batch_fulfillment_days: [{ day: 5, pickup_start: '10:00', pickup_end: '14:00', delivery_start: '14:00', delivery_end: '18:00' }] } as Record<string, any>,
+    failRead: false, failSave: false, conflict: false,
   };
   const writes: { body: any; restaurant?: string; path: string }[] = [];
   await page.addInitScript(({ locale }) => {
@@ -26,6 +26,7 @@ async function install(page: Page, options: { locale?: string; permissions?: str
       if (method === 'GET' && control.failRead) return route.fulfill({ status: 503, json: { error: 'Synthetic availability failure' } });
       if (method !== 'GET') {
         writes.push({ path, restaurant, body });
+        if (control.conflict) return route.fulfill({status:409,json:{error:'ordering_settings_conflict'}});
         if (control.failSave) return route.fulfill({ status: 503, json: { error: 'Synthetic save failure' } });
         Object.assign(control.settings, body);
         for (const key of Object.keys(control.values)) if (key in body) control.values[key] = body[key];
@@ -81,6 +82,7 @@ test('unified availability preserves overnight, all-day and unrelated channel ho
   await page.locator('#intake-pickup-monday-close').fill('02:00');
   await save(page).click();
   await expect(notice(page)).toContainText('Enregistré');
+  expect(state.writes[0].body.opening_hours_config_base).toEqual(other);
   expect(state.writes[0].body.opening_hours_config.pickup.monday).toEqual({ open: '22:00', close: '02:00', closed: false });
   expect(state.writes[0].body.opening_hours_config.delivery).toEqual(other.delivery);
   expect(state.writes[0].body.opening_hours_config.dine_in).toEqual(other.dine_in);
@@ -192,4 +194,11 @@ test('preorders still require a service when enabling the policy or disabling it
   await save(page).click();
   await expect(page.locator('#preorder-validation')).toContainText('Activez');
   expect(state.writes).toHaveLength(0);
+});
+
+
+test('availability hours conflicts keep the draft and offer an explicit reload',async({page})=>{
+ const state=await install(page);await page.goto('/1/settings/orders');await opening(page).fill('10:30');state.control.conflict=true;await save(page).click();
+ await expect(page.getByRole('alert').filter({hasText:'Votre saisie est conservée'})).toBeVisible();await expect(opening(page)).toHaveValue('10:30');
+ expect(state.writes[0].body.opening_hours_config_base.pickup.monday.open).toBe('09:00');
 });

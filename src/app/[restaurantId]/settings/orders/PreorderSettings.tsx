@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { CalendarDays, Plus, Trash2 } from 'lucide-react';
-import { getRestaurant, getRestaurantSettings, previewBatchFulfillment, updateRestaurantSettings, type RestaurantSettings, type BatchFulfillmentDay, type BatchPreviewInput, type BatchCycleSummary } from '@/lib/api';
+import { ApiError, getRestaurant, getRestaurantSettings, previewBatchFulfillment, updateRestaurantSettings, type RestaurantSettings, type BatchFulfillmentDay, type BatchPreviewInput, type BatchCycleSummary } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Button, ConfirmDialog, Field, Input, Section, Select } from '@/components/ds';
@@ -64,7 +64,7 @@ function PreorderWorkspace({ rid }: { rid: number }) {
   const [openingModeSupported, setOpeningModeSupported] = useState(false);
   const [savedOrdering, setSavedOrdering] = useState<RestaurantSettings | null>(null);
   const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(false);
-  const [saving, setSaving] = useState(false), [saveError, setSaveError] = useState(false), [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false), [saveError, setSaveError] = useState(false), [saveConflict, setSaveConflict] = useState(false), [saved, setSaved] = useState(false);
   const [invalid, setInvalid] = useState<Invalid | null>(null), [leaving, setLeaving] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ status: 'idle' | 'loading' | 'ready' | 'error'; cycles: BatchCycleSummary[] }>({ status: 'idle', cycles: [] });
   const [previewRetry, setPreviewRetry] = useState(0);
@@ -74,7 +74,7 @@ function PreorderWorkspace({ rid }: { rid: number }) {
     const generation = lifetime.current.generation, sequence = ++lifetime.current.sequence;
     const current = () => generation === lifetime.current.generation && sequence === lifetime.current.sequence;
     setLoading(true); setLoadError(false);
-    try { const [restaurant, settings] = await Promise.all([getRestaurant(rid), getRestaurantSettings(rid)]), next = draftFrom(settings, restaurant); if (current()) { setDraft(next); setBaseline(next); setTimezone(restaurant.timezone || ''); setPolicySupported(typeof settings.preorders_only === 'boolean'); setOpeningModeSupported(settings.batch_ordering_mode === 'calendar' || settings.batch_ordering_mode === 'manual'); setCalendar(next.mode === 'batch' ? 'batch' : 'slots'); } }
+    try { const [restaurant, settings] = await Promise.all([getRestaurant(rid), getRestaurantSettings(rid)]), next = draftFrom(settings, restaurant); if (current()) { setDraft(next); setBaseline(next); setSavedOrdering(settings); setSaveConflict(false); setSaveError(false); setTimezone(restaurant.timezone || ''); setPolicySupported(typeof settings.preorders_only === 'boolean'); setOpeningModeSupported(settings.batch_ordering_mode === 'calendar' || settings.batch_ordering_mode === 'manual'); setCalendar(next.mode === 'batch' ? 'batch' : 'slots'); } }
     catch { if (current()) setLoadError(true); }
     finally { if (current()) setLoading(false); }
   }, [rid]);
@@ -114,6 +114,10 @@ function PreorderWorkspace({ rid }: { rid: number }) {
     for (const field of ['pickup_enabled', 'delivery_enabled', 'dine_in_enabled', 'opening_hours_config'] as const) {
       if (!equal(draft[field], baseline[field])) Object.assign(input, { [field]: draft[field] });
     }
+    if (input.opening_hours_config !== undefined) {
+      if (!savedOrdering?.ordering_settings_merge_supported) { setSaveError(true); return; }
+      input.opening_hours_config_base = baseline.opening_hours_config ?? null;
+    }
     const invalidHour = invalidOrderingHours(draft.opening_hours_config, baseline.opening_hours_config);
     if (invalidHour) { reject({ id: invalidHour, group: 'services', key: 'availabilityInvalidTime' }); return; }
     const onlinePolicyChanged = draft.mode !== baseline.mode || draft.preordersOnly !== baseline.preordersOnly || draft.pickup_enabled !== baseline.pickup_enabled || draft.delivery_enabled !== baseline.delivery_enabled;
@@ -147,7 +151,7 @@ function PreorderWorkspace({ rid }: { rid: number }) {
     }
     if (draft.slotPay !== baseline.slotPay) input.scheduling_require_prepayment = draft.slotPay;
     if (draft.batchPay !== baseline.batchPay) input.batch_require_prepayment = draft.batchPay;
-    lock.current = true; setSaving(true); setSaved(false); setSaveError(false);
+    lock.current = true; setSaving(true); setSaved(false); setSaveError(false); setSaveConflict(false);
     const generation = lifetime.current.generation, current = () => generation === lifetime.current.generation;
     try { const response = await updateRestaurantSettings(rid, input);
       // A response from an older API must never confirm a strict policy it ignored.
@@ -156,7 +160,7 @@ function PreorderWorkspace({ rid }: { rid: number }) {
         if (input[key] !== undefined && response[key] !== input[key]) throw new Error('Preparation policy not confirmed');
       }
       const next = draftFrom(response, { pickup_enabled: response.pickup_enabled!, delivery_enabled: response.delivery_enabled!, dine_in_enabled: response.dine_in_enabled!, opening_hours_config: response.opening_hours_config }); if (current()) { setDraft(next); setBaseline(next); setSaved(true); setSavedOrdering(response); } }
-    catch { if (current()) setSaveError(true); }
+    catch (reason) { if (current()) { setSaveError(true); setSaveConflict(reason instanceof ApiError && reason.status === 409); } }
     finally { if (current()) { lock.current = false; setSaving(false); } }
   };
   const dayLabel = (day: number) => DAYS[day] ? t(DAYS[day]) : String(day);
@@ -219,10 +223,10 @@ function PreorderWorkspace({ rid }: { rid: number }) {
       <DineInSettings draft={draft} patch={patch} timezone={timezone} disabled={!canEdit || saving} invalid={invalid?.id} />
       {draft.mode !== 'off' && <Section title={t('productExceptionsTitle')} desc={t(draft.preordersOnly ? 'intakeStrictProducts' : 'productExceptionsDesc')}><Link href={`/${rid}/menu`} className="inline-flex min-h-10 items-center text-sm font-semibold text-[var(--brand-ink)]">{t('manageProducts')}</Link></Section>}
       {invalid && <p id="preorder-validation" role="alert" className="text-sm text-[var(--danger-500)]">{t(invalid.key)}</p>}
-      {saveError && <p role="alert" className="text-sm text-[var(--danger-500)]">{t('processingSaveFailed')}</p>}
+      {saveError && <div className="space-y-3"><p role="alert" className="text-sm text-[var(--danger-500)]">{t(saveConflict ? 'orderingSettingsConflict' : 'processingSaveFailed')}</p>{saveConflict && <Button type="button" variant="secondary" size="sm" onClick={()=>setLeaving('reload')}>{t('refresh')}</Button>}</div>}
       <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-4 shadow-2"><p role="status" className="text-sm text-[var(--fg-muted)]">{t(saving ? 'saving' : dirty ? 'settingsUnsaved' : saved ? 'saved' : 'settingsUnchanged')}</p>{canEdit && <div className="grid w-full grid-cols-[auto_minmax(0,1fr)] gap-2 sm:flex sm:w-auto"><Button type="button" variant="secondary" disabled={!dirty || saving} onClick={() => setLeaving('reset')}>{t('reset')}</Button><Button type="submit" className="whitespace-normal" disabled={!dirty || saving}>{t(saving ? 'saving' : 'saveChanges')}</Button></div>}</div>
     </form>}
     {!loading && !loadError && <div className="mt-8"><OrdersOverview latestOrdering={savedOrdering} embedded /></div>}
-    <ConfirmDialog open={leaving !== null} onOpenChange={open => { if (!open) setLeaving(null); }} title={t('discardUnsavedChanges')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={() => { const target = leaving; setLeaving(null); setDraft(baseline); setCalendar(baseline?.mode === 'batch' ? 'batch' : 'slots'); setInvalid(null); setSaveError(false); setSaved(false); if (target && target !== 'reset') router.push(target); }} />
+    <ConfirmDialog open={leaving !== null} onOpenChange={open => { if (!open) setLeaving(null); }} title={t('discardUnsavedChanges')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={() => { const target = leaving; setLeaving(null); setDraft(baseline); setCalendar(baseline?.mode === 'batch' ? 'batch' : 'slots'); setInvalid(null); setSaveError(false); setSaved(false); if (target === 'reload') void load(); else if (target && target !== 'reset') router.push(target); }} />
   </SettingsWorkspace>;
 }
