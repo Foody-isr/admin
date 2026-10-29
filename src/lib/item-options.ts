@@ -45,12 +45,12 @@ export function itemSizeGroupLabel(item: MenuItem): string | undefined {
   return item.option_sets?.find(set => set.selection_role !== "identity")?.name || item.variant_groups?.[0]?.title || undefined;
 }
 
-/** Required descriptive variant positions for the selected price-bearing format. */
+/** Visible descriptive variant positions and their requirement for the selected format. */
 export function itemOptionPositions(item: MenuItem, formatId?: number) {
   return (item.option_sets ?? []).filter(set => set.selection_role === 'identity').flatMap(set => {
     const config = set.selection_config;
     const count = config?.source ? config.choices.find(choice => choice.id === formatId)?.count ?? 0 : 1;
     const repeated = config?.choices.some(choice => choice.count > 1);
-    return Array.from({ length: count }, (_, index) => ({ key: `${set.id}@${index + 1}`, set, index: index + 1, label: `${set.name}${repeated ? ` ${index + 1}` : ''}` }));
+    return Array.from({ length: count }, (_, index) => ({ key: `${set.id}@${index + 1}`, set, index: index + 1, required: config?.required !== false, label: `${set.name}${repeated ? ` ${index + 1}` : ''}` }));
   });
 }

@@ -1,0 +1,99 @@
+{
+  "impact": "Descriptive variant groups can be required or optional per item. Absent required preserves the existing mandatory behavior. Format pricing remains mandatory and descriptive choices never change its price.",
+  "releasePreparation": "Local preparation only. Pin an explicitly authorized immutable Landing commit and roll out API plus compatible Web/POS consumers before exposing the Admin control. No commit, push or deployment is part of this preparation.",
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/menu/options/[optionSetId]/page.tsx",
+      "sha256": "4ba4ab99fdf672ecb65b0b7d1cc2586f832fd68656c9d8f76306525f74d71901",
+      "baseSha256": "4bf5b47c58a0b62d919464634223851813e01c3a31429a84884f30dfa739bbee",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-modifiers"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed change is limited to the descriptive variant requirement: the item-specific checkbox, optional-position validation and clearing, additive required flag, or related translations and library guidance. Existing price formats, modifier limits, category/menu membership, ingredient quantities, photos, payments, fulfillment, permissions, communications and comp/void operations retain their behavior. Changed variant and order-entry procedures are documented in all three languages."
+    },
+    {
+      "path": "src/app/[restaurantId]/settings/delivery/page.tsx",
+      "sha256": "6cad80a53b5673de798e50d89fe31b683a8b7b29c35118225c69036a16b92dea",
+      "baseSha256": "2dedc9d8c84a6405153f02815289012e41e14401d114264cd425b791321c71ac",
+      "features": [
+        "delivery-zones"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed change is limited to the descriptive variant requirement: the item-specific checkbox, optional-position validation and clearing, additive required flag, or related translations and library guidance. Existing price formats, modifier limits, category/menu membership, ingredient quantities, photos, payments, fulfillment, permissions, communications and comp/void operations retain their behavior. Changed variant and order-entry procedures are documented in all three languages."
+    },
+    {
+      "path": "src/components/delivery/ZoneScheduleFields.tsx",
+      "sha256": "5c23f2df3a43b89108e1c7159ef408f742347321f11210ea37731a3dea85b129",
+      "baseSha256": "958134748b4a23f0ccf306083916138d756c5d2c8cfc98f0d1fdfd6b0823e8e3",
+      "features": [
+        "delivery-zones",
+        "delivery-dispatch"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed change is limited to the descriptive variant requirement: the item-specific checkbox, optional-position validation and clearing, additive required flag, or related translations and library guidance. Existing price formats, modifier limits, category/menu membership, ingredient quantities, photos, payments, fulfillment, permissions, communications and comp/void operations retain their behavior. Changed variant and order-entry procedures are documented in all three languages."
+    },
+    {
+      "path": "src/components/menu-item/VariantSelectionEditor.tsx",
+      "sha256": "3f6e91978684a74374ba52420fbbe33c4a08f324f7528c6535da96b7aa98166b",
+      "baseSha256": "ddc9f58b61b3f96791c4ff1c057e982460e39252c943ab1d5d48ef11508898ca",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed change is limited to the descriptive variant requirement: the item-specific checkbox, optional-position validation and clearing, additive required flag, or related translations and library guidance. Existing price formats, modifier limits, category/menu membership, ingredient quantities, photos, payments, fulfillment, permissions, communications and comp/void operations retain their behavior. Changed variant and order-entry procedures are documented in all three languages."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "bf791ea553872a63b8b4d8c15c5cb123b7056deb9a84d14c10ec0531301fb721",
+      "baseSha256": "cd95298f8c7c6ac7f869d67d50efe8db8ecf592511a4dab7af3a296b054db77c",
+      "features": [
+        "customers-profiles",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed change is limited to the descriptive variant requirement: the item-specific checkbox, optional-position validation and clearing, additive required flag, or related translations and library guidance. Existing price formats, modifier limits, category/menu membership, ingredient quantities, photos, payments, fulfillment, permissions, communications and comp/void operations retain their behavior. Changed variant and order-entry procedures are documented in all three languages."
+    },
+    {
+      "path": "src/lib/delivery-zone-state.ts",
+      "sha256": "9b146c979795be0a56de6776d792750d25e5982eab83fe337da4369d944e55b3",
+      "baseSha256": "f73e658a3aa496a83774427e91d399cdc2c0b03c983286c51860b343aee5726d",
+      "features": [
+        "delivery-zones",
+        "delivery-dispatch"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed change is limited to the descriptive variant requirement: the item-specific checkbox, optional-position validation and clearing, additive required flag, or related translations and library guidance. Existing price formats, modifier limits, category/menu membership, ingredient quantities, photos, payments, fulfillment, permissions, communications and comp/void operations retain their behavior. Changed variant and order-entry procedures are documented in all three languages."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "ba06e916d80dba928277f5e0ec0ecc28facaea0ada374306342ca69e5ab8bd37",
+      "baseSha256": "5b5f4f1a1bd2561abe469392a01b8aa67f794fc194d7eab659711f19ea949c6a",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed change is limited to the descriptive variant requirement: the item-specific checkbox, optional-position validation and clearing, additive required flag, or related translations and library guidance. Existing price formats, modifier limits, category/menu membership, ingredient quantities, photos, payments, fulfillment, permissions, communications and comp/void operations retain their behavior. Changed variant and order-entry procedures are documented in all three languages."
+    }
+  ]
+}

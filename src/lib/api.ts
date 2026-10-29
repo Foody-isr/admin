@@ -555,6 +555,8 @@ export interface MenuItemModifier {
 
 /** Item-specific visibility and repetition of a shared modifier group. */
 export interface ModifierSelectionConfig {
+  /** Descriptive variant positions only; omission preserves required choices. */
+  required?: boolean;
   source: '' | 'option' | 'modifier';
   source_id: number;
   choices: { id: number; count: number }[];
