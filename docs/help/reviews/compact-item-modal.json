@@ -1,0 +1,42 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "5e7c53fe3872fc40c027aa247d94f42cc995d188e971b55a14763e244ef8edb3",
+      "baseSha256": "3fe22ab1ed241134aa4280eab547287ab892273f16db3b1d5fa1b7ade106906c",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff changes only the existing item-sheet presentation action and mobile-layout labels in English, French and Hebrew. Customer profiles, menus, deliveries, accounts, POS, WhatsApp, product photo authoring and internal checkout retain their existing labels, controls and behavior."
+    },
+    {
+      "path": "src/lib/website-v3/order-design.ts",
+      "sha256": "01228ed6b080aa0dcdb22788c957cf1ac748c65c29ac25c8ca2200b489c9a7b9",
+      "baseSha256": "ee2b229ec970a3e9bfed7f484ab6bbad8fef9f0075fa5f070aa2898a7cf68e8a",
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The helper rename clarifies the existing item-sheet geometry preset. General site pages, navigation, content, theme, draft and publication operations retain their existing behavior; the item presentation action is documented under website-order-design in all three languages."
+    },
+    {
+      "path": "src/components/website-v3/OrderPageEditor.tsx",
+      "sha256": "060f59563e6e09e34295a6ebea81d2db27d073bf8bc273db1cfa7f997e8dc9c3",
+      "baseSha256": "0be348ce9ccaa987696796571193b97d00e88cb063ee91fbef78cb33f2a59460",
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the item-sheet presentation action, its geometry label and missing-photo-ratio fallback change. General site editing, page selection, content, navigation, colors and publication workflows keep the same controls; the changed item surface is documented separately in all three languages."
+    }
+  ]
+}

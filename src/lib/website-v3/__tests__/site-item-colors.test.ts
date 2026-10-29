@@ -6,7 +6,7 @@ import {
   normalizeSiteItemColors,
 } from "../site-colors";
 import { normalizeDraftState } from "../state";
-import { previousItemPresentation } from "../order-design";
+import { compactItemPresentation } from "../order-design";
 
 test("item details inherit cards and site buttons while authored roles remain independent", () => {
   const palette = {
@@ -106,14 +106,15 @@ test("detail roles reject unknown keys, transparency and CSS and survive draft n
   );
 });
 
-test("restoring the old sheet only changes presentation and keeps assigned colors and commerce settings", () => {
+test("applying the compact sheet only changes presentation and keeps assigned colors and commerce settings", () => {
   const before = {
     color_style: "style-2",
     item_color_style: "style-4",
     prompt_on_entry: false,
     item_image_fit: "contain",
+    item_image_frames: { "7": { desktop: { x: 20, y: 70, zoom: 1.4 } } },
   };
-  const restored = previousItemPresentation(before);
+  const restored = compactItemPresentation(before);
   assert.equal(restored.item_width, "compact");
   assert.equal(restored.item_layout, "cover");
   assert.equal(restored.item_radius, "rounded");
@@ -121,5 +122,7 @@ test("restoring the old sheet only changes presentation and keeps assigned color
   assert.equal(restored.item_color_style, "style-4");
   assert.equal(restored.prompt_on_entry, false);
   assert.equal(before.item_image_fit, "contain");
-  assert.deepEqual(previousItemPresentation(restored), restored);
+  assert.equal(restored.item_aspect_ratio, "16/9");
+  assert.deepEqual(restored.item_image_frames, before.item_image_frames);
+  assert.deepEqual(compactItemPresentation(restored), restored);
 });
