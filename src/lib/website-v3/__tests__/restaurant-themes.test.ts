@@ -431,6 +431,12 @@ test("Pink Coffee composes an editable two-page campaign while preserving restau
   const hero=next.sections.find(section => section.id === 8)!;
   assert.equal(hero.layout,"campaign");
   assert.equal(hero.settings.autoplay,false);
+  assert.equal(hero.settings.controls_alignment,"right");
+  assert.equal(hero.settings.show_counter,false);
+  assert.equal(hero.settings.show_playback_control,false);
+  assert.equal(hero.settings.card_width_percent,96);
+  assert.equal(hero.settings.card_width_percent_mobile,90);
+  assert.equal("card_gap" in hero.settings,false);
   assert.equal((hero.content.slides as unknown[]).length,3);
   assert.equal(record((hero.content.slides as unknown[])[0]).image_url,options.image);
   assert.equal(hero.settings.headline_size,"display");
@@ -439,6 +445,15 @@ test("Pink Coffee composes an editable two-page campaign while preserving restau
   assert.equal(products.settings.columns,4);
   assert.equal(products.settings.mobile_columns,2);
   assert.equal(products.settings.card_presentation,"campaign");
+  assert.equal(products.settings.max_items,12);
+  assert.equal(products.settings.content_max_width,1200);
+  assert.equal(products.settings.row_spacing,56);
+  assert.equal(products.settings.column_spacing,3);
+  assert.equal(products.settings.show_descriptions,true);
+  assert.equal(products.settings.show_prices,false);
+  assert.equal(products.settings.show_buttons,false);
+  assert.equal(record(record(record(next.config.nav_layout).header).navigation).hamburger_style,"staggered");
+  assert.equal(record(record(record(next.config.nav_layout).header).icons).cart,false);
   assert.deepEqual(applyRestaurantTheme(next,theme,{...options,compose:true}),next);
   const fresh=applyRestaurantTheme(state(),theme,{...options,compose:true,logo:"https://cdn.example.test/restaurant-logo.png"});
   assert.equal(record(record(record(fresh.config.nav_layout).header).logo).image,"https://cdn.example.test/restaurant-logo.png");

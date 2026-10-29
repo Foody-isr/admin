@@ -6,6 +6,6 @@ import type { WebsiteV3RuntimeCapabilities } from "@/lib/website-v3/runtime-capa
 export const CampaignRuntimeContext = createContext<WebsiteV3RuntimeCapabilities | null>(null);
 
 /** Allows new presentation controls only when the selected public renderer supports them. */
-export function useCampaignCapability(feature: "campaign_hero" | "campaign_products" | "display_typography") {
+export function useCampaignCapability(feature: "campaign_hero" | "campaign_products" | "display_typography" | "campaign_layout_controls") {
   return useContext(CampaignRuntimeContext)?.[feature] === 1;
 }

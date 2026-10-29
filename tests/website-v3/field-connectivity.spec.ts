@@ -83,7 +83,14 @@ async function selectContractContext(
   contract: (typeof FIELD_CONTRACTS)[number],
   afterMutation = false,
 ): Promise<void> {
-  if (contract.editor.scope === 'site') {
+  if (contract.editor.headerElement) {
+    await page.getByRole('button', { name: 'En-tête', exact: true }).click();
+    const customize = page.getByRole('button', { name: 'Personnaliser', exact: true });
+    if (await customize.getAttribute('aria-expanded') !== 'true') await customize.click();
+    const accordion = page.locator(`[data-header-panel="${contract.editor.headerElement}"]`);
+    const trigger = accordion.locator('.sqh-accordion-heading > button');
+    if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
+  } else if (contract.editor.scope === 'site') {
     await page.getByRole('button', { name: 'Identité du site' }).click();
   } else {
     await selectBuilderPage(

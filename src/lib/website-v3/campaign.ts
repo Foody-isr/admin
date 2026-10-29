@@ -1,5 +1,6 @@
 import { normalizeImageFraming, type ImageFraming } from "./image-framing";
 import type { DraftSectionPayload } from "./types";
+import { normalizeFeaturedImageBackgrounds } from "./featured-items";
 
 export const MAX_CAMPAIGN_SLIDES = 6;
 export type CampaignSlide = {
@@ -46,10 +47,27 @@ export function normalizeCampaignSection(section: DraftSectionPayload): DraftSec
     settings = {...settings, autoplay: settings.autoplay === true,
       slide_duration_seconds: Number.isFinite(duration) && duration > 0 ? Math.min(30, Math.max(5, duration)) : 10,
       image_fit: settings.image_fit === "contain" ? "contain" : "cover"};
+    if ("controls_alignment" in settings) settings.controls_alignment = ["left", "center", "right"].includes(String(settings.controls_alignment)) ? settings.controls_alignment : "center";
+    for (const key of ["show_counter", "show_playback_control"]) if (key in settings) settings[key] = settings[key] !== false;
+    for (const [key, min, max, fallback] of [
+      ["card_width_percent", 70, 100, 92],
+      ["card_width_percent_mobile", 70, 100, 90],
+      ["card_gap", 0, 64, 24],
+    ] as const) if (key in settings) {
+      if (settings[key] === undefined) { delete settings[key]; continue; }
+      const value = Number(settings[key]);
+      const bounded = Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+      settings[key] = key === "card_gap" ? Math.round(bounded) : bounded;
+    }
     if (Array.isArray(content.slides)) content = {...content, slides: normalizeCampaignSlides(content.slides)};
   }
   if (section.section_type === "menu_highlights" && settings.card_presentation === "campaign") {
     settings = {...settings, mobile_columns: Number(settings.mobile_columns) === 2 ? 2 : 1};
+    if ("item_image_backgrounds" in settings) settings.item_image_backgrounds = normalizeFeaturedImageBackgrounds(settings.item_image_backgrounds);
+    for (const [key, min, max, fallback] of [["content_max_width", 640, 1800, 1440], ["row_spacing", 0, 100, 20]] as const) if (key in settings) {
+      const value = Number(settings[key]);
+      settings[key] = Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+    }
   }
   return {...section, content, settings};
 }

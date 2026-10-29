@@ -10,6 +10,7 @@ import { ImageFramingControl } from "./ImageFramingControl";
 import { VideoUploadField } from "./VideoUploadField";
 import { ColorField, InspectorField, ToggleField, controlClass } from "./controls";
 import { useCampaignCapability } from "./CampaignRuntimeContext";
+import {BoundedNumberInput} from "./BoundedNumberInput";
 
 /** Edits campaign slides using the same draft payload consumed by preview and publication. */
 export function CampaignSlidesEditor({restaurantId, section, onChange, selectedSlide}: {
@@ -18,6 +19,7 @@ export function CampaignSlidesEditor({restaurantId, section, onChange, selectedS
   const {t} = useI18n();
   const supported = useCampaignCapability("campaign_hero");
   const displaySupported = useCampaignCapability("display_typography");
+  const layoutSupported = useCampaignCapability("campaign_layout_controls");
   const slides = campaignSlidesForSection(section);
   const identity=String(section.id ?? section.tmp_id);
   const latest=useRef({slides,identity,onChange});
@@ -59,7 +61,21 @@ export function CampaignSlidesEditor({restaurantId, section, onChange, selectedS
     </details>)}
     <button type="button" className="sqe-button w-full" disabled={slides.length >= MAX_CAMPAIGN_SLIDES} onClick={() => save([...slides, {...slides[0],id:`slide-${crypto.randomUUID()}`,headline:"",subheadline:"",video_url:""}])}><Plus size={16}/>{t("campaignAddSlide")}</button>
     <ToggleField fieldId="section.settings.autoplay" label={t("campaignAutoplay")} checked={section.settings.autoplay === true} onChange={value => onChange(["settings","autoplay"],value)}/>
-    <InspectorField label={t("campaignDuration")}><input type="number" min={5} max={30} className={controlClass} data-field-id="section.settings.slide_duration_seconds" value={Number(section.settings.slide_duration_seconds) || 10} onChange={event => onChange(["settings","slide_duration_seconds"],Math.max(5,Math.min(30,Number(event.target.value)||10)))}/></InspectorField>
+    <InspectorField label={t("campaignDuration")}><BoundedNumberInput fieldId="section.settings.slide_duration_seconds" min={5} max={30} value={Number(section.settings.slide_duration_seconds) || 10} onChange={value=>onChange(["settings","slide_duration_seconds"],value)}/></InspectorField>
     <InspectorField label={t("campaignImageFit")}><select className={controlClass} data-field-id="section.settings.image_fit" value={String(section.settings.image_fit || "cover")} onChange={event => onChange(["settings","image_fit"],event.target.value)}><option value="cover">{t("campaignCover")}</option><option value="contain">{t("campaignContain")}</option></select></InspectorField>
+    <fieldset disabled={!layoutSupported} className="min-w-0 space-y-4">
+      <legend className="text-sm font-semibold">{t("campaignLayoutControls")}</legend>
+      {!layoutSupported && <p role="status" className="text-xs">{t("campaignRuntimeUnavailable")}</p>}
+      <InspectorField label={t("campaignControlsAlignment")}><select className={controlClass} data-field-id="section.settings.controls_alignment" value={String(section.settings.controls_alignment || "center")} onChange={event => onChange(["settings", "controls_alignment"], event.target.value)}>{["left", "center", "right"].map(value => <option key={value} value={value}>{t(`editorAlign_${value}`)}</option>)}</select></InspectorField>
+      <ToggleField fieldId="section.settings.show_counter" label={t("campaignShowCounter")} checked={section.settings.show_counter !== false} onChange={value => onChange(["settings", "show_counter"], value)}/>
+      <ToggleField fieldId="section.settings.show_playback_control" label={t("campaignShowPlayback")} checked={section.settings.show_playback_control !== false} onChange={value => onChange(["settings", "show_playback_control"], value)}/>
+      {section.settings.autoplay === true && <p className="text-xs text-slate-500">{t("campaignPlaybackSafeguard")}</p>}
+      {([
+        ["card_width_percent", "campaignCardWidth", 70, 100, 92],
+        ["card_width_percent_mobile", "campaignCardWidthMobile", 70, 100, 90],
+        ["card_gap", "campaignCardGap", 0, 64, 24],
+      ] as const).map(([key, label, min, max, fallback]) => <InspectorField key={key} label={t(label)}><BoundedNumberInput fieldId={`section.settings.${key}`} min={min} max={max} integer={key==="card_gap"} value={Number(section.settings[key] ?? fallback)} onChange={value=>onChange(["settings",key],value)}/></InspectorField>)}
+      {section.settings.card_gap !== undefined && <button type="button" className="sqe-text-button" onClick={() => onChange(["settings", "card_gap"], undefined)}>{t("campaignResetGap")}</button>}
+    </fieldset>
   </fieldset>;
 }

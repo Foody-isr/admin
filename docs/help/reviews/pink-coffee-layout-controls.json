@@ -1,0 +1,25 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "reason": "The diff adds only campaign layout, menu-icon, product-background and bulk-selection labels in English, Hebrew and French, plus the new optional coffee-template example copy. Existing translated controls and procedures for the listed customer, menu, delivery, Google, order, POS, WhatsApp, image, Sumit and cash-guarantee features are unchanged. The new presentation controls are covered by the four updated website guides.",
+      "sha256": "185621f4ac4f048e79297c57fb0e6d834af65c062b9589338e458286fb8301e7",
+      "baseSha256": "17bde8c2f586e62fae4d33c452f853cdcfa3c29a3d4d757e2d97159d2d6f70d1",
+      "disposition": "no-user-impact"
+    }
+  ]
+}

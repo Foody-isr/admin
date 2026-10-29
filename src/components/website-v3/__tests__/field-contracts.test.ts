@@ -193,6 +193,33 @@ test("campaign contracts target their persisted settings and reachable editor co
   }
 });
 
+test("layout controls register exact hero, grid and shared header paths", () => {
+  const contracts=new Map(FIELD_CONTRACTS.map(contract=>[contract.id,contract]));
+  for (const key of ["controls_alignment","show_counter","show_playback_control","card_width_percent","card_width_percent_mobile","card_gap"]) {
+    const contract=contracts.get(`section.settings.${key}`)!;
+    assert.deepEqual(contract.statePath,["settings",key]);
+    assert.equal(contract.editor.sectionLabel,"Hero banner");
+    assert.equal(contract.editor.sectionPanel,"content");
+  }
+  for (const key of ["content_max_width","row_spacing","item_image_backgrounds"]) {
+    const contract=contracts.get(`section.settings.${key}`)!;
+    assert.deepEqual(contract.statePath,["settings",key]);
+    assert.equal(contract.editor.sectionLabel,"Menu highlights");
+    assert.deepEqual(contract.editor.prerequisite,{id:"section.settings.card_presentation",value:"campaign"});
+  }
+  for (const key of ["hamburger_style","hamburger_size","hamburger_stroke"]) {
+    const contract=contracts.get(`site.header.navigation.${key}`)!;
+    assert.deepEqual(contract.statePath,["config","nav_layout","header","navigation",key]);
+    assert.equal(contract.editor.headerElement,"navigation");
+  }
+  assert.deepEqual(contracts.get("site.header.icons.cart")?.statePath,["config","nav_layout","header","icons","cart"]);
+  assert.equal(contracts.get("site.header.icons.cart")?.editor.headerElement,"icons");
+  for (const key of ["select_all","clear_selection"]) {
+    assert.equal(contracts.get(`section.featured.${key}`)?.editor.kind,"action");
+    assert.deepEqual(contracts.get(`section.featured.${key}`)?.statePath,["content","item_ids"]);
+  }
+});
+
 test("page navigation visuals have editor-to-renderer contracts", () => {
   const contracts = new Map(
     FIELD_CONTRACTS.map((contract) => [contract.id, contract]),
