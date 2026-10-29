@@ -1,0 +1,33 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "3fe22ab1ed241134aa4280eab547287ab892273f16db3b1d5fa1b7ade106906c",
+      "baseSha256": "c12dca1253eabbd8721cc8aaa6e540ce4afe6e97ba12ff992c2e1621f8344ecf",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The visible changes add only internal-order finalization copy in French, Hebrew and English. The changed order workflow is documented in managing-orders, order-details and internal-sumit-checkout. Customer profiles, menu setup, delivery zones/dispatch, Google setup, guest website design, POS settings, WhatsApp and product photos retain their existing values, permissions and procedures. This scope covers only those unchanged feature classifications on the shared dictionary."
+    },
+    {
+      "path": "src/styles/selections.css",
+      "sha256": "d726f8424348ee087ffe3c5c7c978d871b76ce94988c6013e65f4842ceb4afda",
+      "baseSha256": "08e7dc24ac751266e0aac3879fa3cbba1920e2bed9ee7f5c83cd81898f029e1e",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The visible correction leaves an unselected native radio group empty instead of filling every radio through :indeterminate. Checked radios and indeterminate checkboxes keep their existing marks. Browser keyboard, explicit selections, disabled states and form submission regressions pass in French and Hebrew/dark mode. The shared runtime procedure gains no new action, configuration, permission or persistence behavior; the new no-default payment intent is documented in the three order guides."
+    }
+  ]
+}
