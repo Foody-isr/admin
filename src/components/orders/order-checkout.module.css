@@ -1,0 +1,18 @@
+.panel :global(.choice-row) {
+  min-height: 56px;
+  padding-block: 12px;
+  gap: 12px;
+}
+.panel :global(.choice-title) { font-size: 14px; line-height: 1.4; }
+.panel :global(.choice-description) { font-size: 12px; line-height: 1.5; }
+.paired :global(.choice-row) {
+  grid-column: auto;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+}
+.paired :global(.choice-row):has(:checked) {
+  border-color: var(--action);
+  background: var(--surface-2);
+}
