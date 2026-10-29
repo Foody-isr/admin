@@ -228,6 +228,14 @@ function contract(
 
 const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "checkout.offer_sign_in": false,
+  "section.settings.headline_size": "display",
+  "section.settings.autoplay": true,
+  "section.settings.slide_duration_seconds": 15,
+  "section.settings.image_fit": "contain",
+  "section.settings.title_size": "display",
+  "section.settings.card_presentation": "campaign",
+  "section.settings.mobile_columns": 2,
+  "section.settings.alternate_image_bg_color": "#f6f6f6",
   "section.settings.text_bg_color": "#ffffff",
   "section.settings.image_bg_color": "#fff8ed",
   "section.settings.video_height": "m",
@@ -459,6 +467,18 @@ function editorFor(
   pageTypes: FieldContract["pageTypes"] = ALL_PAGES,
 ): FieldEditorContract {
   if (id === "checkout.offer_sign_in") return { kind: "field", scope: "page", pageTitle: "Brunch Order", sectionLabel: "Parcours de commande", publicSlug: "brunch-order", surface: "checkout", commit: "change" };
+  if ([
+    "section.settings.headline_size",
+    "section.settings.autoplay",
+    "section.settings.slide_duration_seconds",
+    "section.settings.image_fit",
+  ].includes(id)) return { kind: "field", scope: "section", sectionPanel: "content", pageTitle: "Home", sectionLabel: "Hero banner", publicSlug: "", commit: "change", prerequisite: { id: "section.layout", value: "campaign" } };
+  if ([
+    "section.settings.title_size",
+    "section.settings.card_presentation",
+    "section.settings.mobile_columns",
+    "section.settings.alternate_image_bg_color",
+  ].includes(id)) return { kind: "field", scope: "section", sectionPanel: "appearance", pageTitle: "Home", sectionLabel: "Menu highlights", publicSlug: "", commit: "change", prerequisite: id === "section.settings.mobile_columns" || id === "section.settings.alternate_image_bg_color" ? { id: "section.settings.card_presentation", value: "campaign" } : undefined };
   if (id === "section.settings.width") return { kind: "field", scope: "section", sectionPanel: "appearance", pageTitle: "About", sectionLabel: "Text", publicSlug: "about", commit: "change" };
   const action = isAction ? "action" : "field";
   if (id.startsWith("section.settings.video_") || id === "section.settings.padding") return { kind: action, scope: "section", sectionPanel: "content", pageTitle: "About", sectionLabel: "Video", publicSlug: "about", commit: "change", prerequisite: id.endsWith("video_muted") ? { id: "section.settings.video_autoplay", value: false } : undefined };
@@ -926,6 +946,14 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.page_id", ["page_id"], "[data-website-section]", "value"),
   section("section.content.headline", ["content", "headline"], "[data-website-section] h1", "text"),
   section("section.content.subheadline", ["content", "subheadline"], "[data-website-section] p", "text"),
+  section("section.settings.headline_size", ["settings", "headline_size"], "hero_banner", "style"),
+  section("section.settings.autoplay", ["settings", "autoplay"], "hero_banner", "value"),
+  section("section.settings.slide_duration_seconds", ["settings", "slide_duration_seconds"], "hero_banner", "value"),
+  section("section.settings.image_fit", ["settings", "image_fit"], "hero_banner", "style"),
+  section("section.settings.title_size", ["settings", "title_size"], "menu_highlights", "style"),
+  section("section.settings.card_presentation", ["settings", "card_presentation"], "menu_highlights", "value"),
+  section("section.settings.mobile_columns", ["settings", "mobile_columns"], "menu_highlights", "value"),
+  section("section.settings.alternate_image_bg_color", ["settings", "alternate_image_bg_color"], "menu_highlights", "color"),
   section("section.content.title", ["content", "title"], "[data-website-section] h2", "text"),
   orderSection("section.content.heading_eyebrow", ["content", "heading_eyebrow"], "order_discovery", "text"),
   orderSection("section.content.heading", ["content", "heading"], "order_discovery", "text"),
