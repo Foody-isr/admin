@@ -120,6 +120,10 @@ export function i18nOr(t: (key: string) => string, key: string, fallback: string
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    cashAllCustomersEnabled: "Accept cash from all customers",
+    cashAllCustomersHelp: "This setting applies to every customer, whether trusted or not. Configure the card guarantee separately.",
+    cashChooseGlobalPolicy: "Choose Yes or No",
+    cashLegacyPolicyHint: "At present, only trusted customers can pay cash. Choose Yes or No to apply the setting to all customers.",
     cashPaymentSettings: "Cash payments",
     cashPaymentSettingsHelp: "Choose who can pay cash for online pickup and delivery orders.",
     cashPaymentEligibility: "Who can pay cash",
@@ -9247,6 +9251,10 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
   he: {
+    cashAllCustomersEnabled: "קבלת מזומן מכל הלקוחות",
+    cashAllCustomersHelp: "ההגדרה חלה על כל הלקוחות, גם ללא סימון כלקוח מהימן. את הערבות בכרטיס מגדירים בנפרד.",
+    cashChooseGlobalPolicy: "בחרו כן או לא",
+    cashLegacyPolicyHint: "כרגע רק לקוחות מהימנים יכולים לשלם במזומן. בחרו כן או לא כדי להחיל את ההגדרה על כל הלקוחות.",
     cashPaymentSettings: "תשלומים במזומן",
     cashPaymentSettingsHelp: "בחרו מי רשאי לשלם במזומן על הזמנות מקוונות לאיסוף ולמשלוח.",
     cashPaymentEligibility: "מי רשאי לשלם במזומן",
@@ -18365,6 +18373,10 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── French ──────────────────────────────────────────────────────────────
   fr: {
+    cashAllCustomersEnabled: "Accepter les espèces pour tous les clients",
+    cashAllCustomersHelp: "Ce choix s’applique à tous les clients, avec ou sans statut de confiance. La garantie par carte se règle séparément.",
+    cashChooseGlobalPolicy: "Choisissez Oui ou Non",
+    cashLegacyPolicyHint: "Actuellement, seuls les clients de confiance peuvent payer en espèces. Choisissez Oui ou Non pour appliquer le réglage à tous les clients.",
     cashPaymentSettings: "Paiements en espèces",
     cashPaymentSettingsHelp: "Choisissez qui peut payer en espèces les commandes en ligne à retirer ou à livrer.",
     cashPaymentEligibility: "Qui peut payer en espèces",

@@ -1,0 +1,33 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/settings/payments/page.tsx",
+      "sha256": "46912298839790982ed56732624a499163312895c7afbcca404aa0f76a1920db",
+      "baseSha256": "ed8547e364f4f96754a5bb5e4283b4a2dd199b574da58ed3b498d021b2517fd5",
+      "features": [
+        "payments-how-payments-work"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the cash eligibility control is presented as a global Yes/No for a capable provider, with its updated three-language activation procedure. The named payment-treatment guide covers authorization versus settlement, cash receipt and explicit card capture; those operations, permissions and journal behavior are unchanged."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "89aab34cff8735085446a04efca33c803db953bf8dcae08bca29767fb41db890",
+      "baseSha256": "1bbbca9035b953f07729d59a709a6393c4b2b76478eb2b9c0452198e721c3e66",
+      "features": [
+        "delivery-dispatch",
+        "delivery-zones",
+        "google-account-setup",
+        "menu-menus-and-groups",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-internal-sumit-checkout",
+        "pos-behavior",
+        "website-order-design",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This translation patch adds only four cash-control labels per locale. All existing labels and procedures for the listed menu, delivery, provider and order features remain byte-identical. The changed cash behavior has its separately updated three-language procedure."
+    }
+  ]
+}

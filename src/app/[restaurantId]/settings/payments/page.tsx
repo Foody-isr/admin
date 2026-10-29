@@ -81,7 +81,7 @@ function PaymentsWorkspace({ rid }: { rid: number }) {
     try {
       const response = await updateRestaurantSettings(rid, input);
       const next = draftFrom({ ...draft, ...response, online_payment_only: typeof response.online_payment_only === 'boolean' ? response.online_payment_only : draft.online_payment_only });
-      if (current()) { setDraft(next); setBaseline(next); setSaved(true); }
+      if (current()) { setDraft(next); setBaseline(next); setGuaranteeSupported(response.cash_card_guarantee_supported === true); setSaved(true); }
     } catch { if (current()) setSaveError(true); }
     finally { if (current()) { lock.current = false; setSaving(false); } }
   };
@@ -98,13 +98,19 @@ function PaymentsWorkspace({ rid }: { rid: number }) {
         </Select></Field>
         {baseline?.online_payment_only === undefined && <p className="mt-3 text-sm leading-6 text-[var(--fg-muted)]">{t('paymentPolicyUnknownHint')}</p>}
       </Section>
-      {draft.cash_payment_policy !== undefined && <Section title={t('cashPaymentSettings')} desc={t('cashPaymentSettingsHelp')}>
-        <Field label={t('cashPaymentEligibility')}><Select aria-label={t('cashPaymentEligibility')} value={draft.cash_payment_policy} disabled={!canEdit || saving || draft.online_payment_only !== false} onChange={event => patch({ cash_payment_policy: event.target.value as Draft['cash_payment_policy'] })}>
-          <option value="disabled">{t('cashPolicyDisabled')}</option><option value="trusted_only">{t('cashPolicyTrusted')}</option><option value="all">{t('cashPolicyAll')}</option>
+      {draft.cash_payment_policy !== undefined && <Section title={t('cashPaymentSettings')} desc={t(guaranteeSupported ? 'cashAllCustomersHelp' : 'cashPaymentSettingsHelp')}>
+        <Field label={t(guaranteeSupported ? 'cashAllCustomersEnabled' : 'cashPaymentEligibility')}><Select aria-label={t(guaranteeSupported ? 'cashAllCustomersEnabled' : 'cashPaymentEligibility')} value={draft.cash_payment_policy} disabled={!canEdit || saving || draft.online_payment_only !== false} onChange={event => patch({ cash_payment_policy: event.target.value as Draft['cash_payment_policy'] })}>
+          {guaranteeSupported ? <>
+            {draft.cash_payment_policy === 'trusted_only' && <option value="trusted_only" disabled>{t('cashChooseGlobalPolicy')}</option>}
+            <option value="all">{t('yes')}</option><option value="disabled">{t('no')}</option>
+          </> : <>
+            <option value="disabled">{t('cashPolicyDisabled')}</option><option value="trusted_only">{t('cashPolicyTrusted')}</option><option value="all">{t('cashPolicyAll')}</option>
+          </>}
         </Select></Field>
+        {guaranteeSupported && draft.cash_payment_policy === 'trusted_only' && <p className="mt-3 text-sm leading-6 text-[var(--fg-muted)]">{t('cashLegacyPolicyHint')}</p>}
         {draft.online_payment_only !== false && <p className="mt-3 text-sm text-[var(--fg-muted)]">{t('cashOnlineOnlyHint')}</p>}
         {(guaranteeSupported || baseline?.cash_card_guarantee_required === true || draft.cash_card_guarantee_required === true) && draft.cash_card_guarantee_required !== undefined && <label className="mt-5 flex items-start gap-4"><span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{t('cashGuaranteeRequired')}</span><span id="cash-guarantee-hint" className="mt-1 block text-sm leading-6 text-[var(--fg-muted)]">{t(guaranteeSupported ? 'cashGuaranteeSettingsHelp' : 'cashGuaranteeUnsupported')}</span></span><BooleanInput aria-label={t('cashGuaranteeRequired')} aria-describedby="cash-guarantee-hint" checked={draft.cash_card_guarantee_required} disabled={!canEdit || saving || (!draft.cash_card_guarantee_required && (!guaranteeSupported || draft.online_payment_only !== false || draft.cash_payment_policy === 'disabled'))} onChange={event => patch({ cash_card_guarantee_required: event.target.checked })} /></label>}
-        {draft.cash_payment_policy === 'trusted_only' && <Link className="mt-3 inline-block text-sm underline" href={`/${rid}/customers`}>{t('cashTrustedCustomersLink')}</Link>}
+        {!guaranteeSupported && draft.cash_payment_policy === 'trusted_only' && <Link className="mt-3 inline-block text-sm underline" href={`/${rid}/customers`}>{t('cashTrustedCustomersLink')}</Link>}
       </Section>}
       <Section title={t('vatRatesTitle')} desc={t('paymentVatHint')}>
         <div className="max-w-xs"><Field label={t('paymentDefaultVat')}><NumberField required min={Math.min(0, baseline?.vat_rate ?? 0)} max={Math.max(100, baseline?.vat_rate ?? 100)} value={draft.vat_rate} format={String} readOnly={!canEdit || saving} onChange={vat_rate => patch({ vat_rate })} dir="ltr" /></Field></div>

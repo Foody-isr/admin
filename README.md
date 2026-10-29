@@ -1663,8 +1663,11 @@ provider acceptance is verified separately before production promotion.
 
 ## Cash eligibility and Stancer card guarantees
 
-Settings → Payments adds Disabled / Trusted customers / All customers for public
-pickup/delivery cash payments. Require a card guarantee appears only for supported
+Settings → Payments uses Yes for all customers / No for everyone when the server
+advertises a supported cash-guarantee integration. The card guarantee remains a
+separate opt-in. Prior trusted-only policies remain unchanged until an explicit
+global choice; saving VAT or tips does not widen cash eligibility. Other providers
+keep the existing Disabled / Trusted customers / All customers selector. Require a card guarantee appears only for supported
 restaurants (initially configured Stancer in EUR), or to explicitly turn off a
 previously enabled rule that became unsupported. Online-only remains prioritary.
 The option defaults off and requires settings.edit. Order payment details show
