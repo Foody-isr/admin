@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "76d1d1597b8049077bd12b6932b1c1d418adfbc2",
-  "documentationRevision": "37a09408ec8a180df6fa79d21cbacf6c07ca8d115e8ff5838789251e846f2c99",
+  "documentationRef": "1f97f2f0e1e9e3fd3773f8ee98e6b35fe4f70ca6",
+  "documentationRevision": "c4a1fa02f04bc29db914caeaa58335e80b7461dd3ed83b21ffaddcededcdaa02",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -487,15 +487,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/customize-your-site.mdx",
-          "sha256": "da1f829ec2c7ed0fa43e81f0428b0cc38c2252339739893df224e62a6d52b48e"
+          "sha256": "69c10c8cbfe857f17925dede61c2cab35733b078b8fcea63a789e39eb2bf9e2a"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/customize-your-site.mdx",
-          "sha256": "c238299de78263338633186e4a4598c13a8ddc1e5d3f702c12311f4772f2db79"
+          "sha256": "9f64b4f06faf2416f978b0261189a9f7769b424bf06f3a6e6124fd41648db89f"
         },
         "he": {
           "path": "src/content/help/he/website-qr/customize-your-site.mdx",
-          "sha256": "45d331b44da4ec969c6986e3a2e2788d672ab66dcd7a997159d95df780e49851"
+          "sha256": "21fc32f9cddfae94a465f0a448c1de6b54a14cfc665656e02730703466cd5904"
         }
       }
     },
@@ -677,15 +677,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/production-planning.mdx",
-          "sha256": "431ac6095eda15a88717582208edb5553b45db6351c7e3900a6ef602daf8d9d0"
+          "sha256": "87b9d0f14c56bb501ee6abaa6a9f4837aad3fe22d2e256efa89137c39ef4e921"
         },
         "fr": {
           "path": "src/content/help/fr/orders/production-planning.mdx",
-          "sha256": "73e097bf747ac23da6c3fd42162699b3531a028d6256275e4f946bca68db0ca1"
+          "sha256": "c06528f00c507a5cd702d3db97e89baa88a862f1c9c6a2be161e1ccd0011a3c5"
         },
         "he": {
           "path": "src/content/help/he/orders/production-planning.mdx",
-          "sha256": "01a5ce994fd64086f0a5248943e52c90f7f50a2cc553496c7190e5ffa287ddb9"
+          "sha256": "294e38afbb96d7bfa87ff1a524527fa1c5fae41d168687bc62d2839103dbb517"
         }
       }
     },
@@ -943,15 +943,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/design-and-branding.mdx",
-          "sha256": "00a5447a24723edec148f100b60b1359f3cc31a3a1e2fdbf94d7fb3f8422ab69"
+          "sha256": "734d17988294d7a094bb8cc7ae7f5a19788d4055c3575076577f438ccf6c07fd"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/design-and-branding.mdx",
-          "sha256": "a65159d9f62e704d0c6c21b9c0eec487d69c6efd34cf30818e0c02881cb9da7e"
+          "sha256": "3494ef73e04da9e4630823a6be6c5074937d1053cc33dd97a24918e5a8ee3e84"
         },
         "he": {
           "path": "src/content/help/he/website-qr/design-and-branding.mdx",
-          "sha256": "f4272ac0f304174218611863ad7d068db4a7f2c1329e0422c7f0a9508419a365"
+          "sha256": "2f7764fbb9561e3454ae52848763db7c656f7d3cc999c039c9c5f6925e6aaad1"
         }
       }
     },
@@ -981,15 +981,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/sections-and-media.mdx",
-          "sha256": "1f3b33849c08249bed14522ed0f7fe12706065fe07d1c34a43a635b61c30ec58"
+          "sha256": "a6e5067ca9f0f198ab2a5e5db0859f6780f516e5b0a36cd24e1f0e6a50b6480d"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/sections-and-media.mdx",
-          "sha256": "52d5be575e537dd09530b00958d921a97c279180886f96ec583714019a9bf428"
+          "sha256": "bf1d28c05cfcd7946fca2df037e0839e6f65015d79fa17b70514235ba44aa567"
         },
         "he": {
           "path": "src/content/help/he/website-qr/sections-and-media.mdx",
-          "sha256": "fc1389db3813eca4bc3d0261986445b75c9b8ccc4cb801b2a9c685e816e904b8"
+          "sha256": "66a4b84b6250052967b2fd39c04065411d7094857f3f4805bb83047068df778e"
         }
       }
     },
@@ -5864,6 +5864,20 @@
         "website-pages"
       ]
     },
+    "src/components/website-v3/CampaignRuntimeContext.tsx": {
+      "sha256": "aebe8b88a328627cca7d7c32c4e94644b50cdfac56c46b4c050cc803b1386f5d",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-sections"
+      ]
+    },
+    "src/components/website-v3/CampaignSlidesEditor.tsx": {
+      "sha256": "fb49aac367fe76beb267925c1e8f7a459f77a3b79cb58b61eaae98b3b8b70e99",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-sections"
+      ]
+    },
     "src/components/website-v3/CategoryNavigationEditor.tsx": {
       "sha256": "e84d4012bb96ba62ad86adfdcb0b68af1d7d342b8a0903836842b0700ac9ca16",
       "features": [
@@ -5908,9 +5922,10 @@
       ]
     },
     "src/components/website-v3/EditorSidebar.tsx": {
-      "sha256": "c88b51dc92c972eb51f17442ae4323ab4e4924a8e35f431a388b78b98e93bffd",
+      "sha256": "48816ce3c9684419408aa26c6453ef1ed56b2a97525c1603eed6965cae8c2b48",
       "features": [
-        "website-qr-customize-your-site"
+        "website-qr-customize-your-site",
+        "website-sections"
       ]
     },
     "src/components/website-v3/EditorialAppearanceFields.tsx": {
@@ -5927,9 +5942,11 @@
       ]
     },
     "src/components/website-v3/ElementInspector.tsx": {
-      "sha256": "6f6b5d5a628a8451d3078d44c9763165ac91a80f90e41e7ea4971ad3b68aff00",
+      "sha256": "e91e5ad24ba3c5436c28ddd7edf1e420c6a6d3b151d1d6b35a847b6c5fcd7761",
       "features": [
-        "website-qr-customize-your-site"
+        "website-qr-customize-your-site",
+        "website-design",
+        "website-sections"
       ]
     },
     "src/components/website-v3/FeatureCardsAppearanceEditor.tsx": {
@@ -5940,7 +5957,7 @@
       ]
     },
     "src/components/website-v3/FeaturedItemsEditor.tsx": {
-      "sha256": "f3ce571d591aa44fd6890718259a15024c1a4341898c49d5df4df013a7703654",
+      "sha256": "92f6eb728324c70fccc47c4e567ffcc5774419cd400c37d6eb156b725972f9c1",
       "features": [
         "website-qr-customize-your-site",
         "website-sections"
@@ -6112,14 +6129,14 @@
       ]
     },
     "src/components/website-v3/SectionContentEditors.tsx": {
-      "sha256": "935df212ecfc74695ea9ac4fd97f6c475339b975d0b4e2e181b67b93cd4ff5d7",
+      "sha256": "a4fd54e351b3fc3d473036b16fc82443f273afb2434319d79a9106833ffb40bb",
       "features": [
         "website-qr-customize-your-site",
         "website-sections"
       ]
     },
     "src/components/website-v3/SectionInspector.tsx": {
-      "sha256": "209a1bb746cd736603cec8a4dba83b6cc61c8ea39b0a00337b7ab4162e30c4df",
+      "sha256": "8e19b077656a0ec228c820d3b1cec7000d54b9a37fd9c803daf80e52c0d30fb8",
       "features": [
         "website-qr-customize-your-site",
         "website-sections"
@@ -6134,7 +6151,7 @@
       ]
     },
     "src/components/website-v3/SiteDesign.tsx": {
-      "sha256": "b195c06ec65605427ffe7ff6aa50cae4b495f252bd5235dffcab7164d355ced2",
+      "sha256": "88f451212f941a0de426fedfae71c4d5d7709a315903c820375cd35eb27ed850",
       "features": [
         "website-qr-customize-your-site",
         "website-design"
@@ -6189,16 +6206,17 @@
       ]
     },
     "src/components/website-v3/VideoUploadField.tsx": {
-      "sha256": "142d541ed8d5d937dd6680c6acca35cc181e7a8fa787fd175d633130fa48d0df",
+      "sha256": "3ca8bbb3c7b61a845549c80f5d71ab6c299dfdd943ddd98a012f0d5450e7ffd1",
       "features": [
         "website-qr-customize-your-site",
         "website-sections"
       ]
     },
     "src/components/website-v3/WebsiteV3Builder.tsx": {
-      "sha256": "503a09c98cce8e57ac917bc78ad6a604dabcd28cb16688ac88764b18ccbc0d8d",
+      "sha256": "48d59371d52cb31bf97fa04a2788d88987dc7d638c41c817e86115375786293e",
       "features": [
         "website-qr-customize-your-site",
+        "website-sections",
         "website-pages"
       ]
     },
@@ -6451,7 +6469,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "89aab34cff8735085446a04efca33c803db953bf8dcae08bca29767fb41db890",
+      "sha256": "17bde8c2f586e62fae4d33c452f853cdcfa3c29a3d4d757e2d97159d2d6f70d1",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -6459,6 +6477,7 @@
         "delivery-zones",
         "delivery-dispatch",
         "google-account-setup",
+        "website-sections",
         "website-order-design",
         "pos-behavior",
         "whatsapp",
@@ -7153,6 +7172,14 @@
         "shared-runtime"
       ]
     },
+    "src/lib/website-v3/campaign.ts": {
+      "sha256": "a3637c77a7a6e07907f942e3b1105eb863e4594bcaacc3013a1201b984bea889",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-sections",
+        "shared-runtime"
+      ]
+    },
     "src/lib/website-v3/catering-catalog.ts": {
       "sha256": "e8d6870f67d64888e1d55d6c5dc24fca41d5477b79d81f7559cd7562174df52c",
       "features": [
@@ -7175,9 +7202,10 @@
       ]
     },
     "src/lib/website-v3/editor-elements.ts": {
-      "sha256": "ceb1e4d49917b2ae990ec4992dd4286544c11231fab3de50d24ecc18a7d2452e",
+      "sha256": "c653ace1d93f8b813a1674f5427d2beed121b082b8066c71d37561149c81a4d3",
       "features": [
         "website-qr-customize-your-site",
+        "website-sections",
         "shared-runtime"
       ]
     },
@@ -7310,9 +7338,10 @@
       ]
     },
     "src/lib/website-v3/restaurant-theme-blueprints.ts": {
-      "sha256": "0f8d75d3cb4d2da26c1dd5a89fd4a288357ed3bed8be2869b1aae1c3982807d2",
+      "sha256": "9711bf770027abb00c243690bdf2d82dca5ab1838692e1adf2f782d5d9df2481",
       "features": [
         "website-qr-customize-your-site",
+        "website-design",
         "shared-runtime"
       ]
     },
@@ -7324,16 +7353,18 @@
       ]
     },
     "src/lib/website-v3/restaurant-themes.ts": {
-      "sha256": "e7354248615585d0fe76f8cdf5fe06e9f3848e43b688c9e579859e07dded7a74",
+      "sha256": "1aa98b5cf9afd3d6cff0aa7e00c424f0c9f22c8bcb2a0e67fd98deccb06cb7b3",
       "features": [
         "website-qr-customize-your-site",
+        "website-design",
         "shared-runtime"
       ]
     },
     "src/lib/website-v3/runtime-capabilities.ts": {
-      "sha256": "265adc673d39de6d15f50dbf544e766925b60094cb2fd90728cc54ffbbdae442",
+      "sha256": "3d135149d8d40ad85b0e6fc0d0a214d488da686c94b72ab19e8a654d321b60fb",
       "features": [
         "website-qr-customize-your-site",
+        "website-sections",
         "shared-runtime"
       ]
     },
@@ -7367,16 +7398,18 @@
       ]
     },
     "src/lib/website-v3/square-components.ts": {
-      "sha256": "6b6b5af2e9c08599389c8c60e4fc8c06b1dbecb66862c6d7d8e908c0e6b7c1d5",
+      "sha256": "7b41f4006ead29678ba48aab9a41ac438a5d34069ccd14dea745e52704a56290",
       "features": [
         "website-qr-customize-your-site",
+        "website-sections",
         "shared-runtime"
       ]
     },
     "src/lib/website-v3/state.ts": {
-      "sha256": "6dd05db4ae7cfc05f25123b26aa264a0f40da2e146371fec86f238f06f937470",
+      "sha256": "49cccfa5901f1d8f76c94d3ccbf022c81c22c3403341cc27d376593ba3b02f08",
       "features": [
         "website-qr-customize-your-site",
+        "website-sections",
         "shared-runtime"
       ]
     },
@@ -20983,6 +21016,39 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/website-v3/CampaignSlidesEditor.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/website-v3/CampaignSlidesEditor.tsx",
+      "line": 1,
+      "features": [
+        "website-qr-customize-your-site",
+        "website-sections"
+      ],
+      "labels": [
+        "campaignAddSlide",
+        "campaignAutoplay",
+        "campaignContain",
+        "campaignCover",
+        "campaignDeleteSlide",
+        "campaignDuration",
+        "campaignImageFit",
+        "campaignRuntimeUnavailable",
+        "campaignSlide",
+        "campaignSlideBackground",
+        "campaignSlides",
+        "campaignSlidesHelp",
+        "campaignVideoFraming",
+        "editorBackgroundMedia",
+        "editorMoveDown",
+        "editorMoveUp",
+        "editorTextStyle"
+      ],
+      "actions": [
+        "save",
+        "update"
+      ]
+    },
+    {
       "id": "foodyadmin:src/components/website-v3/CategoryNavigationEditor.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/website-v3/CategoryNavigationEditor.tsx",
@@ -21154,7 +21220,8 @@
       "source": "src/components/website-v3/EditorSidebar.tsx",
       "line": 1,
       "features": [
-        "website-qr-customize-your-site"
+        "website-qr-customize-your-site",
+        "website-sections"
       ],
       "labels": [
         "chain_selector_surface",
@@ -21233,7 +21300,9 @@
       "source": "src/components/website-v3/ElementInspector.tsx",
       "line": 1,
       "features": [
-        "website-qr-customize-your-site"
+        "website-qr-customize-your-site",
+        "website-design",
+        "website-sections"
       ],
       "labels": [
         "editorAllCaps",
@@ -21260,11 +21329,17 @@
         "website-sections"
       ],
       "labels": [
+        "campaignCardPresentation",
+        "campaignMobileColumns",
+        "campaignRuntimeUnavailable",
+        "campaignStandard",
         "editorColor_custom",
         "editorContent",
         "editorCustomize",
         "editorLayout",
         "editorLayoutColor",
+        "editorLayout_campaign",
+        "editorTextStyle",
         "featuredAllItems",
         "featuredAutomaticSelection",
         "featuredAvailable",
@@ -21720,6 +21795,7 @@
         "website-sections"
       ],
       "labels": [
+        "campaignRuntimeUnavailable",
         "editorAlignment",
         "editorBackgroundMedia",
         "editorLayout",
@@ -21788,6 +21864,7 @@
         "website-design"
       ],
       "labels": [
+        "campaignRuntimeUnavailable",
         "editorApplyStyle",
         "editorBack",
         "editorBody",
@@ -22005,6 +22082,7 @@
       "line": 1,
       "features": [
         "website-qr-customize-your-site",
+        "website-sections",
         "website-pages"
       ],
       "labels": [
@@ -25007,6 +25085,7 @@
       "line": 1,
       "features": [
         "website-qr-customize-your-site",
+        "website-sections",
         "shared-runtime"
       ],
       "labels": [],
@@ -25049,6 +25128,7 @@
       "line": 1,
       "features": [
         "website-qr-customize-your-site",
+        "website-sections",
         "shared-runtime"
       ],
       "labels": [],
