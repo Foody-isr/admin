@@ -22,7 +22,8 @@ input:is([type='checkbox'], [type='radio']):not([role='switch']),
   vertical-align: middle;
 }
 input[type='radio']:not([role='switch']), .selection-radio, [data-slot='radio-group-item'] { border-radius: 50%; }
-input:is([type='checkbox'], [type='radio']):not([role='switch']):is(:checked, :indeterminate),
+input:is([type='checkbox'], [type='radio']):not([role='switch']):checked,
+input[type='checkbox']:not([role='switch']):indeterminate,
 .selection-indicator[data-checked='true'],
 [data-slot='checkbox']:is([data-state='checked'], [data-state='indeterminate']),
 [data-slot='radio-group-item'][data-state='checked'] {

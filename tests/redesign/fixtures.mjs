@@ -226,6 +226,7 @@ export function createFixture({ empty = false, denied = false, fail = false, per
     if(/^\/api\/v1\/menu\/groups\/\d+\/hours$/.test(p))return {json:{hours:groupHours[Number(p.split('/')[5])]??[]}};
     if(p==='/api/v1/public/restaurants/1/batch-fulfillment-config')return {json:batchConfig};
     if(p===`/api/v1/restaurants/${restaurantId}/search`) return {json:{query:q.get('q'),groups:q.get('q')?.toLowerCase().includes('sal') ? [{type:'item',label:'Articles',items:[{id:'item-1',title:items[0]?.name??'Salade',subtitle:'Cuisine',url:`/${restaurantId}/menu/items/1`}]}] : []}};
+    if(p==='/api/v1/public/internal-checkout-capabilities')return {json:{enabled:false}};
     if(p==='/api/v1/restaurants/1/staff-batch-fulfillment-config')return {json:{enabled:false,ordering_open:true,fulfillment_days:[],next_fulfillment_days:[],upcoming_cycles:[],require_prepayment:false}};
     if(p==='/api/v1/users/me') return {json:{permissions:permissions??(denied?['orders.view']:['*']),role_name:permissions||denied?'Observer':'Owner',user:{id:1,full_name:'Équipe démo',role:'owner'}}};
     if(/^\/api\/v1\/restaurants\/[12]$/.test(p)) return {json:{restaurant:{...restaurant,id:Number(p.split('/').pop()),name:p.endsWith('/2')?'Jardin Foody':restaurant.name}}};
