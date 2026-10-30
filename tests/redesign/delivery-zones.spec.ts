@@ -2,17 +2,17 @@ import { test, expect, type Page } from '@playwright/test';
 import { createFixture } from './fixtures.mjs';
 import type { DeliveryZone } from '../../src/lib/api';
 const seed=():DeliveryZone[]=>[
- {id:1,restaurant_id:1,name:'Centre — livraison de proximité',type:'radius',is_active:true,center_lat:32.01,center_lng:34.75,radius_m:5000,delivery_fee:0,min_order:null,created_at:'2026-10-01T00:00:00Z'},
- {id:2,restaurant_id:1,name:'Villes et codes postaux',type:'cities',is_active:false,cities:['Tel Aviv','01234'],delivery_fee:12.5,min_order:0,created_at:'2026-10-02T00:00:00Z'},
- {id:3,restaurant_id:1,name:'Secteur historique',type:'polygon',is_active:false,polygon:[[34.74,32],[34.8,32],[34.8,32.06]],delivery_fee:null,min_order:40,created_at:'2026-10-03T00:00:00Z'},
- {id:4,restaurant_id:1,name:'Zone réservée à la tournée',type:'cities',is_active:true,cities:['Ville tournée'],tour_only:true,created_at:'2026-10-04T00:00:00Z'},
+ {id:1,restaurant_id:1,name:'Centre — livraison de proximité',type:'radius',is_active:true,center_lat:32.01,center_lng:34.75,radius_m:5000,delivery_fee:0,min_order:null,updated_at:'2026-10-01T00:00:00Z',created_at:'2026-10-01T00:00:00Z'},
+ {id:2,restaurant_id:1,name:'Villes et codes postaux',type:'cities',is_active:false,cities:['Tel Aviv','01234'],delivery_fee:12.5,min_order:0,updated_at:'2026-10-01T00:00:00Z',created_at:'2026-10-02T00:00:00Z'},
+ {id:3,restaurant_id:1,name:'Secteur historique',type:'polygon',is_active:false,polygon:[[34.74,32],[34.8,32],[34.8,32.06]],delivery_fee:null,min_order:40,updated_at:'2026-10-01T00:00:00Z',created_at:'2026-10-03T00:00:00Z'},
+ {id:4,restaurant_id:1,name:'Zone réservée à la tournée',type:'cities',is_active:true,cities:['Ville tournée'],tour_only:true,updated_at:'2026-10-01T00:00:00Z',created_at:'2026-10-04T00:00:00Z'},
 ];
 const runtimeErrors=new WeakMap<Page,string[]>();
 test.afterEach(async({page})=>{expect(runtimeErrors.get(page)??[]).toEqual([]);});
-async function install(page:Page,opts:{locale?:string;permissions?:string[];country?:string}={}){
+async function install(page:Page,opts:{locale?:string;permissions?:string[];country?:string;zoneRules?:boolean;legacy?:boolean}={}){
  const errors:string[]=[];runtimeErrors.set(page,errors);page.on('pageerror',error=>errors.push(error.message));
  const fixture=createFixture(),writes:{method:string;path:string;body:any;rid:string|undefined;query:string}[]=[];
- const control={zones:seed(),minimum:50,zoneReads:0,settingsReads:0,geoReads:0,failRead:false,failMinimumRead:false,malformed:false,failWrite:false,applyAndFail:false,failAfterWrite:false,conflict:false,geoUnavailable:false,geoFound:true,tileFailure:false,gate:null as Promise<void>|null};
+ const control={zones:seed(),policy:{enabled:false,allowed_days:[1,2,3,4,5],restricted_days:[5],coverage_zone_ids:[1],transit_minutes:60,time_mode:'restaurant'},policyConflict:false,minimum:50,zoneReads:0,settingsReads:0,geoReads:0,failRead:false,failMinimumRead:false,malformed:false,failWrite:false,applyAndFail:false,failAfterWrite:false,conflict:false,geoUnavailable:false,geoFound:true,tileFailure:false,gate:null as Promise<void>|null};
  await page.addInitScript(({locale})=>{localStorage.setItem('foody_restaurant_token','isolated-ui-fixture');localStorage.setItem('foody_restaurant_user',JSON.stringify({id:1,full_name:'Équipe démo',role:'manager',email:'demo@foody.test'}));localStorage.setItem('foody_restaurant_ids','[1,2]');localStorage.setItem('foody-admin-locale',locale);localStorage.setItem('foody_admin_theme',locale==='he'?'dark':'light');},{locale:opts.locale??'fr'});
  await page.route('**/api/v1/**',async route=>{
   const req=route.request(),url=new URL(req.url()),path=url.pathname,method=req.method(),body=req.postDataJSON()??{},rid=req.headers()['x-restaurant-id'];
@@ -20,16 +20,16 @@ async function install(page:Page,opts:{locale?:string;permissions?:string[];coun
   if(path==='/api/v1/users/me')return route.fulfill({json:{role_name:'Custom',permissions:opts.permissions??['orders.manage','settings.view','settings.edit'],user:{id:1,full_name:'Équipe démo',role:'manager'}}});
   if(path==='/api/v1/public/geocode'){expect(url.searchParams.get('restaurant_id')).toMatch(/^[12]$/);control.geoReads++;return route.fulfill({status:control.geoUnavailable?503:200,json:control.geoUnavailable?{error:'Synthetic geocode outage'}:control.geoFound?{found:true,lat:32.08,lng:34.82}:{found:false}});}
   if(path.startsWith('/api/v1/delivery/zones')){
-   if(method==='GET'){control.zoneReads++;return route.fulfill({status:control.failRead?503:200,json:control.failRead?{error:'Synthetic read failure'}:control.malformed?{}:{zones:control.zones.map(row=>({...row,restaurant_id:Number(rid)}))}});}
+   if(method==='GET'){control.zoneReads++;return route.fulfill({status:control.failRead?503:200,json:control.failRead?{error:'Synthetic read failure'}:control.malformed?{}:{zones:control.zones.map(row=>({...row,restaurant_id:Number(rid)})),zone_same_day_supported:opts.zoneRules??false,legacy_same_day_active:opts.legacy??false}});}
    writes.push({method,path,body,rid,query:url.search});if(control.gate)await control.gate;const id=Number(path.split('/')[5]);let result=control.zones.find(row=>row.id===id);
    if(control.conflict)return route.fulfill({status:409,json:{error:'zone used by tour'}});
-   if(!control.failWrite||control.applyAndFail){if(method==='DELETE')control.zones=control.zones.filter(row=>row.id!==id);else if(method==='POST'){result={...body,id:Math.max(0,...control.zones.map(row=>row.id))+1,restaurant_id:Number(rid),created_at:'2026-10-04T12:00:00Z'};control.zones.push(result!);}else if(result)Object.assign(result,body);}
+   if(!control.failWrite||control.applyAndFail){if(method==='DELETE')control.zones=control.zones.filter(row=>row.id!==id);else if(method==='POST'){result={...body,id:Math.max(0,...control.zones.map(row=>row.id))+1,restaurant_id:Number(rid),updated_at:'2026-10-01T00:00:00Z',created_at:'2026-10-04T12:00:00Z'};control.zones.push(result!);}else if(result)Object.assign(result,body);}
    if(control.failAfterWrite)control.failRead=true;
    return control.failWrite?route.fulfill({status:503,json:{error:'Synthetic uncertain write'}}):method==='DELETE'?route.fulfill({status:204,body:''}):route.fulfill({json:{...result,restaurant_id:Number(rid)}});
   }
   if(/\/restaurants\/[12]\/settings$/.test(path)){
-   if(method==='GET'){control.settingsReads++;return route.fulfill({status:control.failMinimumRead?503:200,json:control.failMinimumRead?{error:'Synthetic minimum read failure'}:{settings:{restaurant_id:Number(rid),id:1,minimum_order_delivery:control.minimum}}});}
-   writes.push({method,path,body,rid,query:url.search});if(control.gate)await control.gate;if(!control.failWrite||control.applyAndFail)control.minimum=body.minimum_order_delivery;if(control.failAfterWrite)control.failMinimumRead=true;return route.fulfill({status:control.failWrite?503:200,json:control.failWrite?{error:'Synthetic uncertain minimum save'}:{settings:{id:1,restaurant_id:Number(rid),minimum_order_delivery:control.minimum}}});
+   if(method==='GET'){control.settingsReads++;return route.fulfill({status:control.failMinimumRead?503:200,json:control.failMinimumRead?{error:'Synthetic minimum read failure'}:{settings:{restaurant_id:Number(rid),id:1,ordering_settings_merge_supported:true,delivery_same_day_policy:control.policy,minimum_order_delivery:control.minimum}}});}
+   writes.push({method,path,body,rid,query:url.search});if(body.delivery_same_day_policy){if(control.policyConflict)return route.fulfill({status:409,json:{error:'ordering_settings_conflict'}});control.policy=body.delivery_same_day_policy;return route.fulfill({json:{settings:{id:1,restaurant_id:Number(rid),ordering_settings_merge_supported:true,delivery_same_day_policy:control.policy,minimum_order_delivery:control.minimum}}});}if(control.gate)await control.gate;if(!control.failWrite||control.applyAndFail)control.minimum=body.minimum_order_delivery;if(control.failAfterWrite)control.failMinimumRead=true;return route.fulfill({status:control.failWrite?503:200,json:control.failWrite?{error:'Synthetic uncertain minimum save'}:{settings:{id:1,restaurant_id:Number(rid),ordering_settings_merge_supported:true,delivery_same_day_policy:control.policy,minimum_order_delivery:control.minimum}}});
   }
   const result=fixture.response(req.url(),method,body,Number(rid)||1);if(/^\/api\/v1\/restaurants\/[12]$/.test(path)&&result.json&&'restaurant'in result.json&&result.json.restaurant)Object.assign(result.json.restaurant,{address:'Adresse de démonstration',currency:'ILS',country_code:opts.country??'IL'});return route.fulfill({status:result.status??200,json:result.json??{}});
  });
@@ -71,14 +71,16 @@ for (const mode of ['customer','automatic','restaurant'] as const) test(`deliver
  const form=dialog(page);await form.getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Val-de-Marne et Seine-Saint-Denis');
  await form.getByRole('combobox',{name:'Type de zone',exact:true}).selectOption('departments');
  await form.getByRole('textbox',{name:'Codes des départements',exact:true}).fill('94, 93');
- await form.getByRole('combobox',{name:'Choix du créneau de livraison',exact:true}).selectOption(mode);
- await form.getByRole('checkbox',{name:'lundi',exact:true}).check();await form.getByRole('checkbox',{name:'vendredi',exact:true}).check();
+ await form.getByRole('combobox',{name:'Choix de l’horaire pour les commandes à l’avance',exact:true}).selectOption(mode);
+ for(const day of ['mardi','mercredi','jeudi','samedi','dimanche'])await form.getByRole('checkbox',{name:new RegExp(`^${day}$`,'i')}).uncheck();
+ await expect(form.locator('input[type=time]')).toHaveCount(0);
+ await form.getByRole('checkbox',{name:/^lundi$/i}).check();await form.getByRole('checkbox',{name:/^vendredi$/i}).check();
  await form.getByRole('checkbox',{name:'Proposer le retrait en alternative lorsqu’il est activé',exact:true}).check();
  await page.screenshot({path:info.outputPath(`delivery-route-${mode}.png`)});
  await save(page).click();await expect(dialog(page)).toHaveCount(0);
  expect(state.writes).toHaveLength(1);expect(state.writes[0].rid).toBe('1');
- expect(state.writes[0].body).toMatchObject({type:'departments',departments:['94','93'],schedule:{mode,windows:[{days:[1,5],start:'14:00',end:'18:00'}],offer_pickup:true}});
- await page.getByRole('button',{name:'Val-de-Marne et Seine-Saint-Denis',exact:true}).click();await expect(dialog(page).getByRole('combobox',{name:'Choix du créneau de livraison',exact:true})).toHaveValue(mode);
+ expect(state.writes[0].body).toMatchObject({type:'departments',departments:['94','93'],schedule:{mode,days:[1,5],offer_pickup:true}});
+ await page.getByRole('button',{name:'Val-de-Marne et Seine-Saint-Denis',exact:true}).click();await expect(dialog(page).getByRole('combobox',{name:'Choix de l’horaire pour les commandes à l’avance',exact:true})).toHaveValue(mode);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
@@ -124,11 +126,90 @@ test('delivery postal day groups accept multiline lists and reuse a code with in
   await form.getByRole('combobox',{name:'Type de zone',exact:true}).selectOption('postal_codes');
   const codes=form.getByRole('textbox',{name:'Codes postaux',exact:true});await expect(codes).toHaveJSProperty('tagName','TEXTAREA');await codes.fill(group.codes);await expect(codes).toHaveValue(group.codes);
   await form.getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill(group.fee);
-  await form.getByRole('combobox',{name:'Choix du créneau de livraison',exact:true}).selectOption('customer');
-  for(const day of group.days)await form.getByRole('checkbox',{name:day,exact:true}).check();
+  await form.getByRole('combobox',{name:'Choix de l’horaire pour les commandes à l’avance',exact:true}).selectOption('customer');
+  for(const day of ['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'])await form.getByRole('checkbox',{name:new RegExp(`^${day}$`,'i')}).uncheck();
+  for(const day of group.days)await form.getByRole('checkbox',{name:new RegExp(`^${day}$`,'i')}).check();
   await save(page).click();await expect(dialog(page)).toHaveCount(0);
-  expect(state.writes.at(-1)?.body).toMatchObject({postal_codes:group.expected,delivery_fee:Number(group.fee),schedule:{mode:'customer',windows:[{days:group.weekdays,start:'14:00',end:'18:00'}]}});
+  expect(state.writes.at(-1)?.body).toMatchObject({postal_codes:group.expected,delivery_fee:Number(group.fee),schedule:{mode:'customer',days:group.weekdays}});
  }
  expect(state.writes).toHaveLength(3);
  await page.getByRole('button',{name:'Secteur semaine',exact:true}).click();await expect(dialog(page).getByRole('textbox',{name:'Codes postaux',exact:true})).toHaveValue('75016, 75015, 01000');
+});
+
+
+test('same-day policy saves only its block with a baseline and retains conflicts',async({page},info)=>{
+ const state=await install(page,{legacy:true});await page.setViewportSize({width:375,height:1000});await open(page);
+ const section=page.getByRole('region',{name:'Livraison le jour même',exact:true});
+ await section.getByRole('checkbox',{name:'Activer les règles du jour même',exact:true}).check();
+ await expect(section.getByText(/Calendrier hérité/).first()).toBeVisible();
+ state.control.policyConflict=true;
+ await section.getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(section.getByRole('alert')).toContainText('Votre saisie est conservée');
+ await expect(section.getByRole('checkbox',{name:'Activer les règles du jour même',exact:true})).toBeChecked();
+ expect(state.writes[0].body).toMatchObject({delivery_same_day_policy:{enabled:true,transit_minutes:60,coverage_zone_ids:[1]},delivery_same_day_policy_base:{enabled:false}});
+ expect(Object.keys(state.writes[0].body).sort()).toEqual(['delivery_same_day_policy','delivery_same_day_policy_base']);
+ state.control.policyConflict=false;
+ await section.getByRole('button',{name:'Enregistrer',exact:true}).click();await expect(section.getByRole('status')).toContainText('Enregistré');
+ expect(await section.evaluate(node=>node.scrollWidth<=node.clientWidth)).toBe(true);
+ await page.screenshot({path:info.outputPath('same-day-policy-fr-mobile.png'),animations:'disabled'});
+});
+
+
+test('disabled same-day policy can remove inactive and deleted references without enabling delivery',async({page})=>{
+ const state=await install(page,{legacy:true});state.control.policy.coverage_zone_ids=[2,999];await open(page);
+ const section=page.getByRole('region',{name:'Livraison le jour même',exact:true});
+ await expect(section.getByRole('checkbox',{name:'Activer les règles du jour même',exact:true})).not.toBeChecked();
+ const inactive=section.getByRole('checkbox',{name:/Villes et codes postaux/});const deleted=section.getByRole('checkbox',{name:/#999/});
+ await expect(inactive).toBeEnabled();await expect(deleted).toBeEnabled();await inactive.click();await expect(inactive).toHaveCount(0);await deleted.click();await expect(deleted).toHaveCount(0);
+ await section.getByRole('button',{name:'Enregistrer',exact:true}).click();await expect(section.getByRole('status')).toContainText('Enregistré');
+ expect(state.writes[0].body.delivery_same_day_policy).toMatchObject({enabled:false,coverage_zone_ids:[]});
+ expect(Object.keys(state.writes[0].body).sort()).toEqual(['delivery_same_day_policy','delivery_same_day_policy_base']);
+});
+
+
+test('same-day day labels toggle only their own checkbox in an accessible group',async({page})=>{
+ await install(page,{legacy:true});await open(page);const section=page.getByRole('region',{name:'Livraison le jour même',exact:true});
+ await section.getByRole('checkbox',{name:'Activer les règles du jour même',exact:true}).check();
+ const days=section.getByRole('group',{name:'Jours autorisant la livraison le jour même',exact:true});
+ await days.getByText(/^mardi$/i).click();await expect(days.getByRole('checkbox',{name:/^mardi$/i})).not.toBeChecked();
+ await expect(days.getByRole('checkbox',{name:/^lundi$/i})).toBeChecked();
+});
+
+for(const locale of ['fr','he','en'])test(`zone same-day settings are grouped and keep restaurant days ${locale}`,async({page},info)=>{
+ const state=await install(page,{locale,zoneRules:true});await page.setViewportSize({width:375,height:1000});
+ state.control.zones[0].schedule={mode:'customer',days:[0,1,2,3,4,5],offer_pickup:false,same_day:{days:[1,2,3,4,5],transit_minutes:60,time_mode:'restaurant'}};
+ await open(page);await expect(page.getByRole('region',{name:'Livraison le jour même',exact:true})).toHaveCount(0);await edit(page);
+ const form=dialog(page),groups=form.locator('fieldset');
+ const sameDay=groups.filter({has:page.locator('legend').filter({hasText:locale==='fr'?'Livraison le jour même':locale==='en'?'Same-day delivery':'משלוח באותו יום'})}).last();
+ const checkboxes=sameDay.getByRole('checkbox');await expect(checkboxes).toHaveCount(7);
+ await expect(checkboxes.nth(4)).toBeChecked();await expect(checkboxes.nth(5)).toBeDisabled();await expect(checkboxes.nth(6)).not.toBeChecked();
+ const serviceDays=form.locator('fieldset').filter({has:page.locator('legend').filter({hasText:locale==='fr'?'Jours de livraison':locale==='en'?'Delivery days':'ימי משלוח'})}).last();
+ await serviceDays.getByRole('checkbox').nth(4).uncheck();await expect(checkboxes.nth(4)).toBeDisabled();await expect(checkboxes.nth(4)).not.toBeChecked();
+ expect(await form.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+ await sameDay.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath(`zone-same-day-${locale}.png`)});
+ await form.getByRole('button',{name:locale==='fr'?'Enregistrer':locale==='en'?'Save':'שמור',exact:true}).click();await expect(form).toHaveCount(0);
+ expect(state.writes[0].body.schedule).toMatchObject({days:[0,1,2,3,4],same_day:{days:[1,2,3,4],transit_minutes:60,time_mode:'restaurant'}});
+ expect(state.writes[0].body).toHaveProperty('expected_updated_at');
+ expect(state.writes.every(write=>write.path.startsWith('/api/v1/delivery/zones/'))).toBe(true);
+});
+
+
+test('new zones retain restaurant-calendar inheritance until explicitly configured',async({page})=>{
+ const state=await install(page,{zoneRules:true});await open(page);
+ await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();const form=dialog(page);
+ await form.getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Zone de démonstration');
+ await expect(form.getByRole('combobox',{name:'Choix de l’horaire pour les commandes à l’avance',exact:true})).toHaveValue('legacy');
+ await expect(form.getByRole('checkbox',{name:/Configurer le jour même pour cette zone/})).not.toBeChecked();
+ await save(page).click();await expect(form).toHaveCount(0);expect(state.writes[0].body.schedule).toBeNull();
+});
+
+test('conflicting postal same-day rules retain the zone draft after a server conflict',async({page})=>{
+ const state=await install(page,{country:'FR',zoneRules:true});
+ state.control.zones[0]={...state.control.zones[0],type:'postal_codes',postal_codes:['75016'],schedule:{mode:'customer',days:[1,2,3,4],offer_pickup:false}};
+ await page.route('**/api/v1/delivery/zones/1?*',route=>route.fulfill({status:409,json:{error:'delivery_same_day_postal_overlap'}}));
+ await open(page);await edit(page);const form=dialog(page);
+ await form.getByRole('checkbox',{name:/Configurer le jour même pour cette zone/}).click();await expect(form.getByRole('combobox',{name:'Choix de l’horaire pour le jour même',exact:true})).toBeVisible();await save(page).click();
+ await expect(form.getByRole('alert')).toContainText('pour conserver les dates de précommande');
+ await expect(form.getByRole('combobox',{name:'Choix de l’horaire pour les commandes à l’avance',exact:true})).toHaveValue('customer');
+ await expect(form).toBeVisible();expect(state.writes).toHaveLength(0);
 });

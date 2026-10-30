@@ -4,6 +4,13 @@ import http from "node:http";
 import { readFileSync } from "node:fs";
 import { createFixture } from "./fixtures.mjs";
 const base = createFixture();
+if (process.env.FOODY_ITEM_MODAL === "1") {
+  Object.assign(base.items[0], {
+    image_url: "http://localhost:3000/assets/placeholder-item-lg.svg",
+    portion: "6 parts",
+    description: "Produit de démonstration. Informations de composition et de conservation.",
+  });
+}
 const headerChoices = ["1", "batch", "scheduled-pickup"].includes(process.env.FOODY_HEADER_CHOICES);
 const restaurantHeader = process.env.FOODY_RESTAURANT_HEADER === "1" || headerChoices;
 const crispyMenu = process.env.FOODY_CRISPY_MENU === "1";
@@ -129,8 +136,9 @@ if (process.env.FOODY_THEME_REGRESSION === "1") {
   draft.config.nav_layout = { content: { desktop: "hidden" }, links: [{ id: "old", label: "Old theme", page_slug: "missing" }] };
 }
 const featuredRegression = process.env.FOODY_FEATURED_REGRESSION === "1";
-const featuredItems = Array.from({length: 6}, (_, index) => ({
-  id: index + 1, category_id: 1, name: ["Double Espresso", "Tall Cold Brew", "Cappuccino", "Drip Coffee", "Croissant", "Apple cake"][index],
+const campaignLayoutRegression = process.env.FOODY_CAMPAIGN_LAYOUT_REGRESSION === "1";
+const featuredItems = Array.from({length: campaignLayoutRegression ? 12 : 6}, (_, index) => ({
+  id: index + 1, category_id: 1, name: ["Double Espresso", "Tall Cold Brew", "Cappuccino", "Drip Coffee", "Croissant", "Apple cake"][index] || `Coffee ${index + 1}`,
   description: "Prepared fresh in our kitchen.", price: 5 + index, is_active: true,
   image_url: "", item_type: "regular", availability_state: index === 5 ? "sold_out" : "available",
   ...(index === 0 ? {option_sets: [{id: 1, name: "Size", is_active: true, options: [{id: 11, name: "Small", price: 5, is_active: true}, {id: 12, name: "Large", price: 9, is_active: true}]}]} : {}),
@@ -224,7 +232,7 @@ const restaurant = () => ({
     cover_url:"https://foody-menu-images.s3.eu-north-1.amazonaws.com/restaurants/5/background/6b7dbb85-ccf7-417c-a09a-ba21150b5474.JPG",
   } : {}),
   ...(headerChoices ? {name: "Atelier — aperçu local", pickup_enabled: true, delivery_enabled: process.env.FOODY_HEADER_CHOICES !== "scheduled-pickup", scheduling_enabled: true, batch_fulfillment_enabled: process.env.FOODY_HEADER_CHOICES === "batch"} : {}),
-  ...(featuredRegression ? { opening_hours_config: Object.fromEntries(
+  ...((featuredRegression || process.env.FOODY_ITEM_MODAL === "1") ? { opening_hours_config: Object.fromEntries(
     ["dine_in", "pickup", "delivery"].map((service) => [service, Object.fromEntries(
       ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map((day) => [day, {closed: false, open: "00:00", close: "00:00"}]),
     )]),
@@ -367,3 +375,16 @@ http
   .listen(18081, "127.0.0.1", () =>
     console.log("Website editor synthetic fixture: http://127.0.0.1:18081"),
   );
+
+// Opt-in alias for the separately built public renderer's local-only API origin.
+// Both ports share this process's synthetic draft/publication state.
+if (process.env.FOODY_BUILT_WEB_API_ALIAS === "1") {
+  http.createServer((req,res) => {
+    const upstream=http.request({hostname:"127.0.0.1",port:18081,path:req.url,method:req.method,headers:req.headers},response => {
+      res.writeHead(response.statusCode || 502,response.headers);
+      response.pipe(res);
+    });
+    upstream.on("error",() => {res.writeHead(502);res.end("Local fixture unavailable");});
+    req.pipe(upstream);
+  }).listen(43261,"127.0.0.1");
+}

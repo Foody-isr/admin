@@ -27,6 +27,7 @@ type FieldEditorContract = {
   surface?: InspectorSurface;
   commit: "change" | "blur";
   prerequisite?: { id: string; value: TestValue };
+  headerElement?: "navigation" | "icons";
 };
 
 export type FieldContract = {
@@ -228,6 +229,27 @@ function contract(
 
 const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "checkout.offer_sign_in": false,
+  "site.header.navigation.hamburger_style": "staggered",
+  "site.header.navigation.hamburger_size": 28,
+  "site.header.navigation.hamburger_stroke": 2.5,
+  "site.header.icons.cart": false,
+  "section.settings.controls_alignment": "right",
+  "section.settings.show_counter": false,
+  "section.settings.show_playback_control": false,
+  "section.settings.card_width_percent": 88,
+  "section.settings.card_width_percent_mobile": 86,
+  "section.settings.card_gap": 20,
+  "section.settings.content_max_width": 1200,
+  "section.settings.row_spacing": 56,
+  "section.settings.item_image_backgrounds": '{"1":"#ffb9cd"}',
+  "section.settings.headline_size": "display",
+  "section.settings.autoplay": true,
+  "section.settings.slide_duration_seconds": 15,
+  "section.settings.image_fit": "contain",
+  "section.settings.title_size": "display",
+  "section.settings.card_presentation": "campaign",
+  "section.settings.mobile_columns": 2,
+  "section.settings.alternate_image_bg_color": "#f6f6f6",
   "section.settings.text_bg_color": "#ffffff",
   "section.settings.image_bg_color": "#fff8ed",
   "section.settings.video_height": "m",
@@ -459,8 +481,31 @@ function editorFor(
   pageTypes: FieldContract["pageTypes"] = ALL_PAGES,
 ): FieldEditorContract {
   if (id === "checkout.offer_sign_in") return { kind: "field", scope: "page", pageTitle: "Brunch Order", sectionLabel: "Parcours de commande", publicSlug: "brunch-order", surface: "checkout", commit: "change" };
+  if ([
+    "section.settings.controls_alignment",
+    "section.settings.show_counter",
+    "section.settings.show_playback_control",
+    "section.settings.card_width_percent",
+    "section.settings.card_width_percent_mobile",
+    "section.settings.card_gap",
+    "section.settings.headline_size",
+    "section.settings.autoplay",
+    "section.settings.slide_duration_seconds",
+    "section.settings.image_fit",
+  ].includes(id)) return { kind: "field", scope: "section", sectionPanel: "content", pageTitle: "Home", sectionLabel: "Hero banner", publicSlug: "", commit: "change", prerequisite: { id: "section.layout", value: "campaign" } };
+  if ([
+    "section.settings.content_max_width",
+    "section.settings.row_spacing",
+    "section.settings.item_image_backgrounds",
+    "section.settings.title_size",
+    "section.settings.card_presentation",
+    "section.settings.mobile_columns",
+    "section.settings.alternate_image_bg_color",
+  ].includes(id)) return { kind: isAction ? "action" : "field", scope: "section", sectionPanel: "appearance", pageTitle: "Home", sectionLabel: "Menu highlights", publicSlug: "", commit: "change", prerequisite: ["section.settings.mobile_columns", "section.settings.alternate_image_bg_color", "section.settings.content_max_width", "section.settings.row_spacing", "section.settings.item_image_backgrounds"].includes(id) ? { id: "section.settings.card_presentation", value: "campaign" } : undefined };
   if (id === "section.settings.width") return { kind: "field", scope: "section", sectionPanel: "appearance", pageTitle: "About", sectionLabel: "Text", publicSlug: "about", commit: "change" };
   const action = isAction ? "action" : "field";
+  if (id.startsWith("site.header.")) return {kind: action,scope:"site",pageTitle:"Home",publicSlug:"",commit:"change",headerElement:id.startsWith("site.header.icons.") ? "icons" : "navigation"};
+  if (id.startsWith("section.featured.")) return {kind:"action",scope:"section",sectionPanel:"appearance",pageTitle:"Home",sectionLabel:"Menu highlights",publicSlug:"",commit:"change"};
   if (id.startsWith("section.settings.video_") || id === "section.settings.padding") return { kind: action, scope: "section", sectionPanel: "content", pageTitle: "About", sectionLabel: "Video", publicSlug: "about", commit: "change", prerequisite: id.endsWith("video_muted") ? { id: "section.settings.video_autoplay", value: false } : undefined };
   if (id.startsWith("section.settings.motion.")) return { kind: action, scope: "section", sectionPanel: "appearance", pageTitle: "About", sectionLabel: "Text and image", publicSlug: "about", commit: "change", prerequisite: id.endsWith(".enabled") ? undefined : { id: "section.settings.motion.enabled", value: true } };
   if (id.startsWith("section.settings.carousel_")) return { kind: action, scope: "section", sectionPanel: "appearance", pageTitle: "Home", sectionLabel: "Testimonials", publicSlug: "", commit: "change" };
@@ -644,6 +689,10 @@ function expectedFor(id: string, value: TestValue): string {
 }
 
 export const FIELD_CONTRACTS: readonly FieldContract[] = [
+  site("site.header.navigation.hamburger_style", ["nav_layout", "header", "navigation", "hamburger_style"], "header"),
+  site("site.header.navigation.hamburger_size", ["nav_layout", "header", "navigation", "hamburger_size"], "header"),
+  site("site.header.navigation.hamburger_stroke", ["nav_layout", "header", "navigation", "hamburger_stroke"], "header"),
+  site("site.header.icons.cart", ["nav_layout", "header", "icons", "cart"], "header"),
   contract({ id: "checkout.offer_sign_in", scope: "site", statePath: ["config", "checkout_config", "offer_sign_in"], pageTypes: ["order"] }),
   page("page.appearance_overrides.website_order.modal_cover_url", ["appearance_overrides", "website_order", "modal_cover_url"], ".website-fulfillment-cover", "attribute", ["order"]),
   site("site.tagline", ["tagline"], "[data-website-v3-page]", "text"),
@@ -926,6 +975,26 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.page_id", ["page_id"], "[data-website-section]", "value"),
   section("section.content.headline", ["content", "headline"], "[data-website-section] h1", "text"),
   section("section.content.subheadline", ["content", "subheadline"], "[data-website-section] p", "text"),
+  section("section.settings.headline_size", ["settings", "headline_size"], "hero_banner", "style"),
+  section("section.settings.controls_alignment", ["settings", "controls_alignment"], "hero_banner", "value"),
+  section("section.settings.show_counter", ["settings", "show_counter"], "hero_banner", "visible"),
+  section("section.settings.show_playback_control", ["settings", "show_playback_control"], "hero_banner", "visible"),
+  section("section.settings.card_width_percent", ["settings", "card_width_percent"], "hero_banner", "style"),
+  section("section.settings.card_width_percent_mobile", ["settings", "card_width_percent_mobile"], "hero_banner", "style"),
+  section("section.settings.card_gap", ["settings", "card_gap"], "hero_banner", "style"),
+  section("section.settings.autoplay", ["settings", "autoplay"], "hero_banner", "value"),
+  section("section.settings.slide_duration_seconds", ["settings", "slide_duration_seconds"], "hero_banner", "value"),
+  section("section.settings.image_fit", ["settings", "image_fit"], "hero_banner", "style"),
+  section("section.settings.title_size", ["settings", "title_size"], "menu_highlights", "style"),
+  section("section.settings.card_presentation", ["settings", "card_presentation"], "menu_highlights", "value"),
+  section("section.settings.mobile_columns", ["settings", "mobile_columns"], "menu_highlights", "value"),
+  section("section.settings.alternate_image_bg_color", ["settings", "alternate_image_bg_color"], "menu_highlights", "color"),
+  section("section.settings.content_max_width", ["settings", "content_max_width"], "menu_highlights", "style"),
+  section("section.settings.row_spacing", ["settings", "row_spacing"], "menu_highlights", "style"),
+  action("section.settings.item_image_backgrounds", "section", ["settings", "item_image_backgrounds"]),
+  action("section.featured.select_all", "section", ["content", "item_ids"]),
+  action("section.featured.clear_selection", "section", ["content", "item_ids"]),
+  action("section.featured.reset_item_background", "section", ["settings", "item_image_backgrounds"]),
   section("section.content.title", ["content", "title"], "[data-website-section] h2", "text"),
   orderSection("section.content.heading_eyebrow", ["content", "heading_eyebrow"], "order_discovery", "text"),
   orderSection("section.content.heading", ["content", "heading"], "order_discovery", "text"),

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { CalendarDays, Plus, Trash2 } from 'lucide-react';
-import { getRestaurant, getRestaurantSettings, previewBatchFulfillment, updateRestaurantSettings, type RestaurantSettings, type BatchFulfillmentDay, type BatchPreviewInput, type BatchCycleSummary } from '@/lib/api';
+import { ApiError, getRestaurant, getRestaurantSettings, previewBatchFulfillment, updateRestaurantSettings, type RestaurantSettings, type BatchFulfillmentDay, type BatchPreviewInput, type BatchCycleSummary } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Button, ConfirmDialog, Field, Input, Section, Select } from '@/components/ds';
@@ -13,6 +13,7 @@ import { ModeChoice, ServiceToggle } from './_components';
 import OrderingServices, { DineInSettings, orderingServicesFrom, invalidOrderingHours, type OrderingServicesDraft } from './OrderingServices';
 import OrdersOverview from './OrdersOverview';
 import PreparationPreview from './PreparationPreview';
+import OrderingSimulation from './OrderingSimulation';
 
 const DAYS = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'] as const;
 type Mode = 'off' | 'slots' | 'batch';
@@ -64,7 +65,7 @@ function PreorderWorkspace({ rid }: { rid: number }) {
   const [openingModeSupported, setOpeningModeSupported] = useState(false);
   const [savedOrdering, setSavedOrdering] = useState<RestaurantSettings | null>(null);
   const [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(false);
-  const [saving, setSaving] = useState(false), [saveError, setSaveError] = useState(false), [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false), [saveError, setSaveError] = useState(false), [saveConflict, setSaveConflict] = useState(false), [saved, setSaved] = useState(false);
   const [invalid, setInvalid] = useState<Invalid | null>(null), [leaving, setLeaving] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ status: 'idle' | 'loading' | 'ready' | 'error'; cycles: BatchCycleSummary[] }>({ status: 'idle', cycles: [] });
   const [previewRetry, setPreviewRetry] = useState(0);
@@ -74,7 +75,7 @@ function PreorderWorkspace({ rid }: { rid: number }) {
     const generation = lifetime.current.generation, sequence = ++lifetime.current.sequence;
     const current = () => generation === lifetime.current.generation && sequence === lifetime.current.sequence;
     setLoading(true); setLoadError(false);
-    try { const [restaurant, settings] = await Promise.all([getRestaurant(rid), getRestaurantSettings(rid)]), next = draftFrom(settings, restaurant); if (current()) { setDraft(next); setBaseline(next); setTimezone(restaurant.timezone || ''); setPolicySupported(typeof settings.preorders_only === 'boolean'); setOpeningModeSupported(settings.batch_ordering_mode === 'calendar' || settings.batch_ordering_mode === 'manual'); setCalendar(next.mode === 'batch' ? 'batch' : 'slots'); } }
+    try { const [restaurant, settings] = await Promise.all([getRestaurant(rid), getRestaurantSettings(rid)]), next = draftFrom(settings, restaurant); if (current()) { setDraft(next); setBaseline(next); setSavedOrdering(settings); setSaveConflict(false); setSaveError(false); setTimezone(restaurant.timezone || ''); setPolicySupported(typeof settings.preorders_only === 'boolean'); setOpeningModeSupported(settings.batch_ordering_mode === 'calendar' || settings.batch_ordering_mode === 'manual'); setCalendar(next.mode === 'batch' ? 'batch' : 'slots'); } }
     catch { if (current()) setLoadError(true); }
     finally { if (current()) setLoading(false); }
   }, [rid]);
@@ -114,6 +115,10 @@ function PreorderWorkspace({ rid }: { rid: number }) {
     for (const field of ['pickup_enabled', 'delivery_enabled', 'dine_in_enabled', 'opening_hours_config'] as const) {
       if (!equal(draft[field], baseline[field])) Object.assign(input, { [field]: draft[field] });
     }
+    if (input.opening_hours_config !== undefined) {
+      if (!savedOrdering?.ordering_settings_merge_supported) { setSaveError(true); return; }
+      input.opening_hours_config_base = baseline.opening_hours_config ?? null;
+    }
     const invalidHour = invalidOrderingHours(draft.opening_hours_config, baseline.opening_hours_config);
     if (invalidHour) { reject({ id: invalidHour, group: 'services', key: 'availabilityInvalidTime' }); return; }
     const onlinePolicyChanged = draft.mode !== baseline.mode || draft.preordersOnly !== baseline.preordersOnly || draft.pickup_enabled !== baseline.pickup_enabled || draft.delivery_enabled !== baseline.delivery_enabled;
@@ -147,7 +152,7 @@ function PreorderWorkspace({ rid }: { rid: number }) {
     }
     if (draft.slotPay !== baseline.slotPay) input.scheduling_require_prepayment = draft.slotPay;
     if (draft.batchPay !== baseline.batchPay) input.batch_require_prepayment = draft.batchPay;
-    lock.current = true; setSaving(true); setSaved(false); setSaveError(false);
+    lock.current = true; setSaving(true); setSaved(false); setSaveError(false); setSaveConflict(false);
     const generation = lifetime.current.generation, current = () => generation === lifetime.current.generation;
     try { const response = await updateRestaurantSettings(rid, input);
       // A response from an older API must never confirm a strict policy it ignored.
@@ -156,7 +161,7 @@ function PreorderWorkspace({ rid }: { rid: number }) {
         if (input[key] !== undefined && response[key] !== input[key]) throw new Error('Preparation policy not confirmed');
       }
       const next = draftFrom(response, { pickup_enabled: response.pickup_enabled!, delivery_enabled: response.delivery_enabled!, dine_in_enabled: response.dine_in_enabled!, opening_hours_config: response.opening_hours_config }); if (current()) { setDraft(next); setBaseline(next); setSaved(true); setSavedOrdering(response); } }
-    catch { if (current()) setSaveError(true); }
+    catch (reason) { if (current()) { setSaveError(true); setSaveConflict(reason instanceof ApiError && reason.status === 409); } }
     finally { if (current()) { lock.current = false; setSaving(false); } }
   };
   const dayLabel = (day: number) => DAYS[day] ? t(DAYS[day]) : String(day);
@@ -171,6 +176,7 @@ function PreorderWorkspace({ rid }: { rid: number }) {
   return <SettingsWorkspace title={t('settingsOrderTaking')} description={t('intakeDescription')}>
     {loading ? <p role="status" className="py-10 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : loadError ? <div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{t('preorderLoadFailed')}</p><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div> : draft && <form onSubmit={save} noValidate className="space-y-6">
       {!canEdit && <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)]">{t('pushPreferencesReadOnly')}</p>}
+      <Section title={t('orderingFrameworkTitle')} desc={t('orderingFrameworkHint')}><Link className="text-sm underline underline-offset-4" href={`/${rid}/settings/delivery`}>{t('deliveryZones')}</Link></Section>
       <Section title={t('intakeTitle')} desc={t('intakeScope')}>
         <div role="radiogroup" aria-label={t('intakeTitle')} className="choice-group">{(['immediate', 'preorder', 'mixed'] as const).map(policy => <ModeChoice name="order-intake-policy" key={policy}
           title={t(`intakeMode_${policy}`)} desc={t(`intakeMode_${policy}Desc`)}
@@ -187,19 +193,21 @@ function PreorderWorkspace({ rid }: { rid: number }) {
           <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm leading-6 text-[var(--summary-fg)]">{t('preorderPreciseDelayHint')}</p>
           {draft.slotHours.length > 0 && <div className="space-y-3 rounded-r-md border border-[var(--line)] p-4"><p className="text-sm leading-6">{t('intakeCustomSlots')}</p><ul className="space-y-1 text-sm">{draft.slotHours.map((hours, index) => <li key={index}>{(hours.days?.length ? hours.days : [0,1,2,3,4,5,6]).map(dayLabel).join(' · ')} : <bdi>{hours.start}–{hours.end}</bdi></li>)}</ul><Button type="button" variant="secondary" disabled={!canEdit || saving} onClick={() => patch({ slotHours: [] })}>{t('intakeUseServiceHours')}</Button></div>}
           <div className="grid gap-5 md:grid-cols-3">{(['lead','horizon','duration'] as const).map(field => <Field key={field} label={t(field === 'lead' ? 'preorderLeadMinutes' : field === 'horizon' ? 'slotMaxDaysAhead' : 'slotDuration')}><Input {...fieldProps(`preorder-${field}`)} type="number" dir="ltr" value={draft[field]} readOnly={!canEdit || saving} onChange={event => patch({ [field]: event.target.value })} /></Field>)}</div>
+          <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('orderingDefaultPreparationHint')} {t('orderingSlotDurationHint')}</p>
           <div className="flex flex-wrap gap-2" role="group" aria-label={t('preorderLeadPresets')}>{[0,360,1440,2880,4320].map(minutes => <Button key={minutes} type="button" variant={draft.lead === String(minutes) ? 'primary' : 'secondary'} aria-pressed={draft.lead === String(minutes)} disabled={!canEdit || saving} onClick={() => patch({ lead: String(minutes) })}>{minutes === 0 ? t('itemPreparationSameDay') : `${minutes / 60} ${t('hours')}`}</Button>)}</div>
           <fieldset className="space-y-3"><legend className="mb-3 text-sm font-semibold">{t('preparationClockTitle')}</legend>
             <div role="radiogroup" aria-label={t('preparationClockTitle')} className="choice-group">{(['elapsed','opening_hours','custom_start'] as const).map(basis => <ModeChoice key={basis} name="preparation-clock" title={t(`preparationClock_${basis}`)} desc={t(`preparationClock_${basis}Desc`)} selected={draft.preparationBasis === basis} disabled={!canEdit || saving} onClick={() => patch({ preparationBasis: basis })} />)}</div>
             {draft.preparationBasis === 'custom_start' && <Field label={t('preparationStartTime')}><Input {...fieldProps('preorder-preparation-start')} type="time" dir="ltr" value={draft.preparationStart} readOnly={!canEdit || saving} onChange={event => patch({ preparationStart: event.target.value })} /></Field>}
             {draft.preparationBasis !== 'elapsed' && <ServiceToggle label={t('preparationSplitTitle')} sub={t('preparationSplitDesc')} checked={draft.preparationSplit} disabled={!canEdit || saving} onChange={preparationSplit => patch({ preparationSplit })} />}
-            <PreparationPreview rid={rid} dirty={dirty} input={/^\d+$/.test(draft.lead) && Number(draft.lead) <= 525600 && /^\d+$/.test(draft.horizon) && Number(draft.horizon) >= 1 && Number(draft.horizon) <= 365 && /^\d+$/.test(draft.duration) && Number(draft.duration) >= 5 && Number(draft.duration) % 5 === 0 && (draft.preparationBasis !== 'custom_start' || validTime(draft.preparationStart)) && !invalidOrderingHours(draft.opening_hours_config, baseline?.opening_hours_config) ? {
+            <details className="border-t border-[var(--line)] pt-4"><summary className="cursor-pointer text-sm font-medium">{t("preparationPreviewTitle")}</summary><div className="mt-3"><PreparationPreview rid={rid} dirty={dirty} input={/^\d+$/.test(draft.lead) && Number(draft.lead) <= 525600 && /^\d+$/.test(draft.horizon) && Number(draft.horizon) >= 1 && Number(draft.horizon) <= 365 && /^\d+$/.test(draft.duration) && Number(draft.duration) >= 5 && Number(draft.duration) % 5 === 0 && (draft.preparationBasis !== 'custom_start' || validTime(draft.preparationStart)) && !invalidOrderingHours(draft.opening_hours_config, baseline?.opening_hours_config) ? {
               scheduling_lead_time_minutes: Number(draft.lead), scheduling_preparation_time_basis: draft.preparationBasis, scheduling_preparation_start_time: draft.preparationStart, scheduling_preparation_splittable: draft.preparationSplit, scheduling_max_days_ahead: Number(draft.horizon), scheduling_slot_duration_minutes: Number(draft.duration), scheduling_available_hours: draft.slotHours, opening_hours_config: draft.opening_hours_config, pickup_enabled: draft.pickup_enabled, delivery_enabled: draft.delivery_enabled,
-            } : null} />
+            } : null} /></div></details>
           </fieldset>
           <ServiceToggle label={t('slotRequirePrepayment')} sub={t('slotRequirePrepaymentDesc')} checked={draft.slotPay} onChange={slotPay => patch({ slotPay })} disabled={!canEdit || saving} />
           {draft.slotPay && <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('cashPrepaymentNote')}</p>}
         </div>
       </details>}
+      {draft.mode === 'slots' && <OrderingSimulation rid={rid} timezone={timezone} dirty={dirty} pickupEnabled={draft.pickup_enabled} deliveryEnabled={draft.delivery_enabled} />}
       {(draft.mode === 'batch' || invalid?.group === 'batch') && <details open className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5">
         <summary className="cursor-pointer py-1 text-base font-semibold">{t('preorderModeBatch')}</summary>
         <div className="mt-5 space-y-5">
@@ -219,10 +227,10 @@ function PreorderWorkspace({ rid }: { rid: number }) {
       <DineInSettings draft={draft} patch={patch} timezone={timezone} disabled={!canEdit || saving} invalid={invalid?.id} />
       {draft.mode !== 'off' && <Section title={t('productExceptionsTitle')} desc={t(draft.preordersOnly ? 'intakeStrictProducts' : 'productExceptionsDesc')}><Link href={`/${rid}/menu`} className="inline-flex min-h-10 items-center text-sm font-semibold text-[var(--brand-ink)]">{t('manageProducts')}</Link></Section>}
       {invalid && <p id="preorder-validation" role="alert" className="text-sm text-[var(--danger-500)]">{t(invalid.key)}</p>}
-      {saveError && <p role="alert" className="text-sm text-[var(--danger-500)]">{t('processingSaveFailed')}</p>}
+      {saveError && <div className="space-y-3"><p role="alert" className="text-sm text-[var(--danger-500)]">{t(saveConflict ? 'orderingSettingsConflict' : 'processingSaveFailed')}</p>{saveConflict && <Button type="button" variant="secondary" size="sm" onClick={()=>setLeaving('reload')}>{t('refresh')}</Button>}</div>}
       <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-4 shadow-2"><p role="status" className="text-sm text-[var(--fg-muted)]">{t(saving ? 'saving' : dirty ? 'settingsUnsaved' : saved ? 'saved' : 'settingsUnchanged')}</p>{canEdit && <div className="grid w-full grid-cols-[auto_minmax(0,1fr)] gap-2 sm:flex sm:w-auto"><Button type="button" variant="secondary" disabled={!dirty || saving} onClick={() => setLeaving('reset')}>{t('reset')}</Button><Button type="submit" className="whitespace-normal" disabled={!dirty || saving}>{t(saving ? 'saving' : 'saveChanges')}</Button></div>}</div>
     </form>}
     {!loading && !loadError && <div className="mt-8"><OrdersOverview latestOrdering={savedOrdering} embedded /></div>}
-    <ConfirmDialog open={leaving !== null} onOpenChange={open => { if (!open) setLeaving(null); }} title={t('discardUnsavedChanges')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={() => { const target = leaving; setLeaving(null); setDraft(baseline); setCalendar(baseline?.mode === 'batch' ? 'batch' : 'slots'); setInvalid(null); setSaveError(false); setSaved(false); if (target && target !== 'reset') router.push(target); }} />
+    <ConfirmDialog open={leaving !== null} onOpenChange={open => { if (!open) setLeaving(null); }} title={t('discardUnsavedChanges')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={() => { const target = leaving; setLeaving(null); setDraft(baseline); setCalendar(baseline?.mode === 'batch' ? 'batch' : 'slots'); setInvalid(null); setSaveError(false); setSaved(false); if (target === 'reload') void load(); else if (target && target !== 'reset') router.push(target); }} />
   </SettingsWorkspace>;
 }

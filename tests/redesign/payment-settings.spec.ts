@@ -226,3 +226,75 @@ test('payments read-only fields remain copyable without save actions', async ({ 
   await expect(vat(page)).toHaveJSProperty('readOnly', true); await expect(vat(page)).toBeEnabled(); await expect(policy(page)).toBeDisabled(); await expect(page.getByRole('switch')).toBeDisabled(); await expect(save(page)).toHaveCount(0); expect(state.writes).toHaveLength(0);
   await expect(page.getByRole('textbox', { name: 'Marge d’empreinte au poids %', exact: true })).toHaveJSProperty('readOnly', true);
 });
+
+test('cash guarantee is configurable for a supported provider and saved in the active restaurant', async ({ page }) => {
+  const state = await install(page);
+  Object.assign(state.control.settings, { cash_payment_policy: 'trusted_only', cash_card_guarantee_required: false, cash_card_guarantee_supported: true });
+  await page.goto('/2/settings/payments');
+  await page.getByLabel('Accepter les espèces pour tous les clients', { exact: true }).selectOption('all');
+  await page.getByRole('switch', { name: 'Exiger une garantie par carte pour les espèces', exact: true }).check();
+  await save(page).click();
+  await expect(save(page)).toBeDisabled();
+  expect(state.writes).toEqual([{ path: '/api/v1/restaurants/2/settings', restaurant: '2', body: { cash_payment_policy: 'all', cash_card_guarantee_required: true } }]);
+});
+
+test('other providers retain cash settings and do not advertise an unsupported guarantee', async ({ page }) => {
+  const state = await install(page);
+  Object.assign(state.control.settings, { cash_payment_policy: 'trusted_only', cash_card_guarantee_required: false, cash_card_guarantee_supported: false });
+  await page.goto('/1/settings/payments');
+  await expect(page.getByLabel('Qui peut payer en espèces', { exact: true })).toBeEnabled();
+  await expect(page.getByRole('switch', { name: 'Exiger une garantie par carte pour les espèces', exact: true })).toHaveCount(0);
+});
+
+test('supported cash can be enabled for everyone and disabled without changing the guarantee', async ({ page }) => {
+  const state = await install(page);
+  Object.assign(state.control.settings, { cash_payment_policy: 'disabled', cash_card_guarantee_required: false, cash_card_guarantee_supported: true });
+  await page.goto('/2/settings/payments');
+  const cash = page.getByLabel('Accepter les espèces pour tous les clients', { exact: true });
+  await expect(cash.locator('option')).toHaveText(['Oui', 'Non']);
+  await cash.selectOption('all'); await save(page).click();
+  await expect(save(page)).toBeDisabled();
+  expect(state.writes[0]).toEqual({ path: '/api/v1/restaurants/2/settings', restaurant: '2', body: { cash_payment_policy: 'all' } });
+  await expect(page.getByRole('switch', { name: 'Exiger une garantie par carte pour les espèces', exact: true })).not.toBeChecked();
+  await cash.selectOption('disabled'); await save(page).click();
+  await expect(save(page)).toBeDisabled();
+  expect(state.writes[1].body).toEqual({ cash_payment_policy: 'disabled' });
+});
+
+test('supported legacy cash is preserved until an explicit global choice', async ({ page }) => {
+  const state = await install(page);
+  Object.assign(state.control.settings, { cash_payment_policy: 'trusted_only', cash_card_guarantee_required: false, cash_card_guarantee_supported: true });
+  await page.goto('/1/settings/payments');
+  const cash = page.getByLabel('Accepter les espèces pour tous les clients', { exact: true });
+  await expect(cash.locator('option[value="trusted_only"]')).toHaveJSProperty('disabled', true);
+  await expect(page.getByText('Actuellement, seuls les clients de confiance peuvent payer en espèces.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Gérer les clients de confiance', exact: true })).toHaveCount(0);
+  await vat(page).fill('19'); await save(page).click();
+  await expect(save(page)).toBeDisabled();
+  expect(state.writes[0].body).toEqual({ vat_rate: 19 });
+  expect(state.control.settings.cash_payment_policy).toBe('trusted_only');
+  await cash.selectOption('all'); await save(page).click();
+  await expect(save(page)).toBeDisabled();
+  expect(state.writes[1].body).toEqual({ cash_payment_policy: 'all' });
+  await expect(cash.locator('option[value="trusted_only"]')).toHaveCount(0);
+});
+
+test('online-only policy prevents enabling a cash guarantee', async ({ page }) => {
+  const state = await install(page);
+  Object.assign(state.control.settings, { online_payment_only: true, cash_payment_policy: 'all', cash_card_guarantee_required: false, cash_card_guarantee_supported: true });
+  await page.goto('/1/settings/payments');
+  await expect(page.getByLabel('Accepter les espèces pour tous les clients', { exact: true })).toBeDisabled();
+  await expect(page.getByRole('switch', { name: 'Exiger une garantie par carte pour les espèces', exact: true })).toBeDisabled();
+  expect(state.writes).toHaveLength(0);
+});
+
+test('a previously active guarantee remains visible when the provider no longer supports it', async ({ page }) => {
+  const state = await install(page);
+  Object.assign(state.control.settings, { cash_payment_policy: 'all', cash_card_guarantee_required: true, cash_card_guarantee_supported: false });
+  await page.goto('/1/settings/payments');
+  const guarantee = page.getByRole('switch', { name: 'Exiger une garantie par carte pour les espèces', exact: true });
+  await expect(guarantee).toBeChecked();
+  await expect(page.getByText(/Le prestataire actuel ne peut pas gérer cette garantie/)).toBeVisible();
+  await guarantee.uncheck(); await save(page).click();
+  expect(state.writes[0].body).toEqual({ cash_card_guarantee_required: false });
+});

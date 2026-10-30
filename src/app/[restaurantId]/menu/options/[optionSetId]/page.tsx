@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   getOptionSet, updateOptionSet, createOptionInSet, updateOptionInSet, deleteOptionInSet, deleteOptionSet,
   getRestaurant,
@@ -194,6 +195,10 @@ export default function OptionSetDetailPage() {
               />
             </div>
             <LocaleEditingBanner active={activeLocale} source={sourceLocale} />
+            <p className="text-sm text-[var(--fg-muted)]">
+              {t('optionSetSelectionRulesHint')}{' '}
+              <Link href={`/${rid}/menu/items`} className="font-medium underline underline-offset-4">{t('items')}</Link>
+            </p>
             <div>
               <label className="block text-sm font-medium text-[var(--fg-muted)] mb-2">
                 {t('optionSetName')}

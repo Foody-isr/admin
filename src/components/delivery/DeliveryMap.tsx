@@ -1,7 +1,7 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useState } from 'react';
-import { Marker, Polyline, useMap } from 'react-leaflet';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Marker, Polyline, Tooltip, useMap } from 'react-leaflet';
 import { DeliveryTiles } from '@/components/delivery/DeliveryTiles';
 import { LeafletSurface } from '@/components/delivery/LeafletSurface';
 import L from 'leaflet';
@@ -42,7 +42,7 @@ export interface DeliveryMapProps {
   end?: { lat: number; lng: number };
   /** Multi-route (dispatcher view), each colored per courier. */
   routes?: RouteLayer[];
-  /** Live courier position dots (dispatcher view). */
+  /** Last received courier positions, updated without reloading the map. */
   couriers?: CourierMarker[];
   restaurant?: { lat: number; lng: number };
   highlightCourierId?: number | null;
@@ -130,12 +130,12 @@ function courierIcon(color: string, stale: boolean): L.DivIcon {
   const key = `${color}|${stale}`;
   let icon = courierIconCache.get(key);
   if (!icon) {
-    const op = stale ? 0.4 : 1;
+    const op = stale ? 0.78 : 1;
     icon = L.divIcon({
       className: 'foody-courier-pin',
-      html: `<div style="opacity:${op};width:18px;height:18px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 0 0 4px ${color}33,0 2px 6px rgba(0,0,0,.45)"></div>`,
-      iconSize: [18, 18],
-      iconAnchor: [9, 9],
+      html: `<div style="opacity:${op};width:44px;height:44px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;background:${color};color:#fff;border:3px solid #fff;box-shadow:0 0 0 4px ${color}33,0 3px 10px rgba(0,0,0,.45)"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg></div>`,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22],
     });
     courierIconCache.set(key, icon);
   }
@@ -143,9 +143,12 @@ function courierIcon(color: string, stale: boolean): L.DivIcon {
 }
 
 /** Fit all geocodes once the responsive map has a real, stable visible size. */
-function FitBounds({ points, request = 0, courier = false }: { points: [number, number][]; request?: number; courier?: boolean }) {
+function FitBounds({ points, couriers = [], request = 0, courier = false }: { points: [number, number][]; couriers?: CourierMarker[]; request?: number; courier?: boolean }) {
   const map = useMap();
   const key = points.map((p) => `${p[0]},${p[1]}`).join('|');
+  const courierKey = couriers.map(c => c.courierId).sort((a, b) => a - b).join('|');
+  const courierPositions = useRef(couriers);
+  courierPositions.current = couriers;
 
   useEffect(() => {
     const container = map.getContainer();
@@ -156,16 +159,18 @@ function FitBounds({ points, request = 0, courier = false }: { points: [number, 
       if (width < 2 || height < 2) return;
 
       map.invalidateSize({ animate: false });
-      if (points.length === 0) return;
-      if (points.length === 1) {
-        map.setView(points[0], 14, { animate: false });
+      // Include the latest GPS when fitting, without snapping back on each update.
+      const positions: [number, number][] = [...points, ...courierPositions.current.map((c): [number, number] => [c.lat, c.lng])];
+      if (positions.length === 0) return;
+      if (positions.length === 1) {
+        map.setView(positions[0], 14, { animate: false });
         return;
       }
-      map.fitBounds(L.latLngBounds(points), {
+      map.fitBounds(L.latLngBounds(positions), {
         animate: false,
         maxZoom: 15,
-        paddingTopLeft: courier ? [42, 82] : [32, 32],
-        paddingBottomRight: courier ? [52, 42] : [32, 32],
+        paddingTopLeft: courierPositions.current.length ? (courier ? [100, 90] : [100, 70]) : (courier ? [42, 82] : [32, 32]),
+        paddingBottomRight: courierPositions.current.length ? (courier ? [100, 52] : [100, 40]) : (courier ? [52, 42] : [32, 32]),
       });
     };
 
@@ -186,7 +191,7 @@ function FitBounds({ points, request = 0, courier = false }: { points: [number, 
       if (settleTimer) clearTimeout(settleTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, key, request, courier]);
+  }, [map, key, courierKey, request, courier]);
   return null;
 }
 
@@ -263,9 +268,13 @@ export default function DeliveryMap({
           );
         })}
         {(couriers ?? []).map((c) => (
-          <Marker key={`courier-${c.courierId}`} position={[c.lat, c.lng]} icon={courierIcon(c.color, !!c.stale)} />
+          <Marker key={`courier-${c.courierId}-${t(c.stale ? 'courierLocationOldMarker' : 'courierLocationMarker')}`} position={[c.lat, c.lng]} icon={courierIcon(c.color, !!c.stale)} title={t(c.stale ? 'courierLocationOldMarker' : 'courierLocationMarker')} zIndexOffset={3000}>
+            <Tooltip permanent direction="top" offset={[0, -28]} opacity={1} className="foody-courier-label !rounded-lg !border-[var(--line)] !bg-[var(--surface)] !text-[var(--fg)] !shadow-md">
+              {t(c.stale ? 'courierLocationOldMarker' : 'courierLocationMarker')}
+            </Tooltip>
+          </Marker>
         ))}
-        <FitBounds points={points} request={fitRequest} courier={variant === 'courier'} />
+        <FitBounds points={points} couriers={couriers} request={fitRequest} courier={variant === 'courier'} />
         {variant === 'courier' && <CourierMapControls points={points} onFit={() => setFitRequest(value => value + 1)} />}
       </LeafletSurface>
       {routes && routes.length > 0 && onRouteSelect && <div aria-label={t('mapsLegend')} className="absolute end-3 top-3 z-[500] max-h-48 max-w-[240px] overflow-auto rounded-r-md border border-[var(--line)] bg-[var(--surface)] p-2 shadow-sm">

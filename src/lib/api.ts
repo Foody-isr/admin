@@ -272,7 +272,21 @@ export interface FullServiceSettings {
  void_reasons: string[];
 }
 
+export interface DeliverySameDayPolicy {
+  enabled: boolean;
+  allowed_days: number[];
+  restricted_days: number[];
+  coverage_zone_ids: number[];
+  transit_minutes: number;
+  time_mode: 'inherit' | 'restaurant';
+}
+export interface DeliveryEstimate { date: string; windows: { start: string; end: string }[] }
+
 export interface RestaurantSettings {
+  ordering_settings_merge_supported?: boolean;
+  opening_hours_config_base?: OpeningHoursConfig | null;
+  delivery_same_day_policy?: DeliverySameDayPolicy;
+  delivery_same_day_policy_base?: DeliverySameDayPolicy;
   /** Supports conflict-safe three-way saves of restaurant and assigned POS policies. */
   pos_settings_merge_supported?: boolean;
   pos_custom_dining_supported?: boolean;
@@ -358,6 +372,9 @@ export interface RestaurantSettings {
    * a restaurant, since a client can always be bypassed.
    */
   online_payment_only?: boolean;
+  cash_payment_policy?: 'disabled' | 'trusted_only' | 'all';
+  cash_card_guarantee_required?: boolean;
+  cash_card_guarantee_supported?: boolean;
   // Stock management
   // Auto-deactivate a menu item when its linked ingredients reach 0.
   auto_disable_soldout?: boolean;
@@ -559,6 +576,8 @@ export interface MenuItemModifier {
 
 /** Item-specific visibility and repetition of a shared modifier group. */
 export interface ModifierSelectionConfig {
+  /** Descriptive variant positions only; omission preserves required choices. */
+  required?: boolean;
   source: '' | 'option' | 'modifier';
   source_id: number;
   choices: { id: number; count: number }[];
@@ -931,6 +950,7 @@ export interface Order {
   delivery_zone_id?: number;
   delivery_schedule?: DeliverySchedule;
   delivery_slot_pending?: boolean;
+  delivery_estimate?: DeliveryEstimate | null;
   check_id?: string | null;
   course_name?: string;
   kitchen_held?: boolean;
@@ -9797,13 +9817,23 @@ export async function confirmMenuItemImage(
 
 export type DeliveryZoneType = 'polygon' | 'radius' | 'cities' | 'departments' | 'postal_codes';
 
+export interface DeliveryZoneSameDay {
+  days: number[];
+  transit_minutes: number;
+  time_mode: 'inherit' | 'restaurant';
+}
+
 export interface DeliverySchedule {
+  same_day?: DeliveryZoneSameDay;
   mode: 'customer' | 'automatic' | 'restaurant';
-  windows: { days: number[]; start: string; end: string }[];
+  days?: number[];
+  /** Legacy policies retain their weekdays; restaurant settings supply slot hours. */
+  windows?: { days: number[]; start: string; end: string }[];
   offer_pickup: boolean;
 }
 
 export interface DeliveryZone {
+  updated_at?: string;
   departments?: string[];
   postal_codes?: string[];
   schedule?: DeliverySchedule | null;
@@ -9829,6 +9859,7 @@ export interface DeliveryZone {
 }
 
 export interface DeliveryZoneInput {
+  expected_updated_at?: string;
   departments?: string[];
   postal_codes?: string[];
   schedule?: DeliverySchedule | null;
@@ -9849,11 +9880,16 @@ export interface DeliveryZoneInput {
 
 /** Load the restaurant delivery-zone inventory without masking invalid responses. */
 export async function getDeliveryZones(restaurantId: number): Promise<DeliveryZone[]> {
-  const data = await apiFetch<{ zones: DeliveryZone[] }>(
+  return (await getDeliveryZoneWorkspace(restaurantId)).zones;
+}
+
+/** Reads zone capabilities from the same scoped response as the inventory. */
+export async function getDeliveryZoneWorkspace(restaurantId: number): Promise<{ zones: DeliveryZone[]; zone_same_day_supported?: boolean; legacy_same_day_active?: boolean }> {
+  const data = await apiFetch<{ zones: DeliveryZone[] | null; zone_same_day_supported?: boolean; legacy_same_day_active?: boolean }>(
     `/api/v1/delivery/zones?restaurant_id=${restaurantId}`, restaurantId
   );
   if (!data || !(Array.isArray(data.zones) || data.zones === null)) throw new Error('Invalid delivery zone response');
-  return data.zones ?? [];
+  return { ...data, zones: data.zones ?? [] };
 }
 
 export async function createDeliveryZone(restaurantId: number, input: DeliveryZoneInput): Promise<DeliveryZone> {
@@ -9870,9 +9906,9 @@ export async function updateDeliveryZone(restaurantId: number, id: number, input
   );
 }
 
-export async function deleteDeliveryZone(restaurantId: number, id: number): Promise<void> {
+export async function deleteDeliveryZone(restaurantId: number, id: number, expectedUpdatedAt?: string): Promise<void> {
   await apiFetch<void>(
-    `/api/v1/delivery/zones/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    `/api/v1/delivery/zones/${id}?restaurant_id=${restaurantId}${expectedUpdatedAt ? `&expected_updated_at=${encodeURIComponent(expectedUpdatedAt)}` : ''}`, restaurantId,
     { method: 'DELETE' }
   );
 }
@@ -11305,4 +11341,35 @@ export function payInternalCheckout(restaurantId: number, orderId: number, recei
   return apiFetch(`/api/v1/public/orders/${orderId}/internal-checkout?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST', headers: { 'X-Receipt-Token': receiptToken }, body: '{}',
   });
+}
+
+/** Capture a cash guarantee only on explicit staff confirmation, or verify its state. */
+export function cashGuaranteeAction(restaurantId: number, orderId: number, action: 'capture' | 'refresh'): Promise<{ order: Order }> {
+  return apiFetch(`/api/v1/orders/${orderId}/cash-guarantee/${action}`, restaurantId, { method: 'POST', body: JSON.stringify(action === 'capture' ? { confirm: true } : {}) });
+}
+
+/** The server calendar used by the read-only ordering simulation. */
+export interface AvailabilitySimulationCalendar {
+  enabled: boolean;
+  evaluated_at?: string;
+  timezone?: string;
+  delivery_mode?: DeliverySchedule['mode'];
+  slots_by_date: Record<string, { start: string; end: string }[]>;
+  lead_time_minutes: number;
+  constrained_by?: { menu_item_id: number; name: string; lead_time_minutes: number };
+  delivery_day_policies?: Record<string, { mode: DeliverySchedule['mode']; estimated_windows?: { start: string; end: string }[]; unavailable_reason?: string }>;
+}
+
+/** Computes saved calendars for a basket without creating an order or reservation. */
+export async function simulateOrderingAvailability(restaurantId: number, input: { service: 'pickup' | 'delivery'; address: string; date: string; items: { id: number; quantity: number }[] }): Promise<{ calendar?: AvailabilitySimulationCalendar; deliverable: boolean; resolved: boolean; zone_id?: number; delivery_fee?: number; reason?: string }> {
+  const q = new URLSearchParams({ restaurant_id: String(restaurantId), items: input.items.map(item => `${item.id}:${item.quantity}`).join(',') });
+  if (input.service === 'delivery') {
+    q.set('address', input.address.trim());
+    const result = await apiFetch<{ schedule?: AvailabilitySimulationCalendar; deliverable: boolean; resolved: boolean; zone_id?: number; delivery_fee?: number; reason?: string }>(`/api/v1/public/delivery/check?${q}`, restaurantId);
+    if (!result || typeof result.deliverable !== 'boolean' || typeof result.resolved !== 'boolean') throw new Error('Incomplete delivery simulation');
+    return { ...result, calendar: result.schedule };
+  }
+  q.set('order_type', 'pickup');
+  const calendar = await apiFetch<AvailabilitySimulationCalendar>(`/api/v1/public/restaurants/${restaurantId}/scheduling-config?${q}`, restaurantId);
+  return { calendar, deliverable: true, resolved: true };
 }

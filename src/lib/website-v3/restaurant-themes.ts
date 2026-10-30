@@ -22,7 +22,7 @@ export type RestaurantTheme = {
   heading: string;
   body: string;
   mode: "light" | "dark";
-  hero: "centered" | "left_aligned" | "split" | "inset";
+  hero: "centered" | "left_aligned" | "split" | "inset" | "campaign";
   shape: "pill" | "rounded" | "square";
   sections: readonly string[];
   ordering: boolean;
@@ -31,6 +31,7 @@ export type RestaurantTheme = {
 
 /** Restaurant compositions, kept independent of account plans and commerce data. */
 export const RESTAURANT_THEMES: readonly RestaurantTheme[] = [
+
   {
     id: "mediterranean",
     name: "Mediterranean",
@@ -178,6 +179,13 @@ export const RESTAURANT_THEMES: readonly RestaurantTheme[] = [
     ],
     pages: ["locations", "about"],
   },
+  {
+    id: "pink-coffee", name: "Pink Coffee", thumbnail: "PinkCoffee",
+    bg: "#ffffff", surface: "#ffb9cd", ink: "#000000", accent: "#000000",
+    heading: "Poppins", body: "Poppins", mode: "light", hero: "campaign",
+    shape: "pill", ordering: false,
+    sections: ["hero_banner", "menu_highlights", "text_and_image", "footer"], pages: [],
+  },
 ];
 
 const VISUAL_KEYS: readonly (keyof DraftAppearanceOverrides)[] = [
@@ -218,6 +226,7 @@ export type ApplyRestaurantThemeOptions = {
   title: string;
   description: string;
   image: string;
+  logo?: string;
   cta: string;
   copy?: ThemeCopy;
   createId: () => string;
@@ -238,12 +247,16 @@ export function applyRestaurantTheme(
     config: {
       ...state.config,
       theme_id: "custom",
-      custom_palette: { mode: theme.mode, bg: theme.bg, surface: theme.surface, ink: theme.ink, accent: theme.accent },
+      custom_palette: { mode: theme.mode, bg: theme.bg, surface: theme.surface, ink: theme.ink, accent: theme.accent,
+        ...(theme.id === "pink-coffee" ? {secondary_colors:["#ffb9cd", "#f4f4f4"],color_styles:{version:1,default:"style-1",styles:["#ffffff","#ffb9cd","#f4f4f4","#ffffff","#ffb9cd","#f4f4f4"].map((background,index) => ({id:`style-${index+1}`,background,title:"#000000",paragraph:"#000000",solid_button:"#000000",outline_button:"#000000"}))}} : {}) },
       brand_color: null,
       section_colors: null,
       hero_name_font: theme.heading,
       typography: {
         ...typography,
+        ...(theme.id === "pink-coffee" && complete ? {roles: Object.fromEntries([
+          ["categoryBar",600],["categoryTitle",800],["itemName",800],["itemPrice",600],["itemDescription",400],
+        ].map(([role,weight]) => [role,{font:"Poppins",weight,color:"#000000",sizeMult:1,transform:"none"}]))} : {}),
         site: { headingFont: theme.heading, bodyFont: theme.body, buttonShape: theme.shape, template: theme.id },
       },
       navbar_color: theme.id === "joy-bakery" ? theme.accent : theme.bg,
@@ -273,6 +286,7 @@ export function applyRestaurantTheme(
     navbar_scrolled_logo_url: "",
     logo_size: 40,
     nav_layout: {
+      ...record(state.config.nav_layout),
       content: { desktop: "full", mobile: "compact" },
       shopping: { desktop: "full", mobile: "compact" },
       site_mode: options.orderingOnly ? "single_order" : "multi_page",
@@ -294,7 +308,7 @@ export function applyRestaurantTheme(
   if (options.orderingOnly) {
     if (!order) return state;
     next = makeHomepagePage(next, pageKey(order));
-    next = applyThemeHeader({...next, config:{...next.config, nav_layout:{...record(next.config.nav_layout),links:[]}}}, theme);
+    next = applyThemeHeader({...next, config:{...next.config, nav_layout:{...record(next.config.nav_layout),links:[]}}}, theme, options.logo);
     next = composeThemeFooter(next, order, theme, options, {
       ...options, copy, links: { home: "/", order: "/" },
     });
@@ -326,6 +340,7 @@ export function applyRestaurantTheme(
     next = { ...next, pages: [home, ...next.pages] };
   }
   next = makeHomepagePage(next, pageKey(home));
+  if (theme.id === "pink-coffee" && !next.pages.some(page => page.type === "landing")) next = {...next,pages:next.pages.map(page => pageKey(page) === pageKey(home!) ? {...page,type:"landing",settings:{}} : page)};
   next.config = { ...next.config, landing_enabled: true };
   const pageSections: Record<string, string[]> = {
     about: ["hero_banner", "text_and_image", "text"], locations: ["location_hours"],
@@ -352,7 +367,8 @@ export function applyRestaurantTheme(
     config: { ...next.config, nav_layout: {
       ...record(next.config.nav_layout),
       theme_pages: { ...previousRoles, ...Object.fromEntries(targets.map(t => [t.role, t.page.slug])) },
-      links: targets.map(({page, role}) => ({ id: `page-${page.id ?? page.tmp_id}`, page_slug: page.slug, label: copy[role as keyof ThemeCopy] || page.title })),
+      links: [...targets.map(({page, role}) => ({ id: `page-${page.id ?? page.tmp_id}`, page_slug: page.slug, label: copy[role as keyof ThemeCopy] || page.title })),
+        ...(theme.id === "pink-coffee" && currentOrder ? [{id:`page-${currentOrder.id ?? currentOrder.tmp_id}`,page_slug:currentOrder.slug,label:options.cta}] : [])],
     }},
     pages: next.pages.map(page => {
       const target = targets.find(t => pageKey(t.page) === pageKey(page));
@@ -372,7 +388,7 @@ export function applyRestaurantTheme(
     }),
   };
 
-  next = applyThemeHeader(next, theme);
+  next = applyThemeHeader(next, theme, options.logo);
   next = composeThemeFooter(next, home, theme, options, context);
   for (const { page, role, types } of targets) {
     const existing = next.sections.filter(section => sectionBelongs(section, page));
@@ -405,12 +421,20 @@ export function applyRestaurantTheme(
   return next;
 }
 
-function applyThemeHeader(state: DraftStatePayload, theme: RestaurantTheme): DraftStatePayload {
+function applyThemeHeader(state: DraftStatePayload, theme: RestaurantTheme, restaurantLogo = ""): DraftStatePayload {
   const nav = record(state.config.nav_layout);
   const previous = record(record(nav.header).logo);
-  const header = headerFromLegacy({...state.config,nav_layout:{...nav,header:undefined}}, state.pages, String(state.config.restaurant_logo_url ?? previous.image ?? ""));
+  const header = headerFromLegacy({...state.config,nav_layout:{...nav,header:undefined}}, state.pages, String(state.config.restaurant_logo_url || previous.image || restaurantLogo));
   header.layout = theme.id === "joy-bakery" ? "center" : theme.id === "youngs-place" ? "stacked" : "left";
   header.color_style = theme.id === "joy-bakery" ? "accent" : "default";
+  if (theme.id === "pink-coffee") {
+    header.layout = "center"; header.scroll = "sticky"; header.color_style = "style-2";
+    header.background = {...header.background,mode:"color",color:"#ffb9cd"};
+    header.logo = {...header.logo,size:48,custom_background:false};
+    header.navigation = {...header.navigation,hamburger_style:"staggered",hamburger_size:28,hamburger_stroke:2.5};
+    header.button = {...header.button,enabled:true,style:"filled",color:"#000000"};
+    header.icons = {...header.icons,cart:false,search:false,color:"#000000"};
+  }
   return {...state, config: {...state.config, nav_layout: {...record(state.config.nav_layout), header}}};
 }
 

@@ -1,5 +1,6 @@
 "use client";
 import { featuredPickerItems } from "@/lib/website-v3/featured-items";
+import { editorElementContentPath } from "@/lib/website-v3/editor-elements";
 
 import { RUNTIME_WEB_URL } from '@/lib/runtime-origins';
 import { OrderJourneyEditor, type OrderJourneyScreen } from "./OrderJourneyEditor";
@@ -95,6 +96,7 @@ import { PageSettingsDialog } from "./PageSettingsDialog";
 import { OrderPageEditor } from "./OrderPageEditor";
 import { EditorSidebar } from "./EditorSidebar";
 import { SiteColorContext } from "./ColorStylePicker";
+import { CampaignRuntimeContext } from "./CampaignRuntimeContext";
 import { SiteDesign } from "./SiteDesign";
 import {
   recordDraftEdit,
@@ -115,6 +117,8 @@ import { resolveWebsiteV3PreviewOrigin } from "@/lib/website-v3/preview-origin";
 import {
   prepareWebsiteV3StateForPublication,
   requireWebsiteV3RuntimeCapabilities,
+  campaignRuntimeErrors,
+  type WebsiteV3RuntimeCapabilities,
 } from "@/lib/website-v3/runtime-capabilities";
 import { useI18n } from "@/lib/i18n";
 
@@ -131,6 +135,7 @@ function describePreviewDevices(devices: PreviewDevice[]): string {
 }
 
 type LoadedBuilder = {
+  runtimeCapabilities: WebsiteV3RuntimeCapabilities;
   draft: DraftResponse;
   restaurant: Restaurant;
   menus: Menu[];
@@ -339,7 +344,7 @@ function DesktopWebsiteV3Builder({
     ])
       .then(
         ([
-          _runtimeCapabilities,
+          runtimeCapabilities,
           draft,
           publishedPages,
           restaurant,
@@ -376,6 +381,7 @@ function DesktopWebsiteV3Builder({
             navigation.storiesNavigationAvailable;
           setStoriesNavigationAvailable(navigation.storiesNavigationAvailable);
           setLoaded({
+            runtimeCapabilities,
             draft: editorDraft,
             restaurant,
             menus,
@@ -444,7 +450,7 @@ function DesktopWebsiteV3Builder({
     () => (state ? validateDraftForPublish(state, availableReferences) : []),
     [availableReferences, state],
   );
-  const allErrors = [...validationErrors, ...serverErrors];
+  const allErrors = [...validationErrors, ...(state ? campaignRuntimeErrors(state, loaded?.runtimeCapabilities ?? null, t) : []), ...serverErrors];
   const activePage = useMemo(
     () => (state ? resolveSelectedPage(state, selection) : null),
     [selection, state],
@@ -1085,7 +1091,9 @@ function DesktopWebsiteV3Builder({
       return;
     }
     try {
-      await requireWebsiteV3RuntimeCapabilities(webOrigin);
+      const capabilities = await requireWebsiteV3RuntimeCapabilities(webOrigin);
+      const compatibilityErrors = campaignRuntimeErrors(state, capabilities, t);
+      if (compatibilityErrors.length) throw new Error(compatibilityErrors[0].message);
     } catch (error: unknown) {
       setGlobalError(readError(error));
       return;
@@ -1290,6 +1298,7 @@ function DesktopWebsiteV3Builder({
     accent: state.config.brand_color || colorTheme?.preview.swatches[2], ink: colorTheme?.preview.swatches[3],
   }};
   return (
+    <CampaignRuntimeContext.Provider value={loaded.runtimeCapabilities}>
     <SiteColorContext.Provider value={colorConfig}>
       <BuilderShell
         status={saveStatus}
@@ -1411,6 +1420,7 @@ function DesktopWebsiteV3Builder({
                 restaurantName={loaded.restaurant.name}
                 description={loaded.restaurant.description || ""}
                 image={String(loaded.restaurant.cover_url || "")}
+                logo={loaded.restaurant.logo_url || ""}
                 onChange={setLocalState}
                 onPreview={previewTheme}
                 previewPageKey={themePreviewPageKey ?? pageKey(activePage)}
@@ -1513,7 +1523,9 @@ function DesktopWebsiteV3Builder({
             }}
             onEditElement={(key, field, value) => {
               setNotice(null);
-              updateSection(key, ["content", field], value);
+              const section=state.sections.find(candidate => sectionKey(candidate) === key);
+              const path=section ? editorElementContentPath(section.section_type,field) : [];
+              if (path.length) updateSection(key, ["content", ...path], value);
             }}
             onClearSelection={() => {
               setRequestedSurface("page");
@@ -1586,6 +1598,7 @@ function DesktopWebsiteV3Builder({
         onCreate={createPage}
       />
     </SiteColorContext.Provider>
+    </CampaignRuntimeContext.Provider>
   );
 }
 

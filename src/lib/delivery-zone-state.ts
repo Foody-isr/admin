@@ -48,7 +48,7 @@ export function deliveryZoneDraftError(draft: DeliveryZoneDraft): string | null 
 /** Serialize the active geometry while keeping every original inactive field intact. */
 export function deliveryZonePayload(draft: DeliveryZoneDraft, original?: DeliveryZone): DeliveryZoneInput {
   const problem = deliveryZoneDraftError(draft); if (problem) throw new Error(problem);
-  const input: DeliveryZoneInput = { name:draft.name.trim(),type:draft.type,is_active:draft.isActive,delivery_fee:parsePrice(draft.deliveryFee)!,min_order:parsePrice(draft.minOrder)!,departments:draft.departments,postal_codes:draft.postalCodes,schedule:draft.schedule };
+  const input: DeliveryZoneInput = { expected_updated_at:original?.updated_at,name:draft.name.trim(),type:draft.type,is_active:draft.isActive,delivery_fee:parsePrice(draft.deliveryFee)!,min_order:parsePrice(draft.minOrder)!,departments:draft.departments,postal_codes:draft.postalCodes,schedule:draft.schedule };
   if (original?.polygon != null || draft.type === 'polygon') input.polygon = draft.polygon;
   if (original?.cities != null || draft.type === 'cities') input.cities = draft.cities;
   if (draft.center && (original?.center_lat != null || draft.type === 'radius')) { input.center_lat=draft.center.lat;input.center_lng=draft.center.lng; }
@@ -64,9 +64,20 @@ export function deliveryZoneCanDraw(zone: DeliveryZone): boolean {
   return zone.type === 'radius' ? validZoneCoordinate({lat:zone.center_lat!,lng:zone.center_lng!}) && Number.isFinite(zone.radius_m) && zone.radius_m! > 0 : zone.type === 'polygon' && !!zone.polygon && zone.polygon.length >= 3 && zone.polygon.every(([lng,lat]) => validZoneCoordinate({lat,lng}));
 }
 
-/** Validate route calendars before rendering or persisting their window controls. */
+/** Return saved delivery weekdays, including policies authored with legacy hours. */
+export function deliveryScheduleWeekdays(value: DeliverySchedule): number[] {
+  return value.days ?? Array.from(new Set((value.windows ?? []).flatMap(window => window.days)));
+}
+
+/** Validate zone weekdays and backwards-compatible legacy calendars. */
 export function validDeliverySchedule(value: DeliverySchedule): boolean {
-  if (!value || !['customer','automatic','restaurant'].includes(value.mode) || typeof value.offer_pickup !== 'boolean' || !Array.isArray(value.windows) || !value.windows.length || value.windows.length > 28) return false;
+  if (!value || !['customer','automatic','restaurant'].includes(value.mode) || typeof value.offer_pickup !== 'boolean') return false;
+  if (value.same_day !== undefined) {
+    const rule = value.same_day;
+    if (!rule || !Array.isArray(rule.days) || new Set(rule.days).size !== rule.days.length || !rule.days.every(day => Number.isInteger(day) && deliveryScheduleWeekdays(value).includes(day)) || !Number.isSafeInteger(rule.transit_minutes) || rule.transit_minutes < 0 || rule.transit_minutes > 1440 || !['inherit','restaurant'].includes(rule.time_mode)) return false;
+  }
+  if (value.days !== undefined) return Array.isArray(value.days) && value.days.length > 0 && value.days.length <= 7 && new Set(value.days).size === value.days.length && value.days.every(day => Number.isInteger(day) && day >= 0 && day <= 6) && (value.windows === undefined || Array.isArray(value.windows) && value.windows.length === 0);
+  if (!Array.isArray(value.windows) || !value.windows.length || value.windows.length > 28) return false;
   const days = new Map<number, { start: string; end: string }[]>();
   for (const window of value.windows) {
     if (!window || !Array.isArray(window.days) || !window.days.length || new Set(window.days).size !== window.days.length || !/^([01]\d|2[0-3]):[0-5]\d$/.test(window.start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(window.end) || window.start >= window.end) return false;
@@ -83,4 +94,11 @@ export function validDeliverySchedule(value: DeliverySchedule): boolean {
 /** Split pasted postal lists without losing line breaks, order or leading zeros. */
 export function parseDeliveryPostalCodes(text: string): string[] {
   return Array.from(new Set(text.split(/[,;\s]+/).filter(Boolean)));
+}
+
+/** Warn about postal overlaps before admins accidentally create competing calendars. */
+export function overlappingPostalZones(draft: DeliveryZoneDraft, zones: DeliveryZone[]): DeliveryZone[] {
+  if (draft.type !== 'postal_codes') return [];
+  const codes = new Set(draft.postalCodes);
+  return zones.filter(zone => zone.id !== draft.id && zone.is_active && !zone.tour_only && zone.type === 'postal_codes' && zone.postal_codes?.some(code => codes.has(code)));
 }

@@ -119,7 +119,9 @@ export function toVariantSyncPayload(
       name: g.title.trim(),
       sort_order: gi,
       variants: validRows.map((r, vi) => ({
-        option_id: r.optionId ?? null,
+        // Renaming detaches the saved set. Its options must also resolve by
+        // name in the new set instead of referencing the original set's IDs.
+        option_id: g.optionSetId ? r.optionId ?? null : null,
         name: r.name.trim(),
         price: g.selectionRole === "identity" ? 0 : r.price,
         portion: r.portion.trim(),

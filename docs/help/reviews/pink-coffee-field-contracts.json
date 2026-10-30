@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "src/components/website-v3/field-contracts.ts",
+      "sha256": "c87ef3381dc458392fab6b116a3eb56f310905d14994aecb47f98e6714431421",
+      "baseSha256": "7611430df62886655d901f9acf898fe904f9b7505035762d7e6462aa63335b56",
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This diff completes eight static test-registry descriptors for the existing campaign and display controls, with exact paths, deterministic values and editor prerequisites. The registry is imported only by unit/browser tests and a type-only browser helper. It changes no product control, saved payload, permission, rendering or publication behavior. The existing FR/HE/EN website editor guide already describes every registered control and retains identical article bytes and dates."
+    }
+  ]
+}

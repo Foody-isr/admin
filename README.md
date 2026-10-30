@@ -409,6 +409,15 @@ Two sections, saved separately:
 
 ### Website (`/[restaurantId]/website-v3`)
 
+Item list → Item view offers **Compact presentation** for a 16:9 image, compact
+width and rounded corners, preserving assigned colors and saved image framing.
+Independent image ratio/fit, width and corner controls remain authoritative.
+The standard mobile layout is labelled **Full screen on mobile**. Both layouts
+start with a floating close control and group quantity/add in the persistent
+footer. Missing ratios default to 16:9 in editor and public rendering alike.
+Synthetic full-flow regression: `FOODY_ITEM_MODAL=1 FOODY_WEB_DIR=../foodyweb
+npx playwright test -c playwright.website-editor.config.ts item-modal.spec.ts`.
+
 **Foody online** opens the restaurant website editor directly, without a submenu or beta badge. It manages pages, sections, appearance and checkout settings with a live iframe preview. Draft autosaves remain separate from publication; the existing guest website and stored website data are unaffected by removal of the old admin editors.
 
 The legacy `/[restaurantId]/website` and `/[restaurantId]/website-v2` implementations have been removed. Their URLs redirect to Website V3, preserving the restaurant and query parameters. Components shared with V3 and QR customization remain in use.
@@ -1073,9 +1082,12 @@ API's `preparation-preview` endpoint before Admin.
 
 Settings → Ordering & delivery → Delivery zones supports multiple cities and,
 for restaurants with country France, multiple department codes. Each zone can
-inherit the restaurant calendar, offer customer-selected weekly windows, assign
-the next window automatically, or reserve the next delivery day for staff to
-confirm its time after ordering. Days and windows are saved with the zone.
+inherit the restaurant calendar, restrict delivery to selected weekdays, assign
+the next slot automatically, or reserve the next delivery day for staff to
+confirm its time after ordering. Zone editors save weekdays without hours.
+Orders & availability supplies delivery hours, preparation clocks, slot duration
+and booking horizon. Legacy zone windows retain their weekdays for new bookings;
+existing orders keep their frozen promised calendar.
 An optional pickup suggestion respects the restaurant's enabled pickup service.
 
 The order detail displays pending delivery confirmation and an explicit window
@@ -1135,6 +1147,13 @@ The courier workspace opens on a map with numbered destinations and an adjustabl
 mobile timeline; desktop shows the timeline beside the map. A route selector
 includes current and future assignments. Only the viewed route mounts its map,
 while GPS reporting continues for the first active route across selections.
+The last accepted courier position is shown in both delivery views with its receipt
+time and a stale notice after one minute. Courier mode exposes GPS permission,
+acquisition and transmission errors with Retry, retains the latest throttled GPS
+reading and resumes acquisition when Foody becomes visible again. Browser tracking
+requires Foody visible on the courier’s own phone; background navigation or a locked
+screen cannot guarantee updates. GPS events do not repeat paid routing/geocoding.
+Owners viewing another courier never transmit their own position.
 Search filters addresses, contacts, order numbers and notes without changing the
 saved sequence; selecting a pin clears the filter and reveals its stop. The
 panel handle supports dragging, arrow keys and Home/End.
@@ -1649,6 +1668,23 @@ in Landing and `docs/help/reviews/sumit-internal-checkout.json`. Release require
 API-first development verification. Synthetic regression tests replace Sumit;
 provider acceptance is verified separately before production promotion.
 
+## Cash eligibility and Stancer card guarantees
+
+Settings → Payments uses Yes for all customers / No for everyone when the server
+advertises a supported cash-guarantee integration. The card guarantee remains a
+separate opt-in. Prior trusted-only policies remain unchanged until an explicit
+global choice; saving VAT or tips does not widen cash eligibility. Other providers
+keep the existing Disabled / Trusted customers / All customers selector. Require a card guarantee appears only for supported
+restaurants (initially configured Stancer in EUR), or to explicitly turn off a
+previously enabled rule that became unsupported. Online-only remains prioritary.
+The option defaults off and requires settings.edit. Order payment details show
+the reservation independently from cash owed/received. payments.manage permits
+explicit confirmed full capture and read-only verification; uncertainty never
+offers a second debit. Existing cash collection records receipt and requests
+release, retaining normal POS drawer guards. Deploy API migration 282 first,
+then Admin/Web; verify Stancer sandbox cancellation before enabling a real tenant.
+Targeted browser coverage: payment-settings.spec.ts cash-guarantee cases.
+
 Internal order finalization stays inside the ticket after Continue. Staff explicitly
 choose a prepared Sumit link, hosted card collection, a received payment or pay later.
 Received payments require acknowledgement of the current amount; hosted flows trust
@@ -1658,3 +1694,53 @@ The guest-facing prepared link continues to use the restaurant's existing Web ca
 Synthetic regressions: `npx playwright test -c playwright.redesign.config.ts
 internal-sumit-checkout.spec.ts internal-order-library.spec.ts
 internal-combo-substitutions.spec.ts selection-controls.spec.ts`.
+
+## Pink Coffee website theme
+
+Site design → Website themes → **Pink Coffee** composes an editable home page
+and retains the existing order page, menu links and checkout policy. Its pink
+header uses the restaurant's original logo. The public renderer presents that
+logo in black only while this theme is selected. Existing unrelated pages remain
+saved and can be restored; the theme does not delete catalogue content.
+
+The main banner's **Campaign** layout supports up to six image/video slides with
+independent title, description, button, background and image framing. Slides can
+be added, reordered and removed. Autoplay defaults to off; slide duration is
+5–30 seconds (10 by default). Image/video uploads reuse the existing scoped media
+endpoints. Image framing also previews video framing when a poster is available.
+The featured-item grid offers **Card presentation → Campaign**, one/two mobile
+columns and alternating image backgrounds. Titles expose a **Display** size.
+All controls use the same draft for autosave, undo, reload, iframe preview and
+publication. Existing layouts keep their previous defaults.
+
+Deploy Web capabilities `campaign_hero: 1`, `campaign_products: 1` and
+`display_typography: 1` before enabling their editor controls. Missing capabilities
+disable only the new controls/theme and block publication only for drafts using
+the unsupported presentation; existing websites remain editable. No migration or
+new endpoint is required. Regression: `FOODY_FEATURED_REGRESSION=1
+FOODY_PREVIEW_LOW_DISK=1 npx playwright test -c playwright.website-editor.config.ts
+campaign-editor.spec.ts` (synthetic local APIs only).
+
+The optional `campaign_layout_controls: 1` renderer capability enables carousel
+control alignment, counter/playback visibility, desktop/mobile card widths and
+slide gaps. Autoplay always retains a pause control. Header navigation offers
+standard or staggered menu lines with size/thickness controls; the existing cart
+icon checkbox remains independent. Legacy sites retain their original defaults.
+Campaign grids also expose content width, row spacing and a background per real
+product ID, alongside existing per-item framing and price/button/description
+visibility. Select all visible products prepares a manual picker selection;
+Save applies those explicit IDs. The Pink Coffee preset prepares up to twelve
+products, descriptions on, prices/buttons off, and right-aligned hero controls.
+
+
+## Delivery rules by zone
+
+The zone editor groups normal delivery days, advance-order time choice and
+explicit same-day days/time/transport. Restaurant Orders & availability remains
+the common service/preparation calendar; Scheduled orders includes today. A
+collapsed default preview is distinct from Simulate an order, which checks saved
+basket/address/date calendars without creating an order or reserving stock.
+The simulation needs existing menu and delivery access. The new editor is gated
+by the zone-list capability and rejects old-server omissions. Deploy API first;
+an active legacy global policy must be converted before explicit zone rules.
+Existing guest Web already supports per-date time confirmation and estimates.

@@ -83,7 +83,14 @@ async function selectContractContext(
   contract: (typeof FIELD_CONTRACTS)[number],
   afterMutation = false,
 ): Promise<void> {
-  if (contract.editor.scope === 'site') {
+  if (contract.editor.headerElement) {
+    await page.getByRole('button', { name: 'En-tête', exact: true }).click();
+    const customize = page.getByRole('button', { name: 'Personnaliser', exact: true });
+    if (await customize.getAttribute('aria-expanded') !== 'true') await customize.click();
+    const accordion = page.locator(`[data-header-panel="${contract.editor.headerElement}"]`);
+    const trigger = accordion.locator('.sqh-accordion-heading > button');
+    if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
+  } else if (contract.editor.scope === 'site') {
     await page.getByRole('button', { name: 'Identité du site' }).click();
   } else {
     await selectBuilderPage(
@@ -96,6 +103,15 @@ async function selectContractContext(
       await page.getByRole('button', { name: contract.editor.sectionLabel, exact: true }).click();
     }
   }
+  if (contract.editor.prerequisite?.id === 'section.layout') {
+    await openSectionPanel(page, 'appearance');
+    const layout = contract.editor.prerequisite.value;
+    await page.getByRole('button', {
+      name: layout === 'campaign' ? 'Campagne' : String(layout),
+      exact: true,
+    }).click();
+    await waitForDraftSaved(page);
+  }
   await openSectionPanel(page, contract.editor.sectionPanel);
   // An order page has two preview surfaces and the inspector only offers the
   // fields the visible one renders, so the surface must be selected before the
@@ -103,7 +119,7 @@ async function selectContractContext(
   if (contract.editor.surface === 'checkout') {
     await page.locator('[data-inspector-surface="checkout"]').click();
   }
-  if (contract.editor.prerequisite) {
+  if (contract.editor.prerequisite && contract.editor.prerequisite.id !== 'section.layout') {
     const prerequisite = page.locator(`[data-field-id="${contract.editor.prerequisite.id}"]`);
     if ((await prerequisite.getAttribute('type')) === 'checkbox') {
       await prerequisite.setChecked(Boolean(contract.editor.prerequisite.value));

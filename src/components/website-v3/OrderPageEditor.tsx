@@ -5,7 +5,7 @@ import { BooleanInput } from '@/components/ds/Selection';
 import { ColorStylePicker, openSiteColors, type SiteColorEditTarget } from "./ColorStylePicker";
 import {
   selectOrderColorStyle,
-  previousItemPresentation,
+  compactItemPresentation,
   compactOrderPresentation,
   woltOrderPresentation,
 } from "@/lib/website-v3/order-design";
@@ -420,8 +420,8 @@ export function OrderPageEditor({
             {t("editorViewItems")}
           </a>
           <button type="button" className="sqe-button sqe-button--outline"
-            onClick={() => onChange(["appearance_overrides", "website_order"], previousItemPresentation(value))}>
-            {t("editorItemPreviousLayout")}
+            onClick={() => onChange(["appearance_overrides", "website_order"], compactItemPresentation(value))}>
+            {t("editorItemCompactLayout")}
           </button>
           {select("item_layout", "editorLayout", "standard", [
             ["standard", "editorItemLayoutStandard"], ["cover", "editorItemLayoutCover"],
@@ -438,7 +438,7 @@ export function OrderPageEditor({
             defaultLabel={t("editorJourneyInheritMenu")}
             onChange={id => set("item_color_style", id)} />
           <p>{t("editorItemColorsHint")}</p>
-          {select("item_aspect_ratio", "editorImageRatio", "4/3", [
+          {select("item_aspect_ratio", "editorImageRatio", "16/9", [
             ["1/1", "1:1"],
             ["3/2", "3:2"],
             ["2/3", "2:3"],

@@ -1,0 +1,70 @@
+{
+  "impact": "Descriptive variant groups can be required or optional per item. Absent required preserves the existing mandatory behavior. Format pricing remains mandatory and descriptive choices never change its price.",
+  "releasePreparation": "The user explicitly authorized push, development deployment and production promotion, and selected TestFlight iOS for the POS delivery on 29 October 2026. Pin immutable Landing documentation before PR checks. Verify development, promote the exact API/Web artifacts, deliver the compatible POS build through TestFlight and expose the matching Admin control with the reviewed guides.",
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/menu/options/[optionSetId]/page.tsx",
+      "sha256": "4ba4ab99fdf672ecb65b0b7d1cc2586f832fd68656c9d8f76306525f74d71901",
+      "baseSha256": "4bf5b47c58a0b62d919464634223851813e01c3a31429a84884f30dfa739bbee",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-modifiers"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff from the current integration baseline adds only descriptive variant requirements, optional-position handling and their translations/library guidance. Existing cash guarantees, payments, delivery weekdays, photos, catalog membership, recipes, permissions and other controls remain exactly as integrated on develop. The changed variant and order procedures are documented in French, Hebrew and English."
+    },
+    {
+      "path": "src/components/menu-item/VariantSelectionEditor.tsx",
+      "sha256": "3f6e91978684a74374ba52420fbbe33c4a08f324f7528c6535da96b7aa98166b",
+      "baseSha256": "ddc9f58b61b3f96791c4ff1c057e982460e39252c943ab1d5d48ef11508898ca",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff from the current integration baseline adds only descriptive variant requirements, optional-position handling and their translations/library guidance. Existing cash guarantees, payments, delivery weekdays, photos, catalog membership, recipes, permissions and other controls remain exactly as integrated on develop. The changed variant and order procedures are documented in French, Hebrew and English."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "4b75cda1e9080628be3593aafb5af1e2dc0f0578122246774c12168527ea62c0",
+      "baseSha256": "7b826b13fbc066997a31e3e30af7d9fa56226082512096876854f2d4ac060bd3",
+      "features": [
+        "customers-profiles",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff from the current integration baseline adds only descriptive variant requirements, optional-position handling and their translations/library guidance. Existing cash guarantees, payments, delivery weekdays, photos, catalog membership, recipes, permissions and other controls remain exactly as integrated on develop. The changed variant and order procedures are documented in French, Hebrew and English."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "1bbbca9035b953f07729d59a709a6393c4b2b76478eb2b9c0452198e721c3e66",
+      "baseSha256": "01dfa41584a2bb6936f5ef78803fde92fb9d204677d3afec8e841e553263d1af",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff from the current integration baseline adds only descriptive variant requirements, optional-position handling and their translations/library guidance. Existing cash guarantees, payments, delivery weekdays, photos, catalog membership, recipes, permissions and other controls remain exactly as integrated on develop. The changed variant and order procedures are documented in French, Hebrew and English."
+    }
+  ],
+  "integration": "Merged current develop c26132fd including the already reviewed Stancer cash guarantee controls. The immutable documentation revision is unchanged; new source evidence is based on that integration contract."
+}

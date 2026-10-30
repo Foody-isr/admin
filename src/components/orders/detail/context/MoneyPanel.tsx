@@ -17,6 +17,7 @@ import { Button } from '@/components/ds';
 import { Money } from '../primitives/Money';
 import styles from '../order-detail.module.css';
 import { CashTag } from '@/components/orders/CashTag';
+import { CashGuaranteePanel } from '@/components/orders/CashGuaranteePanel';
 import { PaymentAdjustments } from '@/components/orders/PaymentAdjustments';
 import { initOrderPaymentLink, collectOrderBalance, type Order } from '@/lib/api';
 import { formatMoney } from '@/lib/format-money';
@@ -170,6 +171,7 @@ export function MoneyPanel({
     >
 
       <div className="order-detail-money-body flex flex-col gap-4 text-fs-sm">
+        <CashGuaranteePanel key={`${order.restaurant_id}:${order.id}`} order={order} />
           {/*
             The ledger. A two-column baseline grid rather than a stack of
             flex rows, so every figure lands on one axis and the decimal

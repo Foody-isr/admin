@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type WebSocketRoute } from '@playwright/test';
 import { createFixture } from './fixtures.mjs';
 import type { DeliveryRoute, RouteStop } from '../../src/lib/delivery';
 
@@ -7,7 +7,8 @@ const route = (id: number, status: DeliveryRoute['status'] = 'draft'): DeliveryR
 
 async function install(page: Page, options: { active?: boolean; missing?: boolean; mismatch?: boolean; locale?: string; role?: 'superadmin' | 'owner' | 'manager' | 'courier'; roleName?: string } = {}) {
   const fixture = createFixture();
-  const state = { routes: [route(1, options.active ? 'active' : 'draft'), route(2)], requests: [] as string[], courierRequests: [] as { path: string; courierId: string | null; rid?: string }[], writes: [] as { path: string; rid?: string; courierId?: string | null; body: any }[], failDelivered: false, failDeliveredStatus: 400, failNavigation: false, errors: [] as string[] };
+  const state = { routes: [route(1, options.active ? 'active' : 'draft'), route(2)], requests: [] as string[], courierRequests: [] as { path: string; courierId: string | null; rid?: string }[], writes: [] as { path: string; rid?: string; courierId?: string | null; body: any }[], locationReports: [] as { rid?: string; body: { lat: number; lng: number } }[], failLocation: false, socket: undefined as WebSocketRoute | undefined, failDelivered: false, failDeliveredStatus: 400, failNavigation: false, errors: [] as string[] };
+  await page.routeWebSocket('**/ws?**', socket => { state.socket = socket; });
   if (options.missing) Object.assign(state.routes[0].stops[0], { lat: null, lng: null, needs_geocode: true });
   page.on('pageerror', error => state.errors.push(error.message));
   await page.addInitScript(({ locale, role }) => {
@@ -25,6 +26,15 @@ async function install(page: Page, options: { active?: boolean; missing?: boolea
     if (path === '/api/v1/users/me') return intercepted.fulfill({ json: { role_name: options.roleName ?? (options.role === 'superadmin' ? 'Super Admin' : options.role === 'owner' ? 'Owner' : options.role === 'manager' ? 'Manager' : 'Courier'), permissions: options.role === 'superadmin' || options.role === 'owner' || options.role === 'manager' ? ['orders.view', 'orders.manage'] : ['orders.view'], user: { id: 91, role: options.role ?? 'courier' } } });
     if (path.match(/\/restaurants\/\d+\/staff$/)) return intercepted.fulfill({ json: { staff: [{ id: 91, full_name: 'Livreur Alpha', role: 'courier' }, { id: 92, full_name: 'Livreur Beta', role: 'waiter', role_name: 'Courier' }, { id: 93, full_name: 'Manager démo', role: 'manager' }] } });
     if (path === '/api/v1/delivery/routes/mine/all') return intercepted.fulfill({ json: { routes: state.routes.filter(route => courierId === null || route.courier_id === Number(courierId)).filter(route => route.stops.some(stop => stop.status !== 'delivered' && stop.status !== 'skipped')).map(route => ({ ...route, restaurant_id: Number(rid) })) } });
+    if (path === '/api/v1/delivery/location') {
+      const body = request.postDataJSON();
+      state.locationReports.push({ rid, body });
+      if (state.failLocation) return intercepted.fulfill({ status: 503, json: { error: 'service unavailable' } });
+      const updated_at = await page.evaluate(() => new Date().toISOString());
+      const location = { courier_id: 91, route_id: 1, ...body, updated_at };
+      state.routes[0].last_location = location;
+      return intercepted.fulfill({ json: { location } });
+    }
     if (path === '/api/v1/public/delivery/map-config') return intercepted.fulfill({ json: { provider: 'geoapify', tile_url: `/api/v1/public/delivery/map/{style}/{z}/{x}/{y}.png?restaurant_id=${rid}` } });
     if (path.startsWith('/api/v1/public/delivery/map/')) return intercepted.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#e9eded"/></svg>' });
     if (path.endsWith('/my-navigation-check')) {
@@ -215,7 +225,7 @@ test('failed address verification leaves operational actions available and permi
   await expect(card(page).getByRole('link', { name: 'Appeler', exact: true })).toBeVisible();
   await expect(run(page).getByTestId('courier-action-dock').getByRole('button', { name: 'Marquer livrée' })).toBeEnabled();
   state.failNavigation = false;
-  await run(page).getByRole('button', { name: 'Réessayer', exact: true }).click();
+  await run(page).getByRole('alert').filter({ hasText: 'La vérification des adresses' }).getByRole('button', { name: 'Réessayer', exact: true }).click();
   await expect(run(page).getByText(/La vérification des adresses est momentanément indisponible/)).toHaveCount(0);
   expect(state.errors).toEqual([]);
 });
@@ -523,3 +533,210 @@ test('refreshing a saved route warning does not recalculate or write the plan', 
   expect(state.writes).toEqual([]);
   expect(JSON.stringify(state.routes)).toBe(before);
 });
+
+
+async function installGps(page: Page) {
+  await page.addInitScript(() => {
+    let success: PositionCallback;
+    let failure: PositionErrorCallback | null = null;
+    const tracker = { watches: 0, clears: 0 };
+    Object.assign(window, { courierGps: {
+      tracker,
+      emit: (lat: number, lng: number) => {
+        const coords = { latitude: lat, longitude: lng, accuracy: 10, heading: null, speed: null, altitude: null, altitudeAccuracy: null, toJSON: () => ({ latitude: lat, longitude: lng }) };
+        const timestamp = Date.now();
+        success({ coords, timestamp, toJSON: () => ({ coords: coords.toJSON(), timestamp }) });
+      },
+      fail: (code: number) => failure?.({ code, message: 'synthetic GPS error', PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 }),
+    } });
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: {
+      watchPosition: (onPosition: PositionCallback, onError: PositionErrorCallback) => { success = onPosition; failure = onError; return ++tracker.watches; },
+      clearWatch: () => { tracker.clears++; },
+    } });
+  });
+}
+
+test('returning to the foreground reacquires and shares GPS before the next delivery', async ({ page }) => {
+  const state = await install(page, { active: true });
+  await installGps(page);
+  await page.clock.install();
+  await page.goto('/2/orders/courier-mode');
+  await expect(page.getByText('En attente de la position GPS du téléphone…')).toBeVisible();
+  await page.evaluate(() => (window as any).courierGps.emit(32.071, 34.791));
+  const marker = run(page).getByTitle('Position du livreur', { exact: true });
+  await expect(marker).toHaveCount(1);
+  const before = await marker.getAttribute('style');
+  const watches = await page.evaluate(() => (window as any).courierGps.tracker.watches);
+  const checks = state.requests.filter(path => path.endsWith('/my-navigation-check')).length;
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.clock.fastForward(30000);
+  expect(await page.evaluate(() => (window as any).courierGps.tracker.watches)).toBe(watches);
+  expect(state.locationReports).toHaveLength(1);
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(() => page.evaluate(() => (window as any).courierGps.tracker.watches)).toBe(watches + 1);
+  await page.evaluate(() => (window as any).courierGps.emit(32.077, 34.797));
+  await expect.poll(() => state.locationReports.length).toBe(2);
+  await expect(marker).not.toHaveAttribute('style', before!);
+  expect(state.locationReports[1]).toMatchObject({ rid: '2', body: { lat: 32.077, lng: 34.797 } });
+  expect(state.requests.filter(path => path.endsWith('/my-navigation-check'))).toHaveLength(checks);
+  expect(state.routes[0].stops.every(stop => stop.status === 'pending')).toBe(true);
+  expect(state.writes).toHaveLength(0);
+  expect(state.errors).toEqual([]);
+});
+
+test('live GPS moves the courier marker and preserves the final update inside the throttle window', async ({ page }) => {
+  const state = await install(page, { active: true });
+  await installGps(page);
+  await page.clock.install();
+  await page.goto('/2/orders/deliveries');
+  await expect(page.getByText('En attente de la position GPS du téléphone…')).toBeVisible();
+  const checksBefore = state.requests.filter(path => path.endsWith('/my-navigation-check')).length;
+  await page.evaluate(() => (window as any).courierGps.emit(32.071, 34.791));
+  const marker = run(page).getByTitle('Position du livreur', { exact: true });
+  await expect(marker).toHaveCount(1);
+  const before = await marker.getAttribute('style');
+  await page.evaluate(() => (window as any).courierGps.emit(32.075, 34.795));
+  expect(state.locationReports).toHaveLength(1);
+  await page.clock.fastForward(10001);
+  await expect.poll(() => state.locationReports.length).toBe(2);
+  await expect(marker).not.toHaveAttribute('style', before!);
+  expect(state.locationReports[1]).toMatchObject({ rid: '2', body: { lat: 32.075, lng: 34.795 } });
+  expect(state.requests.filter(path => path.endsWith('/my-navigation-check'))).toHaveLength(checksBefore);
+  expect(state.writes).toHaveLength(0);
+  expect(state.errors).toEqual([]);
+});
+
+for (const code of [1, 2, 3]) {
+  test(`GPS error ${code} is visible and can recover without completing an order`, async ({ page }) => {
+    const state = await install(page, { active: true });
+    await installGps(page);
+    await page.goto('/1/orders/deliveries');
+    await expect(page.getByText('En attente de la position GPS du téléphone…')).toBeVisible();
+    await page.evaluate(code => (window as any).courierGps.fail(code), code);
+    await expect(run(page).getByRole('alert')).toContainText(code === 1 ? 'L’accès à la localisation est refusé' : 'Position GPS indisponible');
+    await run(page).getByRole('alert').getByRole('button', { name: 'Réessayer' }).click();
+    await page.evaluate(() => (window as any).courierGps.emit(32.071, 34.791));
+    await expect(run(page).getByTitle('Position du livreur', { exact: true })).toHaveCount(1);
+    await expect(run(page).getByRole('alert')).toHaveCount(0);
+    expect(state.writes).toHaveLength(0);
+  });
+}
+
+test('failed position transmission is visible and retry uses the newly accepted GPS', async ({ page }) => {
+  const state = await install(page, { active: true }); state.failLocation = true;
+  await installGps(page);
+  await page.goto('/1/orders/deliveries');
+  await expect(page.getByText('En attente de la position GPS du téléphone…')).toBeVisible();
+  await page.evaluate(() => (window as any).courierGps.emit(32.071, 34.791));
+  await expect(run(page).getByRole('alert')).toContainText('La position n’a pas pu être partagée');
+  await expect(run(page).locator('.foody-courier-pin')).toHaveCount(0);
+  state.failLocation = false;
+  await run(page).getByRole('alert').getByRole('button', { name: 'Réessayer' }).click();
+  await page.evaluate(() => (window as any).courierGps.emit(32.075, 34.795));
+  await expect(run(page).getByTitle('Position du livreur', { exact: true })).toHaveCount(1);
+  await expect(run(page).getByRole('alert')).toHaveCount(0);
+  expect(state.writes).toHaveLength(0);
+});
+
+test('owner courier mode displays received GPS, follows only the selected courier and never sends the owner position', async ({ page }) => {
+  const state = await install(page, { active: true, role: 'owner' });
+  state.routes[0].last_location = { courier_id: 91, route_id: 1, lat: 32.071, lng: 34.791, updated_at: new Date().toISOString() };
+  await page.clock.install();
+  await page.goto('/1/orders/courier-mode');
+  const marker = run(page).getByTitle('Position du livreur', { exact: true });
+  await expect(marker).toHaveCount(1);
+  const before = await marker.getAttribute('style');
+  await expect.poll(() => Boolean(state.socket)).toBe(true);
+  state.socket!.send(JSON.stringify({ type: 'courier.location', payload: { ...state.routes[0].last_location, lat: 32.077, lng: 34.797, updated_at: new Date(Date.now() + 1000).toISOString() } }));
+  await expect(marker).not.toHaveAttribute('style', before!);
+  const after = await marker.getAttribute('style');
+  state.socket!.send(JSON.stringify({ type: 'courier.location', payload: { courier_id: 92, route_id: 2, lat: 32.08, lng: 34.8, updated_at: new Date(Date.now() + 2000).toISOString() } }));
+  await expect(marker).toHaveAttribute('style', after!);
+  await page.clock.fastForward(80000);
+  await expect(run(page).getByTitle('Position ancienne du livreur', { exact: true })).toHaveCount(1);
+  await expect(page.getByText(/Position ancienne du livreur — dernière réception/)).toBeVisible();
+  expect(state.locationReports).toHaveLength(0);
+  expect(state.writes).toHaveLength(0);
+});
+
+test('courier avatar remains readable above the selected delivery and labels an old position', async ({ page }, info) => {
+  const state = await install(page, { active: true, role: 'owner' });
+  const first = state.routes[0].stops[0];
+  state.routes[0].last_location = { courier_id: 91, route_id: 1, lat: first.lat!, lng: first.lng!, updated_at: new Date(Date.now() - 120000).toISOString() };
+  await page.goto('/1/orders/courier-mode');
+  const marker = run(page).getByTitle('Position ancienne du livreur', { exact: true });
+  await expect(marker).toBeVisible();
+  await expect(marker.locator('svg')).toBeVisible();
+  await expect(run(page).locator('.foody-courier-label')).toHaveText('Position ancienne du livreur');
+  const box = await marker.boundingBox();
+  expect(box!.width).toBeGreaterThanOrEqual(44);
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+  const aboveStop = await marker.evaluate(element => {
+    const selected = document.querySelector('.foody-courier-stop-pin') as HTMLElement;
+    return Number(getComputedStyle(element).zIndex) > Number(getComputedStyle(selected).zIndex);
+  });
+  expect(aboveStop).toBe(true);
+  const center = { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 };
+  expect(await page.evaluate(({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest('.foody-courier-pin')), center)).toBe(true);
+  await page.screenshot({ path: info.outputPath('courier-avatar-old.png'), animations: 'disabled' });
+  expect(state.locationReports).toHaveLength(0);
+  expect(state.writes).toHaveLength(0);
+  expect(state.errors).toEqual([]);
+});
+
+test('route framing includes a distant courier and GPS movement does not recenter the map', async ({ page }) => {
+  const state = await install(page, { active: true, role: 'owner' });
+  state.routes[0].last_location = { courier_id: 91, route_id: 1, lat: 33.1, lng: 35.2, updated_at: new Date().toISOString() };
+  await page.goto('/1/orders/courier-mode');
+  const marker = run(page).getByTitle('Position du livreur', { exact: true });
+  const insideMap = () => marker.evaluate(element => {
+    const pin = element.getBoundingClientRect();
+    const map = element.closest('.leaflet-container')!.getBoundingClientRect();
+    return pin.left >= map.left && pin.right <= map.right && pin.top >= map.top && pin.bottom <= map.bottom;
+  });
+  await expect.poll(insideMap).toBe(true);
+  const stop = run(page).locator('.foody-courier-stop-pin').first();
+  const initialStopStyle = await stop.getAttribute('style');
+  const initialMarkerStyle = await marker.getAttribute('style');
+  const checks = state.requests.filter(path => path.endsWith('/my-navigation-check')).length;
+  await expect.poll(() => Boolean(state.socket)).toBe(true);
+  state.socket!.send(JSON.stringify({ type: 'courier.location', payload: { ...state.routes[0].last_location, lat: 34.1, lng: 36.2, updated_at: new Date(Date.now() + 1000).toISOString() } }));
+  await expect(marker).not.toHaveAttribute('style', initialMarkerStyle!);
+  await expect(stop).toHaveAttribute('style', initialStopStyle!);
+  await expect.poll(insideMap).toBe(false);
+  await run(page).getByRole('button', { name: 'Afficher toute la tournée', exact: true }).click();
+  await expect.poll(insideMap).toBe(true);
+  expect(state.requests.filter(path => path.endsWith('/my-navigation-check'))).toHaveLength(checks);
+  expect(state.locationReports).toHaveLength(0);
+  expect(state.writes).toHaveLength(0);
+  expect(state.errors).toEqual([]);
+});
+
+for (const locale of ['fr', 'he']) {
+  test(`mobile courier avatar stays visible above the timeline (${locale})`, async ({ page }, info) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const state = await install(page, { active: true, role: 'owner', locale });
+    state.routes[0].last_location = { courier_id: 91, route_id: 1, lat: 32.07, lng: 34.79, updated_at: new Date(Date.now() - 120000).toISOString() };
+    await page.goto('/1/orders/courier-mode');
+    const marker = run(page).locator('.foody-courier-pin');
+    await expect(marker).toBeVisible();
+    await expect(run(page).getByRole('tooltip', { name: locale === 'he' ? 'מיקום ישן של השליח' : 'Position ancienne du livreur', exact: true })).toBeVisible();
+    await expect.poll(() => marker.evaluate(element => {
+      const pin = element.getBoundingClientRect();
+      return Boolean(document.elementFromPoint(pin.left + pin.width / 2, pin.top + pin.height / 2)?.closest('.foody-courier-pin'));
+    })).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath(`courier-avatar-mobile-${locale}.png`), animations: 'disabled' });
+    expect(state.locationReports).toHaveLength(0);
+    expect(state.writes).toHaveLength(0);
+    expect(state.errors).toEqual([]);
+  });
+}

@@ -8,6 +8,7 @@ export type ThemeCopy = {
   headline: string; welcome: string; discover: string; fresh: string;
   starters: string; mains: string; drinks: string; send: string;
   name: string; email: string; message: string;
+  coffee_title?: string; coffee_subtitle?: string;
 };
 
 /** Defaults for non-UI callers; the editor supplies its localized copy. */
@@ -18,11 +19,12 @@ export const DEFAULT_THEME_COPY: ThemeCopy = {
   discover: "Discover our menu", fresh: "Freshly prepared • Made to share •",
   starters: "Starters", mains: "Mains", drinks: "Drinks", send: "Send",
   name: "Name", email: "Email", message: "Message",
+  coffee_title: "Coffee for the moment", coffee_subtitle: "Iced coffee, indulgent recipes and a little pause.",
 };
 
 /** Reference media observed in the public Square restaurant theme previews. */
 export function restaurantThemeMedia(theme: RestaurantTheme) {
-  return media[theme.id as keyof typeof media];
+  return media[theme.id as keyof typeof media] ?? {hero: "", images: [] as string[]};
 }
 
 type BlueprintContext = {
@@ -43,6 +45,51 @@ export function restaurantThemeSection(
   const settings: Record<string, unknown> = {
     ...squareDefaultSettings(type), theme_layout: theme.id,
   };
+  if (theme.id === "pink-coffee") {
+    if (type === "hero_banner") return {
+      layout: "campaign",
+      content: {
+        headline: copy.headline, subheadline: context.description,
+        image_url: context.image, cta_text: context.cta, cta_link: links.order || "/order",
+        slides: [copy.headline, copy.menu, copy.story].map((headline,index) => ({
+          id: `campaign-${index + 1}`, headline,
+          subheadline: index === 0 ? context.description || copy.welcome : index === 1 ? copy.discover : context.description || copy.welcome,
+          image_url: context.image, video_url: "", image_alt: context.title,
+          cta_text: context.cta, cta_link: links.order || "/order",
+          background_color: ["#ffb9cd", "#f4f4f4", "#ffb9cd"][index],
+        })),
+      },
+      settings: {...settings, height: "tall", text_alignment: "left", text_align:"left",
+        headline_size:"display", headline_weight:"extrabold", headline_color:"#000000",
+        subheadline_color:"#000000", cta_bg_color:"#000000", cta_color:"#ffffff",
+        autoplay:false, slide_duration_seconds:10, image_fit:"contain", bg_overlay:false,
+        controls_alignment:"right",show_counter:false,show_playback_control:false,
+        card_width_percent:96,card_width_percent_mobile:90,
+        show_headline:true, show_subheadline:true, show_image_url:true, show_cta_text:true},
+    };
+    if (type === "menu_highlights") return {
+      layout:"grid", content:{title:copy.coffee_title || copy.menu,subtitle:copy.coffee_subtitle || copy.discover,item_ids:[],cta_text:context.cta,cta_link:links.order || "/order"},
+      settings:{...settings,card_presentation:"campaign",columns:4,mobile_columns:2,
+        title_size:"display",title_weight:"extrabold",auto_select_items:true,max_items:12,
+        content_max_width:1200,row_spacing:56,column_spacing:3,
+        image_bg_color:"#ffb9cd",alternate_image_bg_color:"#f4f4f4",image_fit:"contain",
+        image_ratio:"1/1",show_images:true,show_item_titles:true,show_prices:false,
+        show_descriptions:true,show_buttons:false,show_cta_text:false},
+    };
+    if (type === "text_and_image") return {
+      layout:"default",content:{title:copy.story,body:context.description || copy.welcome,
+        image_url:context.image,image_alt:context.title,cta_text:context.cta,cta_link:links.order || "/order"},
+      settings:{...settings,padding:"compact",image_fit:"contain",image_bg_color:"#ffb9cd",height:"medium",
+        title_size:"display",title_weight:"extrabold",text_alignment:"left"},
+    };
+    if (type === "footer") return {
+      layout:"minimal",content:{show_logo:false,show_navigation:true,same_as_header:false,
+        navigation_links:[{id:"home",label:copy.home,target:{kind:"home",value:""}},...(links.order ? [{id:"order",label:context.cta,target:{kind:"order",value:""}}] : [])],
+        show_address:false,show_phone:false,show_hours:false,show_description:false,
+        show_social:false,show_subscription:false,custom_text:context.title},
+      settings:{...settings,color_style:"style-1",padding:"compact"},
+    };
+  }
   if (type === "hero_banner") {
     layout = role === "home" ? theme.hero : "split";
     content = {

@@ -1,4 +1,4 @@
-import type { DraftStatePayload } from "./types";
+import {sectionKey, type DraftStatePayload, type FieldError} from "./types";
 
 const REQUIRED_PROTOCOL = "foody.website-v3";
 const REQUIRED_VERSION = 1;
@@ -13,6 +13,10 @@ const REQUIRED_PAGE_TYPES = [
 const REQUIRED_SURFACES = ["page", "checkout"] as const;
 
 export type WebsiteV3RuntimeCapabilities = {
+  campaign_layout_controls?: 1;
+  campaign_hero?: 1;
+  campaign_products?: 1;
+  display_typography?: 1;
   protocol: typeof REQUIRED_PROTOCOL;
   version: number;
   editor_catalog: 2;
@@ -32,6 +36,46 @@ export type WebsiteV3RuntimeCapabilities = {
     version: typeof REQUIRED_RENDERER_VERSION;
   };
 };
+
+/** Rejects only drafts using a campaign feature absent from the selected renderer. */
+export function campaignRuntimeErrors(state: DraftStatePayload, capabilities: WebsiteV3RuntimeCapabilities | null, translate?: (key: string) => string): FieldError[] {
+  const errors: FieldError[] = state.sections.flatMap(section => {
+    if (!section.is_visible) return [];
+    const layoutControls = section.section_type === "hero_banner" && section.layout === "campaign"
+      ? (section.settings.controls_alignment !== undefined && section.settings.controls_alignment !== "center")
+        || section.settings.show_counter === false || section.settings.show_playback_control === false
+        || (section.settings.card_width_percent !== undefined && section.settings.card_width_percent !== 92)
+        || (section.settings.card_width_percent_mobile !== undefined && section.settings.card_width_percent_mobile !== 90)
+        || section.settings.card_gap !== undefined
+      : section.section_type === "menu_highlights" && section.settings.card_presentation === "campaign"
+        && ((section.settings.item_image_backgrounds && typeof section.settings.item_image_backgrounds === "object" && Object.keys(section.settings.item_image_backgrounds).length > 0)
+          || (section.settings.content_max_width !== undefined && section.settings.content_max_width !== 1440)
+          || (section.settings.row_spacing !== undefined && section.settings.row_spacing !== Number(section.settings.column_spacing ?? 2) * 10));
+    const missing = layoutControls && capabilities?.campaign_layout_controls !== 1 ? "campaign_layout_controls"
+      : section.section_type === "hero_banner" && section.layout === "campaign" && capabilities?.campaign_hero !== 1
+      ? "campaign_hero"
+      : section.section_type === "menu_highlights" && section.settings.card_presentation === "campaign" && capabilities?.campaign_products !== 1
+        ? "campaign_products"
+        : Object.entries(section.settings).some(([key,value]) => key.endsWith("_size") && value === "display") && capabilities?.display_typography !== 1
+          ? "display_typography" : null;
+    const messages = {
+      campaign_layout_controls:["campaignUnsupportedLayoutControls","Mettez à jour le rendu public avant de publier ces réglages de présentation."],
+      campaign_hero:["campaignUnsupportedHero","Le rendu public doit être mis à jour avant de publier ce diaporama."],
+      campaign_products:["campaignUnsupportedProducts","Le rendu public doit être mis à jour avant de publier ces cartes."],
+      display_typography:["campaignUnsupportedDisplay","Le rendu public doit être mis à jour avant de publier ces grands titres."],
+    };
+    return missing ? [{fieldId: "section.layout", message: translate ? translate(messages[missing][0]) : messages[missing][1],sectionKey:sectionKey(section),sectionPanel:"appearance" as const}] : [];
+  });
+  const config = state.config.nav_layout as Record<string, unknown> | undefined;
+  const header = config?.header as Record<string, unknown> | undefined;
+  const navigation = header?.navigation as Record<string, unknown> | undefined;
+  if (navigation && capabilities?.campaign_layout_controls !== 1 && (
+    navigation.hamburger_style === "staggered" ||
+    (navigation.hamburger_size !== undefined && navigation.hamburger_size !== 24) ||
+    (navigation.hamburger_stroke !== undefined && navigation.hamburger_stroke !== 1.5)
+  )) errors.push({fieldId:"site.header.navigation.hamburger_style",message:translate ? translate("campaignUnsupportedLayoutControls") : "Mettez à jour le rendu public avant de publier ces réglages de présentation."});
+  return errors;
+}
 
 /** Ensures the selected public storefront can render every Website V3 draft the Admin can publish. */
 export async function requireWebsiteV3RuntimeCapabilities(

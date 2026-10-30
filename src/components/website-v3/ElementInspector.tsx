@@ -2,6 +2,8 @@
 
 import { BooleanInput } from '@/components/ds/Selection';
 import { MotionTextContentFields } from "./MotionTextContentFields";
+import { CampaignSlidesEditor } from "./CampaignSlidesEditor";
+import {useCampaignCapability} from "./CampaignRuntimeContext";
 import { ChevronRight } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import {
@@ -43,7 +45,8 @@ export function editorElementLabel(
   field: string,
   t: (key: string) => string,
 ): string {
-  return t(labels[field] ?? field);
+  const semanticField = field.split(".").pop() || field;
+  return t(labels[semanticField] ?? semanticField);
 }
 
 /** Lists a section's elements separately from its layout, with non-destructive visibility controls. */
@@ -118,20 +121,25 @@ export function ElementInspector({
   onChange: (path: StatePath, value: unknown) => void;
 }) {
   const { t } = useI18n();
+  const semanticField=field.split(".").pop() || field;
   const setting = (suffix: string) =>
-    `${field === "cta_text" ? "cta" : field}_${suffix}`;
+    `${semanticField === "cta_text" ? "cta" : semanticField}_${suffix}`;
   const set = (suffix: string, value: unknown) =>
     onChange(["settings", setting(suffix)], value);
   const scrolling = section.section_type === "scrolling_text";
   const animated = section.section_type === "animated_text";
   const motionText = scrolling || animated;
-  const heading = field === "headline" || field === "title" || motionText;
+  const heading = semanticField === "headline" || semanticField === "title" || motionText;
+  const displaySupported = useCampaignCapability("display_typography");
+  const campaign = section.section_type === "hero_banner" && section.layout === "campaign";
   const bold =
     section.settings[setting("weight")] === "bold" ||
+    section.settings[setting("weight")] === "extrabold" ||
     (!section.settings[setting("weight")] && heading);
-  if (field === "image_url")
+  if (semanticField === "image_url")
     return (
       <div className="sqe-panel-body space-y-5">
+        {campaign ? <CampaignSlidesEditor restaurantId={restaurantId} section={section} selectedSlide={Number(field.split(".")[1])} onChange={onChange}/> : <>
         <ImageUploadField
           restaurantId={restaurantId}
           label={t("editorBackgroundMedia")}
@@ -162,12 +170,13 @@ export function ElementInspector({
             onRemove={() => onChange(["content", "video_url"], "")}
           />
         )}
+        </>}
       </div>
     );
   if (!isInlineTextElement(section.section_type, field)) return null;
   return (
     <div className="sqe-panel-body space-y-5">
-      {motionText ? (
+      {campaign ? <CampaignSlidesEditor restaurantId={restaurantId} section={section} selectedSlide={Number(field.split(".")[1])} onChange={onChange}/> : motionText ? (
         <MotionTextContentFields section={section} onChange={onChange} />
       ) : (
         <p className="sqe-element-hint">{t("editorInlineHint")}</p>
@@ -185,9 +194,9 @@ export function ElementInspector({
           )}
           onChange={(event) => set("size", event.target.value)}
         >
-          {(heading ? ["sm", "md", "lg", "xl"] : ["sm", "md", "lg"]).map(
+          {(heading && !motionText ? ["sm", "md", "lg", "xl", "display"] : heading ? ["sm", "md", "lg", "xl"] : ["sm", "md", "lg"]).map(
             (size) => (
-              <option key={size} value={size}>
+              <option key={size} value={size} disabled={size === "display" && !displaySupported}>
                 {t(`editorSize_${size}`)}
               </option>
             ),
