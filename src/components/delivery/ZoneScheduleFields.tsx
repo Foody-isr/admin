@@ -31,7 +31,7 @@ export function ZoneScheduleFields({ value, onChange, sameDaySupported = false }
       <option value="automatic">{t('deliveryScheduleAutomatic')}</option>
       <option value="restaurant">{t('deliveryScheduleRestaurant')}</option>
     </Select></Field>
-    {value && sameDaySupported && <fieldset className="space-y-4 border-t border-[var(--line)] pt-5">
+    {sameDaySupported && <fieldset className="space-y-4 border-t border-[var(--line)] pt-5">
       <legend className="px-1 text-fs-md font-semibold">{t('sameDayTitle')}</legend>
       {rule ? <>
         <p className="text-fs-sm leading-relaxed text-[var(--fg-muted)]">{t('zoneSameDayDaysHint')}</p>

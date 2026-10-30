@@ -192,3 +192,13 @@ for(const locale of ['fr','he','en'])test(`zone same-day settings are grouped an
  expect(state.writes[0].body).toHaveProperty('expected_updated_at');
  expect(state.writes.every(write=>write.path.startsWith('/api/v1/delivery/zones/'))).toBe(true);
 });
+
+
+test('new zones retain restaurant-calendar inheritance until explicitly configured',async({page})=>{
+ const state=await install(page,{zoneRules:true});await open(page);
+ await page.getByRole('button',{name:'Ajouter une zone',exact:true}).click();const form=dialog(page);
+ await form.getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Zone de démonstration');
+ await expect(form.getByRole('combobox',{name:'Choix de l’horaire pour les commandes à l’avance',exact:true})).toHaveValue('legacy');
+ await expect(form.getByRole('checkbox',{name:/Configurer le jour même pour cette zone/})).not.toBeChecked();
+ await save(page).click();await expect(form).toHaveCount(0);expect(state.writes[0].body.schedule).toBeNull();
+});
