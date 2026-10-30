@@ -280,16 +280,18 @@ export async function listOpenDeliveryRoutes(restaurantId: number): Promise<Deli
   return data.routes ?? [];
 }
 
-/** Report the courier's current GPS. 204 (no active route) and 429 (rate-limited)
- *  are both fine; the caller ignores the result. */
+/** Report the current courier's GPS and return the position accepted for an active route. */
 export async function reportLocation(
   restaurantId: number,
   pos: { lat: number; lng: number; heading?: number; speed?: number; accuracy?: number },
-): Promise<void> {
-  await apiFetch<void>(
+): Promise<CourierLocationDTO | null> {
+  const data = await apiFetch<{ location: CourierLocationDTO } | undefined>(
     `/api/v1/delivery/location?${q(restaurantId)}`, restaurantId,
     { method: 'POST', body: JSON.stringify(pos) },
   );
+  if (data === undefined) return null; // 204: no active route to broadcast.
+  if (!data.location) throw new Error('Location report was not acknowledged');
+  return data.location;
 }
 
 /** All unfinished routes assigned to the current courier, including future runs. */

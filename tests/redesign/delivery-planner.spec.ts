@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type WebSocketRoute } from '@playwright/test';
 import { createFixture } from './fixtures.mjs';
 import type { DeliveryRoute, RouteStop } from '../../src/lib/delivery';
 
@@ -25,11 +25,13 @@ async function install(page: Page, locale = 'fr') {
   await page.clock.install({ time: new Date(`${day}T08:00:00+03:00`) });
   const fixture = createFixture();
   const state = {
+    socket: undefined as WebSocketRoute | undefined,
     routes: [route(1, [stop(1, 'delivered'), stop(2), stop(3)]), route(2, [stop(4, 'delivered')])],
     couriers: [{ id: 1, full_name: 'Livreur démo', role: 'courier', courier_default_end_address: '' }, { id: 2, full_name: 'Livreuse démo', role: 'courier', courier_default_end_address: '' }],
     candidates: [] as object[], writes: [] as { path: string; rid?: string }[],
     reads: [] as { date: string | null; rid?: string }[], tiles: [] as string[], mapProvider: 'geoapify', failUndo: false, failRouting: false,
   };
+  await page.routeWebSocket('**/ws?**', socket => { state.socket = socket; });
   await page.addInitScript(({ locale }) => {
     localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Équipe démo', role: 'manager' }));
@@ -484,4 +486,26 @@ test('a saved route final destination takes precedence over the updated staff de
   await page.getByRole('checkbox', { name: 'Tout sélectionner', exact: true }).check();
   await page.getByRole('button', { name: 'Répartir entre les livreurs', exact: true }).first().click();
   await expect(page.getByRole('group', { name: 'Livreur démo', exact: true }).getByRole('combobox', { name: 'Destination finale' })).toHaveValue('Destination déjà enregistrée');
+});
+
+
+test('dispatcher identifies missing and stale GPS and moves the courier without recalculating the route', async ({ page }) => {
+  const state = await install(page);
+  state.routes[0].status = 'active';
+  await page.goto('/1/orders/deliveries');
+  await expect(page.getByText('Aucune position du livreur reçue. Vérifiez la localisation sur son téléphone.')).toBeVisible();
+  await expect.poll(() => Boolean(state.socket)).toBe(true);
+  const updated_at = await page.evaluate(() => new Date().toISOString());
+  const fix = { courier_id: 1, route_id: 1, lat: 32.074, lng: 34.794, updated_at };
+  state.socket!.send(JSON.stringify({ type: 'courier.location', payload: fix }));
+  const marker = page.getByTitle('Position du livreur', { exact: true });
+  await expect(marker).toHaveCount(1);
+  await expect(page.getByText(/Position du livreur reçue à/)).toBeVisible();
+  const before = await marker.getAttribute('style');
+  state.socket!.send(JSON.stringify({ type: 'courier.location', payload: { ...fix, lat: 32.08, lng: 34.8, updated_at: new Date(Date.parse(updated_at) + 1000).toISOString() } }));
+  await expect(marker).not.toHaveAttribute('style', before!);
+  await page.clock.fastForward(95000);
+  await expect(page.getByTitle('Position ancienne du livreur', { exact: true })).toHaveCount(1);
+  await expect(page.getByText(/Position ancienne du livreur — dernière réception/)).toBeVisible();
+  expect(state.writes).toHaveLength(0);
 });

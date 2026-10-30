@@ -11,6 +11,7 @@ import {
   markArrived,
   markStopDelivered,
   type DeliveryRoute,
+  type CourierLocationDTO,
   type RouteStop,
 } from '@/lib/delivery';
 import {
@@ -27,6 +28,7 @@ import { NavigationAppMenu } from '@/components/delivery/NavigationAppMenu';
 import { DeliveryDuration } from '@/components/delivery/DeliveryDuration';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
 import { useLocationReporter } from '@/lib/useLocationReporter';
+import { CourierLocationStatus } from '@/components/delivery/CourierLocationStatus';
 import {
   Button,
   ConfirmDialog,
@@ -295,10 +297,28 @@ function CourierRouteView({
   const searchRef = useRef<HTMLInputElement>(null);
   const dragStart = useRef<number | null>(null);
   const [startConfirmOpen, setStartConfirmOpen] = useState(false);
-  const { denied: locationDenied } = useLocationReporter(
+  const reporter = useLocationReporter(
     rid,
     reportLocation && route.status === 'active'
   );
+  const { lastEvent } = useWs();
+  const [location, setLocation] = useState<CourierLocationDTO | null>(() => {
+    const saved = assignedRoute.last_location;
+    return saved && saved.courier_id === assignedRoute.courier_id && (saved.route_id == null || saved.route_id === assignedRoute.id) ? saved : null;
+  });
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    const eventPosition = lastEvent?.type === 'courier.location'
+      ? lastEvent.payload as unknown as CourierLocationDTO : null;
+    for (const position of [assignedRoute.last_location, reporter.location, eventPosition]) {
+      if (!position || position.courier_id !== route.courier_id || (position.route_id != null && position.route_id !== route.id)) continue;
+      setLocation(current => !current || Date.parse(position.updated_at) >= Date.parse(current.updated_at) ? position : current);
+    }
+  }, [assignedRoute.last_location, reporter.location, lastEvent, route.courier_id, route.id]);
 
   const load = onReload;
   useEffect(() => {
@@ -498,6 +518,10 @@ function CourierRouteView({
             geometry={route.route_geometry}
             routingProvider={route.routing_provider}
             stops={stops}
+            couriers={route.status === 'active' && location ? [{
+              courierId: route.courier_id, color: '#245b8c', lat: location.lat, lng: location.lng,
+              stale: now - Date.parse(location.updated_at) > 60000,
+            }] : []}
             start={
               route.start_lat != null && route.start_lng != null
                 ? { lat: route.start_lat, lng: route.start_lng }
@@ -659,7 +683,14 @@ function CourierRouteView({
         </div>
         <div className={styles.scroll} ref={scrollRef}>
           <div className={styles.notices}>
-            {locationDenied && <p>{t('locationOffNotice')}</p>}
+            {route.status === 'active' && <CourierLocationStatus location={location} />}
+            {reporter.status === 'locating' && <p role="status">{t('courierLocationLocating')}</p>}
+            {['denied', 'unavailable', 'send-error'].includes(reporter.status) && (
+              <div className={styles.notice} role="alert">
+                <p>{t(reporter.status === 'denied' ? 'locationOffNotice' : reporter.status === 'unavailable' ? 'courierLocationUnavailable' : 'courierLocationSendError')}</p>
+                <Button variant="ghost" size="sm" onClick={reporter.retry}>{t('retry')}</Button>
+              </div>
+            )}
             {(route.needs_recalculation || unresolvedStops.length > 0) && (
               <div className={styles.notice}>
                 <p>{deliveryRouteWarning(route, t)}</p>

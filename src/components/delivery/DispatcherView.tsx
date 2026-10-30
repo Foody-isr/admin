@@ -2,6 +2,7 @@
 
 import { DeliveryWhatsAppDrawer } from '@/components/delivery/DeliveryWhatsAppDrawer';
 import { DeliveryDuration } from '@/components/delivery/DeliveryDuration';
+import { CourierLocationStatus } from '@/components/delivery/CourierLocationStatus';
 import { CustomerWindowField, parseCustomerWindowMinutes } from '@/components/delivery/CustomerWindowField';
 import { RouteAddressField } from '@/components/delivery/RouteAddressField';
 import { StopServiceField, validStopServiceMinutes } from '@/components/delivery/StopServiceField';
@@ -51,6 +52,7 @@ import {
   unassignRouteStop,
   updateRouteSettings,
   type DeliveryRoute,
+  type CourierLocationDTO,
   type RouteSettingsInput,
   type RouteStop,
 } from '@/lib/delivery';
@@ -136,6 +138,7 @@ function routeStatusTone(status: DeliveryRoute['status']): 'neutral' | 'success'
 
 interface RouteRibbonProps {
   route: DeliveryRoute;
+  location?: CourierLocationDTO;
   routeNumber: number;
   courier?: StaffMember;
   color: string;
@@ -155,6 +158,7 @@ interface RouteRibbonProps {
 
 function RouteRibbon({
   route,
+  location,
   routeNumber,
   courier,
   color,
@@ -202,6 +206,7 @@ function RouteRibbon({
         </span>
       </CardHeader>
       <CardBody className="px-4 pb-4 pt-0">
+        {!history && route.status === 'active' && <CourierLocationStatus location={location && (location.route_id == null || location.route_id === route.id) ? location : null} />}
         {route.routing_provider !== 'geoapify' && <p className="mb-2 text-fs-xs text-[var(--fg-muted)]">{t('deliveryRouteApproximate')}</p>}
         <div className="mb-2 grid grid-cols-3 divide-x divide-[var(--line)] rounded-r-md bg-[var(--surface-2)] px-2 py-1.5 text-center">
           <div>
@@ -372,7 +377,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [showMap, setShowMap] = useState(false);
   const [loading, setLoading] = useState(true);
   const [openRoutes, setOpenRoutes] = useState<DeliveryRoute[]>([]);
-  const [livePositions, setLivePositions] = useState<Map<number, { lat: number; lng: number; updatedAt: number }>>(new Map());
+  const [livePositions, setLivePositions] = useState<Map<number, CourierLocationDTO>>(new Map());
   const [ready, setReady] = useState<Order[]>([]);
   const [couriers, setCouriers] = useState<StaffMember[]>([]);
   const [picked, setPicked] = useState<Set<number>>(new Set());
@@ -476,16 +481,19 @@ export default function DispatcherView({ rid }: { rid: number }) {
         if (valid.size > 0) return valid;
         return new Set(selectableCouriers.slice(0, Math.min(2, selectableCouriers.length)).map((courier) => courier.id));
       });
-      const seed = new Map<number, { lat: number; lng: number; updatedAt: number }>();
+      const seed = new Map<number, CourierLocationDTO>();
       visibleRoutes.forEach((route) => {
         if (!route.last_location) return;
-        seed.set(route.courier_id, {
-          lat: route.last_location.lat,
-          lng: route.last_location.lng,
-          updatedAt: Date.parse(route.last_location.updated_at),
-        });
+        seed.set(route.courier_id, route.last_location);
       });
-      setLivePositions(seed);
+      setLivePositions(current => {
+        for (const route of visibleRoutes) {
+          const latest = current.get(route.courier_id);
+          const saved = seed.get(route.courier_id);
+          if (latest && latest.route_id === route.id && (!saved || Date.parse(latest.updated_at) > Date.parse(saved.updated_at))) seed.set(route.courier_id, latest);
+        }
+        return seed;
+      });
     } catch (cause) {
       if (requestId !== loadRequestId.current) return;
       setError((cause as Error)?.message || t('couldNotLoad'));
@@ -500,14 +508,12 @@ export default function DispatcherView({ rid }: { rid: number }) {
     if (!lastEvent || lastEvent === prevEvent.current) return;
     prevEvent.current = lastEvent;
     if (lastEvent.type === 'courier.location') {
-      const position = lastEvent.payload as unknown as { courier_id: number; lat: number; lng: number; updated_at: string };
+      const position = lastEvent.payload as unknown as CourierLocationDTO;
       setLivePositions((current) => {
         const next = new Map(current);
-        next.set(position.courier_id, {
-          lat: position.lat,
-          lng: position.lng,
-          updatedAt: Date.parse(position.updated_at),
-        });
+        const previous = current.get(position.courier_id);
+        if (previous && Date.parse(previous.updated_at) > Date.parse(position.updated_at)) return current;
+        next.set(position.courier_id, position);
         return next;
       });
       return;
@@ -550,13 +556,13 @@ export default function DispatcherView({ rid }: { rid: number }) {
     const markers: CourierMarker[] = [];
     routes.forEach((route) => {
       const position = livePositions.get(route.courier_id);
-      if (!position) return;
+      if (route.status !== 'active' || !position || (position.route_id != null && position.route_id !== route.id)) return;
       markers.push({
         courierId: route.courier_id,
         color: routeColorMap.get(route.id) ?? colorFor(0),
         lat: position.lat,
         lng: position.lng,
-        stale: nowTick - position.updatedAt > 60_000,
+        stale: nowTick - Date.parse(position.updated_at) > 60_000,
       });
     });
     return markers;
@@ -1000,6 +1006,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
               <RouteRibbon
                 key={route.id}
                 route={route}
+                location={livePositions.get(route.courier_id)}
                 routeNumber={index + 1}
                 courier={courierById.get(route.courier_id)}
                 color={routeColorMap.get(route.id) ?? colorFor(0)}
