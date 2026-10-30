@@ -81,3 +81,31 @@ test('prepared Sumit checkout keeps its provider guards when lifecycle v2 otherw
   assert.equal(deriveOrderCapabilities(cancelled,permissions,handlers).canReactivate,false,mode);
  }
 });
+
+test('cash guarantees retain their provider restrictions alongside lifecycle v2 edit and collection authority',()=>{
+ const value=order();
+ value.status='accepted';value.payment_status='unpaid';
+ value.lifecycle_v2!.commercial={state:'open',evidence:[],editable:true,closed_at:null};
+ value.lifecycle_v2!.payment.state='unpaid';
+ value.lifecycle_v2!.payment.amounts={availability:'known',currency:'EUR',minor_unit_exponent:2,total_minor:1000,captured_minor:0,refunded_minor:0,net_received_minor:0,balance_due_minor:1000};
+ value.lifecycle_v2!.actions=[{key:'edit',allowed:true,reason:''},{key:'collect_payment',allowed:true,reason:''}];
+ const permissions={canManage:true,canOverride:true,canDelete:true,currencyCode:'EUR'};
+ const handlers={onDelete:true,onCorrectPayment:true};
+ for(const status of ['pending','release_pending','capture_pending','']) {
+  const guarded={...value,external_metadata:{cash_guarantee:{status}}};
+  const caps=deriveOrderCapabilities(guarded,permissions,handlers);
+  assert.equal(caps.canTakePayment,false,status);
+  assert.equal(caps.canEditOrder,false,status);
+  assert.equal(caps.canDelete,false,status);
+  assert.equal(caps.canCorrectPayment,false,status);
+  assert.equal(displayedPaymentStatus(guarded),'unpaid',status);
+ }
+ const authorized={...value,external_metadata:{cash_guarantee:{status:'authorized'}}};
+ assert.equal(deriveOrderCapabilities(authorized,permissions,handlers).canTakePayment,true);
+ assert.equal(deriveOrderCapabilities(authorized,permissions,handlers).canEditOrder,false);
+ assert.equal(displayedPaymentStatus(authorized),'unpaid');
+ value.lifecycle_v2!.actions=[{key:'collect_payment',allowed:false,reason:'payment_recovery_required'},{key:'edit',allowed:false,reason:'commercial_closed'}];
+ assert.equal(deriveOrderCapabilities(authorized,permissions,handlers).canTakePayment,false);
+ const released={...value,external_metadata:{cash_guarantee:{status:'released'}}};
+ assert.equal(deriveOrderCapabilities(released,permissions,handlers).canEditOrder,false);
+});
