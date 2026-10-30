@@ -13,24 +13,24 @@ type Result = Awaited<ReturnType<typeof simulateOrderingAvailability>>;
 export default function OrderingSimulation({ rid, timezone, dirty, pickupEnabled, deliveryEnabled }: { rid: number; timezone: string; dirty: boolean; pickupEnabled: boolean; deliveryEnabled: boolean }) {
   const { t } = useI18n(), { money } = useCurrency();
   const [open, setOpen] = useState(false), [items, setItems] = useState<MenuItem[]>([]), [zones, setZones] = useState<DeliveryZone[]>([]);
-  const [loaded, setLoaded] = useState(false), [loadError, setLoadError] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(false);
+  const [loaded, setLoaded] = useState(false), [loadError, setLoadError] = useState(false), [catalogBusy, setCatalogBusy] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(false);
   const [input, setInput] = useState<InputState>({ service: 'delivery', address: '', date: '', items: [] });
   const [result, setResult] = useState<{ signature: string; value: Result } | null>(null);
-  const sequence = useRef(0);
+  const sequence = useRef(0), catalogSequence = useRef(0);
   const signature = JSON.stringify(input);
-  useEffect(() => () => { sequence.current++; }, []);
+  useEffect(() => () => { sequence.current++; catalogSequence.current++; }, []);
   useEffect(() => { sequence.current++; setBusy(false); setResult(null); setError(false); }, [dirty]);
   const load = async () => {
-    const token = ++sequence.current; setLoadError(false); setBusy(true);
+    const token = ++catalogSequence.current; setLoadError(false); setCatalogBusy(true);
     try {
       const [catalog, inventory] = await Promise.all([listAllItems(rid), getDeliveryZones(rid)]);
-      if (token === sequence.current) {
+      if (token === catalogSequence.current) {
         setItems(catalog); setZones(inventory); setLoaded(true);
         const date = new Intl.DateTimeFormat('en-CA', { timeZone: timezone || 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
         setInput(current => ({ ...current, date: current.date || date }));
       }
-    } catch { if (token === sequence.current) setLoadError(true); }
-    finally { if (token === sequence.current) setBusy(false); }
+    } catch { if (token === catalogSequence.current) setLoadError(true); }
+    finally { if (token === catalogSequence.current) setCatalogBusy(false); }
   };
   const patch = (next: Partial<InputState>) => { sequence.current++; setBusy(false); setInput(current => ({ ...current, ...next })); setError(false); };
   const simulate = async () => {
@@ -49,7 +49,7 @@ export default function OrderingSimulation({ rid, timezone, dirty, pickupEnabled
   const mode = policy?.mode ?? calendar?.delivery_mode ?? 'customer';
   const nextDate = Object.keys(calendar?.slots_by_date ?? {}).filter(date => date > input.date && calendar!.slots_by_date[date]?.length).sort()[0];
   const valid = (input.service === 'pickup' ? pickupEnabled : deliveryEnabled) && !!input.date && input.items.length > 0 && input.items.every(item => Number.isInteger(item.quantity) && item.quantity > 0) && (input.service !== 'delivery' || !!input.address.trim());
-  return <details id="ordering-simulation" className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5" open={open} onToggle={event => { const expanded = event.currentTarget.open; setOpen(expanded); if (expanded && !loaded && !busy && !loadError) void load(); }}>
+  return <details id="ordering-simulation" className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5" open={open} onToggle={event => { const expanded = event.currentTarget.open; setOpen(expanded); if (expanded && !loaded && !catalogBusy && !loadError) void load(); }}>
     <summary className="cursor-pointer py-1 text-base font-semibold">{t('orderingSimulationTitle')}</summary>
     <div className="mt-5 space-y-5">
       <p className="max-w-3xl text-sm leading-6 text-[var(--fg-muted)]">{t('orderingSimulationHint')}</p>

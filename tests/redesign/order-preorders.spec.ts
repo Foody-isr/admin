@@ -376,3 +376,15 @@ test('older API leaves the new opening choice unavailable without mutating setti
  await lead(page).fill('181');await expect(panel.getByRole('button',{name:'Vérifier les disponibilités',exact:true})).toBeDisabled();await expect(result).toHaveCount(0);
  expect(state.writes).toHaveLength(0);
  });
+
+
+test('editing settings during simulation catalogue loading cannot strand the preview',async({page})=>{
+ const state=await install(page);let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});let requested=false;
+ await page.route('**/api/v1/menu/items?*',async route=>{requested=true;await gate;return route.fulfill({json:{items:[{id:10,name:'Roulé de démonstration'}]}});});
+ await page.route('**/api/v1/delivery/zones?*',route=>route.fulfill({json:{zones:[]}}));
+ await page.goto('/1/settings/orders');await page.getByText('Simuler une commande',{exact:true}).click();await expect.poll(()=>requested).toBe(true);
+ await lead(page).fill('91');release();
+ const panel=page.locator('#ordering-simulation');await expect(panel.getByRole('button',{name:'Ajouter un article',exact:true})).toBeEnabled();
+ await expect(panel.getByText('Enregistrez vos modifications avant de simuler les règles enregistrées.',{exact:true})).toBeVisible();
+ expect(state.writes).toHaveLength(0);
+});
