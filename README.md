@@ -1147,6 +1147,13 @@ The courier workspace opens on a map with numbered destinations and an adjustabl
 mobile timeline; desktop shows the timeline beside the map. A route selector
 includes current and future assignments. Only the viewed route mounts its map,
 while GPS reporting continues for the first active route across selections.
+The last accepted courier position is shown in both delivery views with its receipt
+time and a stale notice after one minute. Courier mode exposes GPS permission,
+acquisition and transmission errors with Retry, retains the latest throttled GPS
+reading and resumes acquisition when Foody becomes visible again. Browser tracking
+requires Foody visible on the courier’s own phone; background navigation or a locked
+screen cannot guarantee updates. GPS events do not repeat paid routing/geocoding.
+Owners viewing another courier never transmit their own position.
 Search filters addresses, contacts, order numbers and notes without changing the
 saved sequence; selecting a pin clears the filter and reveals its stop. The
 panel handle supports dragging, arrow keys and Home/End.
