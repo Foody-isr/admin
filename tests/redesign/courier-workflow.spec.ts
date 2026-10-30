@@ -666,3 +666,77 @@ test('owner courier mode displays received GPS, follows only the selected courie
   expect(state.locationReports).toHaveLength(0);
   expect(state.writes).toHaveLength(0);
 });
+
+test('courier avatar remains readable above the selected delivery and labels an old position', async ({ page }, info) => {
+  const state = await install(page, { active: true, role: 'owner' });
+  const first = state.routes[0].stops[0];
+  state.routes[0].last_location = { courier_id: 91, route_id: 1, lat: first.lat!, lng: first.lng!, updated_at: new Date(Date.now() - 120000).toISOString() };
+  await page.goto('/1/orders/courier-mode');
+  const marker = run(page).getByTitle('Position ancienne du livreur', { exact: true });
+  await expect(marker).toBeVisible();
+  await expect(marker.locator('svg')).toBeVisible();
+  await expect(run(page).locator('.foody-courier-label')).toHaveText('Position ancienne du livreur');
+  const box = await marker.boundingBox();
+  expect(box!.width).toBeGreaterThanOrEqual(44);
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+  const aboveStop = await marker.evaluate(element => {
+    const selected = document.querySelector('.foody-courier-stop-pin') as HTMLElement;
+    return Number(getComputedStyle(element).zIndex) > Number(getComputedStyle(selected).zIndex);
+  });
+  expect(aboveStop).toBe(true);
+  const center = { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 };
+  expect(await page.evaluate(({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest('.foody-courier-pin')), center)).toBe(true);
+  await page.screenshot({ path: info.outputPath('courier-avatar-old.png'), animations: 'disabled' });
+  expect(state.locationReports).toHaveLength(0);
+  expect(state.writes).toHaveLength(0);
+  expect(state.errors).toEqual([]);
+});
+
+test('route framing includes a distant courier and GPS movement does not recenter the map', async ({ page }) => {
+  const state = await install(page, { active: true, role: 'owner' });
+  state.routes[0].last_location = { courier_id: 91, route_id: 1, lat: 33.1, lng: 35.2, updated_at: new Date().toISOString() };
+  await page.goto('/1/orders/courier-mode');
+  const marker = run(page).getByTitle('Position du livreur', { exact: true });
+  const insideMap = () => marker.evaluate(element => {
+    const pin = element.getBoundingClientRect();
+    const map = element.closest('.leaflet-container')!.getBoundingClientRect();
+    return pin.left >= map.left && pin.right <= map.right && pin.top >= map.top && pin.bottom <= map.bottom;
+  });
+  await expect.poll(insideMap).toBe(true);
+  const stop = run(page).locator('.foody-courier-stop-pin').first();
+  const initialStopStyle = await stop.getAttribute('style');
+  const initialMarkerStyle = await marker.getAttribute('style');
+  const checks = state.requests.filter(path => path.endsWith('/my-navigation-check')).length;
+  await expect.poll(() => Boolean(state.socket)).toBe(true);
+  state.socket!.send(JSON.stringify({ type: 'courier.location', payload: { ...state.routes[0].last_location, lat: 34.1, lng: 36.2, updated_at: new Date(Date.now() + 1000).toISOString() } }));
+  await expect(marker).not.toHaveAttribute('style', initialMarkerStyle!);
+  await expect(stop).toHaveAttribute('style', initialStopStyle!);
+  await expect.poll(insideMap).toBe(false);
+  await run(page).getByRole('button', { name: 'Afficher toute la tournée', exact: true }).click();
+  await expect.poll(insideMap).toBe(true);
+  expect(state.requests.filter(path => path.endsWith('/my-navigation-check'))).toHaveLength(checks);
+  expect(state.locationReports).toHaveLength(0);
+  expect(state.writes).toHaveLength(0);
+  expect(state.errors).toEqual([]);
+});
+
+for (const locale of ['fr', 'he']) {
+  test(`mobile courier avatar stays visible above the timeline (${locale})`, async ({ page }, info) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const state = await install(page, { active: true, role: 'owner', locale });
+    state.routes[0].last_location = { courier_id: 91, route_id: 1, lat: 32.07, lng: 34.79, updated_at: new Date(Date.now() - 120000).toISOString() };
+    await page.goto('/1/orders/courier-mode');
+    const marker = run(page).locator('.foody-courier-pin');
+    await expect(marker).toBeVisible();
+    await expect(run(page).getByRole('tooltip', { name: locale === 'he' ? 'מיקום ישן של השליח' : 'Position ancienne du livreur', exact: true })).toBeVisible();
+    await expect.poll(() => marker.evaluate(element => {
+      const pin = element.getBoundingClientRect();
+      return Boolean(document.elementFromPoint(pin.left + pin.width / 2, pin.top + pin.height / 2)?.closest('.foody-courier-pin'));
+    })).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath(`courier-avatar-mobile-${locale}.png`), animations: 'disabled' });
+    expect(state.locationReports).toHaveLength(0);
+    expect(state.writes).toHaveLength(0);
+    expect(state.errors).toEqual([]);
+  });
+}

@@ -500,12 +500,15 @@ test('dispatcher identifies missing and stale GPS and moves the courier without 
   state.socket!.send(JSON.stringify({ type: 'courier.location', payload: fix }));
   const marker = page.getByTitle('Position du livreur', { exact: true });
   await expect(marker).toHaveCount(1);
+  await expect(marker.locator('svg')).toBeVisible();
+  await expect(page.getByRole('tooltip', { name: 'Position du livreur', exact: true })).toBeVisible();
   await expect(page.getByText(/Position du livreur reçue à/)).toBeVisible();
   const before = await marker.getAttribute('style');
   state.socket!.send(JSON.stringify({ type: 'courier.location', payload: { ...fix, lat: 32.08, lng: 34.8, updated_at: new Date(Date.parse(updated_at) + 1000).toISOString() } }));
   await expect(marker).not.toHaveAttribute('style', before!);
   await page.clock.fastForward(95000);
   await expect(page.getByTitle('Position ancienne du livreur', { exact: true })).toHaveCount(1);
+  await expect(page.getByRole('tooltip', { name: 'Position ancienne du livreur', exact: true })).toBeVisible();
   await expect(page.getByText(/Position ancienne du livreur — dernière réception/)).toBeVisible();
   expect(state.writes).toHaveLength(0);
 });
