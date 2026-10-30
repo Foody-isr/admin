@@ -9,7 +9,7 @@ const seed=():DeliveryZone[]=>[
 ];
 const runtimeErrors=new WeakMap<Page,string[]>();
 test.afterEach(async({page})=>{expect(runtimeErrors.get(page)??[]).toEqual([]);});
-async function install(page:Page,opts:{locale?:string;permissions?:string[];country?:string}={}){
+async function install(page:Page,opts:{locale?:string;permissions?:string[];country?:string;zoneRules?:boolean;legacy?:boolean}={}){
  const errors:string[]=[];runtimeErrors.set(page,errors);page.on('pageerror',error=>errors.push(error.message));
  const fixture=createFixture(),writes:{method:string;path:string;body:any;rid:string|undefined;query:string}[]=[];
  const control={zones:seed(),policy:{enabled:false,allowed_days:[1,2,3,4,5],restricted_days:[5],coverage_zone_ids:[1],transit_minutes:60,time_mode:'restaurant'},policyConflict:false,minimum:50,zoneReads:0,settingsReads:0,geoReads:0,failRead:false,failMinimumRead:false,malformed:false,failWrite:false,applyAndFail:false,failAfterWrite:false,conflict:false,geoUnavailable:false,geoFound:true,tileFailure:false,gate:null as Promise<void>|null};
@@ -20,7 +20,7 @@ async function install(page:Page,opts:{locale?:string;permissions?:string[];coun
   if(path==='/api/v1/users/me')return route.fulfill({json:{role_name:'Custom',permissions:opts.permissions??['orders.manage','settings.view','settings.edit'],user:{id:1,full_name:'Équipe démo',role:'manager'}}});
   if(path==='/api/v1/public/geocode'){expect(url.searchParams.get('restaurant_id')).toMatch(/^[12]$/);control.geoReads++;return route.fulfill({status:control.geoUnavailable?503:200,json:control.geoUnavailable?{error:'Synthetic geocode outage'}:control.geoFound?{found:true,lat:32.08,lng:34.82}:{found:false}});}
   if(path.startsWith('/api/v1/delivery/zones')){
-   if(method==='GET'){control.zoneReads++;return route.fulfill({status:control.failRead?503:200,json:control.failRead?{error:'Synthetic read failure'}:control.malformed?{}:{zones:control.zones.map(row=>({...row,restaurant_id:Number(rid)}))}});}
+   if(method==='GET'){control.zoneReads++;return route.fulfill({status:control.failRead?503:200,json:control.failRead?{error:'Synthetic read failure'}:control.malformed?{}:{zones:control.zones.map(row=>({...row,restaurant_id:Number(rid)})),zone_same_day_supported:opts.zoneRules??false,legacy_same_day_active:opts.legacy??false}});}
    writes.push({method,path,body,rid,query:url.search});if(control.gate)await control.gate;const id=Number(path.split('/')[5]);let result=control.zones.find(row=>row.id===id);
    if(control.conflict)return route.fulfill({status:409,json:{error:'zone used by tour'}});
    if(!control.failWrite||control.applyAndFail){if(method==='DELETE')control.zones=control.zones.filter(row=>row.id!==id);else if(method==='POST'){result={...body,id:Math.max(0,...control.zones.map(row=>row.id))+1,restaurant_id:Number(rid),updated_at:'2026-10-01T00:00:00Z',created_at:'2026-10-04T12:00:00Z'};control.zones.push(result!);}else if(result)Object.assign(result,body);}
@@ -71,15 +71,16 @@ for (const mode of ['customer','automatic','restaurant'] as const) test(`deliver
  const form=dialog(page);await form.getByRole('textbox',{name:'Nom de la zone',exact:true}).fill('Val-de-Marne et Seine-Saint-Denis');
  await form.getByRole('combobox',{name:'Type de zone',exact:true}).selectOption('departments');
  await form.getByRole('textbox',{name:'Codes des départements',exact:true}).fill('94, 93');
- await form.getByRole('combobox',{name:'Choix du créneau de livraison',exact:true}).selectOption(mode);
+ await form.getByRole('combobox',{name:'Choix de l’horaire pour les commandes à l’avance',exact:true}).selectOption(mode);
+ for(const day of ['mardi','mercredi','jeudi','samedi','dimanche'])await form.getByRole('checkbox',{name:new RegExp(`^${day}$`,'i')}).uncheck();
  await expect(form.locator('input[type=time]')).toHaveCount(0);
- await form.getByRole('checkbox',{name:'lundi',exact:true}).check();await form.getByRole('checkbox',{name:'vendredi',exact:true}).check();
+ await form.getByRole('checkbox',{name:/^lundi$/i}).check();await form.getByRole('checkbox',{name:/^vendredi$/i}).check();
  await form.getByRole('checkbox',{name:'Proposer le retrait en alternative lorsqu’il est activé',exact:true}).check();
  await page.screenshot({path:info.outputPath(`delivery-route-${mode}.png`)});
  await save(page).click();await expect(dialog(page)).toHaveCount(0);
  expect(state.writes).toHaveLength(1);expect(state.writes[0].rid).toBe('1');
  expect(state.writes[0].body).toMatchObject({type:'departments',departments:['94','93'],schedule:{mode,days:[1,5],offer_pickup:true}});
- await page.getByRole('button',{name:'Val-de-Marne et Seine-Saint-Denis',exact:true}).click();await expect(dialog(page).getByRole('combobox',{name:'Choix du créneau de livraison',exact:true})).toHaveValue(mode);
+ await page.getByRole('button',{name:'Val-de-Marne et Seine-Saint-Denis',exact:true}).click();await expect(dialog(page).getByRole('combobox',{name:'Choix de l’horaire pour les commandes à l’avance',exact:true})).toHaveValue(mode);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
@@ -125,8 +126,9 @@ test('delivery postal day groups accept multiline lists and reuse a code with in
   await form.getByRole('combobox',{name:'Type de zone',exact:true}).selectOption('postal_codes');
   const codes=form.getByRole('textbox',{name:'Codes postaux',exact:true});await expect(codes).toHaveJSProperty('tagName','TEXTAREA');await codes.fill(group.codes);await expect(codes).toHaveValue(group.codes);
   await form.getByRole('textbox',{name:'Frais de livraison (₪)',exact:true}).fill(group.fee);
-  await form.getByRole('combobox',{name:'Choix du créneau de livraison',exact:true}).selectOption('customer');
-  for(const day of group.days)await form.getByRole('checkbox',{name:day,exact:true}).check();
+  await form.getByRole('combobox',{name:'Choix de l’horaire pour les commandes à l’avance',exact:true}).selectOption('customer');
+  for(const day of ['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'])await form.getByRole('checkbox',{name:new RegExp(`^${day}$`,'i')}).uncheck();
+  for(const day of group.days)await form.getByRole('checkbox',{name:new RegExp(`^${day}$`,'i')}).check();
   await save(page).click();await expect(dialog(page)).toHaveCount(0);
   expect(state.writes.at(-1)?.body).toMatchObject({postal_codes:group.expected,delivery_fee:Number(group.fee),schedule:{mode:'customer',days:group.weekdays}});
  }
@@ -136,7 +138,7 @@ test('delivery postal day groups accept multiline lists and reuse a code with in
 
 
 test('same-day policy saves only its block with a baseline and retains conflicts',async({page},info)=>{
- const state=await install(page);await page.setViewportSize({width:375,height:1000});await open(page);
+ const state=await install(page,{legacy:true});await page.setViewportSize({width:375,height:1000});await open(page);
  const section=page.getByRole('region',{name:'Livraison le jour même',exact:true});
  await section.getByRole('checkbox',{name:'Activer les règles du jour même',exact:true}).check();
  await expect(section.getByText(/Calendrier hérité/).first()).toBeVisible();
@@ -154,7 +156,7 @@ test('same-day policy saves only its block with a baseline and retains conflicts
 
 
 test('disabled same-day policy can remove inactive and deleted references without enabling delivery',async({page})=>{
- const state=await install(page);state.control.policy.coverage_zone_ids=[2,999];await open(page);
+ const state=await install(page,{legacy:true});state.control.policy.coverage_zone_ids=[2,999];await open(page);
  const section=page.getByRole('region',{name:'Livraison le jour même',exact:true});
  await expect(section.getByRole('checkbox',{name:'Activer les règles du jour même',exact:true})).not.toBeChecked();
  const inactive=section.getByRole('checkbox',{name:/Villes et codes postaux/});const deleted=section.getByRole('checkbox',{name:/#999/});
@@ -166,9 +168,27 @@ test('disabled same-day policy can remove inactive and deleted references withou
 
 
 test('same-day day labels toggle only their own checkbox in an accessible group',async({page})=>{
- await install(page);await open(page);const section=page.getByRole('region',{name:'Livraison le jour même',exact:true});
+ await install(page,{legacy:true});await open(page);const section=page.getByRole('region',{name:'Livraison le jour même',exact:true});
  await section.getByRole('checkbox',{name:'Activer les règles du jour même',exact:true}).check();
  const days=section.getByRole('group',{name:'Jours autorisant la livraison le jour même',exact:true});
  await days.getByText(/^mardi$/i).click();await expect(days.getByRole('checkbox',{name:/^mardi$/i})).not.toBeChecked();
  await expect(days.getByRole('checkbox',{name:/^lundi$/i})).toBeChecked();
+});
+
+for(const locale of ['fr','he','en'])test(`zone same-day settings are grouped and keep restaurant days ${locale}`,async({page},info)=>{
+ const state=await install(page,{locale,zoneRules:true});await page.setViewportSize({width:375,height:1000});
+ state.control.zones[0].schedule={mode:'customer',days:[0,1,2,3,4,5],offer_pickup:false,same_day:{days:[1,2,3,4,5],transit_minutes:60,time_mode:'restaurant'}};
+ await open(page);await expect(page.getByRole('region',{name:'Livraison le jour même',exact:true})).toHaveCount(0);await edit(page);
+ const form=dialog(page),groups=form.locator('fieldset');
+ const sameDay=groups.filter({has:page.locator('legend').filter({hasText:locale==='fr'?'Livraison le jour même':locale==='en'?'Same-day delivery':'משלוח באותו יום'})}).last();
+ const checkboxes=sameDay.getByRole('checkbox');await expect(checkboxes).toHaveCount(7);
+ await expect(checkboxes.nth(4)).toBeChecked();await expect(checkboxes.nth(5)).toBeDisabled();await expect(checkboxes.nth(6)).not.toBeChecked();
+ const serviceDays=form.locator('fieldset').filter({has:page.locator('legend').filter({hasText:locale==='fr'?'Jours de livraison':locale==='en'?'Delivery days':'ימי משלוח'})}).last();
+ await serviceDays.getByRole('checkbox').nth(4).uncheck();await expect(checkboxes.nth(4)).toBeDisabled();await expect(checkboxes.nth(4)).not.toBeChecked();
+ expect(await form.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+ await sameDay.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath(`zone-same-day-${locale}.png`)});
+ await form.getByRole('button',{name:locale==='fr'?'Enregistrer':locale==='en'?'Save':'שמור',exact:true}).click();await expect(form).toHaveCount(0);
+ expect(state.writes[0].body.schedule).toMatchObject({days:[0,1,2,3,4],same_day:{days:[1,2,3,4],transit_minutes:60,time_mode:'restaurant'}});
+ expect(state.writes[0].body).toHaveProperty('expected_updated_at');
+ expect(state.writes.every(write=>write.path.startsWith('/api/v1/delivery/zones/'))).toBe(true);
 });

@@ -58,3 +58,12 @@ test('zone writes carry the loaded revision without changing the content signatu
  assert.equal(deliveryZoneSignature(saved),deliveryZoneSignature({...saved,updated_at:'2026-10-29T11:00:00Z'}));
  assert.equal('expected_updated_at' in JSON.parse(JSON.stringify(deliveryZonePayload(deliveryZoneDraft(zone),zone))),false);
 });
+
+test('zone same-day weekdays stay within the delivery calendar and survive fee edits',()=>{
+ const schedule={mode:'customer' as const,days:[0,1,5],offer_pickup:false,same_day:{days:[1,5],transit_minutes:60,time_mode:'restaurant' as const}};
+ const saved={...zone,schedule};const draft=deliveryZoneDraft(saved);draft.deliveryFee='15';
+ assert.deepEqual(deliveryZonePayload(draft,saved).schedule,schedule);
+ assert.notEqual(deliveryZoneSignature(saved),deliveryZoneSignature({...saved,schedule:{...schedule,same_day:{...schedule.same_day,days:[]}}}));
+ for(const same_day of [{...schedule.same_day,days:[6]},{...schedule.same_day,days:[1,1]},{...schedule.same_day,days:null},{...schedule.same_day,transit_minutes:NaN},{...schedule.same_day,transit_minutes:1441},{...schedule.same_day,time_mode:'customer'}])assert.equal(validDeliverySchedule({...schedule,same_day} as any),false);
+ assert.equal(validDeliverySchedule({...schedule,same_day:{...schedule.same_day,days:[]}}),true);
+});
