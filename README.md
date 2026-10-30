@@ -1731,3 +1731,16 @@ product ID, alongside existing per-item framing and price/button/description
 visibility. Select all visible products prepares a manual picker selection;
 Save applies those explicit IDs. The Pink Coffee preset prepares up to twelve
 products, descriptions on, prices/buttons off, and right-aligned hero controls.
+
+
+## Delivery rules by zone
+
+The zone editor groups normal delivery days, advance-order time choice and
+explicit same-day days/time/transport. Restaurant Orders & availability remains
+the common service/preparation calendar; Scheduled orders includes today. A
+collapsed default preview is distinct from Simulate an order, which checks saved
+basket/address/date calendars without creating an order or reserving stock.
+The simulation needs existing menu and delivery access. The new editor is gated
+by the zone-list capability and rejects old-server omissions. Deploy API first;
+an active legacy global policy must be converted before explicit zone rules.
+Existing guest Web already supports per-date time confirmation and estimates.

@@ -9812,7 +9812,14 @@ export async function confirmMenuItemImage(
 
 export type DeliveryZoneType = 'polygon' | 'radius' | 'cities' | 'departments' | 'postal_codes';
 
+export interface DeliveryZoneSameDay {
+  days: number[];
+  transit_minutes: number;
+  time_mode: 'inherit' | 'restaurant';
+}
+
 export interface DeliverySchedule {
+  same_day?: DeliveryZoneSameDay;
   mode: 'customer' | 'automatic' | 'restaurant';
   days?: number[];
   /** Legacy policies retain their weekdays; restaurant settings supply slot hours. */
@@ -9868,11 +9875,16 @@ export interface DeliveryZoneInput {
 
 /** Load the restaurant delivery-zone inventory without masking invalid responses. */
 export async function getDeliveryZones(restaurantId: number): Promise<DeliveryZone[]> {
-  const data = await apiFetch<{ zones: DeliveryZone[] }>(
+  return (await getDeliveryZoneWorkspace(restaurantId)).zones;
+}
+
+/** Reads zone capabilities from the same scoped response as the inventory. */
+export async function getDeliveryZoneWorkspace(restaurantId: number): Promise<{ zones: DeliveryZone[]; zone_same_day_supported?: boolean; legacy_same_day_active?: boolean }> {
+  const data = await apiFetch<{ zones: DeliveryZone[] | null; zone_same_day_supported?: boolean; legacy_same_day_active?: boolean }>(
     `/api/v1/delivery/zones?restaurant_id=${restaurantId}`, restaurantId
   );
   if (!data || !(Array.isArray(data.zones) || data.zones === null)) throw new Error('Invalid delivery zone response');
-  return data.zones ?? [];
+  return { ...data, zones: data.zones ?? [] };
 }
 
 export async function createDeliveryZone(restaurantId: number, input: DeliveryZoneInput): Promise<DeliveryZone> {
@@ -11279,4 +11291,30 @@ export function payInternalCheckout(restaurantId: number, orderId: number, recei
 /** Capture a cash guarantee only on explicit staff confirmation, or verify its state. */
 export function cashGuaranteeAction(restaurantId: number, orderId: number, action: 'capture' | 'refresh'): Promise<{ order: Order }> {
   return apiFetch(`/api/v1/orders/${orderId}/cash-guarantee/${action}`, restaurantId, { method: 'POST', body: JSON.stringify(action === 'capture' ? { confirm: true } : {}) });
+}
+
+/** The server calendar used by the read-only ordering simulation. */
+export interface AvailabilitySimulationCalendar {
+  enabled: boolean;
+  evaluated_at?: string;
+  timezone?: string;
+  delivery_mode?: DeliverySchedule['mode'];
+  slots_by_date: Record<string, { start: string; end: string }[]>;
+  lead_time_minutes: number;
+  constrained_by?: { menu_item_id: number; name: string; lead_time_minutes: number };
+  delivery_day_policies?: Record<string, { mode: DeliverySchedule['mode']; estimated_windows?: { start: string; end: string }[]; unavailable_reason?: string }>;
+}
+
+/** Computes saved calendars for a basket without creating an order or reservation. */
+export async function simulateOrderingAvailability(restaurantId: number, input: { service: 'pickup' | 'delivery'; address: string; date: string; items: { id: number; quantity: number }[] }): Promise<{ calendar?: AvailabilitySimulationCalendar; deliverable: boolean; resolved: boolean; zone_id?: number; delivery_fee?: number; reason?: string }> {
+  const q = new URLSearchParams({ restaurant_id: String(restaurantId), items: input.items.map(item => `${item.id}:${item.quantity}`).join(',') });
+  if (input.service === 'delivery') {
+    q.set('address', input.address.trim());
+    const result = await apiFetch<{ schedule?: AvailabilitySimulationCalendar; deliverable: boolean; resolved: boolean; zone_id?: number; delivery_fee?: number; reason?: string }>(`/api/v1/public/delivery/check?${q}`, restaurantId);
+    if (!result || typeof result.deliverable !== 'boolean' || typeof result.resolved !== 'boolean') throw new Error('Incomplete delivery simulation');
+    return { ...result, calendar: result.schedule };
+  }
+  q.set('order_type', 'pickup');
+  const calendar = await apiFetch<AvailabilitySimulationCalendar>(`/api/v1/public/restaurants/${restaurantId}/scheduling-config?${q}`, restaurantId);
+  return { calendar, deliverable: true, resolved: true };
 }

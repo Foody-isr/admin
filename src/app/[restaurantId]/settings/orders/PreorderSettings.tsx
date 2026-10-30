@@ -13,6 +13,7 @@ import { ModeChoice, ServiceToggle } from './_components';
 import OrderingServices, { DineInSettings, orderingServicesFrom, invalidOrderingHours, type OrderingServicesDraft } from './OrderingServices';
 import OrdersOverview from './OrdersOverview';
 import PreparationPreview from './PreparationPreview';
+import OrderingSimulation from './OrderingSimulation';
 
 const DAYS = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'] as const;
 type Mode = 'off' | 'slots' | 'batch';
@@ -175,6 +176,7 @@ function PreorderWorkspace({ rid }: { rid: number }) {
   return <SettingsWorkspace title={t('settingsOrderTaking')} description={t('intakeDescription')}>
     {loading ? <p role="status" className="py-10 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : loadError ? <div role="alert" className="space-y-3"><p className="text-sm text-[var(--danger-500)]">{t('preorderLoadFailed')}</p><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div> : draft && <form onSubmit={save} noValidate className="space-y-6">
       {!canEdit && <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm text-[var(--summary-fg)]">{t('pushPreferencesReadOnly')}</p>}
+      <Section title={t('orderingFrameworkTitle')} desc={t('orderingFrameworkHint')}><Link className="text-sm underline underline-offset-4" href={`/${rid}/settings/delivery`}>{t('deliveryZones')}</Link></Section>
       <Section title={t('intakeTitle')} desc={t('intakeScope')}>
         <div role="radiogroup" aria-label={t('intakeTitle')} className="choice-group">{(['immediate', 'preorder', 'mixed'] as const).map(policy => <ModeChoice name="order-intake-policy" key={policy}
           title={t(`intakeMode_${policy}`)} desc={t(`intakeMode_${policy}Desc`)}
@@ -191,19 +193,21 @@ function PreorderWorkspace({ rid }: { rid: number }) {
           <p className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm leading-6 text-[var(--summary-fg)]">{t('preorderPreciseDelayHint')}</p>
           {draft.slotHours.length > 0 && <div className="space-y-3 rounded-r-md border border-[var(--line)] p-4"><p className="text-sm leading-6">{t('intakeCustomSlots')}</p><ul className="space-y-1 text-sm">{draft.slotHours.map((hours, index) => <li key={index}>{(hours.days?.length ? hours.days : [0,1,2,3,4,5,6]).map(dayLabel).join(' · ')} : <bdi>{hours.start}–{hours.end}</bdi></li>)}</ul><Button type="button" variant="secondary" disabled={!canEdit || saving} onClick={() => patch({ slotHours: [] })}>{t('intakeUseServiceHours')}</Button></div>}
           <div className="grid gap-5 md:grid-cols-3">{(['lead','horizon','duration'] as const).map(field => <Field key={field} label={t(field === 'lead' ? 'preorderLeadMinutes' : field === 'horizon' ? 'slotMaxDaysAhead' : 'slotDuration')}><Input {...fieldProps(`preorder-${field}`)} type="number" dir="ltr" value={draft[field]} readOnly={!canEdit || saving} onChange={event => patch({ [field]: event.target.value })} /></Field>)}</div>
+          <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('orderingDefaultPreparationHint')} {t('orderingSlotDurationHint')}</p>
           <div className="flex flex-wrap gap-2" role="group" aria-label={t('preorderLeadPresets')}>{[0,360,1440,2880,4320].map(minutes => <Button key={minutes} type="button" variant={draft.lead === String(minutes) ? 'primary' : 'secondary'} aria-pressed={draft.lead === String(minutes)} disabled={!canEdit || saving} onClick={() => patch({ lead: String(minutes) })}>{minutes === 0 ? t('itemPreparationSameDay') : `${minutes / 60} ${t('hours')}`}</Button>)}</div>
           <fieldset className="space-y-3"><legend className="mb-3 text-sm font-semibold">{t('preparationClockTitle')}</legend>
             <div role="radiogroup" aria-label={t('preparationClockTitle')} className="choice-group">{(['elapsed','opening_hours','custom_start'] as const).map(basis => <ModeChoice key={basis} name="preparation-clock" title={t(`preparationClock_${basis}`)} desc={t(`preparationClock_${basis}Desc`)} selected={draft.preparationBasis === basis} disabled={!canEdit || saving} onClick={() => patch({ preparationBasis: basis })} />)}</div>
             {draft.preparationBasis === 'custom_start' && <Field label={t('preparationStartTime')}><Input {...fieldProps('preorder-preparation-start')} type="time" dir="ltr" value={draft.preparationStart} readOnly={!canEdit || saving} onChange={event => patch({ preparationStart: event.target.value })} /></Field>}
             {draft.preparationBasis !== 'elapsed' && <ServiceToggle label={t('preparationSplitTitle')} sub={t('preparationSplitDesc')} checked={draft.preparationSplit} disabled={!canEdit || saving} onChange={preparationSplit => patch({ preparationSplit })} />}
-            <PreparationPreview rid={rid} dirty={dirty} input={/^\d+$/.test(draft.lead) && Number(draft.lead) <= 525600 && /^\d+$/.test(draft.horizon) && Number(draft.horizon) >= 1 && Number(draft.horizon) <= 365 && /^\d+$/.test(draft.duration) && Number(draft.duration) >= 5 && Number(draft.duration) % 5 === 0 && (draft.preparationBasis !== 'custom_start' || validTime(draft.preparationStart)) && !invalidOrderingHours(draft.opening_hours_config, baseline?.opening_hours_config) ? {
+            <details className="border-t border-[var(--line)] pt-4"><summary className="cursor-pointer text-sm font-medium">{t("preparationPreviewTitle")}</summary><div className="mt-3"><PreparationPreview rid={rid} dirty={dirty} input={/^\d+$/.test(draft.lead) && Number(draft.lead) <= 525600 && /^\d+$/.test(draft.horizon) && Number(draft.horizon) >= 1 && Number(draft.horizon) <= 365 && /^\d+$/.test(draft.duration) && Number(draft.duration) >= 5 && Number(draft.duration) % 5 === 0 && (draft.preparationBasis !== 'custom_start' || validTime(draft.preparationStart)) && !invalidOrderingHours(draft.opening_hours_config, baseline?.opening_hours_config) ? {
               scheduling_lead_time_minutes: Number(draft.lead), scheduling_preparation_time_basis: draft.preparationBasis, scheduling_preparation_start_time: draft.preparationStart, scheduling_preparation_splittable: draft.preparationSplit, scheduling_max_days_ahead: Number(draft.horizon), scheduling_slot_duration_minutes: Number(draft.duration), scheduling_available_hours: draft.slotHours, opening_hours_config: draft.opening_hours_config, pickup_enabled: draft.pickup_enabled, delivery_enabled: draft.delivery_enabled,
-            } : null} />
+            } : null} /></div></details>
           </fieldset>
           <ServiceToggle label={t('slotRequirePrepayment')} sub={t('slotRequirePrepaymentDesc')} checked={draft.slotPay} onChange={slotPay => patch({ slotPay })} disabled={!canEdit || saving} />
           {draft.slotPay && <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('cashPrepaymentNote')}</p>}
         </div>
       </details>}
+      {draft.mode === 'slots' && <OrderingSimulation rid={rid} timezone={timezone} dirty={dirty} pickupEnabled={draft.pickup_enabled} deliveryEnabled={draft.delivery_enabled} />}
       {(draft.mode === 'batch' || invalid?.group === 'batch') && <details open className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5">
         <summary className="cursor-pointer py-1 text-base font-semibold">{t('preorderModeBatch')}</summary>
         <div className="mt-5 space-y-5">

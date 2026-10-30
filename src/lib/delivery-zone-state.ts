@@ -72,6 +72,10 @@ export function deliveryScheduleWeekdays(value: DeliverySchedule): number[] {
 /** Validate zone weekdays and backwards-compatible legacy calendars. */
 export function validDeliverySchedule(value: DeliverySchedule): boolean {
   if (!value || !['customer','automatic','restaurant'].includes(value.mode) || typeof value.offer_pickup !== 'boolean') return false;
+  if (value.same_day !== undefined) {
+    const rule = value.same_day;
+    if (!rule || !Array.isArray(rule.days) || new Set(rule.days).size !== rule.days.length || !rule.days.every(day => Number.isInteger(day) && deliveryScheduleWeekdays(value).includes(day)) || !Number.isSafeInteger(rule.transit_minutes) || rule.transit_minutes < 0 || rule.transit_minutes > 1440 || !['inherit','restaurant'].includes(rule.time_mode)) return false;
+  }
   if (value.days !== undefined) return Array.isArray(value.days) && value.days.length > 0 && value.days.length <= 7 && new Set(value.days).size === value.days.length && value.days.every(day => Number.isInteger(day) && day >= 0 && day <= 6) && (value.windows === undefined || Array.isArray(value.windows) && value.windows.length === 0);
   if (!Array.isArray(value.windows) || !value.windows.length || value.windows.length > 28) return false;
   const days = new Map<number, { start: string; end: string }[]>();
@@ -90,4 +94,11 @@ export function validDeliverySchedule(value: DeliverySchedule): boolean {
 /** Split pasted postal lists without losing line breaks, order or leading zeros. */
 export function parseDeliveryPostalCodes(text: string): string[] {
   return Array.from(new Set(text.split(/[,;\s]+/).filter(Boolean)));
+}
+
+/** Warn about postal overlaps before admins accidentally create competing calendars. */
+export function overlappingPostalZones(draft: DeliveryZoneDraft, zones: DeliveryZone[]): DeliveryZone[] {
+  if (draft.type !== 'postal_codes') return [];
+  const codes = new Set(draft.postalCodes);
+  return zones.filter(zone => zone.id !== draft.id && zone.is_active && !zone.tour_only && zone.type === 'postal_codes' && zone.postal_codes?.some(code => codes.has(code)));
 }
