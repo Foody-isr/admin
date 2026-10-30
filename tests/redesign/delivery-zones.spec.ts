@@ -202,3 +202,14 @@ test('new zones retain restaurant-calendar inheritance until explicitly configur
  await expect(form.getByRole('checkbox',{name:/Configurer le jour même pour cette zone/})).not.toBeChecked();
  await save(page).click();await expect(form).toHaveCount(0);expect(state.writes[0].body.schedule).toBeNull();
 });
+
+test('conflicting postal same-day rules retain the zone draft after a server conflict',async({page})=>{
+ const state=await install(page,{country:'FR',zoneRules:true});
+ state.control.zones[0]={...state.control.zones[0],type:'postal_codes',postal_codes:['75016'],schedule:{mode:'customer',days:[1,2,3,4],offer_pickup:false}};
+ await page.route('**/api/v1/delivery/zones/1?*',route=>route.fulfill({status:409,json:{error:'delivery_same_day_postal_overlap'}}));
+ await open(page);await edit(page);const form=dialog(page);
+ await form.getByRole('checkbox',{name:/Configurer le jour même pour cette zone/}).click();await expect(form.getByRole('combobox',{name:'Choix de l’horaire pour le jour même',exact:true})).toBeVisible();await save(page).click();
+ await expect(form.getByRole('alert')).toContainText('pour conserver les dates de précommande');
+ await expect(form.getByRole('combobox',{name:'Choix de l’horaire pour les commandes à l’avance',exact:true})).toHaveValue('customer');
+ await expect(form).toBeVisible();expect(state.writes).toHaveLength(0);
+});
