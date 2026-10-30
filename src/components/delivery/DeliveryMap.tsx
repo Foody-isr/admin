@@ -42,7 +42,7 @@ export interface DeliveryMapProps {
   end?: { lat: number; lng: number };
   /** Multi-route (dispatcher view), each colored per courier. */
   routes?: RouteLayer[];
-  /** Live courier position dots (dispatcher view). */
+  /** Last received courier positions, updated without reloading the map. */
   couriers?: CourierMarker[];
   restaurant?: { lat: number; lng: number };
   highlightCourierId?: number | null;
@@ -263,7 +263,7 @@ export default function DeliveryMap({
           );
         })}
         {(couriers ?? []).map((c) => (
-          <Marker key={`courier-${c.courierId}`} position={[c.lat, c.lng]} icon={courierIcon(c.color, !!c.stale)} />
+          <Marker key={`courier-${c.courierId}-${t(c.stale ? 'courierLocationOldMarker' : 'courierLocationMarker')}`} position={[c.lat, c.lng]} icon={courierIcon(c.color, !!c.stale)} title={t(c.stale ? 'courierLocationOldMarker' : 'courierLocationMarker')} />
         ))}
         <FitBounds points={points} request={fitRequest} courier={variant === 'courier'} />
         {variant === 'courier' && <CourierMapControls points={points} onFit={() => setFitRequest(value => value + 1)} />}

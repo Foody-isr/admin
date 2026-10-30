@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "67b6e45f3124a92fcfb1d59cee73dafd58d20845",
-  "documentationRevision": "ad29bdad77176da189926fbfb9d63e73da7c73dc572bd8064e66d6ce74f4476c",
+  "documentationRef": "228aec293adc1e6c70b66a67c1910adb9b7aa013",
+  "documentationRevision": "9debde7735aac7e3d8723785932c1375054aa0420a6b560f81470803bed76424",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -221,15 +221,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/using-support.mdx",
-          "sha256": "4ec15df57cb57576e8aa9bf1216ef3030406e649a4ea5f5743b2834c588b91c1"
+          "sha256": "5433ec1f03e90fc1daa30006b5a380567d20980f0bfb8fa3c6d736629f542d2b"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/using-support.mdx",
-          "sha256": "f4aa65ac16137df61899dc5e52dd12eab0d6a8a69231f1c35d9abaf5c4a3bd0c"
+          "sha256": "2ceab530e02591eeecbbcfef06ed7e954f3db8188ccd1352bcdb2cd197b9df09"
         },
         "he": {
           "path": "src/content/help/he/getting-started/using-support.mdx",
-          "sha256": "258034b79af686cc43f8cd3985a5838a6d92d0e586c473c56cc6e6c7f666658c"
+          "sha256": "ab49696a0ff9232bdf921bc8c4fbfe788dab1f49cef6642bf783710142867c1f"
         }
       }
     },
@@ -715,15 +715,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "dbd646f4249c00d698bb7a0cd26f9df95cda3588b3e4c0e3f5f1bd4e486dec1e"
+          "sha256": "cbe7bfa39dfb008b5e938517fba6a5b099bbf527345b1d80ba20b9f56bb22a04"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "bd04ab972ad33f36553c0d26eb6362deccc29f6f4daee2fe0e9d0929a3489774"
+          "sha256": "ca70a8cb089d1c71831619bd6e928cba7100b8019741771986900d8e7329e7eb"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "b3efc5935ae21d5371070ccb76e404702752c41a5ac12e3c7220642e786461d2"
+          "sha256": "c0d62d9c48c0425c6f2033607ff7178a603a4ac1ce8ce396dfc7c9445ca12aaf"
         }
       }
     },
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/courier-workspace.mdx",
-          "sha256": "98118d6f4a56330d944bf46e5e83a6ac2de5adf0e907d2c2d75a92b9d981c2c7"
+          "sha256": "4972575967dd667ef8d871e8cb5a6c01860317ed2c26e0578a9aa6ba9fb218f4"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/courier-workspace.mdx",
-          "sha256": "ed80189162d5c85928526fc5dc8473b1ecf57d338c05b53fe35061726a1f3ab9"
+          "sha256": "51cc8245ff0a3d01c4a1bfcef6eaec42b71c241d89cf8d05665aaf2c0b073bb4"
         },
         "he": {
           "path": "src/content/help/he/delivery/courier-workspace.mdx",
-          "sha256": "fb1268801a68aa7bcc86ac726a3b7eace9ffffb9fc99eaf0e346163d7b419f5a"
+          "sha256": "511a79f7e9f2c05b95b228e3c2e4704e10a70e98b1794566c3ed9f8984ed9d8b"
         }
       }
     },
@@ -3908,7 +3908,14 @@
       ]
     },
     "src/components/delivery/CourierItineraryView.tsx": {
-      "sha256": "b76156f68174c45becd722f68474885a36d0b3781805613365129930e7a5d568",
+      "sha256": "c6f325a9c97e80de7a80bca4809fb2ed9205182f5446ebd9cba144286947a247",
+      "features": [
+        "delivery-dispatch",
+        "courier"
+      ]
+    },
+    "src/components/delivery/CourierLocationStatus.tsx": {
+      "sha256": "6ec0c96dcb8603eb4a9df51b5f522e60ff78fe04bb5ae44b5e014445d6952b68",
       "features": [
         "delivery-dispatch",
         "courier"
@@ -3934,7 +3941,7 @@
       ]
     },
     "src/components/delivery/DeliveryMap.tsx": {
-      "sha256": "a7b533e2d446793d3eeb851ba0e8a8b2c5de62596ac85a8f047408b7042b6e77",
+      "sha256": "20a0a0ed32aa158ec3cadd53e85bd2417bf6f4c70549fbb7cde082c167dfd0f6",
       "features": [
         "delivery-dispatch"
       ]
@@ -3952,7 +3959,7 @@
       ]
     },
     "src/components/delivery/DispatcherView.tsx": {
-      "sha256": "82afc694b76010d1e2a66b9a160696803d4c7f070722886c9b4c9050a2c2ca05",
+      "sha256": "407c939f57eefc36f078567a38cd5343c088061b57d3f4a01489a2caeae9c227",
       "features": [
         "delivery-dispatch"
       ]
@@ -6432,7 +6439,7 @@
       ]
     },
     "src/lib/delivery.ts": {
-      "sha256": "7728ccdcc5cb27fb5b87be58e1550f407cbfc66ebf6273a5bf0b9736a417931a",
+      "sha256": "4ea278df4343d69735b2702275441532d59911d34fc3f8e081a07382965898a9",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -6489,7 +6496,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "948bb49e260b3b8bf8443b5cc1ef18b6419c28af4892ac2112d6772a8a9d1436",
+      "sha256": "ac2bcbadc7771ff407bc953eb7517a119782be3a04b2a3c554b18528df42a2a3",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -7167,8 +7174,9 @@
       ]
     },
     "src/lib/useLocationReporter.ts": {
-      "sha256": "9352709023e8d9364a1d987e568c87bc846fe1499489f729a6895220e768a1e6",
+      "sha256": "6722fbb917959cc32b75cdbc7fb7484e4a4e09842bcb692aedb869886cc8baef",
       "features": [
+        "courier",
         "shared-runtime"
       ]
     },
@@ -15515,6 +15523,7 @@
         "courierDeliveryProgress",
         "courierEstimatedFinish",
         "courierFinishCurrentRoute",
+        "courierLocationLocating",
         "courierResizePanel",
         "courierRouteMap",
         "courierRouteNumber",
@@ -15529,7 +15538,6 @@
         "deliveryPlanTotalDuration",
         "deliveryPlanWhatsApp",
         "loading",
-        "locationOffNotice",
         "markArrived",
         "markDelivered",
         "navigate",
@@ -15552,6 +15560,23 @@
         "onDelivered",
         "onReload",
         "onStart",
+        "saved",
+        "updated"
+      ]
+    },
+    {
+      "id": "foodyadmin:src/components/delivery/CourierLocationStatus.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/delivery/CourierLocationStatus.tsx",
+      "line": 1,
+      "features": [
+        "delivery-dispatch",
+        "courier"
+      ],
+      "labels": [
+        "courierLocationMissing"
+      ],
+      "actions": [
         "updated"
       ]
     },
@@ -15758,6 +15783,7 @@
         "openRouteByOrderId",
         "saveRouteSettings",
         "saveVerifiedAddress",
+        "saved",
         "savedCourierEndpoints",
         "transferSelectedStop",
         "updated"
@@ -25351,12 +25377,13 @@
       "source": "src/lib/useLocationReporter.ts",
       "line": 1,
       "features": [
+        "courier",
         "shared-runtime"
       ],
       "labels": [],
       "actions": [
-        "onErr",
-        "onPos"
+        "onError",
+        "onPosition"
       ]
     },
     {

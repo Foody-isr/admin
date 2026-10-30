@@ -1,0 +1,46 @@
+{
+  "files": [
+    {
+      "path": "src/lib/delivery.ts",
+      "sha256": "4ea278df4343d69735b2702275441532d59911d34fc3f8e081a07382965898a9",
+      "baseSha256": "7728ccdcc5cb27fb5b87be58e1550f407cbfc66ebf6273a5bf0b9736a417931a",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This exact shared file update covers courier GPS reporting, map position visibility and the associated translated help corpus only. The named feature scopes retain their existing controls, contracts, permissions and procedures; their source classification overlaps this shared file. Courier, delivery dispatch and support guidance are reviewed separately in the updated French, Hebrew and English articles."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "ac2bcbadc7771ff407bc953eb7517a119782be3a04b2a3c554b18528df42a2a3",
+      "baseSha256": "948bb49e260b3b8bf8443b5cc1ef18b6419c28af4892ac2112d6772a8a9d1436",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This exact shared file update covers courier GPS reporting, map position visibility and the associated translated help corpus only. The named feature scopes retain their existing controls, contracts, permissions and procedures; their source classification overlaps this shared file. Courier, delivery dispatch and support guidance are reviewed separately in the updated French, Hebrew and English articles."
+    },
+    {
+      "path": "src/lib/useLocationReporter.ts",
+      "sha256": "6722fbb917959cc32b75cdbc7fb7484e4a4e09842bcb692aedb869886cc8baef",
+      "baseSha256": "9352709023e8d9364a1d987e568c87bc846fe1499489f729a6895220e768a1e6",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This exact shared file update covers courier GPS reporting, map position visibility and the associated translated help corpus only. The named feature scopes retain their existing controls, contracts, permissions and procedures; their source classification overlaps this shared file. Courier, delivery dispatch and support guidance are reviewed separately in the updated French, Hebrew and English articles."
+    }
+  ]
+}
