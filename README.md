@@ -1744,3 +1744,10 @@ The simulation needs existing menu and delivery access. The new editor is gated
 by the zone-list capability and rejects old-server omissions. Deploy API first;
 an active legacy global policy must be converted before explicit zone rules.
 Existing guest Web already supports per-date time confirmation and estimates.
+
+The saved basket simulation in Orders & availability accepts an order date/time
+in the effective restaurant timezone, displays its weekday and keeps the receiving
+date on or after that day. Now reloads the server clock through the protected
+simulation endpoint. Current saved rules and ready stock are used, including for
+past references; it neither reconstructs history nor creates/reserves an order,
+stock, courier or payment. Deploy the private simulation API before this interface.
