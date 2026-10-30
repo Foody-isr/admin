@@ -8,6 +8,7 @@ async function install(page: Page, options: { locale?: string; permissions?: str
   const fixtureOptions = { empty: false, permissions: options.permissions }, fixture = createFixture(fixtureOptions);
   const control = {
     settings: { ordering_settings_merge_supported:true, preorders_only: false, pickup_enabled: true, delivery_enabled: true, dine_in_enabled: false, opening_hours_config: {}, orders_paused: false, rush_mode: false, scheduling_enabled: !options.batch, batch_fulfillment_enabled: !!options.batch, scheduling_lead_time_minutes: 90, scheduling_min_days_ahead: 1, scheduling_max_days_ahead: 7, scheduling_slot_duration_minutes: 30, scheduling_require_prepayment: false, batch_order_open_day: 0, batch_order_open_time: '00:30', batch_cutoff_day: 3, batch_cutoff_time: '22:00', batch_fulfillment_days: [{ day: 5, pickup_start: '10:00', pickup_end: '14:00', delivery_start: '14:00', delivery_end: '18:00' }], batch_require_prepayment: true, batch_ordering_mode: 'calendar', scheduling_available_hours: [{ start: '11:00', end: '14:00', days: [0,1] }], scheduling_cutoff_hour: 18 } as Record<string, any>,
+    simulationClock: { ordered_at: '2026-10-30T07:43:00+01:00', timezone: 'Europe/Paris' },
     reads: 0, failRead: false, failSave: 0, gate: null as Promise<void> | null, previewFail: false, previewGate: null as Promise<void> | null, previewCompleted: 0, cycles: [cycle()],
   };
   const timingPreviews: any[] = [];
@@ -22,6 +23,7 @@ async function install(page: Page, options: { locale?: string; permissions?: str
       else { writes.push({ path, restaurant, body }); if (control.gate) await control.gate; if (control.failSave) { control.failSave--; return route.fulfill({ status: 503, json: { error: 'Synthetic write failure' } }); } Object.assign(control.settings, body); }
       return route.fulfill({ json: { settings: control.settings } });
     }
+    if (path.endsWith('/delivery/ordering-simulation') && method === 'GET') return route.fulfill({ json: control.simulationClock });
     if (/\/batch-fulfillment-config$/.test(path)) return route.fulfill({ json: { enabled: true, ordering_open: true, current_batch_open_at: '2026-10-04T00:30:00+03:00', current_batch_cutoff: '2026-10-07T22:00:00+03:00', next_batch_open_at: '2026-10-11T00:30:00+03:00' } });
     if (/\/preparation-preview$/.test(path)) {
       timingPreviews.push({ body, restaurant });
@@ -356,9 +358,10 @@ test('older API leaves the new opening choice unavailable without mutating setti
  const state=await install(page);state.control.settings.scheduling_available_hours=[];
  await page.route('**/api/v1/menu/items?*',route=>route.fulfill({json:{items:[{id:10,name:'Roulé de démonstration',preparation_lead_time_minutes:30}]}}));
  await page.route('**/api/v1/delivery/zones?*',route=>route.fulfill({json:{zones:[{id:1,restaurant_id:1,name:'Secteur local — 10 €',type:'postal_codes',postal_codes:['75017'],is_active:true,created_at:'',schedule:{mode:'customer',days:[0,1,2,3,4,5],offer_pickup:false,same_day:{days:[1,2,3,4,5],time_mode:'restaurant',transit_minutes:60}}}]}}));
- const calls:URL[]=[];
- await page.route('**/api/v1/public/delivery/check?*',route=>{
-  const url=new URL(route.request().url());calls.push(url);const remote=url.searchParams.get('address')?.includes('94000');
+ const calls:{body:any;restaurant:string|undefined}[]=[];
+ await page.route('**/api/v1/delivery/ordering-simulation',route=>{
+  if(route.request().method()==='GET')return route.fallback();
+  const body=route.request().postDataJSON();calls.push({body,restaurant:route.request().headers()['x-restaurant-id']});const remote=body.address.includes('94000');
   return route.fulfill({json:{deliverable:true,resolved:true,zone_id:remote?2:1,delivery_fee:remote?15:10,schedule:{enabled:true,evaluated_at:'2026-10-30T07:43:00+01:00',timezone:'Europe/Paris',delivery_mode:'customer',lead_time_minutes:30,constrained_by:{menu_item_id:10,name:'Roulé de démonstration',lead_time_minutes:30},slots_by_date:{...(remote?{}:{'2026-10-30':[{start:'11:00',end:'14:00'}]}),'2026-11-01':[{start:'09:30',end:'10:30'}]},delivery_day_policies:{'2026-10-30':{mode:'restaurant',...(remote?{unavailable_reason:'same_day_disabled'}:{estimated_windows:[{start:'11:00',end:'14:00'}]})}}}}});
  });
  await page.setViewportSize({width:375,height:1000});await page.goto('/1/settings/orders');
@@ -369,7 +372,7 @@ test('older API leaves the new opening choice unavailable without mutating setti
  await panel.locator('input[type=date]').fill('2026-10-30');
  await panel.getByRole('button',{name:'Vérifier les disponibilités',exact:true}).click();
  const result=panel.locator('[data-ordering-simulation-result]');await expect(result).toContainText('11:00–14:00');await expect(result).toContainText('horaire à confirmer');await expect(result).toContainText('Roulé de démonstration');
- expect(calls[0].searchParams.get('items')).toBe('10:1');expect(calls[0].searchParams.get('restaurant_id')).toBe('1');
+ expect(calls[0].body.items).toEqual([{id:10,quantity:1}]);expect(calls[0].body.ordered_at).toBe('2026-10-30T07:43');expect(calls[0].restaurant).toBe('1');
  expect(await panel.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);await result.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('ordering-simulation-fr.png')});
  await panel.getByRole('textbox',{name:'Adresse complète de livraison',exact:true}).fill('Adresse de démonstration 94000 Créteil');await expect(result).toHaveCount(0);
  await panel.getByRole('button',{name:'Vérifier les disponibilités',exact:true}).click();await expect(result).toContainText('n’est pas autorisée');await expect(result).toContainText('2026-11-01');
@@ -387,4 +390,52 @@ test('editing settings during simulation catalogue loading cannot strand the pre
  const panel=page.locator('#ordering-simulation');await expect(panel.getByRole('button',{name:'Ajouter un article',exact:true})).toBeEnabled();
  await expect(panel.getByText('Enregistrez vos modifications avant de simuler les règles enregistrées.',{exact:true})).toBeVisible();
  expect(state.writes).toHaveLength(0);
+});
+
+for (const locale of ['fr', 'en', 'he'] as const) test(`simulation ordering clock and Now use the restaurant server clock ${locale}`, async ({ page }, info) => {
+  const state = await install(page, { locale });
+  await page.route('**/api/v1/menu/items?*', route => route.fulfill({ json: { items: [{ id: 10, name: 'Synthetic roll', preparation_lead_time_minutes: 30 }] } }));
+  await page.route('**/api/v1/delivery/zones?*', route => route.fulfill({ json: { zones: [] } }));
+  const requests: any[] = [];
+  await page.route('**/api/v1/delivery/ordering-simulation', route => {
+    if (route.request().method() === 'GET') return route.fallback();
+    const body = route.request().postDataJSON(); requests.push({ body, restaurant: route.request().headers()['x-restaurant-id'] });
+    const date = body.ordered_at.slice(0, 10), start = body.ordered_at.endsWith('14:30') ? '16:00' : '13:00';
+    return route.fulfill({ json: { resolved: true, deliverable: true, delivery_fee: 10, schedule: { enabled: true, evaluated_at: `${body.ordered_at}:00+01:00`, timezone: 'Europe/Paris', lead_time_minutes: 30, delivery_mode: 'customer', slots_by_date: { [date]: [{ start, end: '18:30' }] }, delivery_day_policies: { [date]: { mode: 'restaurant', estimated_windows: [{ start, end: '18:30' }] } } } } });
+  });
+  await page.setViewportSize({ width: locale === 'he' ? 1440 : 375, height: 1000 });
+  await page.goto('/1/settings/orders'); const panel = page.locator('#ordering-simulation'); await panel.locator('summary').click();
+  const at = panel.locator('#simulation-ordered-at'), receiving = panel.locator('input[type=date]');
+  await expect(at).toHaveValue('2026-10-30T07:43'); await expect(at).toHaveAttribute('dir', 'ltr'); await expect(panel).toContainText('Europe/Paris');
+  await at.fill('2026-11-02T11:30'); await expect(receiving).toHaveValue('2026-11-02'); await expect(panel).toContainText(locale === 'fr' ? 'lundi' : locale === 'en' ? 'Monday' : 'יום שני');
+  await panel.locator('fieldset > button').click(); await panel.locator('input[type=text]').fill('Synthetic address 75017 Paris');
+  const run = panel.getByRole('button', { name: locale === 'fr' ? 'Vérifier les disponibilités' : locale === 'en' ? 'Check availability' : 'בדיקת זמינות', exact: true });
+  await run.click(); const result = panel.locator('[data-ordering-simulation-result]'); await expect(result).toContainText('13:00–18:30'); await expect(result).toContainText('2026-11-02 · 11:30 · Europe/Paris');
+  expect(requests[0]).toEqual({ body: { service: 'delivery', address: 'Synthetic address 75017 Paris', ordered_at: '2026-11-02T11:30', items: [{ id: 10, quantity: 1 }] }, restaurant: '1' });
+  await at.fill('2026-11-02T14:30'); await expect(result).toHaveCount(0); await run.click(); await expect(result).toContainText('16:00–18:30');
+  state.control.simulationClock.ordered_at = '2026-11-03T08:05:00+01:00';
+  await panel.getByRole('button', { name: locale === 'fr' ? 'Maintenant' : locale === 'en' ? 'Now' : 'עכשיו', exact: true }).click();
+  await expect(at).toHaveValue('2026-11-03T08:05'); await expect(receiving).toHaveValue('2026-11-03'); await expect(result).toHaveCount(0); expect(requests).toHaveLength(2);
+  await at.fill(''); await expect(run).toBeDisabled(); await at.fill('2026-11-02T11:30');
+  expect(await panel.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true); expect(state.writes).toHaveLength(0);
+  await panel.scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath(`simulation-time-${locale}.png`) });
+});
+
+test('simulation rejects ambiguous local time and a server result using another clock', async ({ page }) => {
+  const state = await install(page);
+  await page.route('**/api/v1/menu/items?*', route => route.fulfill({ json: { items: [{ id: 10, name: 'Synthetic roll' }] } }));
+  await page.route('**/api/v1/delivery/zones?*', route => route.fulfill({ json: { zones: [] } }));
+  let ambiguous = true;
+  await page.route('**/api/v1/delivery/ordering-simulation', route => {
+    if (route.request().method() === 'GET') return route.fallback();
+    if (ambiguous) return route.fulfill({ status: 400, json: { error: 'ordering_simulation_time_invalid' } });
+    return route.fulfill({ json: { resolved: true, deliverable: true, schedule: { enabled: true, evaluated_at: '2026-10-30T07:43:00+01:00', timezone: 'Europe/Paris', lead_time_minutes: 30, slots_by_date: {} } } });
+  });
+  await page.goto('/1/settings/orders'); const panel = page.locator('#ordering-simulation'); await panel.locator('summary').click();
+  await panel.locator('fieldset > button').click(); await panel.locator('input[type=text]').fill('Synthetic address');
+  const at = panel.locator('#simulation-ordered-at'); await at.fill('2026-10-25T02:30'); await panel.locator('input[type=date]').fill('2026-10-25');
+  const run = panel.getByRole('button', { name: 'Vérifier les disponibilités', exact: true }); await run.click();
+  await expect(panel.getByRole('alert')).toContainText('apparaît deux fois'); await expect(at).toHaveAttribute('aria-invalid', 'true');
+  ambiguous = false; await at.fill('2026-11-02T11:30'); await run.click(); await expect(panel.getByRole('alert')).toContainText('n’a pas pu vérifier');
+  await expect(panel.locator('[data-ordering-simulation-result]')).toHaveCount(0); expect(state.writes).toHaveLength(0);
 });

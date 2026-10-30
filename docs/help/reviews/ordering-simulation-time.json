@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-10-30",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "d35f9a77a384cf7f518be782ca8b39c2a4366e3eff77affd6afd8ddd1a4ffbd8",
+      "baseSha256": "4cf288305c4cbfd98e943121ff4821977783d459925cdb26eb351dc88705e0fc",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the private ordering simulation client, its server-clock loader and associated response types change. Existing customer, product, checkout, payment/provider, cash-guarantee, prepared Sumit and order-action requests and serializers remain unchanged. The feature classifications in this exact scoped review have identical procedures and gain no simulated clock input."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "a757c198b9a7116b7bf67677bc2b4aafea814ade68045a34f885fe6f5a80c980",
+      "baseSha256": "4b39b23238bf1e957fe1a411119f2cfd6ff2d4555fb99508e502fc616bca5636",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only ordering simulation wording changes: selected order date/time, current server time, present-stock scope and an invalid or ambiguous local-time error. All other menu, customer, website, delivery execution, WhatsApp, payment and settings labels/actions retain their existing keys and values. Their feature procedures and permissions are unchanged."
+    }
+  ]
+}

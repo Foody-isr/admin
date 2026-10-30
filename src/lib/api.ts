@@ -11360,16 +11360,21 @@ export interface AvailabilitySimulationCalendar {
   delivery_day_policies?: Record<string, { mode: DeliverySchedule['mode']; estimated_windows?: { start: string; end: string }[]; unavailable_reason?: string }>;
 }
 
-/** Computes saved calendars for a basket without creating an order or reservation. */
-export async function simulateOrderingAvailability(restaurantId: number, input: { service: 'pickup' | 'delivery'; address: string; date: string; items: { id: number; quantity: number }[] }): Promise<{ calendar?: AvailabilitySimulationCalendar; deliverable: boolean; resolved: boolean; zone_id?: number; delivery_fee?: number; reason?: string }> {
-  const q = new URLSearchParams({ restaurant_id: String(restaurantId), items: input.items.map(item => `${item.id}:${item.quantity}`).join(',') });
-  if (input.service === 'delivery') {
-    q.set('address', input.address.trim());
-    const result = await apiFetch<{ schedule?: AvailabilitySimulationCalendar; deliverable: boolean; resolved: boolean; zone_id?: number; delivery_fee?: number; reason?: string }>(`/api/v1/public/delivery/check?${q}`, restaurantId);
-    if (!result || typeof result.deliverable !== 'boolean' || typeof result.resolved !== 'boolean') throw new Error('Incomplete delivery simulation');
-    return { ...result, calendar: result.schedule };
-  }
-  q.set('order_type', 'pickup');
-  const calendar = await apiFetch<AvailabilitySimulationCalendar>(`/api/v1/public/restaurants/${restaurantId}/scheduling-config?${q}`, restaurantId);
-  return { calendar, deliverable: true, resolved: true };
+/** Current server clock in the effective restaurant timezone for simulations. */
+export interface OrderingSimulationClock { ordered_at: string; timezone: string }
+/** Loads a fresh server reference without changing restaurant settings. */
+export async function getOrderingSimulationClock(restaurantId: number): Promise<OrderingSimulationClock> {
+  const clock = await apiFetch<OrderingSimulationClock>('/api/v1/delivery/ordering-simulation', restaurantId, { cache: 'no-store' });
+  if (!clock?.timezone || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:/.test(clock.ordered_at) || !Number.isFinite(Date.parse(clock.ordered_at))) throw new Error('Incomplete simulation clock');
+  new Intl.DateTimeFormat('en', { timeZone: clock.timezone });
+  return clock;
+}
+
+/** Computes saved calendars at a restaurant-local ordering minute without creating an order. */
+export async function simulateOrderingAvailability(restaurantId: number, input: { service: 'pickup' | 'delivery'; address: string; date: string; orderedAt: string; items: { id: number; quantity: number }[] }): Promise<{ calendar?: AvailabilitySimulationCalendar; deliverable: boolean; resolved: boolean; zone_id?: number; delivery_fee?: number; reason?: string }> {
+  const result = await apiFetch<{ schedule?: AvailabilitySimulationCalendar; deliverable: boolean; resolved: boolean; zone_id?: number; delivery_fee?: number; reason?: string }>('/api/v1/delivery/ordering-simulation', restaurantId, {
+    method: 'POST', body: JSON.stringify({ service: input.service, address: input.address.trim(), ordered_at: input.orderedAt, items: input.items }),
+  });
+  if (!result || typeof result.deliverable !== 'boolean' || typeof result.resolved !== 'boolean') throw new Error('Incomplete ordering simulation');
+  return { ...result, calendar: result.schedule };
 }
