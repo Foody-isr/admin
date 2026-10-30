@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-10-30",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "e72aedce087d16e0b1d8fdb1fd605c7d89667f66fc415cc2c10254464662d4de",
+      "baseSha256": "9cd0e572a8c56386cf06d9a3b14029fa2e9a1d3847b3bdc1a54af12080051fdc",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The shared client adds only delivery-zone policy types, zone-list capability metadata and the read-only availability simulation. Customer profiles, variants, product photos, payment/provider calls, POS payments, prepared Sumit checkout and cash-guarantee requests and serializers retain their existing behavior and permissions. Those unrelated feature procedures are unchanged."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "5fb05757559d69f5122a44c5f61ad13b25c6ffd294a257b9b2a95ba8b81e6b0c",
+      "baseSha256": "ac2bcbadc7771ff407bc953eb7517a119782be3a04b2a3c554b18528df42a2a3",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only delivery-zone and restaurant ordering/availability labels and simulation messages change in this translation map. Customer, menu, website design, routing operations, Google connection, POS, WhatsApp, payment, product-photo and prepared-checkout labels/actions retain their existing keys and behavior. Their unrelated procedures do not change."
+    }
+  ]
+}
