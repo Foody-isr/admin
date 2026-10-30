@@ -27,7 +27,7 @@ import { EditOrderDrawer } from '@/components/orders/EditOrderDrawer';
 import { OrderWhatsAppComposer } from '@/components/orders/OrderWhatsAppComposer';
 import { Checkbox } from '@/components/ui/checkbox';
 import { OrderDetailModal } from '@/components/orders/detail/OrderDetailModal';
-import { localizeOrderType } from '@/lib/orders/status-presentation';
+import { lifecycleCollectionAllowed, manualCollectionAmount, localizeOrderType } from '@/lib/orders/status-presentation';
 import { orderHandoffKind } from '@/lib/orders/order-actions';
 import { buildCustomFieldLabels } from '@/lib/orders/checkout-fields';
 import { usePermissions } from '@/lib/permissions-context';
@@ -124,7 +124,7 @@ function defaultDateRange(): { from: Date; to: Date } {
 
 /** Restaurant orders list and route-driven detail drawer, sharing one list lifetime. */
 export default function OrdersWorkspace() {
-  const { money } = useCurrency();
+  const { money, code: currencyCode } = useCurrency();
   const { t, locale, direction } = useI18n();
   const { hasAnyPermission, isOwner, roleName } = usePermissions();
   const canManage = hasAnyPermission('orders.manage');
@@ -235,11 +235,11 @@ export default function OrdersWorkspace() {
     setDetailLoadFailed(false);
     getOrder(rid, detailId)
       .then((order) => {
-        if (active) setDirectOrder(previous => previous?.id === order.id && previous.restaurant_id === order.restaurant_id && previous.lifecycle !== undefined && order.lifecycle === undefined ? { ...order, lifecycle: null } : order);
+        if (active) setDirectOrder(previous => previous?.id === order.id && previous.restaurant_id === order.restaurant_id ? { ...order, ...(previous.lifecycle !== undefined && order.lifecycle === undefined ? { lifecycle: null } : {}), ...(previous.lifecycle_v2 !== undefined && order.lifecycle_v2 === undefined ? { lifecycle_v2: null } : {}) } : order);
       })
       .catch(() => {
         if (!active) return;
-        setDirectOrder(previous => previous?.lifecycle !== undefined ? { ...previous, lifecycle: null } : null);
+        setDirectOrder(previous => previous ? { ...previous, ...(previous.lifecycle !== undefined ? { lifecycle: null } : {}), ...(previous.lifecycle_v2 !== undefined ? { lifecycle_v2: null } : {}) } : null);
         setDetailLoadFailed(true);
       })
       .finally(() => {
@@ -438,7 +438,7 @@ export default function OrdersWorkspace() {
       setOrders([]);
       setTotal(0);
       setLoadFailed(true);
-      setDirectOrder(previous => previous?.lifecycle !== undefined ? { ...previous, lifecycle: null } : previous);
+      setDirectOrder(previous => previous ? { ...previous, ...(previous.lifecycle !== undefined ? { lifecycle: null } : {}), ...(previous.lifecycle_v2 !== undefined ? { lifecycle_v2: null } : {}) } : previous);
     } finally {
       if (ordersRequest.current.isCurrent(request)) setLoading(false);
     }
@@ -473,6 +473,7 @@ export default function OrdersWorkspace() {
         ...current, ...liveOrder,
         // Legacy WS has no projection. Invalidate until the scoped HTTP read.
         lifecycle: current.lifecycle !== undefined ? null : undefined,
+        lifecycle_v2: current.lifecycle_v2 !== undefined ? null : undefined,
       } : liveOrder);
       setDetailRefreshKey(key => key + 1);
     }
@@ -706,7 +707,8 @@ export default function OrdersWorkspace() {
   const handleTakePayment = (method: PaymentMethod, reference?: string, amount?: number) => {
     if (!detailOrder) return Promise.resolve();
     const orderId = detailOrder.id;
-    const due = detailOrder.balance_due ?? detailOrder.total_amount;
+    const due = manualCollectionAmount(detailOrder, currencyCode);
+    if (due === undefined || due <= 0 || !lifecycleCollectionAllowed(detailOrder)) return Promise.resolve();
     const nextPaymentStatus: PaymentStatus = amount != null && amount < due - 0.01
       ? 'partially_paid'
       : 'paid';
@@ -1063,9 +1065,9 @@ export default function OrdersWorkspace() {
       {/* Take Payment dialog */}
       <TakePaymentDialog
         allowCash={allowCash}
-        open={paymentOpen}
+        open={paymentOpen && !!detailOrder && manualCollectionAmount(detailOrder, currencyCode) !== undefined}
         onOpenChange={setPaymentOpen}
-        totalAmount={detailOrder?.balance_due ?? detailOrder?.total_amount ?? 0}
+        totalAmount={detailOrder ? manualCollectionAmount(detailOrder, currencyCode) ?? 0 : 0}
         onConfirm={handleTakePayment}
         discountAmount={detailOrder?.discount_amount}
         discountLabel={detailOrder?.discount?.code}

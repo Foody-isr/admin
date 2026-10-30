@@ -1,0 +1,33 @@
+{
+  "reviewedAt": "2026-10-29",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "d73135bf20aa42e88da6dd3cc810c9265ff3e6f1880d9fb8151d69e3f7dc3e15",
+      "baseSha256": "5226d7bec9471721c38d92827a27c8c90aee554b962910a6afbebe5953d4e6ce",
+      "features": [
+        "customers-profiles",
+        "delivery-zones",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed diff adds lifecycle-v2 DTO fields and exact actor/scoped lifecycle reads and operation calls. It changes no customer profile editor, delivery-zone definition, photo upload or image URL contract. Those independent procedures remain valid; the visible lifecycle behavior is documented in the updated order, fulfillment and payment guides."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "04f174e65f4ae2528eb07619a9dbe387698dfd462d56ff4f027d1166365409e8",
+      "baseSha256": "3fe22ab1ed241134aa4280eab547287ab892273f16db3b1d5fa1b7ade106906c",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "delivery-zones",
+        "website-order-design",
+        "whatsapp",
+        "menu-product-photos",
+        "google-account-setup"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed translation diff adds lifecycle summaries, operation recovery/reasons and the two fulfillment tracking controls in French, Hebrew and English. Existing customer, menu layout, zone, website design, WhatsApp, photo and Google account/API-key setup keys/procedures are unchanged. This scope explicitly excludes the changed lifecycle/tracking features, whose three-language guides were updated."
+    }
+  ]
+}

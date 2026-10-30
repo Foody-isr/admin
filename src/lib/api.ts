@@ -13,6 +13,7 @@ import type {
   ManualRecipeImportResult,
 } from '@/app/[restaurantId]/kitchen/lab/types';
 import type { OrderLifecycle } from './orders/lifecycle';
+import type { OrderLifecycleV2 } from './orders/lifecycle-v2';
 import type { PosDisplayLayout } from './posDisplay';
 import {
   startRegistration,
@@ -243,6 +244,8 @@ export interface POSFulfillmentMethod {
  id: string; name: string; order_type: 'dine_in' | 'pickup' | 'delivery';
  /** Offer customer details after whole-order fulfillment selection; absent preserves legacy behavior. */
  show_customer_information?: boolean;
+ track_preparation?: boolean;
+ track_handoff?: boolean;
 }
 export interface POSFulfillment {
  methods?: POSFulfillmentMethod[];
@@ -288,6 +291,7 @@ export interface RestaurantSettings {
   pos_settings_merge_supported?: boolean;
   pos_custom_dining_supported?: boolean;
   pos_fulfillment_customer_information_supported?: boolean;
+  pos_fulfillment_tracking_supported?: boolean;
  full_service?: FullServiceSettings;
   /** Require the configured calendar for guest pickup and delivery. */
   preorders_only?: boolean;
@@ -936,6 +940,7 @@ export interface OrderItem {
 export interface Order {
   /** Read-only independent lifecycle facts for this Order ID. */
   lifecycle?: OrderLifecycle | null;
+  lifecycle_v2?: OrderLifecycleV2 | null;
 	/** Selected contact from staff read metadata; never part of the persisted order. */
 	customer_whatsapp_phone?: string;
   dining_option?: string;
@@ -11275,6 +11280,56 @@ export const restockSalesStock = (rid: number,date: string,input: SaleStockLimit
 export interface ExternalApiCounter { id: string; provider: string; unit: string; default_limit: number; used: number; requests: number; limit: number; remaining: number; status: 'available' | 'warning' | 'exhausted' }
 export interface ExternalApiUsage { restaurant_id: number; revision: number; month: string; resets_at: string; tracked_since: string; counters: ExternalApiCounter[] }
 export const getExternalApiUsage = (rid: number) => apiFetch<ExternalApiUsage>(`/api/v1/restaurants/${rid}/api-usage`, rid);
+
+/** Personal actor snapshot for lifecycle requests; the token is memory-only. */
+export interface LifecycleActorContext { actor_id: number; restaurant_id: number; api_origin: string; token: string }
+/** Reject a mismatched stored profile instead of binding a new intent to another principal. */
+export function captureLifecycleActor(restaurantId: number, expectedUserId?: number): LifecycleActorContext {
+  const token = getToken(), user = getStoredUser(), claims = token ? parseJwtClaims(token) : null;
+  if (!token || !user || !claims || claims.sub !== 'user-auth' || !Number.isSafeInteger(claims.user_id) || (claims.user_id as number) <= 0 || claims.user_id !== user.id || expectedUserId !== undefined && expectedUserId !== user.id || !Number.isSafeInteger(restaurantId) || restaurantId <= 0) throw new Error('lifecycleContextChanged');
+  return { actor_id: user.id, restaurant_id: restaurantId, api_origin: API_URL, token };
+}
+/** Token rotation or actor replacement requires a fresh review, never an automatic replay. */
+export function lifecycleActorCurrent(context: LifecycleActorContext): boolean {
+  try { const current = captureLifecycleActor(context.restaurant_id, context.actor_id); return current.token === context.token && current.api_origin === context.api_origin; } catch { return false; }
+}
+/** Only explicit server refusal codes certify that this request did not commit. */
+export class LifecycleOperationApiError extends Error {
+  constructor(public status: number, public code: string) { super('lifecycleOperationFailed'); this.name = 'LifecycleOperationApiError'; }
+}
+async function lifecycleScopedFetch(context: LifecycleActorContext, path: string, input?: unknown, signal?: AbortSignal): Promise<unknown> {
+  if (!lifecycleActorCurrent(context)) throw new Error('lifecycleContextChanged');
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  const timer = setTimeout(abort, 20_000);
+  signal?.addEventListener('abort', abort, { once: true });
+  if (signal?.aborted) controller.abort();
+  try {
+    const response = await fetch(`${API_URL}/api/v1/orders/lifecycle-v2${path}`, {
+      method: input === undefined ? 'GET' : 'POST', cache: 'no-store', credentials: 'omit', redirect: 'error', signal: controller.signal,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${context.token}`, 'X-Restaurant-ID': String(context.restaurant_id) },
+      ...(input === undefined ? {} : { body: JSON.stringify(input) }),
+    });
+    if (!lifecycleActorCurrent(context)) throw new Error('lifecycleContextChanged');
+    const body = await response.json().catch(() => null);
+    if (!lifecycleActorCurrent(context)) throw new Error('lifecycleContextChanged');
+    if (!response.ok) throw new LifecycleOperationApiError(response.status, body && typeof body.details?.code === 'string' ? body.details.code : 'lifecycle_operation_unconfirmed');
+    return body;
+  } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
+}
+/** Read the exact order/bill/session reviewed by the operator without changing it. */
+export function getLifecycleV2(context: LifecycleActorContext, scope: import('./orders/lifecycle-v2').LifecycleV2Scope, signal?: AbortSignal): Promise<unknown> {
+  return lifecycleScopedFetch(context, `?${new URLSearchParams({ scope: scope.kind, id: scope.id })}`, undefined, signal);
+}
+/** Dispatch once; callers persist the immutable command before invoking this function. */
+export function submitLifecycleV2(context: LifecycleActorContext, command: import('./orders/lifecycle-operations').LifecycleCommand): Promise<unknown> {
+  const input = command.action === 'close_check' ? { request_id: command.request_id, scope: command.scope, expected_revision: command.expected_revision } : command;
+  return lifecycleScopedFetch(context, command.action === 'close_check' ? '/close' : '/handoff', input);
+}
+/** Verify the same request after an uncertain response; this never replays it. */
+export function verifyLifecycleV2(context: LifecycleActorContext, command: import('./orders/lifecycle-operations').LifecycleCommand): Promise<unknown> {
+  return lifecycleScopedFetch(context, `/operations/${encodeURIComponent(command.request_id)}?${new URLSearchParams({ scope: command.scope.kind, id: command.scope.id })}`);
+}
 
 /** Reads the active restaurant's Sumit-only internal checkout capability. */
 export function getInternalCheckoutCapabilities(restaurantId: number): Promise<{ enabled: boolean }> {

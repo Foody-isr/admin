@@ -1,3 +1,4 @@
+import { readOrderLifecycleV2, type OrderLifecycleV2 } from './lifecycle-v2';
 // Turning an order plus its restaurant's configured pipeline into the steps the
 // detail view draws.
 //
@@ -168,7 +169,7 @@ function stampForKind(order: Order, kind: WorkflowStageKind): string | undefined
 }
 
 /** Keep configured stage names/IDs while applying only facts from their own operational axis. */
-function lifecycleStages(order: Order, resolved: ResolvedStage[], lifecycle: OrderLifecycle): StepperStage[] {
+function lifecycleStages(order: Order, resolved: ResolvedStage[], lifecycle: OrderLifecycle | OrderLifecycleV2): StepperStage[] {
   const prep = lifecycle.preparation;
   const handoff = lifecycle.handoff;
   const exact = resolved.findIndex(stage => stage.id != null && stage.id === order.workflow_stage_id);
@@ -226,13 +227,15 @@ export function buildStepperStages(
   const resolved = resolveStages(order, workflow, t);
   if (resolved.length === 0) return [];
 
-  const lifecycle = readOrderLifecycle(order.lifecycle, order.id);
+  const v2 = readOrderLifecycleV2(order.lifecycle_v2, order.id);
+  const lifecycle = v2.kind !== 'legacy' ? v2 : readOrderLifecycle(order.lifecycle, order.id);
   if (lifecycle.kind === 'unavailable') return resolved.map((stage, index) => ({
     key: stage.id != null ? `stage-${stage.id}` : `${stage.kind}-${index}`, label: stage.label, kind: stage.kind, state: 'pending',
   }));
   if (lifecycle.kind === 'available') {
     const handoffNotTracked = lifecycle.value.handoff.tracking === 'not_tracked' && lifecycle.value.handoff.state !== 'complete';
-    const visible = handoffNotTracked ? resolved.filter(stage => !['completed', 'out_for_delivery'].includes(stage.kind)) : resolved;
+    const handoffVisible = handoffNotTracked ? resolved.filter(stage => !['completed', 'out_for_delivery'].includes(stage.kind)) : resolved;
+    const visible = lifecycle.value.preparation.state === 'not_tracked' ? handoffVisible.filter(stage => !['in_progress', 'ready'].includes(stage.kind)) : handoffVisible;
     const facts = lifecycleStages(order, visible, lifecycle.value);
     if (opts.acceptedNote && order.accepted_at && facts.length) facts[0].note = opts.acceptedNote;
     return lifecycle.value.commercial.state === 'cancelled' ? [...facts, {

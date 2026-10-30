@@ -28,7 +28,7 @@ export function validFulfillment(value: POSFulfillment): boolean {
   const active = methods.filter(method => value.enabled.includes(method.id));
   return ['never', 'start', 'checkout'].includes(value.prompt) && methods.length > 0 && methods.length <= 10 && ids.size === methods.length &&
     methods.every(method => (presets.some(preset=>preset.id===method.id) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(method.id) && method.id!=='00000000-0000-0000-0000-000000000000') && ['dine_in', 'pickup', 'delivery'].includes(method.order_type) && method.name === method.name.trim() && Array.from(method.name).length <= 80 && !/[\u0000-\u001f\u007f-\u009f]/.test(method.name) && (presets.some(preset => preset.id === method.id) || !!method.name)) &&
-    methods.every(method => method.show_customer_information === undefined || typeof method.show_customer_information === 'boolean') &&
+    methods.every(method => ['show_customer_information','track_preparation','track_handoff'].every(key => { const value = (method as unknown as Record<string,unknown>)[key]; return value === undefined || typeof value === 'boolean'; })) &&
     new Set(names).size === names.length && value.enabled.length > 0 && new Set(value.enabled).size === value.enabled.length && value.enabled.every(id => ids.has(id)) && value.default === value.enabled[0] &&
     active.every((method, index) => method.id === value.enabled[index]);
 }

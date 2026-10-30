@@ -1,0 +1,36 @@
+{
+  "comparisonBase": "4e1766bf12582ea76c5091b90d3a819f63948e41",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "4cf288305c4cbfd98e943121ff4821977783d459925cdb26eb351dc88705e0fc",
+      "baseSha256": "e72aedce087d16e0b1d8fdb1fd605c7d89667f66fc415cc2c10254464662d4de",
+      "features": [
+        "customers-profiles",
+        "delivery-zones",
+        "menu-product-photos",
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The exact integrated diff adds optional lifecycle/fulfillment tracking fields and dedicated actor-bound lifecycle-v2 read/mutation/recovery clients. All pre-existing customer, delivery-zone, product-photo and variant methods and field definitions remain byte-identical. Their existing procedures are unchanged; the new order/action workflow has translated documentation."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "4b39b23238bf1e957fe1a411119f2cfd6ff2d4555fb99508e502fc616bca5636",
+      "baseSha256": "06ac925a2538590763ddda023e3368b6a5f18bca5e6c53cc3289405d12e6f3e0",
+      "features": [
+        "customers-profiles",
+        "delivery-zones",
+        "google-account-setup",
+        "menu-menus-and-groups",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "website-order-design",
+        "website-sections",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only additive lifecycle-v2 facts, recovery/action reasons and POS tracking labels are inserted in French, Hebrew and English. No existing label is removed or changed; every inserted key belongs to lifecycle, posDining or the explicit partial-refund/handoff summary. The named unrelated feature labels and procedures retain their current bytes; lifecycle/payment changes remain documented."
+    }
+  ]
+}
