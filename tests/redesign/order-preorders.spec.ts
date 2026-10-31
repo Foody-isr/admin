@@ -23,6 +23,7 @@ async function install(page: Page, options: { locale?: string; permissions?: str
       else { writes.push({ path, restaurant, body }); if (control.gate) await control.gate; if (control.failSave) { control.failSave--; return route.fulfill({ status: 503, json: { error: 'Synthetic write failure' } }); } Object.assign(control.settings, body); }
       return route.fulfill({ json: { settings: control.settings } });
     }
+    if (path === '/api/v1/public/address-autocomplete') return route.fulfill({ json: { suggestions: [] } });
     if (path.endsWith('/delivery/ordering-simulation') && method === 'GET') return route.fulfill({ json: control.simulationClock });
     if (/\/batch-fulfillment-config$/.test(path)) return route.fulfill({ json: { enabled: true, ordering_open: true, current_batch_open_at: '2026-10-04T00:30:00+03:00', current_batch_cutoff: '2026-10-07T22:00:00+03:00', next_batch_open_at: '2026-10-11T00:30:00+03:00' } });
     if (/\/preparation-preview$/.test(path)) {
@@ -368,13 +369,13 @@ test('older API leaves the new opening choice unavailable without mutating setti
  await expect(page.getByRole('radio',{name:/^Commandes planifiées/})).toBeVisible();
  await page.getByText('Simuler une commande',{exact:true}).click();const panel=page.locator('#ordering-simulation');
  await panel.getByRole('button',{name:'Ajouter un article',exact:true}).click();
- await panel.getByRole('textbox',{name:'Adresse complète de livraison',exact:true}).fill('11 Rue de démonstration 75017 Paris');
+ await panel.getByRole('combobox',{name:'Adresse complète de livraison',exact:true}).fill('11 Rue de démonstration 75017 Paris');
  await panel.locator('input[type=date]').fill('2026-10-30');
  await panel.getByRole('button',{name:'Vérifier les disponibilités',exact:true}).click();
  const result=panel.locator('[data-ordering-simulation-result]');await expect(result).toContainText('11:00–14:00');await expect(result).toContainText('horaire à confirmer');await expect(result).toContainText('Roulé de démonstration');
  expect(calls[0].body.items).toEqual([{id:10,quantity:1}]);expect(calls[0].body.ordered_at).toBe('2026-10-30T07:43');expect(calls[0].restaurant).toBe('1');
  expect(await panel.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);await result.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('ordering-simulation-fr.png')});
- await panel.getByRole('textbox',{name:'Adresse complète de livraison',exact:true}).fill('Adresse de démonstration 94000 Créteil');await expect(result).toHaveCount(0);
+ await panel.getByRole('combobox',{name:'Adresse complète de livraison',exact:true}).fill('Adresse de démonstration 94000 Créteil');await expect(result).toHaveCount(0);
  await panel.getByRole('button',{name:'Vérifier les disponibilités',exact:true}).click();await expect(result).toContainText('n’est pas autorisée');await expect(result).toContainText('2026-11-01');
  await lead(page).fill('181');await expect(panel.getByRole('button',{name:'Vérifier les disponibilités',exact:true})).toBeDisabled();await expect(result).toHaveCount(0);
  expect(state.writes).toHaveLength(0);
@@ -438,4 +439,66 @@ test('simulation rejects ambiguous local time and a server result using another 
   await expect(panel.getByRole('alert')).toContainText('apparaît deux fois'); await expect(at).toHaveAttribute('aria-invalid', 'true');
   ambiguous = false; await at.fill('2026-11-02T11:30'); await run.click(); await expect(panel.getByRole('alert')).toContainText('n’a pas pu vérifier');
   await expect(panel.locator('[data-ordering-simulation-result]')).toHaveCount(0); expect(state.writes).toHaveLength(0);
+});
+
+for (const locale of ['fr', 'en', 'he'] as const) test(`simulation address autocomplete resolves a scoped selection ${locale}`, async ({ page }, info) => {
+  const state = await install(page, { locale });
+  await page.route('**/api/v1/menu/items?*', route => route.fulfill({ json: { items: [{ id: 10, name: 'Synthetic roll' }] } }));
+  await page.route('**/api/v1/delivery/zones?*', route => route.fulfill({ json: { zones: [] } }));
+  const searches: any[] = [], resolutions: any[] = [], simulations: any[] = [];
+  let resolveSelection!: () => void;
+  const selectionGate = new Promise<void>(resolve => { resolveSelection = resolve; });
+  await page.route('**/api/v1/public/address-autocomplete?*', route => {
+    const request = route.request();
+    searches.push({ body: request.postDataJSON(), restaurant: request.headers()['x-restaurant-id'], query: new URL(request.url()).searchParams.get('restaurant_id') });
+    return route.fulfill({ json: { suggestions: [{ id: 'synthetic-paris', kind: 'prediction', address: '11 Rue de démonstration', city: 'Paris', lookup_token: 'synthetic-address-choice' }] } });
+  });
+  await page.route('**/api/v1/public/address-autocomplete/resolve?*', async route => {
+    resolutions.push({ body: route.request().postDataJSON(), restaurant: route.request().headers()['x-restaurant-id'] });
+    await selectionGate;
+    return route.fulfill({ json: { suggestion: { id: 'synthetic-paris', kind: 'address', address: '11 Rue de démonstration', city: 'Paris' } } });
+  });
+  await page.route('**/api/v1/delivery/ordering-simulation', route => {
+    if (route.request().method() === 'GET') return route.fallback();
+    simulations.push(route.request().postDataJSON());
+    return route.fulfill({ json: { resolved: true, deliverable: false } });
+  });
+  await page.setViewportSize({ width: locale === 'he' ? 1440 : 375, height: 1000 });
+  await page.goto('/1/settings/orders'); const panel = page.locator('#ordering-simulation'); await panel.locator('summary').click();
+  await panel.locator('fieldset > button').click();
+  const field = panel.locator('input[role=combobox]');
+  await expect(field).toHaveAccessibleName(locale === 'fr' ? 'Adresse complète de livraison' : locale === 'en' ? 'Full delivery address' : 'כתובת משלוח מלאה');
+  await field.fill('11 Rue démo');
+  await expect(panel.getByRole('option', { name: '11 Rue de démonstration, Paris', exact: true })).toBeVisible();
+  expect(searches.at(-1)).toMatchObject({ body: { text: '11 Rue démo', lang: locale }, restaurant: '1', query: '1' });
+  expect(searches.at(-1).body.session_id).toBeTruthy();
+  await page.screenshot({ path: info.outputPath(`simulation-address-${locale}.png`) });
+  await field.press('ArrowDown'); await field.press('Enter');
+  const run = panel.getByRole('button', { name: locale === 'fr' ? 'Vérifier les disponibilités' : locale === 'en' ? 'Check availability' : 'בדיקת זמינות', exact: true });
+  await expect.poll(() => resolutions.length).toBe(1); await expect(run).toBeDisabled(); expect(simulations).toHaveLength(0);
+  resolveSelection();
+  await expect(field).toHaveValue('11 Rue de démonstration, Paris'); await expect(run).toBeEnabled();
+  expect(resolutions[0]).toEqual({ body: { lookup_token: 'synthetic-address-choice' }, restaurant: '1' });
+  await run.click(); expect(simulations[0].address).toBe('11 Rue de démonstration, Paris');
+  await expect(panel.locator('[data-ordering-simulation-result]')).toBeVisible();
+  await field.fill('Autre adresse'); await expect(panel.locator('[data-ordering-simulation-result]')).toHaveCount(0);
+  await panel.locator('select').first().selectOption('pickup'); await expect(field).toHaveCount(0); await expect(run).toBeEnabled();
+  expect(await panel.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true); expect(state.writes).toHaveLength(0);
+});
+
+test('simulation keeps manual address entry available when autocomplete fails', async ({ page }) => {
+  const state = await install(page);
+  await page.route('**/api/v1/menu/items?*', route => route.fulfill({ json: { items: [{ id: 10, name: 'Synthetic roll' }] } }));
+  await page.route('**/api/v1/delivery/zones?*', route => route.fulfill({ json: { zones: [] } }));
+  await page.route('**/api/v1/public/address-autocomplete?*', route => route.fulfill({ status: 503, json: { error: 'Synthetic unavailable' } }));
+  let submitted: any;
+  await page.route('**/api/v1/delivery/ordering-simulation', route => {
+    if (route.request().method() === 'GET') return route.fallback();
+    submitted = route.request().postDataJSON(); return route.fulfill({ json: { resolved: false, deliverable: false } });
+  });
+  await page.goto('/1/settings/orders'); const panel = page.locator('#ordering-simulation'); await panel.locator('summary').click();
+  await panel.locator('fieldset > button').click(); await panel.locator('input[role=combobox]').fill('11 Rue de démonstration, 75017 Paris');
+  await expect(panel.getByText('Les suggestions sont indisponibles. Vous pouvez saisir l’adresse complète manuellement.')).toBeVisible();
+  await panel.getByRole('button', { name: 'Vérifier les disponibilités', exact: true }).click();
+  expect(submitted.address).toBe('11 Rue de démonstration, 75017 Paris'); expect(state.writes).toHaveLength(0);
 });

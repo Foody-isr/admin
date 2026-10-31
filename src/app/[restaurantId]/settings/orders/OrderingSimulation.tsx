@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Button, Field, Input, Select } from '@/components/ds';
+import { RouteAddressField } from '@/components/delivery/RouteAddressField';
 import { getDeliveryZones, listAllItems, getOrderingSimulationClock, simulateOrderingAvailability, type DeliveryZone, type MenuItem, type OrderingSimulationClock } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
 
@@ -14,6 +15,7 @@ export default function OrderingSimulation({ rid, timezone, dirty, pickupEnabled
   const { t, locale } = useI18n(), { money } = useCurrency();
   const [open, setOpen] = useState(false), [items, setItems] = useState<MenuItem[]>([]), [zones, setZones] = useState<DeliveryZone[]>([]);
   const [clock, setClock] = useState<OrderingSimulationClock | null>(null);
+  const [addressResolving, setAddressResolving] = useState(false);
   const [loaded, setLoaded] = useState(false), [loadError, setLoadError] = useState(false), [catalogBusy, setCatalogBusy] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState<InputState>({ service: 'delivery', address: '', date: '', orderedAt: '', items: [] });
   const [result, setResult] = useState<{ signature: string; value: Result } | null>(null);
@@ -75,12 +77,12 @@ export default function OrderingSimulation({ rid, timezone, dirty, pickupEnabled
           <p className="text-sm text-[var(--fg-muted)]"><bdi>{orderDay}</bdi>{orderDay && ' · '}<bdi>{clock?.timezone || timezone}</bdi></p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2"><Field label={t('orderingSimulationService')}><Select value={input.service} disabled={busy} onChange={event => patch({ service: event.target.value as InputState['service'] })}><option value="pickup" disabled={!pickupEnabled}>{t('pickup')}</option><option value="delivery" disabled={!deliveryEnabled}>{t('delivery')}</option></Select></Field><Field label={t('orderingSimulationDate')}><Input type="date" dir="ltr" min={input.orderedAt.slice(0, 10)} value={input.date} disabled={busy} onChange={event => patch({ date: event.target.value })} /></Field></div>
-        {input.service === 'delivery' && <Field label={t('orderingSimulationAddress')}><Input value={input.address} disabled={busy} onChange={event => patch({ address: event.target.value })} /></Field>}
+        {input.service === 'delivery' && <RouteAddressField key={rid} restaurantId={rid} locale={locale} label={t('orderingSimulationAddress')} value={input.address} disabled={busy} onChange={address => patch({ address })} onResolvingChange={setAddressResolving} t={t} />}
         <fieldset className="space-y-3"><legend className="mb-3 text-sm font-medium">{t('orderingSimulationBasket')}</legend>
           {input.items.map((line, index) => <div key={index} className="grid grid-cols-[minmax(0,1fr)_5rem_auto] items-end gap-2"><Field label={t('item')}><Select value={line.id} disabled={busy} onChange={event => patch({ items: input.items.map((value, i) => i === index ? { ...value, id: Number(event.target.value) } : value) })}>{items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field><Field label={t('quantity')}><Input type="number" dir="ltr" min="1" step="1" value={line.quantity || ''} disabled={busy} onChange={event => patch({ items: input.items.map((value, i) => i === index ? { ...value, quantity: Number(event.target.value) } : value) })} /></Field><Button type="button" variant="ghost" disabled={busy} aria-label={`${t('remove')} ${index + 1}`} onClick={() => patch({ items: input.items.filter((_, i) => i !== index) })}>×</Button></div>)}
           <Button type="button" variant="secondary" disabled={busy || !items.length} onClick={() => patch({ items: [...input.items, { id: items[0].id, quantity: 1 }] })}>{t('addItem')}</Button>
         </fieldset>
-        <Button type="button" variant="primary" disabled={busy || !valid || dirty} onClick={() => void simulate()}>{t(busy ? 'loading' : 'orderingSimulationRun')}</Button>
+        <Button type="button" variant="primary" disabled={busy || (input.service === 'delivery' && addressResolving) || !valid || dirty} onClick={() => void simulate()}>{t(busy ? 'loading' : 'orderingSimulationRun')}</Button>
       </>}
       {error && <p role="alert" className="text-sm text-[var(--danger-500)]">{t(error)}</p>}
       {current && <div role="status" className="space-y-3 border-s-2 border-[var(--line)] ps-4 text-sm leading-6" data-ordering-simulation-result>

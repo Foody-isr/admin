@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "4bd426d17a0cda21e14abb64053a1f979746c991",
-  "documentationRevision": "5788cddc4284fbfd8a16842d64dbc7c850faddc5b065fe97f1c3b9b6b92fcce4",
+  "documentationRef": "8de0425676a3a5bb07b2f316ca235d5382ffd89b",
+  "documentationRevision": "b90488b16fb95fd3138bb094139326acc14f1d32f5cdba7dc6437ef3cbe4adae",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -658,15 +658,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/preorders-and-batches.mdx",
-          "sha256": "eb62ae23f099b6cfe39d94b6c644f9eabc06304b8afff5543fa3b4561545c0ca"
+          "sha256": "5c653372ff732ccb0b9632430eb30e30f64ef17660f9aa5a6d06771484e518b1"
         },
         "fr": {
           "path": "src/content/help/fr/orders/preorders-and-batches.mdx",
-          "sha256": "b54d325693afd716652e2a229ff172f480ace4b0d0485b519233d84b90778926"
+          "sha256": "aeca531bbb384a74cdba2becb86fb8da5ac6d09684e7b90df361c765b6615223"
         },
         "he": {
           "path": "src/content/help/he/orders/preorders-and-batches.mdx",
-          "sha256": "1f6670fc579ca79d1778ec623b0fc4d05d18ff133daaa544a3ea0ce61bea8a69"
+          "sha256": "b2254f88c8a34ef0a0b6e04c08e748497be602552796f55f1a16f7c3c37c30d7"
         }
       }
     },
@@ -3237,7 +3237,7 @@
       ]
     },
     "src/app/[restaurantId]/settings/orders/OrderingSimulation.tsx": {
-      "sha256": "82376c3335c2393b6feb0cf553df03c900a475e3832e9dda9a6df4929cccbbb2",
+      "sha256": "4fd9861648b2eada9a5848fecc6e0999b6eb6b62b926702d97a48ebc40e25df9",
       "features": [
         "order-types",
         "preorders",

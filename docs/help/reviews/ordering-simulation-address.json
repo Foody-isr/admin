@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-10-31",
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/settings/orders/OrderingSimulation.tsx",
+      "sha256": "4fd9861648b2eada9a5848fecc6e0999b6eb6b62b926702d97a48ebc40e25df9",
+      "baseSha256": "82376c3335c2393b6feb0cf553df03c900a475e3832e9dda9a6df4929cccbbb2",
+      "features": [
+        "order-types",
+        "fulfillment-policy"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the read-only saved ordering simulation address input now reuses the existing restaurant-scoped address suggestion field and disables its check while a selection resolves. Restaurant order-type configuration, pickup and delivery activation, common fulfillment policies, preparation and calendar calculations, settings saves and customer checkout behavior remain unchanged. The preorders simulation procedure is updated in all three languages; the scoped order-types and fulfillment-policy guides retain their exact procedures."
+    }
+  ]
+}
