@@ -1,12 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AlertCircle } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { Button, ConfirmDialog, Field, Input } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { addTrustedCustomer, getCustomerProfile, removeTrustedCustomer, updateCustomerProfile, type TrustedCustomer } from '@/lib/api';
-import { normalizeCustomerPhone } from '@/lib/customer-phone';
+import { normalizeCustomerPhone, validateCustomerPhones } from '@/lib/customer-phone';
 import { CustomerPhoneFields, type CustomerPhoneDraft } from './CustomerPhoneFields';
 import { CustomerDeliveryFields, EMPTY_DELIVERY, type CustomerDeliveryValue } from './CustomerDeliveryFields';
 
@@ -20,6 +21,7 @@ export function CustomerEditor({restaurantId,row,onClose,onSaved}:{restaurantId:
   const [loading,setLoading]=useState(true);
   const [loadError,setLoadError]=useState('');
   const [attempted,setAttempted]=useState(false);
+  const formRef=useRef<HTMLFormElement>(null);
   const savedPhone=useRef(row.phone);
   const [phase,setPhase]=useState(0);
   const progress=useRef({profile:false,removed:false,cash:false});
@@ -39,10 +41,19 @@ export function CustomerEditor({restaurantId,row,onClose,onSaved}:{restaurantId:
   },[restaurantId,row,setBaseline,t]);
   useEffect(()=>{const scope=request.current;void load();return()=>{scope.value+=1;};},[load]);
   const blocked=session.frozen||loading||!!loadError||phase>0;
+  const {normalized,issues,firstIssue}=validateCustomerPhones(form.phones);
+  const focusPhone=(index:number)=>{
+    const input=formRef.current?.querySelector<HTMLInputElement>(`[data-customer-phone="${index}"] input[type="tel"]`);
+    input?.focus({preventScroll:true});
+    input?.scrollIntoView({block:'center'});
+  };
+  const issueLabel=firstIssue===0?t('customerPrimaryPhone'):t('customerAdditionalPhoneLabel').replace('{number}',String(firstIssue));
   const save=()=>{
     setAttempted(true);
-    const normalized=form.phones.map(contact=>normalizeCustomerPhone(contact.phone));
-    if(normalized.some(phone=>!phone)||new Set(normalized).size!==normalized.length)return;
+    if(firstIssue>=0){
+      focusPhone(firstIssue);
+      return;
+    }
     return session.run(async()=>{
     if(!progress.current.profile){
       try {
@@ -51,7 +62,7 @@ export function CustomerEditor({restaurantId,row,onClose,onSaved}:{restaurantId:
       } catch(error) {
         const code=error instanceof Error?error.message:'';
         if(['customer_phone_conflict','invalid_customer_phone','customer_phone_not_found'].includes(code))throw new Error(t(code==='customer_phone_conflict'?'customerContactPhoneConflict':code==='customer_phone_not_found'?'customerPhoneNotFound':'invalidCustomerPhone'));
-        throw error;
+        throw new Error(t('customerProfileSaveFailed'));
       }
       progress.current.profile=true;setPhase(1);
     }
@@ -65,10 +76,20 @@ export function CustomerEditor({restaurantId,row,onClose,onSaved}:{restaurantId:
   },onSaved);
   };
   return <>
-    <Modal title={t('editCustomer')} subtitle={<bdi dir="ltr">{row.phone}</bdi>} size="xl" onClose={session.close} closeDisabled={session.busy} footer={<div className="space-y-3">{phase>0&&!session.saved&&<p role="status" className="text-sm">{t('customerPartiallySaved')}</p>}{session.feedback}<div className="flex flex-wrap justify-end gap-2"><Button variant="secondary" disabled={session.busy} onClick={session.close}>{t(session.saved?'close':'cancel')}</Button><Button form="customer-edit-form" type="submit" disabled={session.busy||loading||!!loadError||!session.canManage}>{t(session.busy?'saving':phase>0?'retry':'save')}</Button></div></div>}>
+    <Modal title={t('editCustomer')} subtitle={<bdi dir="ltr">{row.phone}</bdi>} size="xl" onClose={session.close} closeDisabled={session.busy} footer={<div className="space-y-3">
+      {attempted&&firstIssue>=0&&<div role="alert" className="flex items-start gap-3 rounded-r-md border border-[var(--danger-500)] bg-[var(--danger-50)] p-3">
+        <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-[var(--danger-500)]"/>
+        <div className="min-w-0 space-y-1 text-sm">
+          <p className="font-semibold text-[var(--danger-500)]">{t('customerProfileSaveBlocked')}</p>
+          <p><span className="font-medium">{issueLabel}{': '}</span>{t(issues[firstIssue]!)}</p>
+          <button type="button" className="min-h-8 text-start font-medium underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" onClick={()=>focusPhone(firstIssue)}>{t('customerFixPhone')}</button>
+          <p className="text-xs text-[var(--fg-muted)]">{t('customerDraftPreserved')}</p>
+        </div>
+      </div>}
+      {phase>0&&!session.saved&&<p role="status" className="text-sm">{t('customerPartiallySaved')}</p>}{session.feedback}<div className="flex flex-wrap justify-end gap-2"><Button variant="secondary" disabled={session.busy} onClick={session.close}>{t(session.saved?'close':'cancel')}</Button><Button form="customer-edit-form" type="submit" disabled={session.busy||loading||!!loadError||!session.canManage}>{t(session.busy?'saving':phase>0?'retry':'save')}</Button></div></div>}>
       {loading&&<p role="status" className="py-5 text-sm">{t('loading')}</p>}
       {loadError&&<div role="alert" className="mb-4 text-sm text-[var(--danger-500)]"><p>{loadError}</p><Button variant="secondary" onClick={()=>void load()}>{t('retry')}</Button></div>}
-      <form id="customer-edit-form" onSubmit={event=>{event.preventDefault();if(!loading&&!loadError)void save();}}><fieldset disabled={blocked} className="min-w-0 space-y-5">
+      <form ref={formRef} id="customer-edit-form" onSubmit={event=>{event.preventDefault();if(!loading&&!loadError)void save();}}><fieldset disabled={blocked} className="min-w-0 space-y-5">
         <Field label={t('nameOptional')}><Input dir="auto" value={form.name} onChange={event=>setForm(current=>({...current,name:event.target.value}))}/></Field>
         <CustomerPhoneFields value={form.phones} attempted={attempted} disabled={blocked} onChange={phones=>setForm(current=>({...current,phones}))}/>
         <fieldset className="min-w-0 space-y-3 border-t border-[var(--line)] pt-4"><legend className="px-1 text-sm font-semibold">{t('deliveryDetails')}</legend><CustomerDeliveryFields value={form.delivery} disabled={blocked} onChange={patch=>setForm(current=>({...current,delivery:{...current.delivery,...patch}}))}/></fieldset>

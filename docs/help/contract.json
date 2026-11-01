@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "8de0425676a3a5bb07b2f316ca235d5382ffd89b",
-  "documentationRevision": "b90488b16fb95fd3138bb094139326acc14f1d32f5cdba7dc6437ef3cbe4adae",
+  "documentationRef": "520ce790341483d221b38fa2449f8b041687ed76",
+  "documentationRevision": "d833ebad98b6de4a606274554b0485cd24d64b129a1135a48b77cd5081bbc2d7",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -107,15 +107,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/customers/managing-customers.mdx",
-          "sha256": "426b78ed9b7a0eb61a9ec677f2e78b7b637db43a57f6709c9acf2bfeedef33dc"
+          "sha256": "c5390fc09b1b58c03525fa76aa1bd9e8d1f515bffd8589b14e2b2624bc435082"
         },
         "fr": {
           "path": "src/content/help/fr/customers/managing-customers.mdx",
-          "sha256": "ced868b68dbb0b0db716ff7ef6b4b7d8d728c78012fd697480a92567290fcadc"
+          "sha256": "ac211235b21845fe2b5bf45be1cfa57b72fbad8b912c650e81f30df577a3672e"
         },
         "he": {
           "path": "src/content/help/he/customers/managing-customers.mdx",
-          "sha256": "8a6028a67f1d913c6de7b369ba8fe4cbcb644672139a87254bcf9ed0f3af494e"
+          "sha256": "38fb52115c0d5b41d972bfd69057f2e0924dbff0df1b81f93106fee46f3515a0"
         }
       }
     },
@@ -3875,7 +3875,7 @@
       ]
     },
     "src/components/customers/CustomerForms.tsx": {
-      "sha256": "723f3f5398f3fa8d390d1a04e7adae4a5fbc4a80d689bcbd952341a882f3176d",
+      "sha256": "775c12800150f8c8e994ad7dac2466186de31555d11407adab8db9a073010903",
       "features": [
         "customers-profiles"
       ]
@@ -3887,7 +3887,7 @@
       ]
     },
     "src/components/customers/CustomerPhoneFields.tsx": {
-      "sha256": "663b1e2871f2bfb0ce1b556bd9c136056e86a85805eb8b031546e6505110626f",
+      "sha256": "c784b6f6fbe8f1c3d6a31e8ea76b6761716d0a7fe923bdcb239e9c7479a8f1fe",
       "features": [
         "customers-profiles"
       ]
@@ -6428,7 +6428,7 @@
       ]
     },
     "src/lib/customer-phone.ts": {
-      "sha256": "a795040ea21bc7db7fc3f1460b33de5ce1e8232185a0a36640431bd08f661cf6",
+      "sha256": "7b467568201d228c66ed3df8dcf93b63e522f825f84a11ad99a72dc931778103",
       "features": [
         "customers-profiles",
         "shared-runtime"
@@ -6540,7 +6540,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "a757c198b9a7116b7bf67677bc2b4aafea814ade68045a34f885fe6f5a80c980",
+      "sha256": "6d4f3bc8e2ae9279ac862872e19fb645de075b3e82ebecd0f4ba9c0bdd3476b4",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -15503,8 +15503,14 @@
         "allowCashPayment",
         "allowCashPaymentDesc",
         "cancel",
+        "customerAdditionalPhoneLabel",
+        "customerDraftPreserved",
+        "customerFixPhone",
         "customerLoadFailed",
         "customerPartiallySaved",
+        "customerPrimaryPhone",
+        "customerProfileSaveBlocked",
+        "customerProfileSaveFailed",
         "customerSavedRefresh",
         "deliveryDetails",
         "discardChanges",
@@ -15557,7 +15563,7 @@
         "addCustomerPhone",
         "customerContactPhones",
         "customerPhoneAfter",
-        "customerPhoneDuplicate",
+        "customerPhoneFormatHint",
         "customerRemovePhoneHint",
         "customerUseForWhatsApp",
         "customerWhatsAppPhoneHint",
