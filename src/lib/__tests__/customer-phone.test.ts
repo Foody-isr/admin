@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { normalizeCustomerPhone } from '../customer-phone';
+import { normalizeCustomerPhone, validateCustomerPhones } from '../customer-phone';
 
 test('normalizes valid international and Israeli contacts without losing significant zeros', () => {
   for (const [input, expected] of [
@@ -18,4 +18,14 @@ test('rejects incomplete numbers, invalid numbering plans, extensions and embedd
     '0502345678/0522345678', '+97250234abc5678']) {
     assert.equal(normalizeCustomerPhone(input), null, input);
   }
+});
+
+test('identifies required, invalid and normalized duplicate contacts in display order', () => {
+  const result = validateCustomerPhones(['', '  ', '+9725012', '050-234-5678', '+972502345678'].map(phone => ({ phone })));
+  assert.deepEqual(result.issues, ['customerPrimaryPhoneRequired', 'customerAdditionalPhoneRequired', 'customerPhoneInvalidHelp', null, 'customerPhoneDuplicateHelp']);
+  assert.equal(result.firstIssue, 0);
+  assert.equal(result.normalized[3], result.normalized[4]);
+  const corrected = validateCustomerPhones([{ phone: '050-234-5678' }, { phone: '+33 6 12 34 56 78' }]);
+  assert.deepEqual(corrected.issues, [null, null]);
+  assert.equal(corrected.firstIssue, -1);
 });

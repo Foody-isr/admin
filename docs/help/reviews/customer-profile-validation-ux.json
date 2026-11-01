@@ -1,0 +1,26 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "6d4f3bc8e2ae9279ac862872e19fb645de075b3e82ebecd0f4ba9c0bdd3476b4",
+      "baseSha256": "a757c198b9a7116b7bf67677bc2b4aafea814ade68045a34f885fe6f5a80c980",
+      "features": [
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This diff adds only customer-profile validation and save-recovery messages in French, Hebrew and English. Existing translation values, controls, permissions and procedures for every other classified feature remain unchanged. The customer procedure documents the new inline feedback, blocked-save summary, correction link and retained draft in all three languages."
+    }
+  ]
+}

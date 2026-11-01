@@ -15,3 +15,15 @@ export function normalizeCustomerPhone(value: string, callingCode = '+972'): str
   }, metadata);
   return phone?.isValid() && !phone.ext ? phone.number : null;
 }
+
+/** Validate contact drafts in display order, comparing their normalized numbers. */
+export function validateCustomerPhones(phones: readonly { phone: string }[]) {
+  const normalized = phones.map(contact => normalizeCustomerPhone(contact.phone));
+  const issues = phones.map((contact, index) => {
+    if (!contact.phone.trim()) return index === 0 ? 'customerPrimaryPhoneRequired' : 'customerAdditionalPhoneRequired';
+    if (!normalized[index]) return 'customerPhoneInvalidHelp';
+    if (normalized.indexOf(normalized[index]) !== index) return 'customerPhoneDuplicateHelp';
+    return null;
+  });
+  return { normalized, issues, firstIssue: issues.findIndex(issue => issue !== null) };
+}

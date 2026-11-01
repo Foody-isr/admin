@@ -54,12 +54,87 @@ async function installCustomers(page:Page,options:{locale?:string;theme?:string;
   }
   const result=fixture.response(request.url(),method,body,restaurant);return send(result.json??{},result.status??200);
  });
- await page.route('**/*',route=>{const url=new URL(route.request().url());return ['localhost','127.0.0.1'].includes(url.hostname)||url.pathname.startsWith('/api/v1/')?route.fallback():route.abort();});
+ const appHost = new URL(test.info().project.use.baseURL ?? 'http://localhost:3103').hostname;
+ await page.route('**/*',route=>{const url=new URL(route.request().url());return ['localhost','127.0.0.1',appHost].includes(url.hostname)||url.pathname.startsWith('/api/v1/')?route.fallback():route.abort();});
  return {customers,trusted,profiles,writes,reads,faults,fixture,setTotal:(value:number)=>{total=value;}};
 }
 const editor=(page:Page)=>page.getByRole('dialog',{name:'Modifier le client',exact:true});
 async function openFirst(page:Page){await page.goto('/1/customers');await page.getByRole('button',{name:`Modifier le client · ${names[0]}`,exact:true}).click();await expect(editor(page).getByRole('textbox',{name:'Nom (optionnel)',exact:true})).toBeEnabled();}
 const writesOf=(state:Awaited<ReturnType<typeof installCustomers>>,suffix:string,method?:string)=>state.writes.filter(write=>write.path.endsWith(suffix)&&(!method||write.method===method));
+
+for (const locale of ['fr', 'he', 'en'] as const) {
+ for (const kind of ['invalid', 'duplicate'] as const) test(`customers reveals ${kind} phone blocking delivery save ${locale}`, async ({ page }, info) => {
+  await page.setViewportSize({ width: locale === 'fr' ? 1440 : 390, height: 800 });
+  const state = await installCustomers(page, { locale });
+  const profile = state.profiles.get(phones[0])!;
+  if (kind === 'invalid') profile.phones[1].phone = '+9725012';
+  const originalSecondary = profile.phones[1].phone;
+  await page.goto('/1/customers');
+  await page.getByRole('table').getByRole('button', { name: new RegExp(names[0]) }).click();
+  const dialog = page.getByRole('dialog');
+  const deliveryCode = dialog.getByRole('textbox', { name: locale === 'fr' ? 'Code immeuble' : locale === 'he' ? 'קוד כניסה' : 'Building code', exact: true });
+  await expect(deliveryCode).toBeEnabled();
+  const secondary = dialog.locator('[data-customer-phone="1"] input[type="tel"]');
+  if (kind === 'duplicate') await secondary.fill('050 000 0001');
+  await deliveryCode.fill('DEMO42');
+  const scroll = dialog.locator('.overflow-y-auto');
+  await scroll.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  await expect(secondary).not.toBeInViewport();
+  const before = await scroll.evaluate(element => element.scrollTop);
+  const save = dialog.getByRole('button', { name: locale === 'fr' ? 'Enregistrer' : locale === 'he' ? 'שמור' : 'Save', exact: true });
+  await save.click();
+  await expect(secondary).toBeFocused();
+  await expect(secondary).toHaveAttribute('aria-invalid', 'true');
+  await expect(dialog.locator('[data-customer-phone="1"] [role="alert"]')).toBeInViewport();
+  const footerAlert = dialog.getByRole('alert').last();
+  await expect(footerAlert).toBeInViewport();
+  expect(await scroll.evaluate(element => element.scrollTop)).toBeLessThan(before);
+  expect(state.writes).toHaveLength(0);
+  await expect(deliveryCode).toHaveValue('DEMO42');
+  if (locale === 'fr' && kind === 'invalid') await page.screenshot({ path: info.outputPath('customer-phone-save-feedback.png') });
+  await secondary.fill('050-234-5678');
+  await expect(footerAlert).toHaveCount(0);
+  await save.click();
+  await expect(dialog).toHaveCount(0);
+  const writes = writesOf(state, '/profile', 'PUT');
+  expect(writes).toHaveLength(1);
+  expect(writes[0].body.entry_code).toBe('DEMO42');
+  expect(writes[0].body.phones[1]).toEqual({ original_phone: originalSecondary, phone: '+972502345678', is_whatsapp: false });
+ });
+}
+
+test('customers explains missing phones and keeps contact edits local until Save', async ({ page }) => {
+ const state = await installCustomers(page);
+ await openFirst(page);
+ const dialog = editor(page);
+ const primary = dialog.getByRole('textbox', { name: 'Téléphone principal', exact: true });
+ await dialog.getByRole('button', { name: 'Ajouter un numéro', exact: true }).click();
+ await primary.fill('');
+ await dialog.getByRole('textbox', { name: 'Code immeuble', exact: true }).fill('LOCAL42');
+ expect(state.writes).toHaveLength(0);
+ const save = dialog.getByRole('button', { name: 'Enregistrer', exact: true });
+ await save.click();
+ await expect(primary).toBeFocused();
+ await expect(dialog.getByRole('alert').last()).toContainText('Téléphone principal');
+ await expect(dialog.getByRole('alert').last()).toContainText('Saisissez le numéro de téléphone principal.');
+ await primary.fill('050-234-5678');
+ await expect(dialog.getByRole('alert').last()).toContainText('Saisissez un numéro ou retirez ce contact supplémentaire.');
+ const empty = dialog.locator('[data-customer-phone="2"] input[type="tel"]');
+ await dialog.locator('.overflow-y-auto').evaluate(element => { element.scrollTop = element.scrollHeight; });
+ await dialog.getByRole('button', { name: 'Voir le numéro à corriger', exact: true }).click();
+ await expect(empty).toBeFocused();
+ await dialog.getByRole('button', { name: 'Retirer 3', exact: true }).click();
+ await expect(dialog.getByRole('alert')).toHaveCount(0);
+ await expect(dialog).toBeVisible();
+ await page.waitForTimeout(150);
+ expect(state.writes).toHaveLength(0);
+ await save.click();
+ await expect(dialog).toHaveCount(0);
+ const writes = writesOf(state, '/profile', 'PUT');
+ expect(writes).toHaveLength(1);
+ expect(writes[0].body.entry_code).toBe('LOCAL42');
+ expect(writes[0].body.phones).toHaveLength(2);
+});
 
 for(const locale of ['fr','he'])test(`customers list and keyboard profile ${locale}`,async({page},info)=>{
  await page.setViewportSize({width:locale==='fr'?375:1440,height:950});const state=await installCustomers(page,{locale,theme:locale==='he'?'dark':'light'});await page.goto('/1/customers');const trigger=page.getByRole('button',{name:`${locale==='fr'?'Modifier le client':'עריכת לקוח'} · ${names[0]}`,exact:true});await expect(trigger).toBeVisible();await page.screenshot({path:info.outputPath(`customers-list-${locale}.png`)});await trigger.focus();await page.keyboard.press('Enter');const dialog=page.getByRole('dialog');await expect(dialog.getByRole('textbox').first()).toHaveValue(names[0]);for(let i=0;i<18;i++){await page.keyboard.press('Tab');expect(await dialog.evaluate(element=>element.contains(document.activeElement))).toBeTruthy();}await dialog.getByRole('textbox').first().focus();await dialog.locator('.overflow-y-auto').evaluate(element=>element.scrollTop=0);await page.screenshot({path:info.outputPath(`customers-profile-${locale}.png`)});await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);await expect(trigger).toBeFocused();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();expect(state.writes).toHaveLength(0);expect(state.fixture.unhandled).toEqual([]);
