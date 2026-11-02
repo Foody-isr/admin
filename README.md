@@ -1751,3 +1751,19 @@ date on or after that day. Now reloads the server clock through the protected
 simulation endpoint. Current saved rules and ready stock are used, including for
 past references; it neither reconstructs history nor creates/reserves an order,
 stock, courier or payment. Deploy the private simulation API before this interface.
+
+
+## Carte groups from the item editor
+
+Item creation and editing can select draft groups or stage a new group under an
+existing carte without leaving the article. Choices, temporary group keys and
+explicit series dates are retained in the local new-item draft. Nothing writes a
+group until the article is saved. Saving updates only the item's memberships in
+freshly read private carte drafts, preserving other editorial and stock changes.
+The API's existing optimistic revisions detect concurrent saves. Stable temporary
+keys let an explicit retry verify an uncertain save without duplicating a group.
+Publication remains a separate action, explained in the save confirmation.
+After partial creation, item details stay locked while group choices remain editable.
+Regression: `npx tsx --test src/lib/item-menu-assignments.test.ts` and
+`npx playwright test -c playwright.redesign.config.ts item-menu-assignment.spec.ts`.
+Publish the matching FR/HE/EN help and embedded API corpus with this client.

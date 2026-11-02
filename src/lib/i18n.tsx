@@ -120,6 +120,15 @@ export function i18nOr(t: (key: string) => string, key: string, fallback: string
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    itemMenuDraftHint: "Choose or create groups here. Saving the item updates the carte drafts; publish each carte to make these changes visible.",
+    itemMenuDraftLoadFailed: "The carte draft could not be loaded. Retry; your item and selections are retained.",
+    itemMenuGroupPending: "New group · created when the item is saved",
+    itemMenuGroupNameInvalid: "Enter a group name that is not already used in this carte.",
+    itemMenuGroupConflict: "The item is saved, but a selected group changed or its name is already used. Review the groups and save again. Your selections are retained.",
+    itemMenuDraftSaveFailed: "The item is saved, but some carte draft changes could not be confirmed. Save again to check and finish the remaining changes.",
+    itemMenuSavedTitle: "Item saved",
+    itemMenuDraftSaved: "The item is saved and its assignments have been saved in these carte drafts: {menus}. Publish each carte to make the changes visible to customers.",
+
     lifecycleManualCurrencyUnsupported: "Manual payment is unavailable for this currency or precision. Recorded amounts remain visible.",
     lifecycleRecoverOperation: "Verify a pending operation",
     lifecycleReasonPermission: "You do not have permission for this action.",
@@ -2304,7 +2313,7 @@ const translations: Record<Locale, Record<string, string>> = {
     typeSwitchLossVariantsOne: "1 variant",
     typeSwitchLossModifiersOne: "1 modifier set",
     typeSwitchLossStepsOne: "1 combo step",
-    itemCreationPartial: "The item was created, but setup is incomplete. Save again to retry the remaining steps. The form is locked to preserve those changes.",
+    itemCreationPartial: "The item was created, but setup is incomplete. Save again to retry the remaining steps. Item details are locked; carte group choices can still be corrected.",
     itemCreationPartialLeave: "The created item will remain in the library with the changes already saved. Remaining steps will not be completed.",
     itemLeaveEditor: "Close this item?",
     itemDraftLeaveHint: "The form is kept as a local draft on this device when storage is available. Selected images are not included.",
@@ -9453,6 +9462,15 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
   he: {
+    itemMenuDraftHint: "בחרו או צרו קבוצות כאן. שמירת הפריט מעדכנת את טיוטות התפריטים; פרסמו כל תפריט כדי שהשינויים יוצגו ללקוחות.",
+    itemMenuDraftLoadFailed: "לא ניתן לטעון את טיוטת התפריט. נסו שוב; הפריט והבחירות שלכם נשמרים בטופס.",
+    itemMenuGroupPending: "קבוצה חדשה · תיווצר בשמירת הפריט",
+    itemMenuGroupNameInvalid: "הזינו שם קבוצה שעדיין אינו בשימוש בתפריט זה.",
+    itemMenuGroupConflict: "הפריט נשמר, אך קבוצה שנבחרה השתנתה או ששמה כבר בשימוש. בדקו את הקבוצות ושמרו שוב. הבחירות שלכם נשמרות בטופס.",
+    itemMenuDraftSaveFailed: "הפריט נשמר, אך לא ניתן היה לאשר חלק מהשינויים בטיוטות התפריטים. שמרו שוב כדי לבדוק ולהשלים את השינויים שנותרו.",
+    itemMenuSavedTitle: "הפריט נשמר",
+    itemMenuDraftSaved: "הפריט נשמר והשיוכים שלו נשמרו בטיוטות התפריטים: {menus}. פרסמו כל תפריט כדי שהשינויים יוצגו ללקוחות.",
+
     lifecycleManualCurrencyUnsupported: "תשלום ידני אינו זמין למטבע או לרמת הדיוק הזאת. הסכומים שנרשמו עדיין מוצגים.",
     lifecycleRecoverOperation: "בדיקת פעולה ממתינה",
     lifecycleReasonPermission: "אין לך הרשאה לבצע את הפעולה הזאת.",
@@ -11635,7 +11653,7 @@ const translations: Record<Locale, Record<string, string>> = {
     typeSwitchLossVariantsOne: "וריאנט אחד",
     typeSwitchLossModifiersOne: "ערכת תוספות אחת",
     typeSwitchLossStepsOne: "שלב קומבו אחד",
-    itemCreationPartial: "הפריט נוצר, אך ההגדרה לא הושלמה. שמרו שוב כדי לנסות את השלבים שנותרו. הטופס נעול כדי לשמור על השינויים.",
+    itemCreationPartial: "הפריט נוצר, אך ההגדרה לא הושלמה. שמרו שוב כדי לנסות את השלבים שנותרו. פרטי הפריט נעולים; עדיין ניתן לתקן בחירות של קבוצות תפריט.",
     itemCreationPartialLeave: "הפריט שנוצר יישאר בספרייה עם השינויים שכבר נשמרו. השלבים שנותרו לא יושלמו.",
     itemLeaveEditor: "לסגור את הפריט?",
     itemDraftLeaveHint: "הטופס נשמר כטיוטה מקומית במכשיר כשהאחסון זמין. תמונות שנבחרו אינן נכללות.",
@@ -18777,6 +18795,15 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── French ──────────────────────────────────────────────────────────────
   fr: {
+    itemMenuDraftHint: "Choisissez ou créez des groupes ici. Enregistrer l’article met à jour les brouillons des cartes ; publiez chaque carte pour rendre ces changements visibles.",
+    itemMenuDraftLoadFailed: "Impossible de charger le brouillon de la carte. Réessayez ; votre article et vos sélections sont conservés.",
+    itemMenuGroupPending: "Nouveau groupe · créé à l’enregistrement de l’article",
+    itemMenuGroupNameInvalid: "Saisissez un nom de groupe qui n’est pas déjà utilisé dans cette carte.",
+    itemMenuGroupConflict: "L’article est enregistré, mais un groupe sélectionné a changé ou son nom est déjà utilisé. Vérifiez les groupes et enregistrez à nouveau. Vos sélections sont conservées.",
+    itemMenuDraftSaveFailed: "L’article est enregistré, mais certaines modifications des brouillons n’ont pas pu être confirmées. Enregistrez à nouveau pour vérifier et terminer les modifications restantes.",
+    itemMenuSavedTitle: "Article enregistré",
+    itemMenuDraftSaved: "L’article est enregistré et ses affectations ont été enregistrées dans les brouillons des cartes : {menus}. Publiez chaque carte pour rendre les changements visibles aux clients.",
+
     lifecycleManualCurrencyUnsupported: "Le paiement manuel n’est pas disponible pour cette devise ou précision. Les montants enregistrés restent consultables.",
     lifecycleRecoverOperation: "Vérifier une opération en attente",
     lifecycleReasonPermission: "Vous n’avez pas les droits nécessaires pour cette action.",
@@ -20962,7 +20989,7 @@ const translations: Record<Locale, Record<string, string>> = {
     typeSwitchLossVariantsOne: "1 variante",
     typeSwitchLossModifiersOne: "1 groupe de modificateurs",
     typeSwitchLossStepsOne: "1 étape de combo",
-    itemCreationPartial: "L’article est créé, mais sa configuration est incomplète. Enregistrez à nouveau pour reprendre les étapes restantes. Le formulaire est verrouillé pour conserver ces changements.",
+    itemCreationPartial: "L’article est créé, mais sa configuration est incomplète. Enregistrez à nouveau pour reprendre les étapes restantes. Ses informations sont verrouillées ; les choix de groupes de cartes restent modifiables.",
     itemCreationPartialLeave: "L’article créé restera dans la bibliothèque avec les changements déjà enregistrés. Les étapes restantes ne seront pas terminées.",
     itemLeaveEditor: "Fermer cet article ?",
     itemDraftLeaveHint: "Le formulaire est conservé en brouillon local sur cet appareil si le stockage est disponible. Les images sélectionnées ne sont pas incluses.",
