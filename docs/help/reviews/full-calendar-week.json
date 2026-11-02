@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "src/lib/analytics-range.ts",
+      "sha256": "261cd47f844c25b13f7a007b6e7b806411dfaa1e770fecdadcb64e7bc184b326",
+      "baseSha256": "756bab51623f0f01c372f61783caf44e00786186cafbcba309c250113a714704",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The full-week behavior and persisted reporting range are documented in the updated analytics-dashboard, orders-managing-orders and global-search guides in FR/HE/EN. This shared-runtime classification adds no separate workflow; other rolling presets are unchanged."
+    }
+  ]
+}
