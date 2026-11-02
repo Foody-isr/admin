@@ -35,6 +35,7 @@ const TERMINAL_STATUSES = ['served', 'received', 'picked_up', 'delivered', 'reje
 export interface OrderPermissions {
   /** orders.manage — may act on the order at all. */
   canManage: boolean;
+  canPlanProduction?: boolean;
   /** Currency supported by the existing manual-payment dialog. */
   currencyCode?: string;
   /** Owner or manager — may correct status and payment after the fact. */
@@ -139,7 +140,10 @@ export function deriveOrderCapabilities(
   const internalCheckout = order.external_metadata?.internal_checkout as { mode?: string } | undefined;
   const prepared = internalCheckout?.mode === 'link' || internalCheckout?.mode === 'card';
   const preparedPending = prepared && order.payment_status === 'pending';
-  const canTakePayment = cashCollectionReady &&
+  const eventPhase = (internalCheckout as {phase?:string}|undefined)?.phase;
+  const eventEditable = !!order.event_config && !order.event_config.hold && (!eventPhase || eventPhase==='completed'||eventPhase==='hold_pending');
+  const eventBankHold = !!order.event_config?.hold;
+  const canTakePayment = (!eventBankHold || order.event_config?.hold?.status==='verified') && cashCollectionReady &&
     !preparedPending && financialKnown && lifecycleCollectionAllowed(order) && (v2.kind === 'legacy' || !!perms.currencyCode && manualCollectionAmount(order, perms.currencyCode) !== undefined) &&
     !isCancelled &&
     financialPayment !== 'refunded' &&
@@ -176,13 +180,13 @@ export function deriveOrderCapabilities(
   // Any manager can pin an order onto the production sheet, including a dead
   // order. The server restores a dead order when it is pinned.
   const canForceProduction =
-    perms.canManage && !preparedPending && !(prepared && isCancelled) && !!handlers.onToggleForceProduction;
+    perms.canManage && perms.canPlanProduction !== false && (!preparedPending || !!order.event_config) && !(prepared && isCancelled) && !!handlers.onToggleForceProduction;
 
   const canDelete = !activeCashGuarantee && !!perms.canDelete && !!handlers.onDelete;
   const canReactivate = !prepared && perms.canManage && isCancelled && !!handlers.onReactivate;
 
   // Items can be edited while the order is still in progress.
-  const canEditOrder = !activeCashGuarantee && !preparedPending && (v2.kind === 'legacy' ? !isCancelled && !isTerminal : v2.kind === 'available' && v2.value.commercial.editable && lifecycleV2Allows(v2, 'edit'));
+  const canEditOrder = !activeCashGuarantee && !eventBankHold && (!preparedPending || eventEditable) && (v2.kind === 'legacy' ? !isCancelled && !isTerminal : v2.kind === 'available' && v2.value.commercial.editable && lifecycleV2Allows(v2, 'edit'));
 
   // The ⋯ button renders only when something is inside it. Without this guard
   // the production page — which supplies none of the correction handlers —

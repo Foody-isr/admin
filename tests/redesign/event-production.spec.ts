@@ -4,7 +4,9 @@ import { createFixture } from './fixtures.mjs';
 for (const mobile of [false, true]) {
   test(`event production retains carte quantities and navigation on ${mobile ? 'mobile' : 'desktop'}`, async ({ page }, info) => {
     if (mobile) await page.setViewportSize({ width: 390, height: 844 });
+    await page.routeWebSocket('**/*',socket=>socket.close());
     const fixture = createFixture();
+    let refreshed=false;
     const date = '2026-11-04';
     const row = { order_id: 99, customer_name: 'Commande mixte', order_type: 'pickup', is_event: true, cells: { '1': 8 }, units: { '1': 8 } };
     const sheet = (quantity: number) => ({ date,
@@ -24,9 +26,9 @@ for (const mobile of [false, true]) {
       const path = new URL(req.url()).pathname;
       if (path === '/api/v1/users/me') return route.fulfill({ json: { user: { id: 1, role: 'manager' }, role_name: 'Manager', permissions: ['orders.view', 'kitchen.manage', 'settings.edit'] } });
       if (path.endsWith('/production-sheet/days')) return route.fulfill({ json: { days: [{ date, order_count: 1 }] } });
-      if (path.endsWith('/production-sheet')) return route.fulfill({ json: { ...sheet(8), sections: [
+      if (path.endsWith('/production-sheet')) return route.fulfill({ json: { ...sheet(refreshed?10:8), sections: [
         { menu_id: 11, name: 'SHABAT', is_catering: false, sheet: sheet(3) },
-        { menu_id: 12, name: 'CATERING BASSARI', is_catering: true, sheet: sheet(5) },
+        { menu_id: 12, name: 'CATERING BASSARI', is_catering: true, sheet: sheet(refreshed?7:5) },
       ] } });
       if (path.endsWith('/prepared')) return route.fulfill({ json: { prepared: true } });
       const result = fixture.response(req.url(), req.method(), req.postDataJSON() ?? {}, 1);
@@ -48,6 +50,11 @@ for (const mobile of [false, true]) {
       await shabbat.getByRole('checkbox').check();
       await expect(catering.getByRole('checkbox')).toBeChecked();
     }
+    refreshed=true;
+    await page.getByRole('button',{name:'Actualiser',exact:true}).click();
+    await expect(catering).toContainText('CATERING BASSARI');
+    if(!mobile) await expect(catering.locator('tbody tr').filter({hasText:'Commande mixte'}).locator('td').nth(1)).toHaveText('7');
+    await expect(page).toHaveURL(/date=2026-11-04/);
     await page.screenshot({ path: info.outputPath('event-production.png'), fullPage: true });
   });
 }

@@ -6,6 +6,7 @@ import { eventOrderCopy } from "@/lib/orders/event-order-copy";
 import {
   collectOrderBalance,
   reconcileEventPayment,
+  reconcileEventHold,
   type Order,
 } from "@/lib/api";
 import { lifecycleCollectionAllowed } from "@/lib/orders/status-presentation";
@@ -20,6 +21,7 @@ export function EventOrderSummary({ order }: { order: Order }) {
   const [transaction, setTransaction] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState("");
+  const [holdResult, setHoldResult] = useState("");
   const [balanceLink, setBalanceLink] = useState("");
   const [balanceError, setBalanceError] = useState("");
   const event = order.event_config;
@@ -32,7 +34,7 @@ export function EventOrderSummary({ order }: { order: Order }) {
     hasAnyPermission("payments.manage") &&
     lifecycleCollectionAllowed(order) &&
     !!event.finalized_at &&
-    ["unpaid", "partially_paid"].includes(order.payment_status) &&
+    ["unpaid", "partially_paid", "paid"].includes(order.payment_status) && !event.hold &&
     !["cancelled", "rejected", "refunded"].includes(order.status) &&
     order.total_amount - paid > 0.01;
   return (
@@ -68,6 +70,15 @@ export function EventOrderSummary({ order }: { order: Order }) {
           </div>
         )}
       </dl>
+      {(event.payment_mode==='hold'||event.payment_mode==='deposit_hold')&&<div className="space-y-2 border-t border-[var(--line)] pt-3">
+        <p className="font-medium">{event.hold?.status==='verified'?c.holdConfirmed:c.holdPending}{event.hold?` · ${new Intl.NumberFormat(locale,{style:'currency',currency:event.hold.currency}).format(event.hold.amount_minor/100)}`:''}</p>
+        {event.hold?.transaction_id&&<p className="text-fs-xs">Sumit #{event.hold.transaction_id}</p>}
+        {event.hold?.reference&&<p className="break-all font-mono text-fs-xs">{event.hold.reference}</p>}
+        {event.hold?.verified_at&&<p className="text-fs-xs text-[var(--fg-muted)]">{new Date(event.hold.verified_at).toLocaleString(locale)}</p>}
+        <p className="text-fs-xs text-[var(--fg-muted)]">{c.holdHint}</p>
+        {hasAnyPermission('payments.manage')&&<><a className="inline-block text-fs-xs underline" href="https://app.sumit.co.il/" target="_blank" rel="noopener noreferrer">{c.manageHold}</a><Button variant="secondary" disabled={busy} onClick={async()=>{setBusy(true);setHoldResult('');try{await reconcileEventHold(order.restaurant_id,order.id);setHoldResult(c.holdVerified);}catch{setHoldResult(c.holdVerifyError);}finally{setBusy(false);}}}>{c.verifyHold}</Button></>}
+        {holdResult&&<p role="status" className="text-fs-xs">{holdResult}</p>}
+      </div>}
       {canCollect && (
         <div className="space-y-2">
           <Button
@@ -110,9 +121,9 @@ export function EventOrderSummary({ order }: { order: Order }) {
           )}
         </div>
       )}
-      {(event.payment_mode !== "none" ||
+      {((event.payment_mode !== "none" && event.payment_mode !== "hold") ||
         !!balanceLink ||
-        !!order.external_metadata?.internal_checkout) &&
+        (event.payment_mode !== "hold" && !!order.external_metadata?.internal_checkout)) &&
         order.payment_status !== "paid" &&
         hasAnyPermission("payments.manage") && (
           <details>

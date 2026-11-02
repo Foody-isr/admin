@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-02",
+  "files": [
+    {
+      "path": "src/components/orders/EditOrderDrawer.tsx",
+      "baseSha256": "6d9e9afe1a8909b922d3b478b502530cbeca206339bf851e5e561c9ce0c90790",
+      "sha256": "a2beeeebb9998e5bb8c896e6cf76b333fee05ba87d357a9e4de45d4b5e122d8c",
+      "features": [
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Event editing reuses the existing variant and modifier price resolver without changing catalogue setup, default sizes or selection rules. The atomic event command and carte provenance do not alter the variant procedure."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "baseSha256": "d9edd47b355e5d914fc165a9fc50989c26ef78575a3fa2c16aeb768e135ae8be",
+      "sha256": "3f2edc07b968c5a43a58ee57a9ba01745f140177c3e63c0d41ed1c04da4e37be",
+      "features": [
+        "customers-profiles"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Optional event payment types and event-only API calls do not change profile ownership, duplicate validation, contacts or saved addresses. Event recipient answers remain isolated to the existing private checkout."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "baseSha256": "d9edd47b355e5d914fc165a9fc50989c26ef78575a3fa2c16aeb768e135ae8be",
+      "sha256": "3f2edc07b968c5a43a58ee57a9ba01745f140177c3e63c0d41ed1c04da4e37be",
+      "features": [
+        "delivery-zones"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Individual event edits reuse the restaurant-scoped delivery resolver with unchanged coverage and minimum checks. Zone maps, fee priority and delivery scheduling configuration procedures do not change."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "baseSha256": "d9edd47b355e5d914fc165a9fc50989c26ef78575a3fa2c16aeb768e135ae8be",
+      "sha256": "3f2edc07b968c5a43a58ee57a9ba01745f140177c3e63c0d41ed1c04da4e37be",
+      "features": [
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Shared API types gain event configuration only. Photo fields, uploads, galleries and presentation remain unchanged; no product-photo procedure or screenshot is affected."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "baseSha256": "d9edd47b355e5d914fc165a9fc50989c26ef78575a3fa2c16aeb768e135ae8be",
+      "sha256": "3f2edc07b968c5a43a58ee57a9ba01745f140177c3e63c0d41ed1c04da4e37be",
+      "features": [
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Event editing reuses the existing variant and modifier price resolver without changing catalogue setup, default sizes or selection rules. The atomic event command and carte provenance do not alter the variant procedure."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "baseSha256": "d9edd47b355e5d914fc165a9fc50989c26ef78575a3fa2c16aeb768e135ae8be",
+      "sha256": "3f2edc07b968c5a43a58ee57a9ba01745f140177c3e63c0d41ed1c04da4e37be",
+      "features": [
+        "pos-payments"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Event reservations never attest captured funds in the existing money projection. Native POS terminal entry, cash handling and receipts remain unchanged; optional event JSON stays compatible without a native build."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "baseSha256": "d9edd47b355e5d914fc165a9fc50989c26ef78575a3fa2c16aeb768e135ae8be",
+      "sha256": "3f2edc07b968c5a43a58ee57a9ba01745f140177c3e63c0d41ed1c04da4e37be",
+      "features": [
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new event_hold method is Sumit-specific and reservation-only. Existing Stancer cash-guarantee eligibility, consent, capture, release and cash rules retain their procedures and regression coverage."
+    },
+    {
+      "path": "src/lib/orders/order-actions.ts",
+      "baseSha256": "00610cced8dfc2cc7f31a46dec55569c92de8c506dc50ef63f77dcef234ffad6",
+      "sha256": "ace55a12fd547e39793719852177c0d3a299261ae00e42c7c4c57196a7630d9f",
+      "features": [
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new event_hold method is Sumit-specific and reservation-only. Existing Stancer cash-guarantee eligibility, consent, capture, release and cash rules retain their procedures and regression coverage."
+    }
+  ]
+}

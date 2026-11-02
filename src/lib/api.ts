@@ -943,7 +943,8 @@ export interface OrderItem {
 export interface OrderEventConfig {
  name: string; guests: number; event_date: string; event_time: string; venue: string; contact: string; notes: string;
  require_guests: boolean; require_date: boolean; require_time: boolean; allow_date_change?: boolean;
- payment_mode: 'none' | 'full' | 'deposit'; deposit_type: 'fixed' | 'percent'; deposit_value: number;
+ payment_mode: 'none' | 'full' | 'deposit' | 'hold' | 'deposit_hold';
+ revision?: number; hold_type?: 'fixed' | 'percent'; hold_value?: number; hold?: {status:'pending'|'declined'|'verified';amount_minor:number;currency:string;verified_at?:string;transaction_id?:string;reference?:string}; deposit_type: 'fixed' | 'percent'; deposit_value: number;
  balance_due_date: string; finalized_at?: string;
 }
 
@@ -989,6 +990,7 @@ export interface Order {
   total_amount: number;
   items: OrderItem[];
   created_at: string;
+  updated_at?: string;
   table_number?: string;
   table_code?: string;
   is_scheduled?: boolean;
@@ -5228,6 +5230,7 @@ export interface CreateOrderModifierInput {
 /** One line on a manually-built order. Price is recomputed server-side from the
  *  menu item, selected variant, and modifiers — the client value is ignored. */
 export interface CreateOrderItemInput {
+  source_menu_id?: number;
   option_selections?: OptionSelection[];
   dining_option?: string;
   seat_number?: number | null;
@@ -11351,14 +11354,14 @@ export function verifyLifecycleV2(context: LifecycleActorContext, command: impor
 }
 
 /** Reads the active restaurant's Sumit-only internal checkout capability. */
-export function getInternalCheckoutCapabilities(restaurantId: number): Promise<{ enabled: boolean }> {
+export function getInternalCheckoutCapabilities(restaurantId: number): Promise<{ enabled: boolean; hold_enabled?: boolean }> {
   return apiFetch(`/api/v1/public/internal-checkout-capabilities?restaurant_id=${restaurantId}`, restaurantId);
 }
 
 /** Opens or resumes the one hosted Sumit page bound to a prepared order. */
-export function payInternalCheckout(restaurantId: number, orderId: number, receiptToken: string): Promise<{ payment_url: string }> {
+export function payInternalCheckout(restaurantId: number, orderId: number, receiptToken: string, expectedEventRevision?: number, holdConsent?: {authorize_hold:boolean;expected_hold_amount_minor:number}): Promise<{ payment_url: string; completed?: boolean }> {
   return apiFetch(`/api/v1/public/orders/${orderId}/internal-checkout?restaurant_id=${restaurantId}`, restaurantId, {
-    method: 'POST', headers: { 'X-Receipt-Token': receiptToken }, body: '{}',
+    method: 'POST', headers: { 'X-Receipt-Token': receiptToken }, body: JSON.stringify({expected_event_revision:expectedEventRevision,...holdConsent}),
   });
 }
 
@@ -11405,3 +11408,11 @@ export function setMenuEventUsage(restaurantId: number, menuId: number, isCateri
 
 /** Reconciles an existing event transaction without creating a new payment. */
 export function reconcileEventPayment(restaurantId:number,orderId:number,transactionId:string):Promise<{payment_status:PaymentStatus}>{return apiFetch(`/api/v1/orders/${orderId}/event-payment/reconcile?restaurant_id=${restaurantId}`,restaurantId,{method:'POST',body:JSON.stringify({transaction_id:transactionId})});}
+
+/** Saves one restaurant-owned event editor delta atomically against its reviewed version. */
+export async function editEventOrder(restaurantId:number,orderId:number,input:{expected_updated_at:string;event_config?:OrderEventConfig;add:CreateOrderItemInput[];update:{id:number;input:CreateOrderItemInput}[];remove:number[];combos:{group:string;input:Parameters<typeof replaceOrderCombo>[3]}[];fulfillment?:Parameters<typeof updateOrderFulfillment>[2];discount?:{remove?:boolean;type?:'fixed'|'percent';value?:number;reason?:string}}):Promise<Order>{
+ const result=await apiFetch<{order:Order}>(`/api/v1/orders/${orderId}/event`,restaurantId,{method:'PUT',body:JSON.stringify(input)});return result.order;
+}
+
+/** Rechecks the event's existing bank authorization without reserving or debiting again. */
+export function reconcileEventHold(restaurantId:number,orderId:number):Promise<{hold:NonNullable<OrderEventConfig['hold']>}>{return apiFetch(`/api/v1/orders/${orderId}/event-hold/reconcile`,restaurantId,{method:'POST',body:'{}'});}
