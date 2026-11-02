@@ -1,0 +1,12 @@
+{
+  "review": "Test-only correction for the existing collapsed Account navigation group; no user-visible change.",
+  "files": [
+    {
+      "path": "tests/redesign/payment-settings.spec.ts",
+      "baseSha256": "645f013e7d21c80b837ff0a6ef07038cd1a211421b3914450859e72e420802ec",
+      "sha256": "2d61e2dace8610e44e97a62515c0c8945c02e1d4eda2fcd69378b7ed4a91e719",
+      "disposition": "no-user-impact",
+      "reason": "The synthetic Cibus draft regression now expands the existing Account navigation group before clicking Security, and asserts its collapsed and expanded accessible states. The existing navigation guard, cancellation, draft retention, explicit clearing and zero-write assertions are preserved. No application source, UI, permissions, provider behavior, API call, production state or public procedure changes. Tests are excluded from the authored runtime help inventory, so the existing immutable documentation pin and FR/HE/EN articles remain unchanged."
+    }
+  ]
+}
