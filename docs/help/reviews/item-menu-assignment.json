@@ -10,7 +10,7 @@
         "menu-product-photos"
       ],
       "disposition": "no-user-impact",
-      "reason": "The reviewed diff only wires item-to-carte assignments and their save notice into the existing article form. Other classified procedures retain their current data, controls, permissions and persistence. The existing status/category lock after partial article creation is preserved; only carte choices remain editable for recovery."
+      "reason": "The exact source diff only integrates article-to-carte draft group selection, creation, save confirmation and recovery, including corrective removals after partial persistence. Other classified fields, prices, variants, recipes, modifiers, photos, availability, permissions and unrelated translated copy retain their prior controls and persistence."
     },
     {
       "path": "src/app/[restaurantId]/menu/items/new/page.tsx",
@@ -22,7 +22,7 @@
         "menu-product-photos"
       ],
       "disposition": "no-user-impact",
-      "reason": "The reviewed diff only wires item-to-carte assignments and their save notice into the existing article form. Other classified procedures retain their current data, controls, permissions and persistence. The existing status/category lock after partial article creation is preserved; only carte choices remain editable for recovery."
+      "reason": "The exact source diff only integrates article-to-carte draft group selection, creation, save confirmation and recovery, including corrective removals after partial persistence. Other classified fields, prices, variants, recipes, modifiers, photos, availability, permissions and unrelated translated copy retain their prior controls and persistence."
     },
     {
       "path": "src/components/menu-item/MenuItemDistribution.tsx",
@@ -33,7 +33,7 @@
         "menu-variants-and-sizes"
       ],
       "disposition": "no-user-impact",
-      "reason": "The reviewed diff only wires item-to-carte assignments and their save notice into the existing article form. Other classified procedures retain their current data, controls, permissions and persistence. The existing status/category lock after partial article creation is preserved; only carte choices remain editable for recovery."
+      "reason": "The exact source diff only integrates article-to-carte draft group selection, creation, save confirmation and recovery, including corrective removals after partial persistence. Other classified fields, prices, variants, recipes, modifiers, photos, availability, permissions and unrelated translated copy retain their prior controls and persistence."
     },
     {
       "path": "src/lib/i18n.tsx",
@@ -55,7 +55,7 @@
         "stancer-cash-guarantee"
       ],
       "disposition": "no-user-impact",
-      "reason": "The reviewed diff changes only item-to-carte group selection, inline group creation, private-draft persistence, and the partial-save message for correcting those choices. Existing item fields, prices, variants, recipes, modifiers, photos, availability, permissions and other settings retain their existing controls and save behavior; no other translation text is changed."
+      "reason": "The exact source diff only integrates article-to-carte draft group selection, creation, save confirmation and recovery, including corrective removals after partial persistence. Other classified fields, prices, variants, recipes, modifiers, photos, availability, permissions and unrelated translated copy retain their prior controls and persistence."
     }
   ]
 }
