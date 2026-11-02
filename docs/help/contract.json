@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "bcab7f8f0dbcf52c5b4f1760ee5f20e13ce96751",
-  "documentationRevision": "dfad7cf5390fdda9ad7dcbb84f88401acf4fcd111db8e121751b88201dd67b91",
+  "documentationRef": "e38d6c6dbd21557f1b3850c19e54f13e89ed7467",
+  "documentationRevision": "6e5ed5a2d4d96bb3584d1b89e54d5d85c33ec765f10b11f1c8e27c430ad4ba70",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -430,15 +430,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/managing-orders.mdx",
-          "sha256": "8453d15eee39f0c84c6e2331efda68bce0055edf480b9415c30de07853b7b7ad"
+          "sha256": "c48ce57773059f7152344c6391a945416276391a78c5b2f3c68a995dce6b7280"
         },
         "fr": {
           "path": "src/content/help/fr/orders/managing-orders.mdx",
-          "sha256": "8d39e295fbbc0c35a00e9be4c538fd1eb16f9203dafc0dcc1ec6637bf4616259"
+          "sha256": "95ef069a8dfe8a48acf49fd3d2c08cac61454e594cfa753d7e6f4ab29cab3b19"
         },
         "he": {
           "path": "src/content/help/he/orders/managing-orders.mdx",
-          "sha256": "96876cf4ae59eecdac2097db2849ad5ab5be4829997d8b981e764ce1dbdf34a9"
+          "sha256": "459f994441d332ccda8808d492155652887c6bdf1b9ea8942517ca2b29ba19a8"
         }
       }
     },
@@ -620,15 +620,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/order-details.mdx",
-          "sha256": "f6d907831fbd5726e02b8c0862c2296a6cd75ac5bb9f69b25d5dd6c0c207f828"
+          "sha256": "7e65c3c0a24ae1d206f908f218c312c0ba46b95f30c9cde43d35e79e94c59a5d"
         },
         "fr": {
           "path": "src/content/help/fr/orders/order-details.mdx",
-          "sha256": "528e39b50d267b032a29b099acd850fb56e4b9ee07c23face0662273a4815787"
+          "sha256": "498bcc1019a96c65218b8bace572ab376546503a6953769052c5427f7a85d9ae"
         },
         "he": {
           "path": "src/content/help/he/orders/order-details.mdx",
-          "sha256": "f7782ef97c4f5f59bf834b39f888ed20881f615ed0076a2defcb84ceec19d704"
+          "sha256": "7cf2faab4bf9f57940051610652fb09d220f3452f88ec611cdd6dfd8daf86866"
         }
       }
     },
@@ -1969,15 +1969,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/internal-sumit-checkout.mdx",
-          "sha256": "94a9d135097e9f2bbb4e5f21eb3f5c7881d5383cb9fa4b44213811c573337276"
+          "sha256": "76e67dd60455cf26b2be14feb1919f56803995010d01e4b1e70608d976544c93"
         },
         "fr": {
           "path": "src/content/help/fr/orders/internal-sumit-checkout.mdx",
-          "sha256": "81e7a82086ee321eb22423eeb09001ceb30d089fbb40f35f122255970392f904"
+          "sha256": "1cdffe4f0ae716f63e8ff9dc0b3bf7217c6b6ba20f2565b8cdf08c8aaa2c1bb3"
         },
         "he": {
           "path": "src/content/help/he/orders/internal-sumit-checkout.mdx",
-          "sha256": "dfba7e7a01bbf60cc4079f4b37040af8a4ada8fabd15126bdc11e1e02ea2636c"
+          "sha256": "b7f8ab500368000105df6aa06cf215f2660aaadda48cd71f71d73cfdec5004e8"
         }
       }
     },
@@ -2026,15 +2026,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/event-orders.mdx",
-          "sha256": "f1015ef21e05aeb1c60b9dab501e48957c8717edd96d7093d6f4252372ec75ee"
+          "sha256": "dba828dc99c6a90204292c0915f55c72ca27c2d63b49f74bf209db16fdc0b45f"
         },
         "fr": {
           "path": "src/content/help/fr/orders/event-orders.mdx",
-          "sha256": "e089f3212f48850be0c2db107ee109fee656ad6143880764f24d69cf6d7261fe"
+          "sha256": "d4c1b0153a6730b5dec4e48867b02356700d7d728788c55056cbea3cd7358905"
         },
         "he": {
           "path": "src/content/help/he/orders/event-orders.mdx",
-          "sha256": "de94b60fcfc5f06e7eda012d05118b8e33870430308ac179fc6c3a2d0c1f0bfe"
+          "sha256": "a6a4ccb09dce0212dc9b3f263ee5a4434d46db2e6b7c913292116028ea1d3edd"
         }
       }
     }
@@ -2985,7 +2985,7 @@
       ]
     },
     "src/app/[restaurantId]/orders/new/page.tsx": {
-      "sha256": "6a5fe61fcc9c2302cb7ed68861a51e39bd92d40b4cb80740317aa7df58a6a908",
+      "sha256": "b200d2ed01d048275b329b2f21ec98f8cd3df90b119a70dd480c474f0cfdb712",
       "features": [
         "orders-managing-orders",
         "order-detail",
@@ -5119,7 +5119,7 @@
       ]
     },
     "src/components/orders/NewOrderCheckoutPanel.tsx": {
-      "sha256": "2754f0218a1b640815de99a2c029b740da79056ce4cc544fde66a4ec49d038e4",
+      "sha256": "c24714cd50bf43ec6bc0a0413000d92ad3d5b09af34f8877b03e3916aa5e930b",
       "features": [
         "orders-managing-orders",
         "order-detail",
@@ -6404,7 +6404,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "1b56c6d57e6f7cce43eb4dead8a02c4ee55381d47f7fe8c2b625c818a7f869ac",
+      "sha256": "d9edd47b355e5d914fc165a9fc50989c26ef78575a3fa2c16aeb768e135ae8be",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6598,7 +6598,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "c5864c8907ccdd77502547a626418373b2bf5fbace45a6e707ea813c4ee221ec",
+      "sha256": "c9e8b9c21af9fcebb2c84df58ba3f9570fa0b18bcd843fa89179286889420e63",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -19122,6 +19122,7 @@
         "orderCheckoutChoose",
         "orderCheckoutContactRequired",
         "orderCheckoutCreateLink",
+        "orderCheckoutDeliveryFeeInvalid",
         "orderCheckoutDiscountInvalid",
         "orderCheckoutFulfillmentRequired",
         "orderCheckoutFulfillmentTitle",
@@ -19145,7 +19146,6 @@
         "payMethodCash",
         "pickup",
         "remove",
-        "sumitDeliveryCalculated",
         "total",
         "typeFixed",
         "typePercent"

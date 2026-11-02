@@ -569,7 +569,7 @@ export default function NewOrderPage() {
               delivery_apt: data.apt.trim() || undefined,
               delivery_notes: data.deliveryNotes.trim() || undefined,
               delivery_entry_code: data.entryCode.trim() || undefined,
-              delivery_fee: data.deliveryFee,
+              ...(data.deliveryFee !== undefined ? { delivery_fee: data.deliveryFee, ...(isLink ? { delivery_fee_fixed: true } : {}) } : {}),
             }
           : {}),
         items: lines
