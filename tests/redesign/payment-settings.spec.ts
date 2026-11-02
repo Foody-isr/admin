@@ -133,7 +133,10 @@ test('Cibus draft survives interface-language change without another GET', async
 
 test('Cibus clearing and internal navigation preserve the draft until confirmation', async ({ page }) => {
   const state = await install(page); await page.goto('/1/settings/cibus'); await fillIdentity(page);
-  await page.getByRole('link', { name: 'Sécurité', exact: true }).click(); await expect(page.getByRole('alertdialog')).toBeVisible(); await page.getByRole('alertdialog').getByRole('button', { name: 'Annuler', exact: true }).click();
+  const navigation = page.getByRole('navigation', { name: 'Navigation principale' });
+  const account = navigation.getByRole('button', { name: 'Compte', exact: true });
+  await expect(account).toHaveAttribute('aria-expanded', 'false'); await account.click(); await expect(account).toHaveAttribute('aria-expanded', 'true');
+  await navigation.getByRole('link', { name: 'Sécurité', exact: true }).click(); await expect(page.getByRole('alertdialog')).toBeVisible(); await page.getByRole('alertdialog').getByRole('button', { name: 'Annuler', exact: true }).click();
   await expect(page).toHaveURL(/cibus$/); await expect(page.getByLabel(cibusLabels[0], { exact: true })).toHaveValue('0001234');
   await page.getByRole('button', { name: 'Effacer', exact: true }).click(); await page.getByRole('alertdialog').getByRole('button', { name: 'Abandonner les modifications', exact: true }).click();
   await expect(review(page)).toBeDisabled(); expect(await guarded(page)).toBe(false); expect(state.writes).toHaveLength(0);
