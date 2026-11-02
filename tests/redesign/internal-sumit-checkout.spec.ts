@@ -1,8 +1,9 @@
 import { test, expect, type Page, type Locator } from '@playwright/test';
 import { createFixture } from './fixtures.mjs';
 
-async function install(page: Page, enabled: boolean, paymentPermission = true, locale = 'fr') {
+async function install(page: Page, enabled: boolean, paymentPermission = true, locale = 'fr', catering = false) {
   const fixture = createFixture();
+  if(catering) Object.assign(fixture.menus[0],{is_catering:true});
   const created: Record<string, unknown>[] = [];
   let paid = false;
   let paymentRequests = 0;
@@ -43,6 +44,29 @@ async function checkout(page: Page) {
   await page.getByRole('complementary', { name: 'Articles de la commande', exact: true }).getByRole('button', { name: 'Continuer', exact: true }).click();
   return page.getByRole('region', { name: 'Finaliser la commande', exact: true });
 }
+
+test('a confirmed event exposes its remaining payment link without a post-payment item edit', async ({ page }) => {
+  await install(page, true);
+  let collections = 0;
+  await page.route('**/api/v1/orders/999**', route => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/payment/collect-balance')) {
+      collections++;
+      return route.fulfill({ json: { balance_due: 700, payment_url: 'https://app.sumit.co.il/pay/synthetic-balance' } });
+    }
+    if (path.endsWith('/orders/999')) return route.fulfill({ json: { order: {
+      ...createFixture().orders[0], id: 999, payment_status: 'partially_paid', total_amount: 1000, balance_due: 700,
+      external_metadata: { paid_amount: 300 },
+      event_config: { name: 'Réception démo', guests: 25, payment_mode: 'deposit', deposit_type: 'percent', deposit_value: 30, finalized_at: '2026-11-01T10:00:00Z' },
+    } } });
+    return route.fallback();
+  });
+  await page.goto('/1/orders/999');
+  const summary = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Informations événement', exact: true }) });
+  await summary.getByRole('button', { name: 'Générer un lien de paiement', exact: true }).click();
+  await expect(summary.getByRole('textbox', { name: 'Lien de paiement', exact: true })).toHaveValue('https://app.sumit.co.il/pay/synthetic-balance');
+  expect(collections).toBe(1);
+});
 
 test('Sumit options stay hidden for other providers and card collection requires payment authority', async ({ page }) => {
   await install(page, false);
@@ -226,4 +250,19 @@ test('a failed creation keeps the ticket and customer draft available', async ({
   await page.getByRole('button', { name: 'Continuer', exact: true }).click();
   await panel.getByRole('radio', { name: 'Payer plus tard', exact: true }).check();
   await expect(panel.getByRole('combobox', { name: 'Nom du client', exact: true })).toHaveValue('Client démo');
+});
+
+
+test('event order reuses the Foody link with a deposit and an independent due date',async({page},info)=>{
+ const state=await install(page,true,true,'fr',true);const panel=await checkout(page);
+ await expect(panel.getByRole('checkbox',{name:'Événement / Catering',exact:true})).toBeChecked();
+ await panel.getByRole('radio',{name:/Lien de paiement/}).check();
+ await panel.getByRole('button',{name:'Date prévue',exact:true}).click();
+ await panel.getByLabel('Date',{exact:true}).fill('2026-11-05');
+ await panel.getByRole('combobox',{name:'Paiement maintenant',exact:true}).selectOption('deposit');
+ await panel.getByLabel('Valeur de l’acompte',{exact:true}).fill('30');
+ await page.screenshot({path:info.outputPath('event-order-admin.png'),fullPage:true});
+ await panel.getByRole('button',{name:'Créer le lien de paiement',exact:true}).click();
+ expect(state.created).toHaveLength(1);expect(state.created[0]).toMatchObject({internal_checkout:'link',is_scheduled:true,scheduled_for:'2026-11-05',event_config:{require_guests:true,require_date:true,require_time:true,payment_mode:'deposit',deposit_type:'percent',deposit_value:30}});
+ expect((state.created[0].items as {source_menu_id?:number}[])[0].source_menu_id).toBeGreaterThan(0);
 });

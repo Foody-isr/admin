@@ -15,6 +15,7 @@ import {
   SlidersHorizontalIcon,
   ChevronDownIcon,
 } from 'lucide-react';
+import { eventOrderCopy } from '@/lib/orders/event-order-copy';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { useIsMobile } from '@/components/ui/use-mobile';
@@ -49,7 +50,8 @@ export default function ProductionPage() {
   const restaurantId = Number(params.restaurantId);
   const requestedDate = useSearchParams().get('date');
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const ec = eventOrderCopy[locale];
   // A clients × items matrix can't be read on a phone, so instead of shrinking
   // it we swap in ProductionMobile — a single-axis view the staffer switches
   // between (Clients / Items / Status). Split/fullscreen/drag stay desktop-only.
@@ -62,7 +64,7 @@ export default function ProductionPage() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'production' | 'courses'>('production');
   const [fullscreen, setFullscreen] = useState(false);
-  const [splitMode, setSplitMode] = useState<'none' | 'category' | 'customer'>('none');
+  const [splitMode, setSplitMode] = useState<'none' | 'category' | 'customer' | 'carte'>('carte');
   // Portion sizes each article is sold in (from its variants), used both to
   // offer box caps and to know what the packed rule may repack into.
   const [portionsByItem, setPortionsByItem] = useState<Record<number, number[]>>({});
@@ -262,7 +264,8 @@ export default function ProductionPage() {
     : (id: number) => router.push(orderDetailPath(restaurantId, id));
   // Split views are desktop-only; on a phone we always render the single main
   // table (any split chosen on a wider screen is ignored while narrow).
-  const effectiveSplit = isMobile ? 'none' : splitMode;
+  const effectiveSplit = isMobile && splitMode !== 'carte' ? 'none' : splitMode;
+  const carteSheets = useMemo(()=>{const visible=new Set(orderedSheet?.orders.map(order=>order.order_id)??[]);return (sheet?.sections??[]).map(section=>({...section,sheet:applyOrder(recomputeTotals(section.sheet,section.sheet.orders.filter(order=>visible.has(order.order_id))))})).filter(section=>section.sheet.orders.length>0);},[sheet,orderedSheet,applyOrder]);
 
   // Enter full screen: maximize layout (state) + request native full-screen
   // (falls back to the in-app overlay if the browser blocks the API).
@@ -496,6 +499,7 @@ export default function ProductionPage() {
         <ProductionShoppingList restaurantId={restaurantId} date={date} />
       )}
 
+      {view === 'production' && (sheet?.sections?.length ?? 0)>0 && <label className="mb-3 flex items-center gap-2 text-fs-sm print:hidden"><input type="checkbox" checked={splitMode==='carte'} onChange={e=>setSplitMode(e.target.checked?'carte':'none')}/>{ec.byCarte}</label>}
       {!loading && view === 'production' && orderedSheet && orderedSheet.orders.length === 0 && (
         <p className="text-fs-sm text-[var(--fg-muted)]">{t('productionNoOrders')}</p>
       )}
@@ -503,7 +507,13 @@ export default function ProductionPage() {
         view === 'production' &&
         orderedSheet &&
         orderedSheet.orders.length > 0 &&
-        (effectiveSplit === 'category' ? (
+        (effectiveSplit === 'carte' && carteSheets.length > 0 ? (
+          <div className="space-y-6">
+            <p className="text-fs-xs text-[var(--fg-muted)]">{ec.doneHint}</p>
+            <nav aria-label={ec.byCarte} className="sticky top-0 z-10 flex gap-2 overflow-x-auto border-b border-[var(--line)] bg-[var(--surface)] py-3 print:hidden">{carteSheets.map(section=><a key={section.menu_id} className="shrink-0 rounded border border-[var(--line-strong)] px-3 py-2 text-fs-sm" href={`#production-carte-${section.menu_id}`}>{section.name||ec.otherCartes}</a>)}</nav>
+            {carteSheets.map(section=><section key={section.menu_id} id={`production-carte-${section.menu_id}`} className="scroll-mt-20 space-y-3"><h2 className="text-fs-lg font-semibold">{section.name||ec.otherCartes}{section.is_catering&&<span className="ms-3 text-fs-xs font-medium">{ec.badge}</span>}</h2>{isMobile?<ProductionMobile sheet={section.sheet} onRowClick={handleRowClick} doneIds={doneIds} onToggleDone={toggleDone} portioner={portioner} unitDisplayIds={unitDisplayIds}/>:<ProductionMatrix sheet={section.sheet} onRowClick={handleRowClick} portioner={portioner} unitDisplayIds={unitDisplayIds} onToggleItemDisplay={display.toggleItem} doneIds={doneIds} onToggleDone={toggleDone}/>}</section>)}
+          </div>
+        ) : effectiveSplit === 'category' ? (
           <div className="flex flex-col gap-[var(--s-4)]">
             {categorySheets.map(({ cat, sheet: cs }) => (
               <ProductionMatrix

@@ -1,5 +1,6 @@
 'use client';
 
+import { EventOrderBadge } from '@/components/orders/EventOrderBadge';
 import React, { type ReactNode } from 'react';
 import { Badge } from '@/components/ds';
 import { CashTag } from '@/components/orders/CashTag';
@@ -60,9 +61,7 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     defaultVisible: true,
     mobilePrimary: true,
     render: (order, t) => (
-      <span title={order.customer_name || t('guestCustomer')} className="block w-[184px] max-w-full truncate font-medium">
-        {order.customer_name || t('guestCustomer')}
-      </span>
+      <div className="w-[184px] max-w-full"><span title={order.customer_name || t('guestCustomer')} className="block truncate font-medium">{order.customer_name || t('guestCustomer')}</span><EventOrderBadge event={order.event_config}/></div>
     ),
   },
   {

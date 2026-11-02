@@ -445,6 +445,7 @@ export interface Location {
 }
 
 export interface Menu {
+  is_catering?: boolean;
   publication_enabled?: boolean;
   id: number;
   restaurant_id: number;
@@ -887,6 +888,7 @@ export interface OptionSelection {
 }
 
 export interface OrderItem {
+  source_menu_id?: number; source_menu_name?: string;
   option_selections?: OptionSelection[];
   /** Preparation override; empty/absent inherits the order method. */
   dining_option?: string;
@@ -937,7 +939,16 @@ export interface OrderItem {
   billed_invoice_number?: string;
 }
 
+/** Event requirements and answers frozen on a staff-prepared order. */
+export interface OrderEventConfig {
+ name: string; guests: number; event_date: string; event_time: string; venue: string; contact: string; notes: string;
+ require_guests: boolean; require_date: boolean; require_time: boolean; allow_date_change?: boolean;
+ payment_mode: 'none' | 'full' | 'deposit'; deposit_type: 'fixed' | 'percent'; deposit_value: number;
+ balance_due_date: string; finalized_at?: string;
+}
+
 export interface Order {
+  event_config?: OrderEventConfig;
   /** Read-only independent lifecycle facts for this Order ID. */
   lifecycle?: OrderLifecycle | null;
   lifecycle_v2?: OrderLifecycleV2 | null;
@@ -5264,6 +5275,7 @@ export interface CreateOrderInput {
   payment_required?: boolean;
   /** Staff-prepared Sumit checkout; the server enforces provider and payment authority. */
   internal_checkout?: 'link' | 'card';
+  event_config?: OrderEventConfig;
   // Delivery-only address fields.
   delivery_address?: string;
   delivery_city?: string;
@@ -5356,7 +5368,8 @@ export async function removeOrderItem(
 export interface ReplaceComboInput {
   seat_number?: number | null;
   seat_numbers?: number[];
-  combo_item_id: number;
+  source_menu_id?: number;
+    combo_item_id: number;
   selections: CreateOrderComboSelectionInput[];
   serie_date?: string; // "YYYY-MM-DD"
 }
@@ -5512,7 +5525,8 @@ export interface KitchenPlanModifierBreakdown {
 }
 
 export interface KitchenPlanItem {
-  menu_item_id: number;
+  source_menu_id?: number;
+    menu_item_id: number;
   name: string;
   variant?: string;
   variant_portion?: string;
@@ -5635,6 +5649,7 @@ export interface ProductionCellProvenance {
   standalone_portions?: ProductionSheetPortion[]; // weighed items: breakdown of standalone count
 }
 export interface ProductionSheetOrder {
+  is_event?: boolean;
   order_id: number;
   customer_name: string;
   order_type: 'dine_in' | 'pickup' | 'delivery';
@@ -5667,6 +5682,7 @@ export interface ProductionPortioning {
   max_box?: number;
 }
 export interface ProductionSheetResponse {
+  sections?: { menu_id: number; name: string; is_catering: boolean; sheet: ProductionSheetResponse }[];
   date: string;
   categories: ProductionSheetCategory[];
   items: ProductionSheetItem[];
@@ -5692,6 +5708,7 @@ export async function fetchProductionSheet(
   );
   return {
     date: data.date,
+    sections: data.sections ?? [],
     categories: data.categories ?? [],
     items: data.items ?? [],
     orders: data.orders ?? [],
@@ -11378,3 +11395,11 @@ export async function simulateOrderingAvailability(restaurantId: number, input: 
   if (!result || typeof result.deliverable !== 'boolean' || typeof result.resolved !== 'boolean') throw new Error('Incomplete ordering simulation');
   return { ...result, calendar: result.schedule };
 }
+
+/** Saves the internal carte classification independently from publication. */
+export function setMenuEventUsage(restaurantId: number, menuId: number, isCatering: boolean): Promise<{ is_catering: boolean }> {
+ return apiFetch(`/api/v1/menu/menus/${menuId}/event-usage?restaurant_id=${restaurantId}`,restaurantId,{method:'PUT',body:JSON.stringify({is_catering:isCatering})});
+}
+
+/** Reconciles an existing event transaction without creating a new payment. */
+export function reconcileEventPayment(restaurantId:number,orderId:number,transactionId:string):Promise<{payment_status:PaymentStatus}>{return apiFetch(`/api/v1/orders/${orderId}/event-payment/reconcile?restaurant_id=${restaurantId}`,restaurantId,{method:'POST',body:JSON.stringify({transaction_id:transactionId})});}
