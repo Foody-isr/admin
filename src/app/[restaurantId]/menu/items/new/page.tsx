@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   getAllCategories, createMenuItem, uploadMenuItemImage, updateMenuItem,
-  listMenus, addItemsToGroup,
+  listMenus,
   listModifierSets, attachModifierSetToItems,
   listOptionSets,
   syncItemVariants,
@@ -23,6 +23,8 @@ import {
 } from '@/lib/itemDraft';
 import type { MenuItemSection } from '@/components/menu-item/TabBar';
 import MenuItemDistribution from '@/components/menu-item/MenuItemDistribution';
+import ItemMenuSaveNotice from '@/components/menu-item/ItemMenuSaveNotice';
+import { saveItemMenuAssignments, restoreLegacyItemAssignments, ItemMenuAssignmentError, type ItemMenuAssignment } from '@/lib/item-menu-assignments';
 import MenuItemPhoto from '@/components/menu-item/MenuItemPhoto';
 import { validateItemPhotos } from '@/lib/item-photos';
 import MenuItemEditorForm from '@/components/menu-item/MenuItemEditorForm';
@@ -69,7 +71,7 @@ function NewItemEditor() {
   const [draftStorageError, setDraftStorageError] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [createdId, setCreatedId] = useState<number | null>(null);
-  const progress = useRef({ id: 0, imageUrls: new Map<File, string>(), imageSaved: false, groups: new Set<number>(), modifiers: new Set<number>(), variants: false });
+  const progress = useRef({ id: 0, imageUrls: new Map<File, string>(), imageSaved: false, modifiers: new Set<number>(), variants: false });
   const busy = useRef(false);
   const requestGuard = useRef(new RestaurantRequestGuard());
   requestGuard.current.enterRestaurant(rid);
@@ -105,9 +107,10 @@ function NewItemEditor() {
   const [comboSteps, setComboSteps] = useState<ComboStepDraft[]>([]);
 
   const [menus, setMenus] = useState<Menu[]>([]);
-  // Selected menu_group IDs the new item should be added to. (Previously the
-  // picker only tracked menu IDs and silently used groups[0] on save.)
-  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<number>>(new Set());
+  const [menuAssignments, setMenuAssignments] = useState<ItemMenuAssignment[]>([]);
+  const [assignmentSaveAttempted, setAssignmentSaveAttempted] = useState(false);
+  const [savedMenuNames, setSavedMenuNames] = useState<string[] | null>(null);
+  const savedTarget = useRef('');
 
   const [allModifierSets, setAllModifierSets] = useState<ModifierSet[]>([]);
   const [selectedModifierSetIds, setSelectedModifierSetIds] = useState<Set<number>>(new Set());
@@ -144,11 +147,12 @@ function NewItemEditor() {
     isActive,
     itemType,
     comboSteps,
-    selectedGroupIds: Array.from(selectedGroupIds),
+    selectedGroupIds: [],
+    menuAssignments,
     selectedModifierSetIds: Array.from(selectedModifierSetIds),
     variantGroups,
     activeTab: initialSection, pricingMode, pricePerKg, estimatedWeightGrams, aiContext, customerFacts, allowNotes, comboAllowQuantity, posAutoSelectFirstVariant, posSkipCustomization,
-  }), [name, price, description, portion, categoryId, isActive, itemType, comboSteps, selectedGroupIds, selectedModifierSetIds, variantGroups, initialSection, pricingMode, pricePerKg, estimatedWeightGrams, aiContext, customerFacts, allowNotes, comboAllowQuantity, posAutoSelectFirstVariant, posSkipCustomization]);
+  }), [name, price, description, portion, categoryId, isActive, itemType, comboSteps, menuAssignments, selectedModifierSetIds, variantGroups, initialSection, pricingMode, pricePerKg, estimatedWeightGrams, aiContext, customerFacts, allowNotes, comboAllowQuantity, posAutoSelectFirstVariant, posSkipCustomization]);
 
   // First meaningful edit while the banner is up = "starting fresh."
   // Auto-dismiss the banner and turn autosave on so the new typing is captured.
@@ -167,8 +171,11 @@ function NewItemEditor() {
     setDraftStorageError(!saveItemDraft(rid, draftSnapshot));
   }, [autosaveEnabled, rid, draftSnapshot, createdId, canEdit]);
 
-  const handleResumeDraft = () => {
-    if (!bannerDraft) return;
+  const handleResumeDraft = async () => {
+    if (!bannerDraft || loading) return;
+    try {
+      setMenuAssignments(bannerDraft.menuAssignments ?? await restoreLegacyItemAssignments(rid, menus, bannerDraft.selectedGroupIds));
+    } catch { setSaveError(t('itemMenuDraftLoadFailed')); return; }
     setPricingMode(bannerDraft.pricingMode ?? 'standard');
     setPricePerKg(bannerDraft.pricePerKg ?? 0);
     setEstimatedWeightGrams(bannerDraft.estimatedWeightGrams ?? 0);
@@ -186,7 +193,6 @@ function NewItemEditor() {
     setIsActive(bannerDraft.isActive);
     setItemType(bannerDraft.itemType);
     setComboSteps(bannerDraft.comboSteps);
-    setSelectedGroupIds(new Set(bannerDraft.selectedGroupIds));
     setSelectedModifierSetIds(new Set(bannerDraft.selectedModifierSetIds));
     setVariantGroups(bannerDraft.variantGroups);
     // Drafts persisted before the editor was simplified may carry a removed
@@ -285,11 +291,6 @@ function NewItemEditor() {
         await updateMenuItem(rid, completed.id, { image_url: urls[0], image_urls: urls.slice(1) });
         completed.imageSaved = true;
       }
-      for (const groupId of Array.from(selectedGroupIds)) {
-        if (completed.groups.has(groupId)) continue;
-        await addItemsToGroup(rid, groupId, [completed.id]);
-        completed.groups.add(groupId);
-      }
       for (const setId of Array.from(selectedModifierSetIds)) {
         if (completed.modifiers.has(setId)) continue;
         await attachModifierSetToItems(rid, setId, [completed.id]);
@@ -299,10 +300,14 @@ function NewItemEditor() {
         await syncItemVariants(rid, completed.id, { groups: toVariantSyncPayload(variantGroups) });
         completed.variants = true;
       }
+      setAssignmentSaveAttempted(true);
+      const names = await saveItemMenuAssignments(rid, completed.id, menuAssignments);
       clearItemDraft(rid);
-      leaveGuard.finish(continueTo ? `/${rid}/menu/items/${progress.current.id}?tab=${continueTo}` : `/${rid}/menu/items`);
+      const target = continueTo ? `/${rid}/menu/items/${completed.id}?tab=${continueTo}` : `/${rid}/menu/items`;
+      if (names.length) { savedTarget.current = target; setSavedMenuNames(names); }
+      else leaveGuard.finish(target);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : t('libraryOperationFailed'));
+      setSaveError(err instanceof ItemMenuAssignmentError ? t(err.translationKey) : err instanceof Error ? err.message : t('libraryOperationFailed'));
     } finally {
       busy.current = false; setSaving(false);
     }
@@ -404,11 +409,15 @@ function NewItemEditor() {
       categoryId={categoryId}
       setCategoryId={setCategoryId}
       menus={menus}
-      selectedGroupIds={selectedGroupIds}
-      setSelectedGroupIds={setSelectedGroupIds}
+      restaurantId={rid}
+      itemId={createdId ?? undefined}
+      preserveRemovals={assignmentSaveAttempted}
+      menuAssignments={menuAssignments}
+      setMenuAssignments={setMenuAssignments}
       isActive={isActive}
       setIsActive={setIsActive}
-      disabled={saving || !!createdId}
+      disabled={saving}
+      itemLocked={!!createdId}
     />
   );
 
@@ -469,7 +478,7 @@ function NewItemEditor() {
               <Button variant="ghost" onClick={handleDiscardDraft}>
                 {t('discard')}
               </Button>
-              <Button variant="secondary" onClick={handleResumeDraft}>
+              <Button variant="secondary" disabled={loading} onClick={() => void handleResumeDraft()}>
                 {t('resumeDraft')}
               </Button>
             </div>
@@ -752,6 +761,8 @@ function NewItemEditor() {
         hint={createdId ? t('itemCreationPartialLeave') : !name.trim() || !priceOk ? t('itemSaveRequiredFields') : undefined}
         error={saveError}
       />
+
+      {savedMenuNames && <ItemMenuSaveNotice names={savedMenuNames} onClose={() => leaveGuard.finish(savedTarget.current)} />}
 
       {/* ── Type-switch confirmation modal ─────────────────────── */}
       {pendingType && (
