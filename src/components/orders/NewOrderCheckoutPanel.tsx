@@ -101,19 +101,20 @@ interface NewOrderCheckoutPanelProps {
   sumitCheckoutEnabled?: boolean;
   sumitCardEnabled?: boolean;
   cateringDetected?: boolean;
+  sumitHoldEnabled?: boolean;
 }
 
 /** Finalizes the current basket inline, preserving its draft and explicit payment intent. */
 export function NewOrderCheckoutPanel({
   open, onClose, total, itemCount, submitting, error, onConfirm, batchConfig, defaultDate,
-  restaurantId, discountItems, onStateChange, initialState, itemsSummary, sumitCheckoutEnabled = false, sumitCardEnabled = false, cateringDetected = false,
+  restaurantId, discountItems, onStateChange, initialState, itemsSummary, sumitCheckoutEnabled = false, sumitCardEnabled = false, sumitHoldEnabled = false, cateringDetected = false,
 }: NewOrderCheckoutPanelProps) {
   const { money } = useCurrency();
   const { t, locale } = useI18n();
   const ec = eventOrderCopy[locale];
   const [eventConfig,setEventConfig] = useState<OrderEventConfig | undefined>(initialState?.eventConfig);
   const eventTouched = useRef(false);
-  useEffect(()=>{if(cateringDetected&&!eventTouched.current){setEventConfig(current=>current??{name:"",guests:0,event_date:"",event_time:"",venue:"",contact:"",notes:"",require_guests:true,require_date:true,require_time:true,payment_mode:"full",deposit_type:"percent",deposit_value:30,balance_due_date:""});}},[cateringDetected]);
+  useEffect(()=>{if(cateringDetected&&!eventTouched.current){setEventConfig(current=>current??{name:"",guests:0,event_date:"",event_time:"",venue:"",contact:"",notes:"",require_guests:true,require_date:true,require_time:true,payment_mode:"full",deposit_type:"percent",deposit_value:30,hold_type:"percent",hold_value:100,balance_due_date:""});}},[cateringDetected]);
   const { hasAnyPermission } = usePermissions();
   const canManualDiscount = hasAnyPermission('orders.discount');
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -425,7 +426,12 @@ export function NewOrderCheckoutPanel({
   const manualStarted = canManualDiscount && !appliedCoupon && !appliedManual && !!(manualValue.trim() || manualReason.trim());
   const manualReady = !manualStarted || (Number.isFinite(manualValNum) && manualValNum > 0 && (manualType !== 'percent' || manualValNum <= 100) && !!manualReason.trim());
   useEffect(()=>{if(payMethod==="sumit_card"&&eventConfig?.payment_mode==="none"){setEventConfig(current=>current?{...current,payment_mode:"full"}:current);}},[payMethod,eventConfig?.payment_mode]);
-  const eventInvalid = !!eventConfig && (fulfillment.timing !== "scheduled" || !fulfillment.scheduledFor || (intent !== "link" && (eventConfig.require_guests && !eventConfig.guests || eventConfig.require_date && !eventConfig.event_date || eventConfig.require_time && !eventConfig.event_time)) || hosted && eventConfig.payment_mode === "deposit" && (!Number.isFinite(eventConfig.deposit_value) || eventConfig.deposit_value <= 0 || eventConfig.deposit_type === "percent" && eventConfig.deposit_value >= 100 || eventConfig.deposit_type === "fixed" && eventConfig.deposit_value >= discountedTotal));
+  const needsEventHold=hosted&&(eventConfig?.payment_mode==='hold'||eventConfig?.payment_mode==='deposit_hold');
+  const eventDeposit=eventConfig?.payment_mode==='deposit_hold'?(eventConfig.deposit_type==='percent'?Math.round(discountedTotal*eventConfig.deposit_value)/100:eventConfig.deposit_value):0;
+  const holdRemaining=discountedTotal-eventDeposit;
+  const eventHoldAmount=eventConfig?.hold_type==='fixed'?(eventConfig.hold_value??0):holdRemaining*(eventConfig?.hold_value??100)/100;
+  const eventHoldInvalid=needsEventHold&&(!sumitHoldEnabled||!Number.isFinite(eventHoldAmount)||eventHoldAmount<=0||eventHoldAmount>holdRemaining);
+  const eventInvalid = eventHoldInvalid || !!eventConfig && (fulfillment.timing !== "scheduled" || !fulfillment.scheduledFor || (intent !== "link" && (eventConfig.require_guests && !eventConfig.guests || eventConfig.require_date && !eventConfig.event_date || eventConfig.require_time && !eventConfig.event_time)) || hosted && (eventConfig.payment_mode === "deposit" || eventConfig.payment_mode === "deposit_hold") && (!Number.isFinite(eventConfig.deposit_value) || eventConfig.deposit_value <= 0 || eventConfig.deposit_type === "percent" && eventConfig.deposit_value >= 100 || eventConfig.deposit_type === "fixed" && eventConfig.deposit_value >= discountedTotal));
   const validationHint = eventInvalid ? ec.requiredError : !intent || !capabilityReady || !cardReady ? t('orderCheckoutChoose')
     : orderType === 'delivery' && !feeValid ? t('orderCheckoutDeliveryFeeInvalid')
     : !fulfillmentReady ? t('orderCheckoutFulfillmentRequired')
@@ -485,7 +491,7 @@ export function NewOrderCheckoutPanel({
       address: intent === 'link' ? '' : address, city: intent === 'link' ? '' : city,
       floor: intent === 'link' ? '' : floor, apt: intent === 'link' ? '' : apt,
       entryCode: intent === 'link' ? '' : entryCode, deliveryNotes: intent === 'link' ? '' : deliveryNotes,
-      deliveryFee: orderType === 'delivery' && (intent !== 'link' || fixedLinkFee) ? feeValue : undefined, ...payment, fulfillment, addToProduction: hosted ? false : addToProduction,
+      deliveryFee: orderType === 'delivery' && (intent !== 'link' || fixedLinkFee) ? feeValue : undefined, ...payment, fulfillment, addToProduction: hosted && !eventConfig ? false : addToProduction,
       ...(appliedCoupon ? { discountCode: appliedCoupon.code } : {}),
       ...(effectiveManual ? { manualDiscount: { type: effectiveManual.type, value: effectiveManual.value, reason: effectiveManual.reason } } : {}),
     });
@@ -498,7 +504,7 @@ export function NewOrderCheckoutPanel({
     </header>
     <div className="min-h-0 flex-1 overflow-y-auto px-4">
       <fieldset disabled={submitting} className="min-w-0 divide-y divide-[var(--line)]">
-        <section className="space-y-4 py-5"><label className="flex items-center gap-2 text-fs-sm font-semibold"><input type="checkbox" checked={!!eventConfig} onChange={e=>{eventTouched.current=true;setEventConfig(e.target.checked?{name:"",guests:0,event_date:"",event_time:"",venue:"",contact:"",notes:"",require_guests:true,require_date:true,require_time:true,payment_mode:"full",deposit_type:"percent",deposit_value:30,balance_due_date:""}:undefined);}}/>{ec.badge}</label>{eventConfig&&<EventOrderFields value={eventConfig} onChange={setEventConfig} online={payMethod==="link"||payMethod==="sumit_card"} allowNoPayment={payMethod==="link"}/>}</section>
+        <section className="space-y-4 py-5"><label className="flex items-center gap-2 text-fs-sm font-semibold"><input type="checkbox" checked={!!eventConfig} onChange={e=>{eventTouched.current=true;setEventConfig(e.target.checked?{name:"",guests:0,event_date:"",event_time:"",venue:"",contact:"",notes:"",require_guests:true,require_date:true,require_time:true,payment_mode:"full",deposit_type:"percent",deposit_value:30,hold_type:"percent",hold_value:100,balance_due_date:""}:undefined);}}/>{ec.badge}</label>{eventConfig&&<EventOrderFields value={eventConfig} onChange={setEventConfig} online={false}/>}</section>
         {itemsSummary && <details className="py-4"><summary className="flex cursor-pointer list-none items-center justify-between text-fs-sm font-medium">{t('orderItems')}<ChevronDownIcon className="size-4" /></summary><div className="pt-3">{itemsSummary}</div></details>}
         <section className="space-y-4 py-5">
           <h3 className="text-fs-sm font-semibold">{t('orderCheckoutFulfillmentTitle')}</h3>
@@ -532,6 +538,7 @@ export function NewOrderCheckoutPanel({
             {intent === 'record' && <ChoiceRow type="checkbox" checked={received} onChange={event => setReceived(event.target.checked)} label={t('orderCheckoutReceived').replace('{amount}', money(discountedTotal))} />}
           </div>}
         </fieldset>
+        {eventConfig&&hosted&&<section className="space-y-3 py-5"><EventOrderFields value={eventConfig} onChange={setEventConfig} online paymentOnly holdEnabled={sumitHoldEnabled} allowNoPayment={payMethod==='link'}/></section>}
         {intent === 'link' && !showCustomer && <div className="py-4"><Button variant="ghost" size="sm" onClick={() => setOptionalCustomer(true)}>{t('orderCheckoutOptionalCustomer')}</Button></div>}
         {showCustomer && <section className="space-y-3 py-5"><h3 className="text-fs-sm font-semibold">{t('customer')}</h3>
         <div className="flex flex-col gap-[var(--s-3)]">
@@ -713,7 +720,7 @@ export function NewOrderCheckoutPanel({
 
 
         </div></details>
-        {hosted ? <p className="flex items-center gap-2 py-4 text-fs-xs text-[var(--fg-muted)]"><ClockIcon className="size-4 shrink-0" />{t('orderCheckoutProductionAfterPayment')}</p>
+        {hosted && (!eventConfig || !hasAnyPermission('kitchen.manage')) ? <p className="flex items-center gap-2 py-4 text-fs-xs text-[var(--fg-muted)]"><ClockIcon className="size-4 shrink-0" />{t('orderCheckoutProductionAfterPayment')}</p>
           : <details className="py-4"><summary className="flex cursor-pointer list-none items-center justify-between text-fs-sm font-medium">{t('orderCheckoutProduction')}<ChevronDownIcon className="size-4" /></summary><div className="pt-4">
         {/* Force onto the production sheet, bypassing the scheduled/paid gates. */}
         <button

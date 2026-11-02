@@ -457,6 +457,7 @@ export default function OrdersWorkspace() {
     prevEvent.current = lastEvent;
 
     const { type, payload } = lastEvent;
+    if(type==='production.plan.updated'){void fetchOrders();setDetailRefreshKey(k=>k+1);return;}
     if (!type.startsWith('order.') && type !== 'payment.completed') return;
 
     const wsOrder = payload as unknown as Order;
@@ -703,6 +704,8 @@ export default function OrdersWorkspace() {
   const [paymentMethodOrderId, setPaymentMethodOrderId] = useState<number | null>(null);
   const [editCustomerId, setEditCustomerId] = useState<number | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [editingOrder,setEditingOrder]=useState<Order|null>(null);
+  useEffect(()=>{setEditingOrder(null);setEditOpen(false);},[rid]);
 
   const handleTakePayment = (method: PaymentMethod, reference?: string, amount?: number) => {
     if (!detailOrder) return Promise.resolve();
@@ -1043,7 +1046,7 @@ export default function OrdersWorkspace() {
         onCloseOrder={() =>
           detailOrder && setPendingClose({ id: detailOrder.id, type: detailOrder.order_type })
         }
-        onEdit={() => setEditOpen(true)}
+        onEdit={() => {setEditingOrder(detailOrder);setEditOpen(true);}}
         onConfirmWeights={() => setWeightsOpen(true)}
         onEditCustomer={() => detailOrder && setEditCustomerId(detailOrder.id)}
         onToggleForceProduction={() => detailOrder && handleToggleForceProduction(detailOrder.id, !detailOrder.force_production)}
@@ -1056,10 +1059,10 @@ export default function OrdersWorkspace() {
       {/* Edit order items */}
       <EditOrderDrawer
         open={editOpen}
-        order={detailOrder}
+        order={editingOrder}
         restaurantId={rid}
         onClose={() => setEditOpen(false)}
-        onSaved={fetchOrders}
+        onSaved={()=>{void fetchOrders();setDetailRefreshKey(k=>k+1);}}
       />
 
       {/* Take Payment dialog */}

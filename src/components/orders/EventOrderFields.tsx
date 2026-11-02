@@ -9,11 +9,15 @@ export function EventOrderFields({
   onChange,
   online,
   allowNoPayment = true,
+  paymentOnly = false,
+  holdEnabled = false,
 }: {
   value: OrderEventConfig;
   onChange: (value: OrderEventConfig) => void;
   online: boolean;
   allowNoPayment?: boolean;
+  paymentOnly?: boolean;
+  holdEnabled?: boolean;
 }) {
   const { locale } = useI18n();
   const c = eventOrderCopy[locale];
@@ -21,6 +25,7 @@ export function EventOrderFields({
     onChange({ ...value, ...patch });
   return (
     <div className="space-y-4">
+      {!paymentOnly && <>
       <p className="text-fs-xs text-[var(--fg-muted)]">{c.dueHint}</p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {(
@@ -100,6 +105,7 @@ export function EventOrderFields({
         />
         {c.allowDateChange}
       </label>
+      </>}
       {online && (
         <>
           <label className="flex flex-col gap-1 text-fs-xs">
@@ -111,19 +117,21 @@ export function EventOrderFields({
                 update({
                   payment_mode: e.target
                     .value as OrderEventConfig["payment_mode"],
+                  hold_type:value.hold_type??"percent",hold_value:value.hold_value??100,
+                  deposit_type:value.deposit_type||"percent",deposit_value:value.deposit_value||30,
                 })
               }
             >
-              {(["none", "full", "deposit"] as const)
+              {(["none", "full", "deposit", "hold", "deposit_hold"] as const)
                 .filter((mode) => allowNoPayment || mode !== "none")
                 .map((mode) => (
-                  <option key={mode} value={mode}>
+                  <option key={mode} value={mode} disabled={(mode === "hold" || mode === "deposit_hold") && !holdEnabled}>
                     {c[mode]}
                   </option>
                 ))}
             </select>
           </label>
-          {value.payment_mode === "deposit" && (
+          {(value.payment_mode === "deposit" || value.payment_mode === "deposit_hold") && (
             <div className="grid grid-cols-2 gap-3">
               <label className="text-fs-xs">
                 {c.deposit}
@@ -156,6 +164,10 @@ export function EventOrderFields({
               </label>
             </div>
           )}
+          {(value.payment_mode === "hold" || value.payment_mode === "deposit_hold") && <div className="grid grid-cols-2 gap-3">
+            <label className="text-fs-xs">{c.holdType}<select className="input" value={value.hold_type ?? 'percent'} onChange={e=>update({hold_type:e.target.value as 'fixed'|'percent'})}><option value="fixed">{c.fixed}</option><option value="percent">{c.percent}</option></select></label>
+            <label className="text-fs-xs">{c.holdValue}<input className="input" type="number" min="0.01" step="0.01" max={value.hold_type==='percent'?100:undefined} value={value.hold_value??100} onChange={e=>update({hold_value:Number(e.target.value)})}/></label>
+          </div>}
           <label className="flex flex-col gap-1 text-fs-xs">
             {c.balanceDue}
             <input
@@ -166,7 +178,7 @@ export function EventOrderFields({
             />
           </label>
           <p className="text-fs-xs text-[var(--fg-muted)]">
-            {c.holdUnavailable}
+            {holdEnabled ? c.holdHint : c.holdUnavailable}
           </p>
         </>
       )}

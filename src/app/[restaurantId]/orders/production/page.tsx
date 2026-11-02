@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { eventOrderCopy } from '@/lib/orders/event-order-copy';
 import { useI18n } from '@/lib/i18n';
+import { useWs } from '@/lib/ws-context';
 import { usePermissions } from '@/lib/permissions-context';
 import { useIsMobile } from '@/components/ui/use-mobile';
 import { Kpi, PageHead } from '@/components/ds';
@@ -52,6 +53,9 @@ export default function ProductionPage() {
   const router = useRouter();
   const { t, locale } = useI18n();
   const ec = eventOrderCopy[locale];
+  const {lastEvent}=useWs();
+  const [refreshKey,setRefreshKey]=useState(0);
+  const [loadFailed,setLoadFailed]=useState(false);
   // A clients × items matrix can't be read on a phone, so instead of shrinking
   // it we swap in ProductionMobile — a single-axis view the staffer switches
   // between (Clients / Items / Status). Split/fullscreen/drag stay desktop-only.
@@ -91,12 +95,15 @@ export default function ProductionPage() {
 
   // Load available days, default to the next upcoming day (or the last one).
   useEffect(() => {
+    let stopped=false;
     fetchProductionDays(restaurantId).then((d) => {
+      if(stopped)return;
       setDays(d);
       const today = new Date().toISOString().slice(0, 10);
       const upcoming = d.find((x) => x.date === requestedDate) ?? d.find((x) => x.date >= today) ?? d[d.length - 1];
       setDate(upcoming ? upcoming.date : today);
-    });
+    }).catch(()=>{if(!stopped)setLoadFailed(true);});
+    return()=>{stopped=true;};
   }, [restaurantId, requestedDate]);
 
   // Load each article's available portion sizes (from its size variants) so the
@@ -114,14 +121,20 @@ export default function ProductionPage() {
       .catch(() => undefined);
   }, [restaurantId]);
 
-  // Load the sheet for the active day.
+  useEffect(()=>{if(lastEvent&&(lastEvent.type==='production.plan.updated'||lastEvent.type.startsWith('order.')||lastEvent.type==='payment.completed'))setRefreshKey(k=>k+1);},[lastEvent]);
+  useEffect(()=>{const reload=()=>setRefreshKey(k=>k+1);window.addEventListener('focus',reload);return()=>window.removeEventListener('focus',reload);},[]);
+
+  // Refresh rows and day counts together without resetting the selected handover day.
   useEffect(() => {
     if (!date) return;
-    setLoading(true);
-    fetchProductionSheet(restaurantId, date)
-      .then(setSheet)
-      .finally(() => setLoading(false));
-  }, [restaurantId, date]);
+    let stopped=false;
+    setLoading(true);setLoadFailed(false);
+    Promise.all([fetchProductionSheet(restaurantId,date),fetchProductionDays(restaurantId)])
+      .then(([value,available])=>{if(!stopped){setSheet(value);setDays(available);}})
+      .catch(()=>{if(!stopped)setLoadFailed(true);})
+      .finally(()=>{if(!stopped)setLoading(false);});
+    return()=>{stopped=true;};
+  },[restaurantId,date,refreshKey]);
 
   // Keep state in sync when the user leaves native full-screen via Esc.
   useEffect(() => {
@@ -389,6 +402,7 @@ export default function ProductionPage() {
           : 'flex flex-col'
       }
     >
+      {loadFailed&&<p role="alert" className="mb-4 text-fs-sm text-[var(--danger-500)]">{t('workspaceLoadError')}</p>}
       {fullscreen ? (
         /* Maximized, table-only header */
         <div className="flex flex-wrap items-center gap-[var(--s-3)]">
@@ -413,6 +427,7 @@ export default function ProductionPage() {
             desc={t('productionLiveSub')}
             actions={
               <>
+                <button type="button" className="inline-flex h-11 items-center gap-2 rounded-r-lg border border-[var(--line-strong)] px-4 text-fs-sm" onClick={()=>setRefreshKey(k=>k+1)} disabled={loading} aria-label={t('refresh')}><RotateCcwIcon className="size-4"/>{t('refresh')}</button>
                 {date && <DateStepper date={date} days={days} onChange={setDate} />}
                 <ActionsDropdown
                   actions={[

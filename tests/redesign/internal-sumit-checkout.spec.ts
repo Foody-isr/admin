@@ -2,6 +2,7 @@ import { test, expect, type Page, type Locator } from '@playwright/test';
 import { createFixture } from './fixtures.mjs';
 
 async function install(page: Page, enabled: boolean, paymentPermission = true, locale = 'fr', catering = false, batch = false) {
+  await page.routeWebSocket('**/*',socket=>socket.close());
   const fixture = createFixture();
   if(catering) Object.assign(fixture.menus[0],{is_catering:true});
   const created: Record<string, unknown>[] = [];
@@ -17,8 +18,8 @@ async function install(page: Page, enabled: boolean, paymentPermission = true, l
   await page.route('https://app.sumit.co.il/**', route => route.fulfill({ contentType: 'text/html', body: '<p>Formulaire Sumit simulé</p>' }));
   await page.route('**/api/v1/**', async route => {
     const req = route.request(); const path = new URL(req.url()).pathname;
-    if (path === '/api/v1/users/me') return route.fulfill({ json: { user: { id: 1, role: 'manager' }, role_name: 'Manager', permissions: paymentPermission ? ['orders.view', 'orders.manage', 'payments.manage', 'orders.discount'] : ['orders.view', 'orders.manage'] } });
-    if (path.endsWith('/internal-checkout-capabilities')) return route.fulfill({ json: { enabled } });
+    if (path === '/api/v1/users/me') return route.fulfill({ json: { user: { id: 1, role: 'manager' }, role_name: 'Manager', permissions: paymentPermission ? ['orders.view', 'orders.manage', 'payments.manage', 'orders.discount', 'kitchen.manage'] : ['orders.view', 'orders.manage'] } });
+    if (path.endsWith('/internal-checkout-capabilities')) return route.fulfill({ json: { enabled,hold_enabled:enabled } });
     if (path.endsWith('/staff-batch-fulfillment-config')) return route.fulfill({ json: batch ? { enabled: true, upcoming_cycles: [{ fulfillment_days: [{ date: '2026-11-06', day_name: 'Friday', pickup_window: { start: '08:00', end: '15:00' }, delivery_window: { start: '08:00', end: '15:00' } }] }] } : { enabled: false, upcoming_cycles: [] } });
     if (path === '/api/v1/menu/items') return route.fulfill({ json: { items: fixture.items } });
     if (path === '/api/v1/orders' && req.method() === 'POST') {
@@ -27,7 +28,7 @@ async function install(page: Page, enabled: boolean, paymentPermission = true, l
     }
     if (path.endsWith('/orders/999/internal-checkout')) {
       expect(req.headers()['x-receipt-token']).toBe('synthetic-order-token');
-      expect(req.postDataJSON()).toEqual({});
+      expect(req.postDataJSON()).toEqual({expected_event_revision:0});
       paymentRequests++;
       return route.fulfill({ json: { payment_url: 'https://app.sumit.co.il/pay/synthetic' } });
     }
@@ -346,4 +347,42 @@ test('a fee entered before payment survives selecting an existing customer for a
   await expect(fee).toHaveValue('25');
   await panel.getByRole('button', { name: 'Créer la commande', exact: true }).click();
   expect(state.created[0]).toMatchObject({ order_type: 'delivery', delivery_address: '12 rue démo', delivery_fee: 25, payment_status: 'unpaid', customer_phone: '0500000000' });
+});
+
+for(const mode of ['hold','deposit_hold']) test(`staff configures ${mode} beside the payment link and can plan before payment`,async({page},info)=>{
+ const state=await install(page,true,true,'fr',true);
+ const panel=await checkout(page);
+ await panel.getByLabel('Date',{exact:true}).fill('2026-11-05');
+ await panel.getByRole('radio',{name:'Lien de paiement',exact:true}).check();
+ const policy=panel.getByRole('combobox',{name:'Paiement maintenant',exact:true});
+ await policy.selectOption(mode);
+ await panel.getByLabel('Valeur de l’empreinte',{exact:true}).fill('100');
+ await panel.getByText('Options de production',{exact:true}).click();
+ await panel.getByRole('checkbox',{name:/production/}).click();
+ await page.screenshot({path:info.outputPath(`event-${mode}-settings.png`),fullPage:true});
+ await panel.getByRole('button',{name:'Créer le lien de paiement',exact:true}).click();
+ expect(state.created[0]).toMatchObject({force_production:true,internal_checkout:'link',event_config:{payment_mode:mode,hold_type:'percent',hold_value:100}});
+});
+
+test('prepared event edit is atomic and keeps the draft after a stale revision',async({page})=>{
+ await install(page,true);
+ const fixture=createFixture();
+ const row={...fixture.orders[0],id:999,restaurant_id:1,updated_at:'2026-11-02T10:00:00Z',is_scheduled:true,scheduled_for:'2026-11-05T00:00:00Z',payment_status:'pending',status:'pending_review',event_config:{name:'Réception démo',payment_mode:'deposit',deposit_type:'percent',deposit_value:30},external_metadata:{internal_checkout:{mode:'link',phase:'',expires_at:'2099-01-01T00:00:00Z'}}};
+ const writes:Record<string,unknown>[]=[];
+ await page.route('**/api/v1/orders/999**',route=>{
+  const path=new URL(route.request().url()).pathname;
+  if(path.endsWith('/event')){writes.push(route.request().postDataJSON());return route.fulfill({status:409,json:{error:'stale'}});}
+  if(path.endsWith('/orders/999'))return route.fulfill({json:{order:row}});
+  return route.fallback();
+ });
+ await page.goto('/1/orders/999');
+ await page.getByRole('button',{name:'Actions',exact:true}).click();
+ await page.getByRole('menuitem',{name:'Modifier',exact:true}).click();
+ const drawer=page.getByRole('dialog',{name:/Modifier/});
+ await drawer.getByLabel('Nom de l’événement',{exact:true}).fill('Réception mise à jour');
+ await drawer.getByRole('button',{name:/Enregistrer les modifications/}).click();
+ await expect(drawer).toContainText('Enregistrement impossible');
+ await expect(drawer.getByLabel('Nom de l’événement',{exact:true})).toHaveValue('Réception mise à jour');
+ expect(writes).toHaveLength(1);
+ expect(writes[0]).toMatchObject({expected_updated_at:row.updated_at,event_config:{name:'Réception mise à jour'}});
 });

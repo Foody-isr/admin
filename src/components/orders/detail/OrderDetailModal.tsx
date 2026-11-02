@@ -18,6 +18,7 @@ import { CommandBar } from './CommandBar';
 import { OrderOverflowMenu } from './menus/OrderOverflowMenu';
 import { WorkflowStepper } from './spine/WorkflowStepper';
 import styles from './order-detail.module.css';
+import { usePermissions } from '@/lib/permissions-context';
 import { ActivityTimeline } from './spine/ActivityTimeline';
 import { DeliverySlotAssignment } from '@/components/orders/DeliverySlotAssignment';
 import { ScheduledBanner } from './spine/ScheduledCallout';
@@ -92,6 +93,7 @@ export function OrderDetailModal({
   onEditCustomer, onToggleForceProduction, restaurantName, restaurantDefaultLocale, customFieldLabels, checkoutConfig,
 }: OrderDetailModalProps) {
   const { t, direction } = useI18n();
+  const {hasAnyPermission}=usePermissions();
   const { symbol: currencySign, code: currencyCode } = useCurrency();
 
   const [message, setMessage] = useState<{ kind: WhatsAppMessageKind; channel: WhatsAppChannel } | null>(null);
@@ -125,7 +127,7 @@ export function OrderDetailModal({
 
   const caps = deriveOrderCapabilities(
     order,
-    { canManage, canOverride, canDelete, currencyCode },
+    { canManage, canPlanProduction: hasAnyPermission('kitchen.manage'), canOverride, canDelete, currencyCode },
     {
       onConfirmWeights: !!onConfirmWeights,
       onOverride: !!onOverride,

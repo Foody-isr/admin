@@ -151,12 +151,14 @@ export default function NewOrderPage() {
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [sumitCheckoutEnabled, setSumitCheckoutEnabled] = useState(false);
+  const [sumitHoldEnabled,setSumitHoldEnabled]=useState(false);
   const [cardOrder, setCardOrder] = useState<{ id: number; token: string } | null>(null);
   useEffect(() => {
     let cancelled = false;
     setSumitCheckoutEnabled(false);
+    setSumitHoldEnabled(false);
     getInternalCheckoutCapabilities(restaurantId).then(result => {
-      if (!cancelled) setSumitCheckoutEnabled(result.enabled === true);
+      if (!cancelled) {setSumitCheckoutEnabled(result.enabled === true);setSumitHoldEnabled(result.hold_enabled===true);}
     }).catch(() => { if (!cancelled) setSumitCheckoutEnabled(false); });
     return () => { cancelled = true; };
   }, [restaurantId]);
@@ -1026,6 +1028,7 @@ export default function NewOrderPage() {
       <NewOrderCheckoutPanel
         cateringDetected={lines.some(line=>menus.some(menu=>menu.id===line.sourceMenuId&&menu.is_catering))}
         sumitCheckoutEnabled={sumitCheckoutEnabled}
+        sumitHoldEnabled={sumitHoldEnabled}
         sumitCardEnabled={sumitCheckoutEnabled && hasAnyPermission('payments.manage')}
         key={drawerResetKey}
         open={checkoutOpen}

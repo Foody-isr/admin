@@ -15,6 +15,11 @@ import { Plus, Minus, Trash2, Search, Pencil } from 'lucide-react';
 import { Drawer, Field, Input } from '@/components/ds';
 import {
   listAllItems,
+  getMenu,
+  type Menu,
+  editEventOrder,
+  getInternalCheckoutCapabilities,
+  type OrderEventConfig,
   addOrderItem,
   updateOrderItem,
   removeOrderItem,
@@ -33,6 +38,8 @@ import { usePermissions } from '@/lib/permissions-context';
 import { cn } from '@/lib/utils';
 import { itemSizeOptions } from '@/lib/item-options';
 import { FulfillmentSection } from './FulfillmentSection';
+import { EventOrderFields } from './EventOrderFields';
+import { eventOrderCopy } from '@/lib/orders/event-order-copy';
 import { CustomerDeliveryFields } from '@/components/customers/CustomerDeliveryFields';
 import type { FulfillmentValue } from '@/lib/orders/fulfillment';
 import type { FulfillmentChangeReasonCode } from '@/lib/orders/fulfillment-reason';
@@ -54,6 +61,7 @@ interface EditLine {
   uid: string;
   /** Set for lines that already exist on the order; undefined for newly added. */
   orderItemId?: number;
+  sourceMenuId?: number;
   menuItemId: number;
   name: string;
   variantName?: string;
@@ -90,6 +98,7 @@ interface ComboBlock {
 function lineToInput(line: EditLine): CreateOrderItemInput {
   return {
     menu_item_id: line.menuItemId,
+    source_menu_id: line.sourceMenuId,
     quantity: line.quantity,
     selected_variant_id: line.selectedVariantId,
     option_selections: line.optionSelections,
@@ -108,6 +117,7 @@ function orderItemToLine(item: OrderItem): EditLine {
     uid: `existing-${item.id}`,
     adjustment: item.adjustment,
     orderItemId: item.id,
+    sourceMenuId: item.source_menu_id,
     menuItemId: item.menu_item_id,
     name: item.name,
     optionSelections: item.option_selections,
@@ -123,6 +133,7 @@ function orderItemToLine(item: OrderItem): EditLine {
 function newLineToEditLine(nl: NewOrderLine): EditLine {
   return {
     uid: nl.uid,
+    sourceMenuId: nl.sourceMenuId,
     menuItemId: nl.item.id,
     name: nl.item.name,
     optionSelections: nl.optionSelections,
@@ -187,11 +198,14 @@ interface EditOrderDrawerProps {
 
 export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }: EditOrderDrawerProps) {
   const { money } = useCurrency();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { hasAnyPermission } = usePermissions();
   // Manual ad-hoc discounts are gated on the same permission as the create flow.
   const canManualDiscount = hasAnyPermission('orders.discount');
 
+  const [eventConfig,setEventConfig]=useState<OrderEventConfig|undefined>();
+  const [holdEnabled,setHoldEnabled]=useState(false);
+  const ec=eventOrderCopy[locale];
   const [lines, setLines] = useState<EditLine[]>([]);
   const [combos, setCombos] = useState<ComboBlock[]>([]);
   const [removedCombos, setRemovedCombos] = useState<Set<string>>(new Set());
@@ -215,6 +229,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
   const [deliveryNotes, setDeliveryNotes] = useState('');
   // Delivery fee (₪) as a string for the input; '' means no fee.
   const [deliveryFee, setDeliveryFee] = useState('');
+  const [feeTouched,setFeeTouched]=useState(false);
   // Staff manual discount. Seeded from the order's current manual discount (if
   // any); a coupon-sourced discount is left read-only (not editable here). The
   // change is persisted on save via setOrderDiscount. `discountValue` empty means
@@ -228,6 +243,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
   // Add-item picker state. Results render only while a query is typed; the
   // highlight index drives ArrowUp/ArrowDown + Enter keyboard selection.
   const [catalog, setCatalog] = useState<MenuItem[]>([]);
+  const [sourceMenus,setSourceMenus]=useState<Menu[]>([]);
   // Full catalog by id (INCLUDING combos) — used to resolve a combo's step
   // definition when opening the composition picker, and passed to it for
   // group-step resolution.
@@ -269,6 +285,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     setHighlightIdx(0);
     setEditingNotesUid(null);
 
+    setEventConfig(order.event_config ? {...order.event_config} : undefined);
     setOrderType((order.order_type as 'pickup' | 'delivery') ?? 'pickup');
     setAddress(order.delivery_address ?? '');
     setCity(order.delivery_city ?? '');
@@ -276,6 +293,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     setApt(order.delivery_apt ?? '');
     setEntryCode(order.delivery_entry_code ?? '');
     setDeliveryNotes(order.delivery_notes ?? '');
+    setFeeTouched(false);
     setDeliveryFee(order.delivery_fee && order.delivery_fee > 0 ? String(order.delivery_fee) : '');
     // Seed the manual-discount fields from the order's current manual discount.
     // A coupon (discount_source 'coupon') is not editable here, so leave the
@@ -313,6 +331,10 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
       })
       .catch(() => { setItemMap(new Map()); setCatalog([]); });
   }, [open, restaurantId, itemMap.size]);
+
+  useEffect(()=>{let stopped=false;if(open&&order?.event_config)getMenu(restaurantId).then(v=>{if(!stopped)setSourceMenus(v);}).catch(()=>{if(!stopped)setSourceMenus([]);});return()=>{stopped=true;};},[open,restaurantId,order?.event_config]);
+
+  useEffect(()=>{let stopped=false;if(open)getInternalCheckoutCapabilities(restaurantId).then(v=>{if(!stopped)setHoldEnabled(v.hold_enabled===true);}).catch(()=>{if(!stopped)setHoldEnabled(false);});return()=>{stopped=true;};},[open,restaurantId]);
 
   // Load batch fulfillment config on open. The staff variant also surfaces the
   // current in-production série past its ordering cutoff, so staff can force this
@@ -359,7 +381,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
   // discard-confirm on close.
   const fulfillmentDirty = useMemo(() => {
     if (!order) return false;
-    if (orderType !== order.order_type) return true;
+    if (orderType !== order.order_type || !!order.event_config && feeTouched) return true;
     if (
       orderType === 'delivery' &&
       (address !== (order.delivery_address ?? '') ||
@@ -382,7 +404,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
       );
     }
     return false;
-  }, [order, orderType, address, city, floor, apt, entryCode, deliveryNotes, deliveryFee, fulfillment]);
+  }, [order, orderType, address, city, floor, apt, entryCode, deliveryNotes, deliveryFee, fulfillment, feeTouched]);
 
   const linesDirty = useMemo(
     () =>
@@ -424,7 +446,8 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
       : // cleared: only dirty when there was a manual discount to remove
         !!currentManual);
 
-  const isDirty = linesDirty || fulfillmentDirty || discountDirty;
+  const eventDirty=!!order?.event_config&&JSON.stringify(eventConfig)!==JSON.stringify(order.event_config);
+  const isDirty = linesDirty || fulfillmentDirty || discountDirty || eventDirty;
 
   // Derived from the order's stored collection day, not from fulfillmentDirty:
   // an address or fee edit on a scheduled order is dirty but moves nobody.
@@ -569,6 +592,17 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     setError(null);
 
     try {
+      if(order.event_config){
+        await editEventOrder(restaurantId,order.id,{
+          expected_updated_at:order.updated_at??'',event_config:eventConfig,
+          remove:[...lines.filter(l=>l.removed&&l.orderItemId).map(l=>l.orderItemId!),...combos.filter(c=>removedCombos.has(c.group)).flatMap(c=>c.items.map(i=>i.id))],
+          update:lines.filter(l=>!l.removed&&l.orderItemId&&(origById.get(l.orderItemId)?.quantity!==l.quantity||origById.get(l.orderItemId)?.notes!==l.notes)).map(l=>({id:l.orderItemId!,input:lineToInput(l)})),
+          add:lines.filter(l=>!l.removed&&!l.orderItemId).map(lineToInput),
+          combos:Object.entries(comboEdits).filter(([group])=>!removedCombos.has(group)).map(([group,staged])=>({group,input:{combo_item_id:combos.find(c=>c.group===group)?.items[0]?.combo_item_id??0,selections:staged.selections.map(s=>({step_id:s.stepId,menu_item_id:s.menuItemId,option_id:s.optionId??undefined,quantity:s.quantity,is_substitution:s.isSubstitution||undefined}))}})),
+          ...(fulfillmentDirty?{fulfillment:{order_type:orderType,is_scheduled:true,scheduled_for:fulfillment.scheduledFor,scheduled_pickup_window_start:fulfillment.windowStart,scheduled_pickup_window_end:fulfillment.windowEnd,...(reason?{reason_code:reason.code,reason_note:reason.note}:{}),...(orderType==='delivery'?{delivery_address:address,delivery_city:city,delivery_floor:floor,delivery_apt:apt,delivery_entry_code:entryCode,delivery_notes:deliveryNotes,...(feeTouched?{delivery_fee:Math.max(0,parseFloat(deliveryFee)||0)}:{})}:{})}}:{}),
+          ...(discountDirty?{discount:hasStagedDiscount?{type:discountType,value:stagedDiscountValue,reason:discountReason.trim()}:{remove:true}}:{}),
+        });onSaved();onClose();return;
+      }
       // 1) Soft-deleted regular lines.
       for (const line of lines) {
         if (line.removed && line.orderItemId) {
@@ -657,7 +691,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
       onSaved();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(order.event_config ? ec.editError : e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
@@ -721,7 +755,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
               <Field label={t('deliveryFee')}>
                 <Input
                   value={deliveryFee}
-                  onChange={(e) => setDeliveryFee(e.target.value)}
+                  onChange={(e) => {setDeliveryFee(e.target.value);setFeeTouched(true);}}
                   inputMode="decimal"
                   placeholder="0.00"
                 />
@@ -731,10 +765,13 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
 
           <FulfillmentSection
             orderType={orderType}
-            batchConfig={batchConfig}
+            batchConfig={order?.event_config ? null : batchConfig}
+            allowImmediate={!order?.event_config}
             value={fulfillment}
             onChange={setFulfillment}
           />
+
+          {eventConfig&&<section className="space-y-4 border-t border-[var(--line)] pt-4"><h3 className="font-semibold">{ec.information}</h3><EventOrderFields value={eventConfig} onChange={setEventConfig} online={false}/>{eventConfig.finalized_at?<p className="text-fs-xs text-[var(--fg-muted)]">{ec.termsLocked}</p>:<EventOrderFields value={eventConfig} onChange={setEventConfig} online paymentOnly holdEnabled={holdEnabled} allowNoPayment={(order?.external_metadata?.internal_checkout as {mode?:string})?.mode!=='card'}/>}</section>}
 
           {/* Manual discount (owner/manager with orders.discount). Applies on
               save; clearing the value removes an existing manual discount. */}
@@ -938,6 +975,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                         </div>
                         {(line.variantName || line.modifiers.length > 0 || line.notes) && !line.removed && (
                           <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                            {order?.event_config&&!line.orderItemId&&<label className="mt-2 block text-fs-xs">{ec.sourceCarte}<select className="input mt-1 w-full" value={line.sourceMenuId??''} onChange={e=>setLines(current=>current.map(value=>value.uid===line.uid?{...value,sourceMenuId:e.target.value?Number(e.target.value):undefined}:value))}><option value="">{ec.otherCartes}</option>{sourceMenus.filter(menu=>menu.groups?.some(group=>group.items?.some(item=>item.id===line.menuItemId))).map(menu=><option key={menu.id} value={menu.id}>{menu.name}</option>)}</select></label>}
                             {line.variantName && (
                               <span
                                 className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium"
