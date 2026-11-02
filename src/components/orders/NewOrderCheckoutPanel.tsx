@@ -47,7 +47,7 @@ export interface CheckoutData {
   deliveryNotes: string;
   /** Delivery fee in ₪ (0 for pickup). Prefilled from the matched delivery zone,
    *  editable by staff. */
-  deliveryFee: number;
+  deliveryFee?: number;
   paymentMethod: PaymentMethodChoice;
   paymentCollected: boolean;
   fulfillment: FulfillmentValue;
@@ -202,7 +202,12 @@ export function NewOrderCheckoutPanel({
 
   // ── Discount state ────────────────────────────────────────────────────────
   const discountRequest = useRef(0);
-  const discountContext = JSON.stringify([restaurantId, discountItems, orderType, payMethod === 'link' ? 0 : deliveryFee, customerPhone]);
+  const feeInput = deliveryFee.trim().replace(',', '.');
+  const parsedFee = Number(feeInput);
+  const feeValid = !feeInput || (/^\d+(?:\.\d{1,2})?$/.test(feeInput) && Number.isFinite(parsedFee));
+  const fixedLinkFee = feeTouched && !!feeInput;
+  const feeValue = orderType === 'delivery' && feeValid && (payMethod !== 'link' || fixedLinkFee) ? parsedFee : 0;
+  const discountContext = JSON.stringify([restaurantId, discountItems, orderType, feeValue, customerPhone]);
   const [coupons, setCoupons] = useState<Discount[]>([]);
   const [couponCode, setCouponCode] = useState('');
   const [discountValidating, setDiscountValidating] = useState(false);
@@ -225,7 +230,8 @@ export function NewOrderCheckoutPanel({
   }, [open, discountContext]);
 
   // Preserve the chosen date while returning to articles; refresh changed series windows.
-  const targets = useMemo(() => buildFulfillmentTargets(batchConfig, orderType), [batchConfig, orderType]);
+  const isEvent = !!eventConfig;
+  const targets = useMemo(() => buildFulfillmentTargets(isEvent ? null : batchConfig, orderType), [batchConfig, orderType, isEvent]);
   const fulfillmentContext = useRef<string | null>(null);
   useEffect(() => {
     if (!open) {
@@ -243,8 +249,16 @@ export function NewOrderCheckoutPanel({
       setManualValue('');
       setManualReason('');
       setAppliedManual(null);
-      setDeliveryFee('');
-      setFeeTouched(false);
+      return;
+    }
+    // An event has a staff-chosen handover date, independent of carte series.
+    // Never reconcile this free calendar against the weekly batch targets.
+    if (isEvent) {
+      draftFulfillmentPending.current = null;
+      fulfillmentContext.current = null;
+      if (fulfillment.timing !== 'scheduled') {
+        setFulfillment({ timing: 'scheduled', scheduledFor: defaultDate ?? '' });
+      }
       return;
     }
     const context = `${orderType}:${defaultDate ?? ''}`;
@@ -293,7 +307,7 @@ export function NewOrderCheckoutPanel({
         ? { timing: 'scheduled', scheduledFor: preferred.date, windowStart: preferred.windowStart, windowEnd: preferred.windowEnd }
         : defaultFulfillment(targets),
     );
-  }, [open, targets, defaultDate, orderType, fulfillment]);
+  }, [open, targets, defaultDate, orderType, fulfillment, isEvent]);
 
   // Load active coupons once per restaurant (silently; no error shown on failure).
   useEffect(() => {
@@ -305,7 +319,7 @@ export function NewOrderCheckoutPanel({
   // when the address resolves inside a zone with a fee — otherwise the field is
   // left for staff to fill in. Staff can always override the prefilled value.
   useEffect(() => {
-    if (!open || !intent || payMethod === 'link' || orderType !== 'delivery' || feeTouched) return;
+    if (!open || payMethod === 'link' || orderType !== 'delivery' || feeTouched) return;
     const addr = address.trim();
     if (!addr) return;
     let cancelled = false;
@@ -338,7 +352,7 @@ export function NewOrderCheckoutPanel({
       const res = await validateDiscount(restaurantId, {
         code,
         items: discountItems,
-        delivery_fee: orderType === 'delivery' && payMethod !== 'link' ? Math.max(0, parseFloat(deliveryFee) || 0) : 0,
+        delivery_fee: feeValue,
         phone: customerPhone.trim() || undefined,
       });
       if (request !== discountRequest.current) return;
@@ -375,10 +389,6 @@ export function NewOrderCheckoutPanel({
     setAppliedManual(null);
     setDiscountError(null);
   }
-
-  // Delivery fee in ₪ (only for delivery; negatives/blank → 0). Added to the
-  // order total the same way the server does (subtotal + fee - discount).
-  const feeValue = orderType === 'delivery' && payMethod !== 'link' ? Math.max(0, parseFloat(deliveryFee) || 0) : 0;
 
   // A manual discount typed into the fields but not yet confirmed with the inner
   // "Apply" button. Honouring it makes that button optional: staff who fill the
@@ -417,6 +427,7 @@ export function NewOrderCheckoutPanel({
   useEffect(()=>{if(payMethod==="sumit_card"&&eventConfig?.payment_mode==="none"){setEventConfig(current=>current?{...current,payment_mode:"full"}:current);}},[payMethod,eventConfig?.payment_mode]);
   const eventInvalid = !!eventConfig && (fulfillment.timing !== "scheduled" || !fulfillment.scheduledFor || (intent !== "link" && (eventConfig.require_guests && !eventConfig.guests || eventConfig.require_date && !eventConfig.event_date || eventConfig.require_time && !eventConfig.event_time)) || hosted && eventConfig.payment_mode === "deposit" && (!Number.isFinite(eventConfig.deposit_value) || eventConfig.deposit_value <= 0 || eventConfig.deposit_type === "percent" && eventConfig.deposit_value >= 100 || eventConfig.deposit_type === "fixed" && eventConfig.deposit_value >= discountedTotal));
   const validationHint = eventInvalid ? ec.requiredError : !intent || !capabilityReady || !cardReady ? t('orderCheckoutChoose')
+    : orderType === 'delivery' && !feeValid ? t('orderCheckoutDeliveryFeeInvalid')
     : !fulfillmentReady ? t('orderCheckoutFulfillmentRequired')
     : !contactReady ? t('orderCheckoutContactRequired')
     : !addressReady ? t('orderCheckoutAddressRequired')
@@ -461,8 +472,9 @@ export function NewOrderCheckoutPanel({
     setApt(a.apt);
     setEntryCode(a.entry_code);
     setDeliveryNotes(a.delivery_notes);
-    // The new address's fee must be recomputed, not inherited.
-    setFeeTouched(false);
+    // Selecting customer details must retain a fee staff already entered in
+    // Fulfillment. Only an automatic estimate follows the new address.
+    if (!feeTouched) setDeliveryFee('');
   };
 
   function confirm() {
@@ -473,7 +485,7 @@ export function NewOrderCheckoutPanel({
       address: intent === 'link' ? '' : address, city: intent === 'link' ? '' : city,
       floor: intent === 'link' ? '' : floor, apt: intent === 'link' ? '' : apt,
       entryCode: intent === 'link' ? '' : entryCode, deliveryNotes: intent === 'link' ? '' : deliveryNotes,
-      deliveryFee: feeValue, ...payment, fulfillment, addToProduction: hosted ? false : addToProduction,
+      deliveryFee: orderType === 'delivery' && (intent !== 'link' || fixedLinkFee) ? feeValue : undefined, ...payment, fulfillment, addToProduction: hosted ? false : addToProduction,
       ...(appliedCoupon ? { discountCode: appliedCoupon.code } : {}),
       ...(effectiveManual ? { manualDiscount: { type: effectiveManual.type, value: effectiveManual.value, reason: effectiveManual.reason } } : {}),
     });
@@ -494,7 +506,18 @@ export function NewOrderCheckoutPanel({
             <ChoiceRow type="radio" name="order-reception" checked={orderType === 'pickup'} onChange={() => setOrderType('pickup')} label={<span className="inline-flex items-center gap-2"><ShoppingBagIcon className="size-4" />{t('pickup')}</span>} />
             <ChoiceRow type="radio" name="order-reception" checked={orderType === 'delivery'} onChange={() => setOrderType('delivery')} label={<span className="inline-flex items-center gap-2"><TruckIcon className="size-4" />{t('delivery')}</span>} />
           </div>
-          <FulfillmentSection serviceLabels orderType={orderType} batchConfig={eventConfig ? null : batchConfig} value={fulfillment} onChange={setFulfillment} />
+          <FulfillmentSection serviceLabels orderType={orderType} batchConfig={isEvent ? null : batchConfig} value={fulfillment} onChange={setFulfillment} allowImmediate={!isEvent} />
+          {orderType === 'delivery' && <Field label={t('deliveryFee')}>
+            <Input
+              value={payMethod === 'link' && !feeTouched ? '' : deliveryFee}
+              onChange={(e) => { setDeliveryFee(e.target.value); setFeeTouched(true); }}
+              inputMode="decimal"
+              placeholder="0.00"
+              aria-invalid={!feeValid}
+              aria-describedby="delivery-fee-hint"
+            />
+            <p id="delivery-fee-hint" className="text-fs-xs text-[var(--fg-muted)]">{t(feeValid ? 'orderCheckoutDeliveryFeeHint' : 'orderCheckoutDeliveryFeeInvalid')}</p>
+          </Field>}
         </section>
         <fieldset className="min-w-0 py-5">
           <legend className="float-start mb-2 w-full text-fs-sm font-semibold">{t('orderCheckoutIntent')}</legend>
@@ -578,14 +601,6 @@ export function NewOrderCheckoutPanel({
                   ) : null
                 }
               />
-              <Field label={t('deliveryFee')}>
-                <Input
-                  value={deliveryFee}
-                  onChange={(e) => { setDeliveryFee(e.target.value); setFeeTouched(true); }}
-                  inputMode="decimal"
-                  placeholder="0.00"
-                />
-              </Field>
             </>
           )}
         </div>
@@ -731,8 +746,8 @@ export function NewOrderCheckoutPanel({
     <footer className="shrink-0 space-y-3 border-t border-[var(--line)] bg-[var(--surface)] p-4">
       {feeValue > 0 && <div className="flex justify-between text-fs-xs text-[var(--fg-muted)]"><span>{t('deliveryFee')}</span><span className="tabular-nums">{money(feeValue)}</span></div>}
       {appliedAmount > 0 && <div className="flex justify-between text-fs-xs text-[var(--fg-muted)]"><span>{t('discountLine')}</span><span className="tabular-nums">−{money(appliedAmount)}</span></div>}
-      <div className="flex items-center justify-between gap-3"><span className="text-fs-sm text-[var(--fg-muted)]">{t(intent === 'link' && orderType === 'delivery' ? 'subtotal' : 'total')}</span><strong className="tabular-nums text-fs-xl">{money(discountedTotal)}</strong></div>
-      {intent === 'link' && orderType === 'delivery' && <p className="text-fs-xs text-[var(--fg-muted)]">{t('sumitDeliveryCalculated')}</p>}
+      <div className="flex items-center justify-between gap-3"><span className="text-fs-sm text-[var(--fg-muted)]">{t(intent === 'link' && orderType === 'delivery' && !fixedLinkFee ? 'subtotal' : 'total')}</span><strong className="tabular-nums text-fs-xl">{money(discountedTotal)}</strong></div>
+      {intent === 'link' && orderType === 'delivery' && <p className="text-fs-xs text-[var(--fg-muted)]">{t(fixedLinkFee ? 'orderCheckoutDeliveryFeeFixed' : 'sumitDeliveryCalculated')}</p>}
       {error && <p role="alert" className="text-fs-sm text-[var(--danger-500)]">{error}</p>}
       {validationHint && !submitting && <p id="order-finalization-hint" role="status" className="text-fs-xs text-[var(--fg-muted)]">{validationHint}</p>}
       <Button className="min-h-12 w-full whitespace-normal text-center" onClick={confirm} disabled={!canConfirm} aria-describedby={validationHint ? 'order-finalization-hint' : undefined}>{submitting ? `${t('creating')}…` : actionLabel}</Button>

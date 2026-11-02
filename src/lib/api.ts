@@ -5287,6 +5287,8 @@ export interface CreateOrderInput {
    *  staff endpoint has no delivery-zone resolution, so this is the only way a
    *  manual delivery order gets a non-zero fee. Ignored server-side for pickup. */
   delivery_fee?: number;
+  /** Preserve this explicit staff fee through private-link address validation. */
+  delivery_fee_fixed?: boolean;
   /** When true the order is created as scheduled (status "scheduled") for
    *  `scheduled_for`. The server persists these for any order. */
   is_scheduled?: boolean;

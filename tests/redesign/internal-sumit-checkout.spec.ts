@@ -1,7 +1,7 @@
 import { test, expect, type Page, type Locator } from '@playwright/test';
 import { createFixture } from './fixtures.mjs';
 
-async function install(page: Page, enabled: boolean, paymentPermission = true, locale = 'fr', catering = false) {
+async function install(page: Page, enabled: boolean, paymentPermission = true, locale = 'fr', catering = false, batch = false) {
   const fixture = createFixture();
   if(catering) Object.assign(fixture.menus[0],{is_catering:true});
   const created: Record<string, unknown>[] = [];
@@ -19,7 +19,7 @@ async function install(page: Page, enabled: boolean, paymentPermission = true, l
     const req = route.request(); const path = new URL(req.url()).pathname;
     if (path === '/api/v1/users/me') return route.fulfill({ json: { user: { id: 1, role: 'manager' }, role_name: 'Manager', permissions: paymentPermission ? ['orders.view', 'orders.manage', 'payments.manage', 'orders.discount'] : ['orders.view', 'orders.manage'] } });
     if (path.endsWith('/internal-checkout-capabilities')) return route.fulfill({ json: { enabled } });
-    if (path.endsWith('/staff-batch-fulfillment-config')) return route.fulfill({ json: { enabled: false, upcoming_cycles: [] } });
+    if (path.endsWith('/staff-batch-fulfillment-config')) return route.fulfill({ json: batch ? { enabled: true, upcoming_cycles: [{ fulfillment_days: [{ date: '2026-11-06', day_name: 'Friday', pickup_window: { start: '08:00', end: '15:00' }, delivery_window: { start: '08:00', end: '15:00' } }] }] } : { enabled: false, upcoming_cycles: [] } });
     if (path === '/api/v1/menu/items') return route.fulfill({ json: { items: fixture.items } });
     if (path === '/api/v1/orders' && req.method() === 'POST') {
       created.push(req.postDataJSON());
@@ -213,7 +213,8 @@ test('a delivery link leaves the address and delivery quote to the recipient', a
   await expect(panel.getByRole('combobox', { name: 'Nom du client', exact: true })).toHaveCount(0);
   await expect(panel.getByText('Les frais', { exact: false })).toBeVisible();
   await panel.getByRole('button', { name: 'Créer le lien de paiement', exact: true }).click();
-  expect(state.created[0]).toMatchObject({ order_type: 'delivery', delivery_address: '', delivery_fee: 0, internal_checkout: 'link', force_production: false });
+  expect(state.created[0]).toMatchObject({ order_type: 'delivery', delivery_address: '', internal_checkout: 'link', force_production: false });
+  expect(state.created[0]).not.toHaveProperty('delivery_fee');
 });
 
 test('undo restores the draft price warning and its checkout block', async ({ page }) => {
@@ -257,7 +258,6 @@ test('event order reuses the Foody link with a deposit and an independent due da
  const state=await install(page,true,true,'fr',true);const panel=await checkout(page);
  await expect(panel.getByRole('checkbox',{name:'Événement / Catering',exact:true})).toBeChecked();
  await panel.getByRole('radio',{name:/Lien de paiement/}).check();
- await panel.getByRole('button',{name:'Date prévue',exact:true}).click();
  await panel.getByLabel('Date',{exact:true}).fill('2026-11-05');
  await panel.getByRole('combobox',{name:'Paiement maintenant',exact:true}).selectOption('deposit');
  await panel.getByLabel('Valeur de l’acompte',{exact:true}).fill('30');
@@ -265,4 +265,85 @@ test('event order reuses the Foody link with a deposit and an independent due da
  await panel.getByRole('button',{name:'Créer le lien de paiement',exact:true}).click();
  expect(state.created).toHaveLength(1);expect(state.created[0]).toMatchObject({internal_checkout:'link',is_scheduled:true,scheduled_for:'2026-11-05',event_config:{require_guests:true,require_date:true,require_time:true,payment_mode:'deposit',deposit_type:'percent',deposit_value:30}});
  expect((state.created[0].items as {source_menu_id?:number}[])[0].source_menu_id).toBeGreaterThan(0);
+});
+
+
+test('an event keeps November 4 independently of the November 6 batch and preserves its delivery fee', async ({ page }, info) => {
+  const state = await install(page, true, true, 'fr', true, true);
+  const panel = await checkout(page);
+  await expect(panel.getByRole('checkbox', { name: 'Événement / Catering', exact: true })).toBeChecked();
+  await panel.getByLabel('Date', { exact: true }).fill('2026-11-04');
+  await panel.getByLabel('De', { exact: true }).fill('10:00');
+  await panel.getByLabel('À', { exact: true }).fill('12:00');
+  await panel.getByRole('radio', { name: 'Livraison', exact: true }).check();
+  const fee = panel.getByRole('textbox', { name: /Frais de livraison/ });
+  await fee.fill('35,50');
+  await expect(panel.getByLabel('Date', { exact: true })).toHaveValue('2026-11-04');
+  await panel.getByRole('button', { name: 'Retour aux articles', exact: true }).click();
+  await page.getByRole('button', { name: 'Continuer', exact: true }).click();
+  await expect(fee).toHaveValue('35,50');
+  await expect(panel.getByLabel('Date', { exact: true })).toHaveValue('2026-11-04');
+  await expect(panel.getByLabel('De', { exact: true })).toHaveValue('10:00');
+  await panel.getByRole('radio', { name: 'Lien de paiement', exact: true }).check();
+  await panel.getByRole('combobox', { name: 'Paiement maintenant', exact: true }).selectOption('deposit');
+  await panel.getByLabel('Valeur de l’acompte', { exact: true }).fill('30');
+  await expect(panel.locator('footer')).toContainText('35.50');
+  await expect(panel.locator('footer')).toContainText('fixés par vous');
+  await fee.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath('event-free-date-fixed-delivery-fee.png') });
+  await panel.getByRole('button', { name: 'Créer le lien de paiement', exact: true }).click();
+  expect(state.created[0]).toMatchObject({ order_type: 'delivery', internal_checkout: 'link', delivery_fee: 35.5, delivery_fee_fixed: true, scheduled_for: '2026-11-04', scheduled_pickup_window_start: '10:00', scheduled_pickup_window_end: '12:00', event_config: { payment_mode: 'deposit' } });
+});
+
+for (const value of ['0', '45']) test(`a staff delivery quote of ${value} remains fixed when choosing a payment link`, async ({ page }) => {
+  const state = await install(page, true);
+  const panel = await checkout(page);
+  await panel.getByRole('radio', { name: 'Livraison', exact: true }).check();
+  await panel.getByRole('textbox', { name: /Frais de livraison/ }).fill(value);
+  await panel.getByRole('radio', { name: 'Lien de paiement', exact: true }).check();
+  await panel.getByRole('button', { name: 'Créer le lien de paiement', exact: true }).click();
+  expect(state.created[0]).toMatchObject({ delivery_fee: Number(value), delivery_fee_fixed: true, internal_checkout: 'link' });
+});
+
+test('a malformed delivery fee blocks creation and pickup excludes it', async ({ page }) => {
+  const state = await install(page, true);
+  const panel = await checkout(page);
+  await panel.getByRole('radio', { name: 'Livraison', exact: true }).check();
+  await panel.getByRole('radio', { name: 'Lien de paiement', exact: true }).check();
+  const fee = panel.getByRole('textbox', { name: /Frais de livraison/ });
+  const create = panel.getByRole('button', { name: 'Créer le lien de paiement', exact: true });
+  for (const invalid of ['-5', '12abc', '1.234', 'Infinity']) {
+    await fee.fill(invalid);
+    await expect(fee).toHaveAttribute('aria-invalid', 'true');
+    await expect(create).toBeDisabled();
+  }
+  await fee.fill('45');
+  await panel.getByRole('radio', { name: 'À emporter', exact: true }).check();
+  await create.click();
+  expect(state.created[0]).not.toHaveProperty('delivery_fee');
+});
+
+test('ordinary batch orders keep their series selector after leaving event mode', async ({ page }) => {
+  await install(page, true, true, 'fr', true, true);
+  const panel = await checkout(page);
+  await panel.getByLabel('Date', { exact: true }).fill('2026-11-04');
+  await panel.getByRole('checkbox', { name: 'Événement / Catering', exact: true }).uncheck();
+  await expect(panel.getByRole('combobox', { name: 'Jour de retrait', exact: true })).toHaveValue('2026-11-06');
+  await expect(panel.getByLabel('Date', { exact: true })).toHaveCount(0);
+});
+
+
+test('a fee entered before payment survives selecting an existing customer for a manual delivery', async ({ page }) => {
+  const state = await install(page, false);
+  await page.route(/\/customers\/search\?/, route => route.fulfill({ json: { customers: [{ name: 'Client synthétique', phone: '0500000000', phones: ['0500000000'], order_count: 1, addresses: [{ address: '12 rue démo', city: 'Ville démo', floor: '', apt: '', entry_code: '', delivery_notes: '', last_used: '2026-11-01' }] }] } }));
+  const panel = await checkout(page);
+  await panel.getByRole('radio', { name: 'Livraison', exact: true }).check();
+  const fee = panel.getByRole('textbox', { name: /Frais de livraison/ });
+  await fee.fill('25');
+  await panel.getByRole('radio', { name: 'Payer plus tard', exact: true }).check();
+  await panel.getByRole('combobox', { name: 'Nom du client', exact: true }).fill('Client');
+  await panel.getByRole('option', { name: /Client synthétique/ }).click();
+  await expect(fee).toHaveValue('25');
+  await panel.getByRole('button', { name: 'Créer la commande', exact: true }).click();
+  expect(state.created[0]).toMatchObject({ order_type: 'delivery', delivery_address: '12 rue démo', delivery_fee: 25, payment_status: 'unpaid', customer_phone: '0500000000' });
 });

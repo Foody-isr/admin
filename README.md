@@ -1767,3 +1767,15 @@ After partial creation, item details stay locked while group choices remain edit
 Regression: `npx tsx --test src/lib/item-menu-assignments.test.ts` and
 `npx playwright test -c playwright.redesign.config.ts item-menu-assignment.spec.ts`.
 Publish the matching FR/HE/EN help and embedded API corpus with this client.
+
+
+## Event handover calendar and delivery fees
+
+Event finalization keeps a free handover date and time window, independent of
+weekly carte series, while ordinary orders keep their series selector. Delivery
+fees are entered in Fulfillment before payment intent. Returning to articles
+preserves the fee during composition; persisted drafts still exclude financial
+inputs. A private link can retain a staff fee (including zero) by submitting
+`delivery_fee_fixed: true` alongside `delivery_fee`. A blank field omits both
+and retains address-based pricing. Deploy the compatible API before Admin.
+Synthetic regressions: `internal-sumit-checkout.spec.ts`.
