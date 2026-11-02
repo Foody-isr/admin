@@ -294,7 +294,7 @@ function ModeEditor({policy,rid,id,section,pendingRemoval,removalConfirmed,onRem
    <section className="pos-entry-progression"><label className="pos-setting-row"><span><strong>{t('fullServiceAutoProgression')}</strong><span className="pos-setting-hint block">{t('posProgressionHint')}</span></span><BooleanInput aria-label={t('fullServiceAutoProgression')} checked={value.auto_progression} onChange={e=>patch({auto_progression:e.target.checked})}/></label></section>
    <SettingSection title={t('posItemDetail')} hint={t('posItemDetailHint')}><SettingLink href={`/${rid}/menu/items`} label={t('posManageItemDetails')}/></SettingSection>
   </>}
-  {section==='covers'&&<SettingSection title={t('fullServiceSeating')}>
+  {section==='covers'&&<SettingSection title="">
    {(['disabled','coversOnly','optionalSeats','requiredSeats'] as const).map((key,index)=><ChoiceRow type="radio" name="seating" key={key} label={t(['disabled','fullServiceCoversOnly','fullServiceOptionalSeats','fullServiceRequiredSeats'][index])} checked={value.seating_mode===key} onChange={()=>patch({seating_mode:key})}/>)}
   </SettingSection>}
   {section==='courses'&&<>

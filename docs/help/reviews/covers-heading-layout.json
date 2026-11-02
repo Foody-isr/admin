@@ -1,0 +1,17 @@
+{
+  "review": "Visible duplicate-heading removal; no change to the documented procedure, translated copy or operational behavior.",
+  "files": [
+    {
+      "path": "src/components/settings/POSSettingsWorkspace.tsx",
+      "baseSha256": "bf06ad565c16267ccfc219da4139a1632bbb2d94ec32bff31b5a53c39c41497d",
+      "sha256": "ffe500269ec8d2af9c94cda8795a6fbaff209d5d3af672b5a9c37791a55c3214",
+      "features": [
+        "order-types",
+        "pos-service-modes",
+        "pos-behavior"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This is a visible layout correction: the Covers editor removes its redundant inner heading and retains the existing outer heading. It follows the existing Courses empty-title pattern; CSS outside that removed heading is unchanged. The four radio labels, accessible names, selected values, validation, mode/default scoping, staged draft, cancel/discard protection and save payload are unchanged. Existing FR/HE/EN procedures describe choosing and saving cover/seat tracking, not a duplicated title or these pixel offsets. No translated copy, article, guide screenshot, date, public search or support corpus change is required. No pixel-equivalence claim is made without a Square Covers reference."
+    }
+  ]
+}

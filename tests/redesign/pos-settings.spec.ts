@@ -330,6 +330,23 @@ test('checkout sections share one unsaved profile until Save',async({page})=>{
  expect(writes[0].modes?.[0]).toMatchObject({tile_size:'tall',seating_mode:'coversOnly'});expect(writes[0].seating_mode).toBe('optionalSeats');
 });
 
+for(const [locale,theme,width,id,heading,option,close,cancel,discard]of [
+ ['fr','light',1440,'default','Suivi des couverts et des places','Nombre de couverts uniquement','Fermer','Annuler','Abandonner les modifications'],
+ ['en','light',390,modeId,'Cover and seat tracking','Cover count only','Close','Cancel','Discard changes'],
+ ['he','dark',390,'default','מעקב סועדים ומקומות','מספר סועדים בלבד','סגור','ביטול','ביטול השינויים'],
+]as const)test(`covers heading and draft guard ${locale} ${id==='default'?'defaults':'mode'} ${width}`,async({page},info)=>{
+ const writes=await install(page,locale,theme);await page.setViewportSize({width,height:844});const path=`/1/settings/modes/${id}/covers`;await page.goto(path);
+ const editor=page.locator('.pos-mode-editor'),main=editor.locator('.pos-editor-layout>main'),title=main.getByRole('heading',{name:heading,exact:true});
+ await expect(title).toHaveCount(1);await expect(title).toBeVisible();await expect(main.getByRole('heading')).toHaveCount(1);await expect(main.getByRole('radio')).toHaveCount(4);
+ const original=main.getByRole('radio').nth(id==='default'?2:3),selected=main.getByRole('radio',{name:option,exact:true});await expect(original).toBeChecked();
+ expect(await main.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);await page.screenshot({path:info.outputPath(`covers-heading-${locale}-${width}.png`)});
+ await selected.check();expect(writes).toEqual([]);const exit=editor.locator('.pos-editor-head').getByRole('button',{name:close,exact:true});await exit.click();
+ await expect(page.getByRole('alertdialog')).toBeVisible();await page.getByRole('alertdialog').getByRole('button',{name:cancel,exact:true}).click();
+ await expect(page).toHaveURL(path);await expect(selected).toBeChecked();expect(writes).toEqual([]);
+ await exit.click();await page.getByRole('alertdialog').getByRole('button',{name:discard,exact:true}).click();await expect(page).toHaveURL('/1/settings/modes');
+ await page.goto(path);await expect(original).toBeChecked();await expect(selected).not.toBeChecked();expect(writes).toEqual([]);
+});
+
 test('independent hold/fire and sent-items preferences persist with the assigned mode',async({page},info)=>{
  const writes=await install(page);await page.setViewportSize({width:1440,height:756});await page.goto(`/1/settings/modes/${modeId}/courses`);
  await page.getByRole('switch',{name:'Autoriser la mise en attente et l’envoi des plats',exact:true}).uncheck();
