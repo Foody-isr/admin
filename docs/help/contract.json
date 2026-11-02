@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "520ce790341483d221b38fa2449f8b041687ed76",
+  "documentationRef": "4eb4bfdfeecb72da273b831b20b203df2d641b12",
   "documentationRevision": "d833ebad98b6de4a606274554b0485cd24d64b129a1135a48b77cd5081bbc2d7",
   "articles": {
     "getting-started/first-login": {
@@ -5485,7 +5485,7 @@
       ]
     },
     "src/components/settings/POSSettingsWorkspace.tsx": {
-      "sha256": "bf06ad565c16267ccfc219da4139a1632bbb2d94ec32bff31b5a53c39c41497d",
+      "sha256": "ffe500269ec8d2af9c94cda8795a6fbaff209d5d3af672b5a9c37791a55c3214",
       "features": [
         "order-types",
         "pos-service-modes",
@@ -20487,7 +20487,6 @@
         "fullServiceAutoProgression",
         "fullServiceCoursing",
         "fullServiceInvalid",
-        "fullServiceSeating",
         "fullServiceSort",
         "loading",
         "manage",
