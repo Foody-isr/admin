@@ -25,6 +25,9 @@ import { CustomerPicker } from './CustomerPicker';
 import { CustomerDeliveryFields } from '@/components/customers/CustomerDeliveryFields';
 import type { DraftCustomer } from '@/lib/orders/orderDraft';
 import styles from './order-checkout.module.css';
+import { EventOrderFields } from './EventOrderFields';
+import { eventOrderCopy } from '@/lib/orders/event-order-copy';
+import type { OrderEventConfig } from '@/lib/api';
 import { internalOrderPayment, type InternalPaymentIntent, type InternalPaymentMethod } from '@/lib/orders/internal-order-payment';
 
 export type OrderType = 'pickup' | 'delivery';
@@ -32,6 +35,7 @@ export type OrderType = 'pickup' | 'delivery';
 export type PaymentMethodChoice = InternalPaymentMethod;
 
 export interface CheckoutData {
+  eventConfig?: OrderEventConfig;
   customerName: string;
   customerPhone: string;
   orderType: OrderType;
@@ -67,6 +71,7 @@ export interface DiscountItem {
  *  les frais de livraison en sont volontairement absents : les restaurer
  *  périmés créerait une commande faussement payée ou facturée au mauvais tarif. */
 export interface DrawerDraftState {
+  eventConfig?: OrderEventConfig;
   customer: DraftCustomer;
   linked: CustomerSearchResult | null;
   orderType: OrderType;
@@ -95,15 +100,20 @@ interface NewOrderCheckoutPanelProps {
   itemsSummary?: React.ReactNode;
   sumitCheckoutEnabled?: boolean;
   sumitCardEnabled?: boolean;
+  cateringDetected?: boolean;
 }
 
 /** Finalizes the current basket inline, preserving its draft and explicit payment intent. */
 export function NewOrderCheckoutPanel({
   open, onClose, total, itemCount, submitting, error, onConfirm, batchConfig, defaultDate,
-  restaurantId, discountItems, onStateChange, initialState, itemsSummary, sumitCheckoutEnabled = false, sumitCardEnabled = false,
+  restaurantId, discountItems, onStateChange, initialState, itemsSummary, sumitCheckoutEnabled = false, sumitCardEnabled = false, cateringDetected = false,
 }: NewOrderCheckoutPanelProps) {
   const { money } = useCurrency();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const ec = eventOrderCopy[locale];
+  const [eventConfig,setEventConfig] = useState<OrderEventConfig | undefined>(initialState?.eventConfig);
+  const eventTouched = useRef(false);
+  useEffect(()=>{if(cateringDetected&&!eventTouched.current){setEventConfig(current=>current??{name:"",guests:0,event_date:"",event_time:"",venue:"",contact:"",notes:"",require_guests:true,require_date:true,require_time:true,payment_mode:"full",deposit_type:"percent",deposit_value:30,balance_due_date:""});}},[cateringDetected]);
   const { hasAnyPermission } = usePermissions();
   const canManualDiscount = hasAnyPermission('orders.discount');
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -185,10 +195,10 @@ export function NewOrderCheckoutPanel({
         name: customerName, phone: customerPhone,
         address, city, floor, apt, entryCode, deliveryNotes,
       },
-      linked, orderType, fulfillment,
+      linked, orderType, fulfillment, eventConfig,
     });
   }, [customerName, customerPhone, address, city, floor, apt, entryCode,
-      deliveryNotes, linked, orderType, fulfillment, onStateChange]);
+      deliveryNotes, linked, orderType, fulfillment, eventConfig, onStateChange]);
 
   // ── Discount state ────────────────────────────────────────────────────────
   const discountRequest = useRef(0);
@@ -404,7 +414,9 @@ export function NewOrderCheckoutPanel({
     ((!fulfillment.windowStart && !fulfillment.windowEnd) || (fulfillment.windowStart && fulfillment.windowEnd && fulfillment.windowStart < fulfillment.windowEnd)));
   const manualStarted = canManualDiscount && !appliedCoupon && !appliedManual && !!(manualValue.trim() || manualReason.trim());
   const manualReady = !manualStarted || (Number.isFinite(manualValNum) && manualValNum > 0 && (manualType !== 'percent' || manualValNum <= 100) && !!manualReason.trim());
-  const validationHint = !intent || !capabilityReady || !cardReady ? t('orderCheckoutChoose')
+  useEffect(()=>{if(payMethod==="sumit_card"&&eventConfig?.payment_mode==="none"){setEventConfig(current=>current?{...current,payment_mode:"full"}:current);}},[payMethod,eventConfig?.payment_mode]);
+  const eventInvalid = !!eventConfig && (fulfillment.timing !== "scheduled" || !fulfillment.scheduledFor || (intent !== "link" && (eventConfig.require_guests && !eventConfig.guests || eventConfig.require_date && !eventConfig.event_date || eventConfig.require_time && !eventConfig.event_time)) || hosted && eventConfig.payment_mode === "deposit" && (!Number.isFinite(eventConfig.deposit_value) || eventConfig.deposit_value <= 0 || eventConfig.deposit_type === "percent" && eventConfig.deposit_value >= 100 || eventConfig.deposit_type === "fixed" && eventConfig.deposit_value >= discountedTotal));
+  const validationHint = eventInvalid ? ec.requiredError : !intent || !capabilityReady || !cardReady ? t('orderCheckoutChoose')
     : !fulfillmentReady ? t('orderCheckoutFulfillmentRequired')
     : !contactReady ? t('orderCheckoutContactRequired')
     : !addressReady ? t('orderCheckoutAddressRequired')
@@ -413,7 +425,7 @@ export function NewOrderCheckoutPanel({
     : intent === 'record' && !received ? t('orderCheckoutReceivedRequired') : '';
   const canConfirm = !validationHint && !submitting && !discountValidating && total > 0;
   const showCustomer = intent && (intent !== 'link' || optionalCustomer || customerName || customerPhone);
-  const actionLabel = intent === 'link' ? t('orderCheckoutCreateLink') : intent === 'charge_card' ? t('orderCheckoutOpenCard')
+  const actionLabel = intent === 'link' && eventConfig?.payment_mode === 'none' ? ec.createLink : intent === 'link' ? t('orderCheckoutCreateLink') : intent === 'charge_card' ? t('orderCheckoutOpenCard')
     : intent === 'record' ? t('orderCheckoutRecordAction') : t('createOrder');
   const intents: { key: InternalPaymentIntent; icon: React.ReactNode; label: string; hint: string }[] = [
     ...(sumitCheckoutEnabled ? [{ key: 'link' as const, icon: <LinkIcon />, label: t('orderCheckoutLink'), hint: t('orderCheckoutLinkHint') }] : []),
@@ -457,6 +469,7 @@ export function NewOrderCheckoutPanel({
     if (!canConfirm || !payment) return;
     onConfirm({
       customerName, customerPhone, orderType,
+      eventConfig: eventConfig ? {...eventConfig,payment_mode:hosted?eventConfig.payment_mode:"none"} : undefined,
       address: intent === 'link' ? '' : address, city: intent === 'link' ? '' : city,
       floor: intent === 'link' ? '' : floor, apt: intent === 'link' ? '' : apt,
       entryCode: intent === 'link' ? '' : entryCode, deliveryNotes: intent === 'link' ? '' : deliveryNotes,
@@ -473,6 +486,7 @@ export function NewOrderCheckoutPanel({
     </header>
     <div className="min-h-0 flex-1 overflow-y-auto px-4">
       <fieldset disabled={submitting} className="min-w-0 divide-y divide-[var(--line)]">
+        <section className="space-y-4 py-5"><label className="flex items-center gap-2 text-fs-sm font-semibold"><input type="checkbox" checked={!!eventConfig} onChange={e=>{eventTouched.current=true;setEventConfig(e.target.checked?{name:"",guests:0,event_date:"",event_time:"",venue:"",contact:"",notes:"",require_guests:true,require_date:true,require_time:true,payment_mode:"full",deposit_type:"percent",deposit_value:30,balance_due_date:""}:undefined);}}/>{ec.badge}</label>{eventConfig&&<EventOrderFields value={eventConfig} onChange={setEventConfig} online={payMethod==="link"||payMethod==="sumit_card"} allowNoPayment={payMethod==="link"}/>}</section>
         {itemsSummary && <details className="py-4"><summary className="flex cursor-pointer list-none items-center justify-between text-fs-sm font-medium">{t('orderItems')}<ChevronDownIcon className="size-4" /></summary><div className="pt-3">{itemsSummary}</div></details>}
         <section className="space-y-4 py-5">
           <h3 className="text-fs-sm font-semibold">{t('orderCheckoutFulfillmentTitle')}</h3>
@@ -480,7 +494,7 @@ export function NewOrderCheckoutPanel({
             <ChoiceRow type="radio" name="order-reception" checked={orderType === 'pickup'} onChange={() => setOrderType('pickup')} label={<span className="inline-flex items-center gap-2"><ShoppingBagIcon className="size-4" />{t('pickup')}</span>} />
             <ChoiceRow type="radio" name="order-reception" checked={orderType === 'delivery'} onChange={() => setOrderType('delivery')} label={<span className="inline-flex items-center gap-2"><TruckIcon className="size-4" />{t('delivery')}</span>} />
           </div>
-          <FulfillmentSection serviceLabels orderType={orderType} batchConfig={batchConfig} value={fulfillment} onChange={setFulfillment} />
+          <FulfillmentSection serviceLabels orderType={orderType} batchConfig={eventConfig ? null : batchConfig} value={fulfillment} onChange={setFulfillment} />
         </section>
         <fieldset className="min-w-0 py-5">
           <legend className="float-start mb-2 w-full text-fs-sm font-semibold">{t('orderCheckoutIntent')}</legend>

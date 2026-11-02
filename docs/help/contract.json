@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "a162a2f8e40af7e6e2039af58e8e144d6169063c",
-  "documentationRevision": "5e0e3658f81267a1838aa74b8a105149f5202e2e05be99e763c73706d6a45670",
+  "documentationRef": "18e8a624a4ca14953c1299747cde9eca61cb8b22",
+  "documentationRevision": "92fdc9950c988a40ebebc84786b62cdfc462989a0a9b499e97b159f8a81f7593",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -430,15 +430,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/managing-orders.mdx",
-          "sha256": "5ba772ec300a0ed108c2a31cfa7bd0fbdd656430824a3b14f93e8f9bf6859158"
+          "sha256": "8453d15eee39f0c84c6e2331efda68bce0055edf480b9415c30de07853b7b7ad"
         },
         "fr": {
           "path": "src/content/help/fr/orders/managing-orders.mdx",
-          "sha256": "676d9c9704c80ce03b0e6c5a82efad7bd34a99b3bf6525c724c6c3b4b43372d8"
+          "sha256": "8d39e295fbbc0c35a00e9be4c538fd1eb16f9203dafc0dcc1ec6637bf4616259"
         },
         "he": {
           "path": "src/content/help/he/orders/managing-orders.mdx",
-          "sha256": "0e35a1839f20dc586e499cd3caa48aebeca1b250199c4368a465cd8d36d76363"
+          "sha256": "96876cf4ae59eecdac2097db2849ad5ab5be4829997d8b981e764ce1dbdf34a9"
         }
       }
     },
@@ -525,15 +525,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/order-types.mdx",
-          "sha256": "d6ad0e061edfafa45d504e23f1f02d573c40324a953825e6d7ed4dbfbb6fb7e7"
+          "sha256": "3bca964b3d33be6b9a47363cb26a39cdc9fb3fb6b15216d5d40a091dd578bc7b"
         },
         "fr": {
           "path": "src/content/help/fr/orders/order-types.mdx",
-          "sha256": "c37980973d8a17504b182a7c30a978a7afb5ecc23c7b76426f44c0923ca2d179"
+          "sha256": "c9a114749c2a319660a1b37ff7a60f137993a266298a0c799ad0790c967934fd"
         },
         "he": {
           "path": "src/content/help/he/orders/order-types.mdx",
-          "sha256": "2e515596cf6b2a789bc6d1db620e61af1261551c553d36049730c4268bdcf109"
+          "sha256": "bf711b5c989038d05b2adaa04a2da89be534669434a55c7c6f988f4bcb2a3cf8"
         }
       }
     },
@@ -544,15 +544,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/taking-an-order-pos.mdx",
-          "sha256": "5d99da0e5c1d45fcf4278d0623dd4e8d8d315db144c9a4b8a3b87e3b0e2a90a4"
+          "sha256": "3d1e94622d8c77239184cc6ba8c98a6c9bb877f983ae4f91e263d920a17e2a3e"
         },
         "fr": {
           "path": "src/content/help/fr/orders/taking-an-order-pos.mdx",
-          "sha256": "b20902250e5c7bccfe706bf6c0a3950f96b3515cff70d873be00f533feff6e18"
+          "sha256": "c64be735e06822208748681eb2316b18470cdaea2c998c12163797b8e3dbdd60"
         },
         "he": {
           "path": "src/content/help/he/orders/taking-an-order-pos.mdx",
-          "sha256": "6a68992b206fd5ed4fd529918df7b4f94a91999cf279eb8afb77e6cdedc80e24"
+          "sha256": "f181c044ce7b921eb6b0b97150e5730ffc6653db4b0e3f4ebfc5ab1e7e4ea97e"
         }
       }
     },
@@ -563,15 +563,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/service-mode.mdx",
-          "sha256": "e818802e6815eb5f8b31c12bead0866db1260f4a3033aa70e42fc7fabfe231e3"
+          "sha256": "8d52052d32d589badf83b016159bd62183c2574c10c1aab11ae3e21dd71484b5"
         },
         "fr": {
           "path": "src/content/help/fr/settings/service-mode.mdx",
-          "sha256": "5334337a75b350ea1df237eb8ac6e0fc471bd77522d6b3ef2dbf24e962ea5545"
+          "sha256": "cdd5f9fa5e63c24c6a44d0fb1411504e7b6948788f61279d26f202705c19813b"
         },
         "he": {
           "path": "src/content/help/he/settings/service-mode.mdx",
-          "sha256": "8097fee03d3976ce240185c6b782fbaf4eafcc38f1ef3f476fecd75e2adfa714"
+          "sha256": "2482f2cc0f70ec46c0b8f52fffd8d0c6c0b53a7f67207a797ec6a774a80b5a93"
         }
       }
     },
@@ -620,15 +620,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/order-details.mdx",
-          "sha256": "461966ee287d0d4095ca3b98207db6f137a146336929ac4758f787682e7253eb"
+          "sha256": "f6d907831fbd5726e02b8c0862c2296a6cd75ac5bb9f69b25d5dd6c0c207f828"
         },
         "fr": {
           "path": "src/content/help/fr/orders/order-details.mdx",
-          "sha256": "f146c13cb0a973b8a70fc650d1d89df9db11ab1fb20fad02cd190b0408b8ff44"
+          "sha256": "528e39b50d267b032a29b099acd850fb56e4b9ee07c23face0662273a4815787"
         },
         "he": {
           "path": "src/content/help/he/orders/order-details.mdx",
-          "sha256": "7b73415baa21dfbed530547e2bebf55e92fbbf3ad41ada2804da6b54a24c83c9"
+          "sha256": "f7782ef97c4f5f59bf834b39f888ed20881f615ed0076a2defcb84ceec19d704"
         }
       }
     },
@@ -677,15 +677,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/production-planning.mdx",
-          "sha256": "87b9d0f14c56bb501ee6abaa6a9f4837aad3fe22d2e256efa89137c39ef4e921"
+          "sha256": "7ef87374498f3a90b12bf6c62640bdf2a44173780bdcb925c5e7601ca52d3aea"
         },
         "fr": {
           "path": "src/content/help/fr/orders/production-planning.mdx",
-          "sha256": "c06528f00c507a5cd702d3db97e89baa88a862f1c9c6a2be161e1ccd0011a3c5"
+          "sha256": "bfbddb63ff96a52228d783df0813859dfcf715220a2eef2761dde7f1eebd9ea3"
         },
         "he": {
           "path": "src/content/help/he/orders/production-planning.mdx",
-          "sha256": "294e38afbb96d7bfa87ff1a524527fa1c5fae41d168687bc62d2839103dbb517"
+          "sha256": "6a9c3e00d54adf6b0b68895713b7982f0ac3d011336bafd07718fc54679fffe4"
         }
       }
     },
@@ -1323,15 +1323,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/pos-workspace.mdx",
-          "sha256": "3833be0b0837df13d827cc86b93e80fbc5588f02f6815a5f58c81602f813d2c4"
+          "sha256": "9b5dc4a360547945597bab95b0719e1bdd723cc664e42d84bdcd609093e41ba7"
         },
         "fr": {
           "path": "src/content/help/fr/settings/pos-workspace.mdx",
-          "sha256": "f438e83914eaadf851b049084f2ed7140afbb9f5e347e13e4590bcdfbacb299a"
+          "sha256": "2b45debda0419d50e53548a17c0fcf244060942c493527a574765760c566b73c"
         },
         "he": {
           "path": "src/content/help/he/settings/pos-workspace.mdx",
-          "sha256": "5a38c84c5bae1e6a0379b94bc27a957def3998d4c5970213ed3119fab04ff9e3"
+          "sha256": "07d0617a8ddfc020cf1698b0b70433a12690cad35d9b3aa50f6a8c22a73073b8"
         }
       }
     },
@@ -1969,15 +1969,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/internal-sumit-checkout.mdx",
-          "sha256": "b817e4b8e0d21f2066fd222bdf5664a54d461af66046d08a39b9cd3f2e51428f"
+          "sha256": "94a9d135097e9f2bbb4e5f21eb3f5c7881d5383cb9fa4b44213811c573337276"
         },
         "fr": {
           "path": "src/content/help/fr/orders/internal-sumit-checkout.mdx",
-          "sha256": "6ea2dcbaa3eefedea56630c0fadfd49f15dfb9d1c98e527f6f42e025358c12b1"
+          "sha256": "81e7a82086ee321eb22423eeb09001ceb30d089fbb40f35f122255970392f904"
         },
         "he": {
           "path": "src/content/help/he/orders/internal-sumit-checkout.mdx",
-          "sha256": "8ab63c076dbec1a905753143339e923868ceaf969cbeda93e7b4c186adddd75a"
+          "sha256": "dfba7e7a01bbf60cc4079f4b37040af8a4ada8fabd15126bdc11e1e02ea2636c"
         }
       }
     },
@@ -2016,6 +2016,25 @@
         "he": {
           "path": "src/content/help/he/payments/end-of-day.mdx",
           "sha256": "07fbdbdcb81e65e574395720f69e6a2640d73f7ed04aea8c3f8f8c994f6c0bf0"
+        }
+      }
+    },
+    "orders/event-orders": {
+      "feature": "orders-events",
+      "audience": "public",
+      "status": "available",
+      "translations": {
+        "en": {
+          "path": "src/content/help/en/orders/event-orders.mdx",
+          "sha256": "f1015ef21e05aeb1c60b9dab501e48957c8717edd96d7093d6f4252372ec75ee"
+        },
+        "fr": {
+          "path": "src/content/help/fr/orders/event-orders.mdx",
+          "sha256": "e089f3212f48850be0c2db107ee109fee656ad6143880764f24d69cf6d7261fe"
+        },
+        "he": {
+          "path": "src/content/help/he/orders/event-orders.mdx",
+          "sha256": "de94b60fcfc5f06e7eda012d05118b8e33870430308ac179fc6c3a2d0c1f0bfe"
         }
       }
     }
@@ -2966,11 +2985,12 @@
       ]
     },
     "src/app/[restaurantId]/orders/new/page.tsx": {
-      "sha256": "0d55ca3846a2025a5cdcf3c25e105c7191bb61ed8046e17e5cf37049c02bf783",
+      "sha256": "6a5fe61fcc9c2302cb7ed68861a51e39bd92d40b4cb80740317aa7df58a6a908",
       "features": [
         "orders-managing-orders",
         "order-detail",
-        "orders-internal-sumit-checkout"
+        "orders-internal-sumit-checkout",
+        "orders-events"
       ]
     },
     "src/app/[restaurantId]/orders/page.tsx": {
@@ -2980,10 +3000,11 @@
       ]
     },
     "src/app/[restaurantId]/orders/production/page.tsx": {
-      "sha256": "6ff39922f99fbbd24506d8a041628ca32ff6477179c116d02b8888b98dbac368",
+      "sha256": "1474b4c50b37c7f57e731fb4e63d96a7dfdbc71ddcc5d0d55163150394d3c208",
       "features": [
         "orders-managing-orders",
-        "production"
+        "production",
+        "orders-events"
       ]
     },
     "src/app/[restaurantId]/restaurant/floor-plans/[planId]/editor.module.css": {
@@ -4935,9 +4956,10 @@
       ]
     },
     "src/components/menu/publication/CarteEditor.tsx": {
-      "sha256": "c8b6a817bb82f05f10cb9dc44b7b404839eec835ce3526b1b9a98695990fc627",
+      "sha256": "027f54ebbd513b1c6f3c9d6968b48a53877f078c62d438b25c9d856927e77d14",
       "features": [
-        "menu-menus-and-groups"
+        "menu-menus-and-groups",
+        "orders-events"
       ]
     },
     "src/components/menu/publication/CarteGroups.tsx": {
@@ -5052,6 +5074,24 @@
         "order-detail"
       ]
     },
+    "src/components/orders/EventOrderBadge.tsx": {
+      "sha256": "caeebc78d64fbe356999ce52889c9e0e26036c0285b2bc4967b543c3f0649e06",
+      "features": [
+        "orders-events"
+      ]
+    },
+    "src/components/orders/EventOrderFields.tsx": {
+      "sha256": "6541fd2567d1878bb93524ece4fd57e1abb91bac2df863c6b604ff3596ba1fcd",
+      "features": [
+        "orders-events"
+      ]
+    },
+    "src/components/orders/EventOrderSummary.tsx": {
+      "sha256": "c27792de777b82b305b685de2006aec66ed5f0bb4a6635508260a0f3b1eb6232",
+      "features": [
+        "orders-events"
+      ]
+    },
     "src/components/orders/FulfillmentSection.tsx": {
       "sha256": "dfa596cf1c4954a4eef3ccb707f646c12606f0a38b3b817ed05550afb7ffa385",
       "features": [
@@ -5060,19 +5100,21 @@
       ]
     },
     "src/components/orders/InternalOrderPayment.tsx": {
-      "sha256": "36c5582c16174f7b3e647678d7614a7c6aefd1fb956646ae2780189dbc134b41",
+      "sha256": "dcbfd7131a141b226b9f65103eab87e2ae02384891f8044e59c6c5f54f4a6c7e",
       "features": [
         "orders-managing-orders",
         "order-detail",
-        "orders-internal-sumit-checkout"
+        "orders-internal-sumit-checkout",
+        "orders-events"
       ]
     },
     "src/components/orders/NewOrderCheckoutPanel.tsx": {
-      "sha256": "f735e2561413af649fcbeaeece474fc7f368c5a1bd1ce6592569959a8e08cf36",
+      "sha256": "2754f0218a1b640815de99a2c029b740da79056ce4cc544fde66a4ec49d038e4",
       "features": [
         "orders-managing-orders",
         "order-detail",
-        "orders-internal-sumit-checkout"
+        "orders-internal-sumit-checkout",
+        "orders-events"
       ]
     },
     "src/components/orders/NewOrderComboModal.tsx": {
@@ -5084,11 +5126,12 @@
       ]
     },
     "src/components/orders/NewOrderItemModal.tsx": {
-      "sha256": "4555353860e16c37f2d259278c342f34a431f52f93ddc4d44e634ed8acb7ca0c",
+      "sha256": "8189e90d748dd535d1df1b750c2d5784b4b0ec7aead04332daad3d26db6bbd5b",
       "features": [
         "menu-variants-and-sizes",
         "orders-managing-orders",
-        "order-detail"
+        "order-detail",
+        "orders-events"
       ]
     },
     "src/components/orders/OrderColumnPicker.tsx": {
@@ -5172,19 +5215,21 @@
       ]
     },
     "src/components/orders/detail/OrderDetailHead.tsx": {
-      "sha256": "0fedea5cdbc56d3152737461f93dca28a52bd6aead29b51e5475ef1cace328f6",
+      "sha256": "d48635635894803db870087c5f68be0a77e835875aee82c3ef54f8819bf3b4cb",
       "features": [
         "orders-managing-orders",
         "order-detail",
         "order-lifecycle",
-        "orders-internal-sumit-checkout"
+        "orders-internal-sumit-checkout",
+        "orders-events"
       ]
     },
     "src/components/orders/detail/OrderDetailModal.tsx": {
-      "sha256": "866680d57c1a7cfbb0a76582a8a003f60488dfdf0c2ab2e3b653bf89482fdedd",
+      "sha256": "58509228bee97b6fc6c856f722db82c722728935a61c0582a4d7af01cb4a9720",
       "features": [
         "orders-managing-orders",
-        "order-detail"
+        "order-detail",
+        "orders-events"
       ]
     },
     "src/components/orders/detail/OrderDetailShell.tsx": {
@@ -5399,15 +5444,17 @@
       ]
     },
     "src/components/production/ProductionMatrix.tsx": {
-      "sha256": "523597b2cff35e72ddd291be799a7c8a923448bf536aed43d2d88ba974906efa",
+      "sha256": "8b20be80e09c20c5b70e909b28d721888f2100da08ae5b24cf160ef4a243fa8b",
       "features": [
-        "production"
+        "production",
+        "orders-events"
       ]
     },
     "src/components/production/ProductionMobile.tsx": {
-      "sha256": "950bcf5ef23ece920ab7b16e781a1b5bb92fb05e0e71d22494ea9a2b3c29c507",
+      "sha256": "7dcdcc49fb5d6ee94d48449c59ac56dbebf48cd70a98316697759618775d32bf",
       "features": [
-        "production"
+        "production",
+        "orders-events"
       ]
     },
     "src/components/production/ProductionOrderDetail.tsx": {
@@ -6347,7 +6394,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "d35f9a77a384cf7f518be782ca8b39c2a4366e3eff77affd6afd8ddd1a4ffbd8",
+      "sha256": "1b56c6d57e6f7cce43eb4dead8a02c4ee55381d47f7fe8c2b625c818a7f869ac",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6357,7 +6404,8 @@
         "shared-runtime",
         "menu-product-photos",
         "orders-internal-sumit-checkout",
-        "stancer-cash-guarantee"
+        "stancer-cash-guarantee",
+        "orders-events"
       ]
     },
     "src/lib/auth-context.tsx": {
@@ -6722,10 +6770,17 @@
       ]
     },
     "src/lib/orders/draftLines.ts": {
-      "sha256": "57a261e5e6ed0d5767609f3d8e01518da5f798fffdd8a4489c494a326175a22d",
+      "sha256": "de666981bb50b78788447e6264a5dcfc587601e988f8d9a61de7a1aa3402cf11",
       "features": [
         "order-detail",
-        "shared-runtime"
+        "shared-runtime",
+        "orders-events"
+      ]
+    },
+    "src/lib/orders/event-order-copy.ts": {
+      "sha256": "1572329a23a94c3065573991711e0a76564542df828cd3a08ff5d82b678218bb",
+      "features": [
+        "orders-events"
       ]
     },
     "src/lib/orders/format-weight.ts": {
@@ -6827,10 +6882,11 @@
       ]
     },
     "src/lib/orders/orderDraft.ts": {
-      "sha256": "d87e33b0bbc150312904c73a2e8e8ebef1e745f406a1431ec6037ebf4c43a25e",
+      "sha256": "57840d057bb45499e6a01198f2917d423e1e24a95474743f6b780e07f5f1618e",
       "features": [
         "order-detail",
-        "shared-runtime"
+        "shared-runtime",
+        "orders-events"
       ]
     },
     "src/lib/orders/orders-list-preferences.ts": {
@@ -6871,10 +6927,11 @@
       ]
     },
     "src/lib/orders/table-columns.tsx": {
-      "sha256": "f20daa879122bec745796ee1b7002dd36698052dace59e97b341bd28b076cc55",
+      "sha256": "87b9d4402ba9447a19536ff1e73b8a362aef26a6044568c8c999b9109ac53cfc",
       "features": [
         "order-detail",
-        "shared-runtime"
+        "shared-runtime",
+        "orders-events"
       ]
     },
     "src/lib/orders/twilio-templates.ts": {
@@ -11705,7 +11762,8 @@
       "features": [
         "orders-managing-orders",
         "order-detail",
-        "orders-internal-sumit-checkout"
+        "orders-internal-sumit-checkout",
+        "orders-events"
       ],
       "route": "/[restaurantId]/orders/new"
     },
@@ -11717,7 +11775,8 @@
       "features": [
         "orders-managing-orders",
         "order-detail",
-        "orders-internal-sumit-checkout"
+        "orders-internal-sumit-checkout",
+        "orders-events"
       ],
       "labels": [
         "all",
@@ -11779,7 +11838,8 @@
       "line": 1,
       "features": [
         "orders-managing-orders",
-        "production"
+        "production",
+        "orders-events"
       ],
       "route": "/[restaurantId]/orders/production"
     },
@@ -11790,7 +11850,8 @@
       "line": 1,
       "features": [
         "orders-managing-orders",
-        "production"
+        "production",
+        "orders-events"
       ],
       "labels": [
         "productionDisplay",
@@ -18399,7 +18460,8 @@
       "source": "src/components/menu/publication/CarteEditor.tsx",
       "line": 1,
       "features": [
-        "menu-menus-and-groups"
+        "menu-menus-and-groups",
+        "orders-events"
       ],
       "labels": [
         "add",
@@ -18909,6 +18971,35 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/orders/EventOrderFields.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/orders/EventOrderFields.tsx",
+      "line": 1,
+      "features": [
+        "orders-events"
+      ],
+      "labels": [],
+      "actions": [
+        "update"
+      ]
+    },
+    {
+      "id": "foodyadmin:src/components/orders/EventOrderSummary.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/orders/EventOrderSummary.tsx",
+      "line": 1,
+      "features": [
+        "orders-events"
+      ],
+      "labels": [
+        "generateBalanceLink",
+        "loading",
+        "noPaymentUrl",
+        "paymentLink"
+      ],
+      "actions": []
+    },
+    {
       "id": "foodyadmin:src/components/orders/FulfillmentSection.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/orders/FulfillmentSection.tsx",
@@ -18939,7 +19030,8 @@
       "features": [
         "orders-managing-orders",
         "order-detail",
-        "orders-internal-sumit-checkout"
+        "orders-internal-sumit-checkout",
+        "orders-events"
       ],
       "labels": [
         "goToOrders",
@@ -18967,7 +19059,8 @@
       "features": [
         "orders-managing-orders",
         "order-detail",
-        "orders-internal-sumit-checkout"
+        "orders-internal-sumit-checkout",
+        "orders-events"
       ],
       "labels": [
         "addToProduction",
@@ -19067,7 +19160,8 @@
       "features": [
         "menu-variants-and-sizes",
         "orders-managing-orders",
-        "order-detail"
+        "order-detail",
+        "orders-events"
       ],
       "labels": [
         "addToOrder",
@@ -19516,7 +19610,8 @@
         "orders-managing-orders",
         "order-detail",
         "order-lifecycle",
-        "orders-internal-sumit-checkout"
+        "orders-internal-sumit-checkout",
+        "orders-events"
       ],
       "labels": [
         "close",
@@ -19538,7 +19633,8 @@
       "line": 1,
       "features": [
         "orders-managing-orders",
-        "order-detail"
+        "order-detail",
+        "orders-events"
       ],
       "labels": [
         "activity",
@@ -20098,7 +20194,8 @@
       "source": "src/components/production/ProductionMatrix.tsx",
       "line": 1,
       "features": [
-        "production"
+        "production",
+        "orders-events"
       ],
       "labels": [
         "productionClient",
@@ -20116,7 +20213,8 @@
       "source": "src/components/production/ProductionMobile.tsx",
       "line": 1,
       "features": [
-        "production"
+        "production",
+        "orders-events"
       ],
       "labels": [
         "productionDoneDivider",
@@ -24807,7 +24905,8 @@
         "shared-runtime",
         "menu-product-photos",
         "orders-internal-sumit-checkout",
-        "stancer-cash-guarantee"
+        "stancer-cash-guarantee",
+        "orders-events"
       ],
       "labels": [],
       "actions": [
@@ -25341,7 +25440,8 @@
       "line": 1,
       "features": [
         "order-detail",
-        "shared-runtime"
+        "shared-runtime",
+        "orders-events"
       ],
       "labels": [],
       "actions": [
@@ -25391,7 +25491,8 @@
       "line": 1,
       "features": [
         "order-detail",
-        "shared-runtime"
+        "shared-runtime",
+        "orders-events"
       ],
       "labels": [
         "balanceRemainingShort",

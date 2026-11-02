@@ -5,13 +5,15 @@ import { getOrder, payInternalCheckout, getInternalCheckoutCapabilities, type Or
 import { useI18n } from '@/lib/i18n';
 import { Button } from '@/components/ds';
 import { usePermissions } from '@/lib/permissions-context';
+import { eventOrderCopy } from '@/lib/orders/event-order-copy';
 import { RUNTIME_WEB_URL } from '@/lib/runtime-origins';
 
 /** Collects card details inside Sumit's hosted frame and trusts only API settlement. */
 export function InternalOrderPayment({ restaurantId, orderId, receiptToken, onOrders, autoOpen = false }: {
   restaurantId: number; orderId: number; receiptToken: string; onOrders: () => void; autoOpen?: boolean;
 }) {
-  const { t } = useI18n();
+  const { t,locale } = useI18n();
+  const [deposit,setDeposit]=useState(false);
   const [url, setURL] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [paid, setPaid] = useState(false);
@@ -26,6 +28,7 @@ export function InternalOrderPayment({ restaurantId, orderId, receiptToken, onOr
       try {
         const order = await getOrder(restaurantId, orderId);
         if (stopped) return;
+        if(order.payment_status==='partially_paid'&&order.event_config?.finalized_at&&(order.external_metadata?.internal_checkout as {phase?:string})?.phase==='completed'){setDeposit(true);setPaid(true);return;}
         if (order.payment_status === 'paid') { setPaid(true); return; }
         if (['cancelled', 'rejected', 'refunded'].includes(order.status)) { setClosed(true); return; }
       } catch { if (!stopped) setError(true); }
@@ -57,7 +60,7 @@ export function InternalOrderPayment({ restaurantId, orderId, receiptToken, onOr
   }, [autoOpen, openPayment]);
 
   return <section className="mx-auto flex w-full max-w-3xl flex-col gap-4 py-6">
-    <h1 className="text-fs-xl font-semibold">{t(paid ? 'sumitPaymentConfirmed' : 'sumitAdminCard')}</h1>
+    <h1 className="text-fs-xl font-semibold">{deposit?eventOrderCopy[locale].depositConfirmed:t(paid ? 'sumitPaymentConfirmed' : 'sumitAdminCard')}</h1>
     <p className="text-fs-sm text-[var(--fg-muted)]">{t('sumitAdminCardHint')}</p>
     <p className="text-fs-sm">{t('orderNumber').replace('{id}', String(orderId))}</p>
     {error && <p role="alert" className="text-[var(--danger-500)]">{t('sumitPaymentError')}</p>}

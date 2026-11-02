@@ -31,6 +31,7 @@ import {
 import {
   NewOrderCheckoutPanel, type CheckoutData, type DrawerDraftState,
 } from '@/components/orders/NewOrderCheckoutPanel';
+import { eventOrderCopy } from '@/lib/orders/event-order-copy';
 import { InternalOrderPayment } from '@/components/orders/InternalOrderPayment';
 import { NewOrderComboModal } from '@/components/orders/NewOrderComboModal';
 import {
@@ -86,7 +87,7 @@ function hasOptions(it: MenuItem): boolean {
 
 export default function NewOrderPage() {
   const { money } = useCurrency();
-  const { t, direction } = useI18n();
+  const { t, direction, locale } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canManage = hasAnyPermission('orders.manage');
   const { collapsed, toggleCollapsed } = useSidebar();
@@ -146,6 +147,7 @@ export default function NewOrderPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [eventLink,setEventLink] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [sumitCheckoutEnabled, setSumitCheckoutEnabled] = useState(false);
@@ -231,7 +233,7 @@ export default function NewOrderPage() {
     setDraftPrices(new Map(rehydrated.map((r) => [r.line.uid, r.unitPriceAtDraft])));
     setRestoredState({
       customer: draft.customer, linked: draft.linked,
-      orderType: draft.orderType, fulfillment: draft.fulfillment,
+      orderType: draft.orderType, fulfillment: draft.fulfillment, eventConfig: draft.eventConfig,
     });
     setDraftRestored(true);
   }, [loading, itemMap, restaurantId]);
@@ -282,6 +284,7 @@ export default function NewOrderPage() {
         linked: drawerState?.linked ?? null,
         orderType: drawerState?.orderType ?? 'pickup',
         fulfillment: drawerState?.fulfillment ?? { timing: 'immediate' },
+        eventConfig: drawerState?.eventConfig,
       });
     }, 500);
     saveTimerRef.current = timer;
@@ -429,20 +432,20 @@ export default function NewOrderPage() {
     setDraftRestored(false);
     setLines((prev) => {
       const idx = prev.findIndex(
-        (l) => l.item.id === full.id && !l.selectedVariantId && l.modifiers.length === 0 && !l.notes,
+        (l) => l.sourceMenuId === (typeof activeMenuId === "number" ? activeMenuId : undefined) && l.item.id === full.id && !l.selectedVariantId && l.modifiers.length === 0 && !l.notes,
       );
       if (idx >= 0) {
         const next = [...prev];
         next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 };
         return next;
       }
-      return [...prev, { uid: uid(), item: full, quantity: 1, notes: '', modifiers: [] }];
+      return [...prev, { uid: uid(), item: full, sourceMenuId: typeof activeMenuId === 'number' ? activeMenuId : undefined, quantity: 1, notes: '', modifiers: [] }];
     });
   }
 
   function addLine(line: NewOrderLine) {
     setDraftRestored(false);
-    setLines((prev) => [...prev, line]);
+    setLines((prev) => [...prev, {...line,sourceMenuId:typeof activeMenuId === "number"?activeMenuId:undefined}]);
   }
 
   function changeQty(lineUid: string, delta: number) {
@@ -542,6 +545,7 @@ export default function NewOrderPage() {
 
       const res = await createOrder(restaurantId, {
         order_type: data.orderType,
+        event_config: data.eventConfig,
         customer_name: data.customerName.trim(),
         customer_phone: data.customerPhone.trim(),
         payment_method: paymentMethod,
@@ -571,6 +575,7 @@ export default function NewOrderPage() {
         items: lines
           .filter((l) => l.comboItemId == null)
           .map((l) => ({
+            source_menu_id: l.sourceMenuId,
             menu_item_id: l.item.id,
             quantity: l.quantity,
             selected_variant_id: l.selectedVariantId,
@@ -585,6 +590,7 @@ export default function NewOrderPage() {
           .flatMap((l) =>
             Array.from({ length: l.quantity }, () => ({
               combo_item_id: l.comboItemId as number,
+              source_menu_id: l.sourceMenuId,
               selections: (l.comboSelections ?? []).map((s) => ({
                 step_id: s.stepId,
                 menu_item_id: s.menuItemId,
@@ -619,6 +625,7 @@ export default function NewOrderPage() {
       if (data.paymentMethod === 'sumit_card' && res.order.receipt_token) {
         setCardOrder({ id: res.order.id, token: res.order.receipt_token });
       } else if (res.checkout_url || res.payment_url) {
+        setEventLink(data.eventConfig?.payment_mode === "none");
         setPaymentUrl(res.checkout_url || res.payment_url || null);
       } else {
         router.push(`/${restaurantId}/orders/all`);
@@ -663,9 +670,9 @@ export default function NewOrderPage() {
             <CheckIcon className="size-6" />
           </span>
           <div className="flex flex-col items-center gap-[var(--s-2)]">
-            <Badge tone="warning" dot>{t('orderCheckoutPaymentPending')}</Badge>
-            <h1 className="text-fs-xl font-semibold">{t('paymentLinkReady')}</h1>
-            <p className="text-fs-sm text-[var(--fg-muted)]">{t('sumitCustomerLinkHint')}</p>
+            <Badge tone="warning" dot>{eventLink?eventOrderCopy[locale].awaitingDetails:t('orderCheckoutPaymentPending')}</Badge>
+            <h1 className="text-fs-xl font-semibold">{eventLink?eventOrderCopy[locale].linkReady:t('paymentLinkReady')}</h1>
+            <p className="text-fs-sm text-[var(--fg-muted)]">{eventLink?eventOrderCopy[locale].clientHint:t('sumitCustomerLinkHint')}</p>
           </div>
           <p className="w-full break-all select-all rounded-lg border border-[var(--line)] bg-[var(--surface-2)] p-3 text-start text-fs-xs text-[var(--fg-muted)]">{paymentUrl}</p>
           <Button size="lg" className="w-full" onClick={copyPaymentUrl}>
@@ -1017,6 +1024,7 @@ export default function NewOrderPage() {
           </div>
           </div>
       <NewOrderCheckoutPanel
+        cateringDetected={lines.some(line=>menus.some(menu=>menu.id===line.sourceMenuId&&menu.is_catering))}
         sumitCheckoutEnabled={sumitCheckoutEnabled}
         sumitCardEnabled={sumitCheckoutEnabled && hasAnyPermission('payments.manage')}
         key={drawerResetKey}

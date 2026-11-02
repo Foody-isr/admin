@@ -12,6 +12,7 @@ import type { AcceptOrderResult, CheckoutConfig, Order } from '@/lib/api';
 
 import { LifecycleOperations } from './LifecycleOperations';
 import { OrderDetailShell } from './OrderDetailShell';
+import { EventOrderSummary } from '../EventOrderSummary';
 import { OrderDetailHead, OrderDetailSummary, OrderDetailLoadingHead } from './OrderDetailHead';
 import { CommandBar } from './CommandBar';
 import { OrderOverflowMenu } from './menus/OrderOverflowMenu';
@@ -242,6 +243,7 @@ export function OrderDetailModal({
         summary={<OrderDetailSummary order={order} isCancelled={caps.isCancelled} onRetry={onRetry} />}
         center={
           <>
+            <EventOrderSummary key={order.id} order={order}/>
             {/* Alerts head the ticket, and TicketItems opens with its own
                 settlement banners, so the whole alarm stack stays contiguous. */}
             {!canManage && order.delivery_slot_pending && <p role="status" className="mb-4 text-fs-sm">{t('deliverySlotPending')}</p>}
