@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "4eb4bfdfeecb72da273b831b20b203df2d641b12",
-  "documentationRevision": "d833ebad98b6de4a606274554b0485cd24d64b129a1135a48b77cd5081bbc2d7",
+  "documentationRef": "a162a2f8e40af7e6e2039af58e8e144d6169063c",
+  "documentationRevision": "5e0e3658f81267a1838aa74b8a105149f5202e2e05be99e763c73706d6a45670",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -430,15 +430,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/managing-orders.mdx",
-          "sha256": "40e6503f61974c3ff2275a4e7bdd9601bf2489b309b1391643a7adc07216083a"
+          "sha256": "5ba772ec300a0ed108c2a31cfa7bd0fbdd656430824a3b14f93e8f9bf6859158"
         },
         "fr": {
           "path": "src/content/help/fr/orders/managing-orders.mdx",
-          "sha256": "aded752b13991fc97e0e9530d5ae5e93ca7885f0d9f809dd3fd6b6f09ea5f5c2"
+          "sha256": "676d9c9704c80ce03b0e6c5a82efad7bd34a99b3bf6525c724c6c3b4b43372d8"
         },
         "he": {
           "path": "src/content/help/he/orders/managing-orders.mdx",
-          "sha256": "c3b811ba413055e5be8b8ab9662b412c7acc78456c20d2b2a4318ff749433d49"
+          "sha256": "0e35a1839f20dc586e499cd3caa48aebeca1b250199c4368a465cd8d36d76363"
         }
       }
     },
@@ -525,15 +525,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/order-types.mdx",
-          "sha256": "dcd5ec656be0e7acd2684b16daf3f51cc993c8f5940dd1c7e73be6b231d862e0"
+          "sha256": "d6ad0e061edfafa45d504e23f1f02d573c40324a953825e6d7ed4dbfbb6fb7e7"
         },
         "fr": {
           "path": "src/content/help/fr/orders/order-types.mdx",
-          "sha256": "f9cec735d920a24e1a8d219a9c23ff155ab5b109265a2ebed2e426582d0f496a"
+          "sha256": "c37980973d8a17504b182a7c30a978a7afb5ecc23c7b76426f44c0923ca2d179"
         },
         "he": {
           "path": "src/content/help/he/orders/order-types.mdx",
-          "sha256": "7c078ac8940363fcd4ba401a9ab1d5dd86fef0539ffe0f7e0d867fbdb0fd6f40"
+          "sha256": "2e515596cf6b2a789bc6d1db620e61af1261551c553d36049730c4268bdcf109"
         }
       }
     },
@@ -1779,15 +1779,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "9b02c89b3377be03d7c3b21fbf7fff8bec29bb06ea84c6e2433838201682b097"
+          "sha256": "0594891faee34a35f8e2b8511ab6036311ba7220e01fa3047b0c5860d8b50091"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "b612001adcf0df592e5948f868e2e33e45a9ed0cbea345700684e42d7c4504f6"
+          "sha256": "8e932ad5193b4201103d7c914c0f4fc023cbd82aa01b21a0a74423ec4ca08a90"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "440e5f98c2b7742e09a656cfc20e5b6695cad6853d56a885b2e963c40b5e0578"
+          "sha256": "745dd3ecb7a1978ce3d1a6a43e9a30c3402b83154d43e0731c5443600a6b49ae"
         }
       }
     },
@@ -1950,15 +1950,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/payment-preparation-and-handoff.mdx",
-          "sha256": "08049682761f04cff7a1e499f46552bc23d710622d88791190154696864130d9"
+          "sha256": "f23430d7f21e63711da760d3bd4291caf8334c71b61554c30c09f127b406b881"
         },
         "fr": {
           "path": "src/content/help/fr/orders/payment-preparation-and-handoff.mdx",
-          "sha256": "267b5d4e4ca9a5ec21043e8fb1982991457710cca43ed56b3d8ef4f32660c760"
+          "sha256": "3deb0bde51c3440bb664b633f9b04535afc278ddb13ea4bf9b3f6cd9d39cba7a"
         },
         "he": {
           "path": "src/content/help/he/orders/payment-preparation-and-handoff.mdx",
-          "sha256": "99f029a7616b84767baf6b8a7c3c6b364cf99f25804a28f0582574535a85537b"
+          "sha256": "90b197e4ea2eb0b92e4d5b579ecda9ce1006ce0024b55f4d62f045d06fa5cc34"
         }
       }
     },

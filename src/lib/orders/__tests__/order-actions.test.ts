@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { deriveOrderCapabilities, orderHandoffKind, type PrimaryAction } from "@/lib/orders/order-actions";
 import type { Order } from "@/lib/api";
+import type { OrderLifecycleV2 } from "@/lib/orders/lifecycle-v2";
 
 const SERVER_STATUSES = [
   "scheduled",
@@ -365,4 +366,33 @@ test("an active cash guarantee keeps its order and journal intact", () => {
 test("an uncertain cash guarantee debit never offers parallel cash collection", () => {
  const order = makeOrder({ status: 'accepted', payment_status: 'unpaid', external_metadata: { cash_guarantee: { status: 'capture_pending' } } });
  assert.equal(deriveOrderCapabilities(order, { canManage: true }).canTakePayment, false);
+});
+
+test("scheduled v2 orders follow advertised acceptance without inferring payment or kitchen permission", () => {
+  const axis = (state: string) => ({ state, evidence: [] });
+  const lifecycle = {
+    schema_version: 2, scope: { kind: 'order', id: '1' }, identities: { order_ids: [1] }, revision: 'a'.repeat(64),
+    commercial: { ...axis('open'), editable: true, closed_at: null },
+    payment: { ...axis('unpaid'), amounts: {
+      availability: 'known', currency: 'ILS', minor_unit_exponent: 2,
+      total_minor: 0, captured_minor: 0, refunded_minor: 0, net_received_minor: 0, balance_due_minor: 0,
+    } },
+    preparation: { ...axis('not_sent'), quantities: { total: 1, not_sent: 1, held: 0, in_progress: 0, ready: 0, not_tracked: 0, unknown: 0 } },
+    handoff: { ...axis('pending'), tracking: 'tracked', quantities: { total: 1, pending: 1, with_courier: 0, served: 0, picked_up: 0, delivered: 0, not_tracked: 0, unknown: 0 } },
+    tracking: { state: 'snapshot', preparation: 'tracked', handoff: 'tracked', captured_at: '2026-11-02T08:00:00Z' },
+    actions: [{ key: 'accept', allowed: true, reason: '' }, { key: 'send_to_kitchen', allowed: false, reason: 'not_applicable' }],
+  } as OrderLifecycleV2;
+  const order = makeOrder({ status: 'scheduled', order_type: 'pickup', total_amount: 0, balance_due: 0, lifecycle_v2: lifecycle });
+  const caps = deriveOrderCapabilities(order, { ...OWNER, currencyCode: 'ILS' }, ALL_HANDLERS);
+  assert.equal(caps.primary, 'accept');
+  assert.equal(caps.canTakePayment, false, 'zero due must not offer a fictitious collection');
+  assert.equal(caps.canCorrectStatus, false, 'scheduled orders retain their normal acceptance flow');
+  assert.equal(order.payment_status, 'unpaid');
+
+  const denied = { ...lifecycle, actions: lifecycle.actions!.map(action => ({ ...action, allowed: false })) };
+  assert.equal(deriveOrderCapabilities({ ...order, lifecycle_v2: denied }, OWNER).primary, null, 'a denied v2 action must never fall back to the old status');
+  const accepted = { ...lifecycle, actions: [{ key: 'send_to_kitchen' as const, allowed: true, reason: '' }] };
+  const after = deriveOrderCapabilities({ ...order, status: 'accepted', lifecycle_v2: accepted }, OWNER);
+  assert.equal(after.primary, 'sendToKitchen');
+  assert.equal(after.canCorrectStatus, true);
 });
