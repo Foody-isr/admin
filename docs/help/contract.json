@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "WORKSPACE",
+  "documentationRef": "e38d6c6dbd21557f1b3850c19e54f13e89ed7467",
   "documentationRevision": "6e5ed5a2d4d96bb3584d1b89e54d5d85c33ec765f10b11f1c8e27c430ad4ba70",
   "articles": {
     "getting-started/first-login": {
@@ -5119,7 +5119,7 @@
       ]
     },
     "src/components/orders/NewOrderCheckoutPanel.tsx": {
-      "sha256": "a95db61fae19cb46b9644690b64e3a5880367a7cfcdcd0d58ee57f605cd5eae1",
+      "sha256": "c24714cd50bf43ec6bc0a0413000d92ad3d5b09af34f8877b03e3916aa5e930b",
       "features": [
         "orders-managing-orders",
         "order-detail",
