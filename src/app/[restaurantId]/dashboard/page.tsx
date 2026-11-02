@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/auth-context';
 import { usePermissions } from '@/lib/permissions-context';
 import DateRangePicker, { type DateRange, type DateRangeChangeOptions } from '@/components/DateRangePicker';
 import { previousBlock, seriesInRange, useOrderSeries } from '@/lib/series';
-import { clampWeekStartDay, getEffectiveWorkdays, getWeekStart, addDays, isoDate, type WeekStartDay } from '@/lib/weeks';
+import { clampWeekStartDay, getEffectiveWorkdays, getWeekStart, getWeekEnd, addDays, isoDate, type WeekStartDay } from '@/lib/weeks';
 import { Menu, MenuTrigger, MenuContent, MenuItem } from '@/components/ds';
 import { Check, ChevronDown, RefreshCw } from 'lucide-react';
 import { failedRestaurantState, loadingRestaurantState, readyRestaurantState, RestaurantRequestGuard,
@@ -72,7 +72,7 @@ function resolvePreset(preset: RollingPreset, wsd: WeekStartDay): DateRange {
     case 'yesterday': { const d = addDays(today, -1); return { from: d, to: d }; }
     case 'last7': return { from: addDays(today, -6), to: today };
     case 'last30': return { from: addDays(today, -29), to: today };
-    case 'thisWeek': return { from: getWeekStart(today, wsd), to: today };
+    case 'thisWeek': return { from: getWeekStart(today, wsd), to: getWeekEnd(getWeekStart(today, wsd)) };
     case 'thisMonth': return { from: new Date(today.getFullYear(), today.getMonth(), 1), to: today };
     default: return { from: today, to: today };
   }

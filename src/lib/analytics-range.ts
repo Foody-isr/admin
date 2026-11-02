@@ -4,7 +4,7 @@
 // saved windows). Extracted so the dashboard and the reports overview persist and
 // re-resolve ranges the same way instead of each re-implementing it.
 
-import { addDays, getWeekStart, isoDate, type WeekStartDay } from '@/lib/weeks';
+import { addDays, getWeekStart, getWeekEnd, isoDate, type WeekStartDay } from '@/lib/weeks';
 import type { DateRange } from '@/components/DateRangePicker';
 import type { DateBasis } from '@/lib/api';
 
@@ -61,7 +61,7 @@ export function resolvePreset(preset: RollingPreset, wsd: WeekStartDay): DateRan
     case 'last90':
       return { from: addDays(today, -89), to: today };
     case 'thisWeek':
-      return { from: getWeekStart(today, wsd), to: today };
+      return { from: getWeekStart(today, wsd), to: getWeekEnd(getWeekStart(today, wsd)) };
     case 'thisMonth':
       return { from: new Date(today.getFullYear(), today.getMonth(), 1), to: today };
     case 'thisYear':

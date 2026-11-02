@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "e38d6c6dbd21557f1b3850c19e54f13e89ed7467",
-  "documentationRevision": "6e5ed5a2d4d96bb3584d1b89e54d5d85c33ec765f10b11f1c8e27c430ad4ba70",
+  "documentationRef": "9e116a7cdd69f07264fd1283c6b77dcc72c42d82",
+  "documentationRevision": "a7d05b63b471b2f6c546a58fc4abcc8b4e6c5ba1cd1dc849cbadaa4a92d6f89b",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -164,15 +164,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/analytics/dashboard.mdx",
-          "sha256": "d6ce77113afafbdffa967f14293059dd523cce0539cc646f04cb96d49eaabd92"
+          "sha256": "c0e664d9312c4079b2459e2742fbf7252ea999da9259e8daee5d13869bf1db87"
         },
         "fr": {
           "path": "src/content/help/fr/analytics/dashboard.mdx",
-          "sha256": "a157de496acabe9b29091a930ed4712a4dc32c3378ce521efa3d7b4eceb03edd"
+          "sha256": "c7c0225f4bff0d690ac3709b7f1d4fc3589cc5c1c92a6563596119e8ce263e8d"
         },
         "he": {
           "path": "src/content/help/he/analytics/dashboard.mdx",
-          "sha256": "b4bec9ab3547c2f52610755584a96559c15dabb7a9707742cfaed49cd0d4aae9"
+          "sha256": "9ec2cebdea1cb9d6d4702508759e98c3491c0a36720a1f114313e6637f57aa8f"
         }
       }
     },
@@ -430,15 +430,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/managing-orders.mdx",
-          "sha256": "c48ce57773059f7152344c6391a945416276391a78c5b2f3c68a995dce6b7280"
+          "sha256": "da047cb1e062d53f4684e5dcd121fbb932e3869f6dc35e555689cbf47dd116bc"
         },
         "fr": {
           "path": "src/content/help/fr/orders/managing-orders.mdx",
-          "sha256": "95ef069a8dfe8a48acf49fd3d2c08cac61454e594cfa753d7e6f4ab29cab3b19"
+          "sha256": "20fd01707e7a7350f6364ff65e1492978ae545f107427f7f778560fc6861abd1"
         },
         "he": {
           "path": "src/content/help/he/orders/managing-orders.mdx",
-          "sha256": "459f994441d332ccda8808d492155652887c6bdf1b9ea8942517ca2b29ba19a8"
+          "sha256": "64c2eeedf55a72b0ddeb489d7bca43f619d9156896235ea735210526e19a86d6"
         }
       }
     },
@@ -1836,15 +1836,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/search-and-navigation.mdx",
-          "sha256": "ff05a0c335b5c58bd5e36b7bc73e0f3cf3982b1b06e58a481b47450b9ee65b51"
+          "sha256": "2dabd2f008926b5b7fea770e7829a06cb7fdfa3f1fcf60ac5a3a4e33f93d7bd1"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/search-and-navigation.mdx",
-          "sha256": "3caa8ea0c7a5f404f25350ceb5735b47bf0c02b4a253f2a8d125055a374bc079"
+          "sha256": "d80cad08558372555a16abad7929af2d2373dc78a53408359641d041cca2ce7d"
         },
         "he": {
           "path": "src/content/help/he/getting-started/search-and-navigation.mdx",
-          "sha256": "4b750c183aa61cd826f83053fdc83f88baa077d855910c245a33057edf46c659"
+          "sha256": "772fbecfee99667b15fd6256988fd44ca4f558ecafe42b8166e60b648dfd8061"
         }
       }
     },
@@ -2221,7 +2221,7 @@
       ]
     },
     "src/app/[restaurantId]/dashboard/page.tsx": {
-      "sha256": "f1df227e4d6966821d98f74710e3c382aa6159982a1a015ca4af0176f945ae58",
+      "sha256": "471504a1249f5104a65c718c949d9878f6e26e881600f1eb0b171508c1a40a2a",
       "features": [
         "analytics-dashboard"
       ]
@@ -3594,7 +3594,7 @@
       ]
     },
     "src/components/DateRangePicker.tsx": {
-      "sha256": "bb21d62825986787097602d9701dc75505602224934c2bd4de45a2eee5441959",
+      "sha256": "cdfc92ecea034d1e10db8627f3f44517fc549ca13d8407790808dbc6492ce47e",
       "features": [
         "analytics-dashboard",
         "orders-managing-orders",
@@ -6398,7 +6398,7 @@
       ]
     },
     "src/lib/analytics-range.ts": {
-      "sha256": "756bab51623f0f01c372f61783caf44e00786186cafbcba309c250113a714704",
+      "sha256": "261cd47f844c25b13f7a007b6e7b806411dfaa1e770fecdadcb64e7bc184b326",
       "features": [
         "shared-runtime"
       ]
