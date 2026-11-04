@@ -1,3 +1,74 @@
+.workspace { isolation: isolate; }
+.catalogue { container: order-catalogue / inline-size; }
+.itemGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-2); }
+@container order-catalogue (max-width: 299px) {
+  .itemGrid { grid-template-columns: minmax(0, 1fr); }
+}
+@container order-catalogue (min-width: 440px) {
+  .itemGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@container order-catalogue (min-width: 640px) {
+  .itemGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (min-width: 1024px) {
+  .workspace { grid-template-columns: minmax(0, 1fr) clamp(400px, 34vw, 520px); }
+}
+
+.ticketHeader, .header { padding: 20px; background: var(--surface); }
+.ticketHeader { min-height: 76px; }
+.header { flex-shrink: 0; border-bottom: 1px solid var(--line); }
+.header > div { min-height: 36px; }
+.header > div > button { background: var(--surface-2); }
+.content {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-inline: 20px;
+}
+.contextOptions {
+  margin-top: 20px;
+  padding-inline: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.contextOptions :global(.choice-row) { background: transparent; padding-inline: 0; }
+.contextOptions :global(.choice-row) + :global(.choice-row) { border-top: 1px solid var(--line); }
+.formSection { padding-block: 24px; }
+.formSection + .formSection { border-top: 1px solid var(--line); }
+.panel :is(input, select, textarea):not([type='checkbox'], [type='radio']) {
+  min-height: 44px;
+  border-color: var(--line-strong);
+  border-radius: 8px;
+}
+.panel :is(input, select, textarea):not([type='checkbox'], [type='radio']):hover { border-color: var(--fg-muted); }
+.footer { padding: 16px 20px; }
+.production {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.productionIcon { flex: 0 0 18px; width: 18px; height: 18px; margin-top: 1px; color: var(--fg-muted); }
+.productionCopy { flex: 1; min-width: 0; }
+.productionHeading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; margin-bottom: 4px; }
+.navigation { margin-top: 20px; }
+.steps { display: flex; }
+.stepItem { position: relative; min-width: 0; flex: 1; }
+.stepItem:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 14px;
+  inset-inline-start: calc(50% + 21px);
+  width: calc(100% - 42px);
+  height: 1px;
+  background: var(--line);
+}
 .panel :global(.choice-row) {
   min-height: 56px;
   padding-block: 12px;
@@ -9,7 +80,7 @@
   grid-column: auto;
   min-width: 0;
   padding: 12px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--line);
   border-radius: 8px;
 }
 .paired :global(.choice-row):has(:checked) {
@@ -19,21 +90,40 @@
 
 .step {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
   min-height: 44px;
-  padding: 8px 4px;
-  border-bottom: 2px solid var(--line);
+  padding: 0 4px;
+  text-align: center;
   font-size: 12px;
   line-height: 1.4;
   color: var(--fg-muted);
 }
+.stepMarker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface);
+}
+.stepMarker svg { width: 14px; height: 14px; }
+.step[data-visited='true'] .stepMarker { border-color: var(--action); }
 .step[aria-current='step'] {
-  border-color: var(--action);
   color: var(--fg);
   font-weight: 600;
 }
-.step:disabled { opacity: .5; }
+.step[aria-current='step'] .stepMarker { background: var(--action); border-color: var(--action); color: var(--action-fg); }
+.step[data-error='true'] .stepMarker { background: var(--danger-50); border-color: var(--danger-500); color: var(--danger-500); }
+.step:disabled:not([data-visited='true']) { opacity: .6; }
+.step:not(:disabled):hover { color: var(--fg); }
 .step:focus-visible { outline: 2px solid var(--brand-500); outline-offset: 2px; }
 .panel :is(input, select, textarea, button)[aria-invalid='true'] {
   border-color: var(--danger-500);
@@ -43,4 +133,13 @@
 .panel :global(.choice-row):has(input[aria-invalid='true']) {
   outline: 2px solid var(--danger-500);
   outline-offset: -2px;
+}
+@media (max-width: 479px) {
+  .ticketHeader, .header { padding: 16px; }
+  .content { padding-inline: 16px; }
+  .footer { padding: 12px 16px; }
+  .contextOptions { margin-top: 16px; padding-inline: 12px; }
+  .navigation { margin-top: 16px; }
+  .formSection { padding-block: 20px; }
+  .productionHeading { display: block; }
 }

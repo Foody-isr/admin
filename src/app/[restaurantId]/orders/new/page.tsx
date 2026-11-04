@@ -34,6 +34,7 @@ import {
 import { eventOrderCopy } from '@/lib/orders/event-order-copy';
 import { InternalOrderPayment } from '@/components/orders/InternalOrderPayment';
 import { NewOrderComboModal } from '@/components/orders/NewOrderComboModal';
+import checkoutStyles from '@/components/orders/order-checkout.module.css';
 import {
   ArrowLeftIcon, SearchIcon, PlusIcon, MinusIcon, Trash2Icon,
   CopyIcon, CheckIcon, ShoppingBagIcon, XIcon,
@@ -694,9 +695,9 @@ export default function NewOrderPage() {
         <Button className="flex-1" variant={mobilePane === 'catalogue' ? 'primary' : 'secondary'} aria-pressed={mobilePane === 'catalogue'} disabled={submitting} onClick={() => { setCheckoutOpen(false); setMobilePane('catalogue'); }}>{t('items')}</Button>
         <Button className="flex-1" variant={mobilePane === 'ticket' ? 'primary' : 'secondary'} aria-pressed={mobilePane === 'ticket'} onClick={() => setMobilePane('ticket')}>{t('orderItems')} · {itemCount}</Button>
       </div>
-      <div className={cn("grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--bg)]", checkoutOpen ? "lg:grid-cols-[minmax(0,1fr)_minmax(440px,560px)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(360px,410px)]")}>
+      <div className={cn(checkoutStyles.workspace, 'grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--bg)]')}>
         {/* ─── Catalog ──────────────────────────────────────────────────── */}
-        <fieldset disabled={checkoutOpen || submitting} className={cn("min-h-0 min-w-0 flex-col border-[var(--line)] lg:flex lg:border-e", mobilePane === 'catalogue' ? 'flex' : 'hidden')}>
+        <fieldset disabled={checkoutOpen || submitting} className={cn(checkoutStyles.catalogue, 'min-h-0 min-w-0 flex-col border-[var(--line)] lg:flex lg:border-e', mobilePane === 'catalogue' ? 'flex' : 'hidden')}>
           {/* Header: back + title + carte tabs + search + category chips */}
           <div className="shrink-0 border-b border-[var(--line)] bg-[var(--surface)] px-[var(--s-4)] pt-[var(--s-3)]">
             <div className="mb-[var(--s-3)] flex items-center gap-[var(--s-3)]">
@@ -804,7 +805,7 @@ export default function NewOrderPage() {
           {/* Scrollable item grid */}
           <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--bg)] p-[var(--s-4)]">
             {loading && (
-              <div className="grid grid-cols-2 gap-[var(--s-2)] sm:grid-cols-3 xl:grid-cols-4">
+              <div className={checkoutStyles.itemGrid}>
                 {Array.from({ length: 8 }).map((_, i) => (
                   <div key={i} className="h-[100px] animate-pulse rounded-lg border border-[var(--line)] bg-[var(--surface-2)]" />
                 ))}
@@ -829,7 +830,7 @@ export default function NewOrderPage() {
                         <h2 className="text-fs-sm font-semibold text-[var(--fg)]">{section.name}</h2>
                         <span className="text-fs-xs font-medium text-[var(--fg-subtle)]">{section.items.length}</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-[var(--s-2)] sm:grid-cols-3 xl:grid-cols-4">
+                      <div className={checkoutStyles.itemGrid}>
                         {section.items.map((it) => {
                           const qty = qtyByItem.get(it.id) ?? 0;
                           const selected = qty > 0;
@@ -891,7 +892,7 @@ export default function NewOrderPage() {
         <aside aria-label={t('orderItems')} className={cn("min-h-0 min-w-0 flex-col bg-[var(--surface)] lg:flex", mobilePane === 'ticket' ? 'flex' : 'hidden')}>
           <div className={cn('min-h-0 flex-1 flex-col', checkoutOpen ? 'hidden' : 'flex')}>
           {/* Header */}
-          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--line)] bg-[var(--summary-bg)] text-[var(--summary-fg)] px-[var(--s-4)] py-[var(--s-3)]">
+          <div className={cn(checkoutStyles.ticketHeader, 'flex shrink-0 items-center justify-between gap-2 border-b border-[var(--line)]')}>
             <div className="flex items-center gap-[var(--s-2)]">
               <h2 className="text-fs-md font-semibold">{t('orderItems')}</h2>
               {itemCount > 0 && <Badge tone="brand">{itemCount}</Badge>}
@@ -962,7 +963,7 @@ export default function NewOrderPage() {
                       <span className="shrink-0 tabular-nums text-fs-sm font-semibold">{money(lineTotal(l))}</span>
                     </div>
                     <div className="flex items-center gap-[var(--s-2)]">
-                      <div className="inline-flex items-center overflow-hidden rounded-lg border border-[var(--line-strong)]">
+                      <div className="inline-flex items-center overflow-hidden rounded-lg border border-[var(--line)]">
                         <button type="button" onClick={() => changeQty(l.uid, -1)} aria-label={t('decrease')} className="flex size-10 items-center justify-center text-[var(--fg-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--fg)]">
                           <MinusIcon className="size-4" />
                         </button>
@@ -998,7 +999,7 @@ export default function NewOrderPage() {
           </div>
 
           {/* Footer: total + checkout (always visible) */}
-          <div className="shrink-0 border-t border-[var(--line)] bg-[var(--surface)] p-[var(--s-4)]">
+          <div className={cn(checkoutStyles.footer, 'shrink-0 border-t border-[var(--line)] bg-[var(--surface)]')}>
             {removedLine && <div role="status" className="mb-3 flex items-center justify-between gap-2 text-fs-xs"><span>{t('orderCheckoutLineRemoved').replace('{name}', removedLine.line.item.name)}</span><Button variant="ghost" size="sm" onClick={undoRemove}>{t('orderCheckoutUndo')}</Button></div>}
             <div className="mb-[var(--s-3)] flex items-end justify-between">
               <span className="text-fs-sm font-medium text-[var(--fg-muted)]">{t('total')}</span>
@@ -1015,7 +1016,7 @@ export default function NewOrderPage() {
                   ref={continueRef}
                   variant="primary"
                   size="lg"
-                  className="h-[52px] w-full text-fs-md font-semibold"
+                  className="min-h-12 w-full text-fs-sm font-semibold"
                   disabled={lines.length === 0 || blockedByIssues}
                   onClick={() => { setSubmitError(null); setCheckoutOpen(true); }}
                 >
