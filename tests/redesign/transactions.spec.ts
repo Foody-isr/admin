@@ -36,10 +36,11 @@ async function setup(page: Page, { locale = 'fr', denied = false, fail = false }
   return { requests, reads: () => historyReads, recover: () => { failed = false; }, fixture };
 }
 
-test('payment history is reachable, multiprovider, scoped and read-only', async ({ page }) => {
+test('payment history is reachable, multiprovider, scoped and read-only', async ({ page }, info) => {
   const state = await setup(page);
   await expect(page.getByRole('heading', { name: 'Transactions', exact: true })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'Stancer', exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath('transactions-desktop-fr.png'), animations: 'disabled' });
   await page.getByRole('button', { name: 'Détails cash:synthetic', exact: true }).click();
   await expect(page.getByRole('dialog').getByText(/commande ou son addition d’origine est indisponible/)).toBeVisible();
   await expect(page.getByRole('dialog').getByRole('link')).toHaveCount(0);
@@ -73,7 +74,11 @@ test('Hebrew history and detail stay usable on a phone', async ({ page }, info) 
   await expect(page.getByRole('heading', { name: 'עסקאות', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'פרטים cash:synthetic', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
+  await expect.poll(async () => {
+    const box = await page.getByRole('dialog').boundingBox();
+    return box != null && box.x >= -1 && box.x + box.width <= 376;
+  }).toBe(true);
   expect(await page.getByRole('dialog').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
-  await page.screenshot({ path: info.outputPath('transactions-phone-he.png') });
+  await page.screenshot({ path: info.outputPath('transactions-phone-he.png'), animations: 'disabled' });
   expect(state.fixture.writes).toEqual([]);
 });
