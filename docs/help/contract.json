@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "55bf66079a72f28619b81090723d23bebda6f9f4",
-  "documentationRevision": "491e72560e522e4f965cb495261e837839671e5ac61bac14797b54bd5ff8a66d",
+  "documentationRef": "1e8f80fac4e6b0f9ee93c5e37cb3e5b17c63e089",
+  "documentationRevision": "9df2c5505ae3a08d2af0a0e218feac0cb3d902a67a97610c488e43100a8599ef",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -1095,15 +1095,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/pos-behavior.mdx",
-          "sha256": "096a44b9ebda0525133ae51a873df49aed0f7ceffcd683f5da937530ae9c4032"
+          "sha256": "a3476436fbbb293b0d899594cbca481b03d289a048df94b20038955252b7fa1f"
         },
         "fr": {
           "path": "src/content/help/fr/settings/pos-behavior.mdx",
-          "sha256": "498e9dcdb571c62f48f13dd264dc60fe26be88c1f45f71c6fbf25b85fdc0d98a"
+          "sha256": "cabbe95b7aad56d23c56ee489c83cb814a73f84d4c40339c61f88205a69e4f2b"
         },
         "he": {
           "path": "src/content/help/he/settings/pos-behavior.mdx",
-          "sha256": "c8d39ff812b90afc3f5590aeb65c2ff63c1bdb3018a99ae9eee0685f3ebb316c"
+          "sha256": "470373a3b142ea3a0f460a6f534f4429427b36b4539acb20efc67119ae04bd5b"
         }
       }
     },
@@ -1285,15 +1285,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/pos-checkout.mdx",
-          "sha256": "654297ee378eac1897228c1bf42367998141b3a9c13777e17d60dd35ad723edd"
+          "sha256": "9808cfa50f1c1fc164e4087d77f7dd069843ade75b75fd7710ee9a7c181f0263"
         },
         "fr": {
           "path": "src/content/help/fr/payments/pos-checkout.mdx",
-          "sha256": "4dd62132116531f48ec3cde7c45c64e18bf833b59cf21ec4d6a504c39c453a82"
+          "sha256": "caa2f202ca4db44faaf43148f54d5224cc9279aff41d27320728306d2e7bbac5"
         },
         "he": {
           "path": "src/content/help/he/payments/pos-checkout.mdx",
-          "sha256": "41bebf64fc14168dcad8a778f5364e2b6beb958942d395d55f9d58f3a6e83c94"
+          "sha256": "01f37d406aa24c7f632c5bbe04a0d06cc1264351746a7be57f80c1e878ec2f8c"
         }
       }
     },
@@ -1342,15 +1342,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/pos-workspace.mdx",
-          "sha256": "7352b56f636d044b9d507fe95fa029768fd9fdb78491e7c3ba12a10c3b5c8541"
+          "sha256": "1d4ac0ef8f287227aff7253b770972bba638b2eca6e8fe4f856f09497c7a2aac"
         },
         "fr": {
           "path": "src/content/help/fr/settings/pos-workspace.mdx",
-          "sha256": "61ed3e3b293e82f8699d3011c1f9c16c2834c96c7fee4a79db7aded7b6c3b00b"
+          "sha256": "9dee5e472cd6fd69e436b367bf1438763e1273842c754983f3556237ad8c49c2"
         },
         "he": {
           "path": "src/content/help/he/settings/pos-workspace.mdx",
-          "sha256": "530a6fb78a3c61c9c6dd66bb6d97a70346216a34b7ceb614b135d942607fd208"
+          "sha256": "0d5aad3286f7e4ade360aae8f5fdd430edab88d5676ccea3f9f6547beca7b5a4"
         }
       }
     },
@@ -1798,15 +1798,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "fd6371b2c5a7dccca458bb5969d5e79b2883bd65ccb58d5aa3d3f8a9b400e974"
+          "sha256": "290f4f1b3a48c162caacea47554aa9d9c28de1bae8eb1b5d79c77b1ccdae24f7"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "ff036b1989576a98f8f4a7fbc330ece927ee88ef8b22a6c681c069142b5f367d"
+          "sha256": "6cb589308acbf168ade05b8323dd7ec96e48243553b032a1c7ee7ed234500bb0"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "7bd119bb84f663b89ebd313cf1537f98797fa3374e020354af840cbcc2d0de32"
+          "sha256": "57b2ba42bcc076b97af76c42c04fb641cd64aa06bc0769c4af6d7c75ef9b97ab"
         }
       }
     },
@@ -2026,15 +2026,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/end-of-day.mdx",
-          "sha256": "a05eaf6b1e9a5a0e5c83b1673c2b0e87cd96a8a0dd4ead546031cb111ef57982"
+          "sha256": "f10db1d5102d4d4292513bee8437eba330246d164ad77f1a7911a8d90ad60edb"
         },
         "fr": {
           "path": "src/content/help/fr/payments/end-of-day.mdx",
-          "sha256": "e4ff6f4433fdcd65439807e8a7ad5d9661be9ff1b08fb7c743d8268e5a1454e4"
+          "sha256": "e701ef83b11ad964d5e72b4d2d62dd29542810da1522b2ce80db148206071941"
         },
         "he": {
           "path": "src/content/help/he/payments/end-of-day.mdx",
-          "sha256": "3185fd9066c72aca76e1e3d14261e6cd55ba8adee4c62828bd7f9270310bd1d3"
+          "sha256": "38136432bf0eebf82348da9171f5c52e965cf793d1b2b9f9cde35d0911c57289"
         }
       }
     },
@@ -2054,6 +2054,25 @@
         "he": {
           "path": "src/content/help/he/orders/event-orders.mdx",
           "sha256": "328436dbbfd6ca38d4d9b3f24c5826f59bdb164de28210ebaf4cb53128a90c70"
+        }
+      }
+    },
+    "payments/transactions": {
+      "feature": "payments-transactions",
+      "audience": "public",
+      "status": "available",
+      "translations": {
+        "en": {
+          "path": "src/content/help/en/payments/transactions.mdx",
+          "sha256": "73ccfff61d133c4263fe160b8d8395cadf8b8518ceee2bcf9e32c8e406cd3cc3"
+        },
+        "fr": {
+          "path": "src/content/help/fr/payments/transactions.mdx",
+          "sha256": "e3c38d2b325bc1fd4628da4f8ab68efb3354a616ec8166c84568a3b6e2e36d7c"
+        },
+        "he": {
+          "path": "src/content/help/he/payments/transactions.mdx",
+          "sha256": "bfbbb70635f52e585bbec506a13da887afbaa954dbae3231f991dbec5efbde77"
         }
       }
     }
@@ -2701,9 +2720,9 @@
       ]
     },
     "src/app/[restaurantId]/layout.tsx": {
-      "sha256": "fbe07d6638f411bfd400f4299bfd90a654039f7d065e67285b0c775a17a224e8",
+      "sha256": "415869a600fe445826b155e837a6a7d122c5a60d6db16c0292ff3f1d0db11122",
       "features": [
-        "shared-runtime"
+        "payments-transactions"
       ]
     },
     "src/app/[restaurantId]/marketing/discounts/page.tsx": {
@@ -3510,6 +3529,13 @@
         "table-service-policy"
       ]
     },
+    "src/app/[restaurantId]/transactions/page.tsx": {
+      "sha256": "0228d7330b7edbc3d25668027eee2fce0b94193f394fb6df526f5651d78a4591",
+      "features": [
+        "pos-payments",
+        "payments-transactions"
+      ]
+    },
     "src/app/[restaurantId]/website-v3/layout.tsx": {
       "sha256": "96116cc122468e313f7ee96825989c2843f10e6dd3a3df201e3522959ddf0232",
       "features": [
@@ -3713,10 +3739,11 @@
       ]
     },
     "src/components/Sidebar.tsx": {
-      "sha256": "a7736ad0df925cf178f415429ba1e5691b946ccbff016f2e4efcd4934bfd1bb7",
+      "sha256": "ae61688a629131a8513d3859e4f0629baef69655b539ec77a5185780ad3ba61a",
       "features": [
         "pos-payments",
-        "global-search"
+        "global-search",
+        "payments-transactions"
       ]
     },
     "src/components/StatusPill.tsx": {
@@ -6423,7 +6450,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "3f2edc07b968c5a43a58ee57a9ba01745f140177c3e63c0d41ed1c04da4e37be",
+      "sha256": "5d35fd19cac2273410c573dd1a57b7e1c52ac952f8b35c0b71db2b3f57538072",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6434,7 +6461,8 @@
         "menu-product-photos",
         "orders-internal-sumit-checkout",
         "stancer-cash-guarantee",
-        "orders-events"
+        "orders-events",
+        "payments-transactions"
       ]
     },
     "src/lib/auth-context.tsx": {
@@ -6617,7 +6645,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "6fc347c9921adaca8593b650c1db7cd90b75c62abf47d3014da328cf824fba29",
+      "sha256": "3043fa00726774b44f6d9403530dc109d6d66f39b2c8801b63444de2d93fac30",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -6632,7 +6660,8 @@
         "shared-runtime",
         "menu-product-photos",
         "orders-internal-sumit-checkout",
-        "stancer-cash-guarantee"
+        "stancer-cash-guarantee",
+        "payments-transactions"
       ]
     },
     "src/lib/israel-cities.ts": {
@@ -7200,11 +7229,12 @@
       ]
     },
     "src/lib/route-permissions.ts": {
-      "sha256": "f9fc057cea85dc9091fd991ef364a82c9dd3f11b14107071447925f373a51fea",
+      "sha256": "dd6c85c411a1d895b062664ea47a217618ec123326969f9f2108fd6dea440d6c",
       "features": [
         "staff-roles",
         "pos-payments",
-        "shared-runtime"
+        "shared-runtime",
+        "payments-transactions"
       ]
     },
     "src/lib/runtime-origins.ts": {
@@ -7289,6 +7319,13 @@
       "sha256": "d99246d15f4e511bcc7744d3e53ac71c2517e7f34a361f14ca1246bd2b222fcc",
       "features": [
         "shared-runtime"
+      ]
+    },
+    "src/lib/transactions.ts": {
+      "sha256": "68f8f7b8defa144d51f766ce67bf7b831714295fad459c0032796c982296080e",
+      "features": [
+        "shared-runtime",
+        "payments-transactions"
       ]
     },
     "src/lib/units.ts": {
@@ -10589,7 +10626,7 @@
       "source": "src/app/[restaurantId]/layout.tsx",
       "line": 1,
       "features": [
-        "shared-runtime"
+        "payments-transactions"
       ],
       "labels": [
         "retry",
@@ -14487,6 +14524,62 @@
       ]
     },
     {
+      "id": "foodyadmin:src/app/[restaurantId]/transactions/page.tsx:next-page:1",
+      "kind": "next-page",
+      "source": "src/app/[restaurantId]/transactions/page.tsx",
+      "line": 1,
+      "features": [
+        "pos-payments",
+        "payments-transactions"
+      ],
+      "route": "/[restaurantId]/transactions"
+    },
+    {
+      "id": "foodyadmin:src/app/[restaurantId]/transactions/page.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/app/[restaurantId]/transactions/page.tsx",
+      "line": 1,
+      "features": [
+        "pos-payments",
+        "payments-transactions"
+      ],
+      "labels": [
+        "loading",
+        "retry",
+        "transactionHistoryAllMethods",
+        "transactionHistoryAllSources",
+        "transactionHistoryAllocationUnavailable",
+        "transactionHistoryAmount",
+        "transactionHistoryCard",
+        "transactionHistoryCash",
+        "transactionHistoryDate",
+        "transactionHistoryDetails",
+        "transactionHistoryEmpty",
+        "transactionHistoryExternalCard",
+        "transactionHistoryFind",
+        "transactionHistoryGross",
+        "transactionHistoryIntro",
+        "transactionHistoryLoadError",
+        "transactionHistoryMethod",
+        "transactionHistoryNext",
+        "transactionHistoryOnline",
+        "transactionHistoryPos",
+        "transactionHistoryPrevious",
+        "transactionHistoryProcessor",
+        "transactionHistoryReadOnly",
+        "transactionHistoryRecordedReturns",
+        "transactionHistoryReference",
+        "transactionHistorySearch",
+        "transactionHistorySource",
+        "transactionHistoryTransfer",
+        "transactionHistoryType",
+        "transactionHistoryUnknown",
+        "transactionHistoryVicta",
+        "transactions"
+      ],
+      "actions": []
+    },
+    {
       "id": "foodyadmin:src/app/[restaurantId]/website-v3/page.tsx:next-page:1",
       "kind": "next-page",
       "source": "src/app/[restaurantId]/website-v3/page.tsx",
@@ -14957,7 +15050,8 @@
       "line": 1,
       "features": [
         "pos-payments",
-        "global-search"
+        "global-search",
+        "payments-transactions"
       ],
       "labels": [
         "close",
@@ -24983,7 +25077,8 @@
         "menu-product-photos",
         "orders-internal-sumit-checkout",
         "stancer-cash-guarantee",
-        "orders-events"
+        "orders-events",
+        "payments-transactions"
       ],
       "labels": [],
       "actions": [

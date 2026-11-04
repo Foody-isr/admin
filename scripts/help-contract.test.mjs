@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { checkContract, hash } from './check-help-contract.mjs';
+import { checkContract, hash, isSource } from './check-help-contract.mjs';
 function fixture(t) {
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'foody-contract-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const write=(file,value)=>{fs.mkdirSync(path.dirname(path.join(root,file)),{recursive:true});fs.writeFileSync(path.join(root,file),typeof value==='string'?value:JSON.stringify(value));};
@@ -159,4 +159,10 @@ test('a scoped review cannot exempt a newly inventoried source without a baselin
   disposition:'no-user-impact',reason:'A new screen has no reviewed baseline, so copying another file baseline must not waive its translated procedure updates.',
  }]});
  assert.equal(checkContract(f.root,f.root,f.base).filter(e=>e.startsWith(source+':')&&e.includes('guide update')).length,3);
+});
+
+test('owned native Objective-C implementation and headers remain in reviewed source evidence',()=>{
+ assert.equal(isSource('ios/Runner/VerifonePaymentBridge.m'),true);
+ assert.equal(isSource('ios/Runner/VerifonePaymentBridge.h'),true);
+ assert.equal(isSource('ios/Pods/Vendor/Terminal.m'),false);
 });
