@@ -40,5 +40,5 @@
       "reason": "Only manual-order production-plan intent and its optional staff input change. The reviewed scope retains its existing controls, permissions, financial/provider behavior, guest/POS omitted-field behavior and documented procedures. The new final-step Yes/No, explicit exclusion and existing confirmation gates are documented in the affected order, event, production and internal API guides in all three languages."
     }
   ],
-  "documentationRef": "0b9360619295e1c9f5c126420740873a021398cf"
+  "documentationRef": "b8f16d9a3d386339d76a8d717b3e53edaa9218bf"
 }

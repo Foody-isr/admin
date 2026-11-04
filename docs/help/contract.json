@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "0b9360619295e1c9f5c126420740873a021398cf",
-  "documentationRevision": "8697efb3c5487fa438385e2d2ebfa768c67c8f1bd743cc196558edeea0e6a49f",
+  "documentationRef": "b8f16d9a3d386339d76a8d717b3e53edaa9218bf",
+  "documentationRevision": "6cda2a8862b6d261f5ff393817292e32df64ec3ab0e5456e516c3b6b95ea5daa",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -628,7 +628,7 @@
         },
         "he": {
           "path": "src/content/help/he/orders/order-details.mdx",
-          "sha256": "e567a7f1b7322db54e379fa0ccb162ef7497817e8a90790f887a273b82e65850"
+          "sha256": "4a6110d6e9bf2c0999245f150bd5ea773af6c7a0ea02b97982774978b8d211d2"
         }
       }
     },
@@ -685,7 +685,7 @@
         },
         "he": {
           "path": "src/content/help/he/orders/production-planning.mdx",
-          "sha256": "0f4344c5463fe62c7c0f2935c1da21c7dac02c1af6aaa65b3ec62b705f9454e1"
+          "sha256": "d8d41ca6fb736b83fe46ffda57e8bd3fdb4c4adbbfc17e2dc1e195efead42d50"
         }
       }
     },
@@ -1996,7 +1996,7 @@
         },
         "he": {
           "path": "src/content/help/he/orders/internal-sumit-checkout.mdx",
-          "sha256": "ee818600c996fa41f6a9f0a151c56870b206ed320340cd86f85fb0a8e59a7bb5"
+          "sha256": "216b99d2038ecb749747331524c79da12c1bacf96848d577fe95d0d7c671f5ba"
         }
       }
     },
@@ -2053,7 +2053,7 @@
         },
         "he": {
           "path": "src/content/help/he/orders/event-orders.mdx",
-          "sha256": "a0f71aed4c8c6e17a3afc6e62262e75135193a736d1f6fea40d2b9950d85b9ac"
+          "sha256": "86b1aa835647c8935e8a26d522f1623409a3fed0f10be99524e992647f1dc58f"
         }
       }
     }
