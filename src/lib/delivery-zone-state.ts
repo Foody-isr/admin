@@ -57,7 +57,7 @@ export function deliveryZonePayload(draft: DeliveryZoneDraft, original?: Deliver
 }
 /** Compare canonical persisted fields without identity, timestamps or JSON omission differences. */
 export function deliveryZoneSignature(zone: DeliveryZone | DeliveryZoneInput): string {
-  return JSON.stringify({name:zone.name,type:zone.type,is_active:zone.is_active,polygon:zone.polygon??[],center_lat:zone.center_lat??null,center_lng:zone.center_lng??null,radius_m:zone.radius_m??null,cities:zone.cities??[],departments:zone.departments??[],postal_codes:zone.postal_codes??[],schedule:zone.schedule??null,delivery_fee:zone.delivery_fee??null,min_order:zone.min_order??null});
+  return JSON.stringify({name:zone.name,type:zone.type,is_active:zone.is_active,polygon:zone.polygon??[],center_lat:zone.center_lat??null,center_lng:zone.center_lng??null,radius_m:zone.radius_m??null,cities:zone.cities??[],departments:zone.departments??[],postal_codes:zone.postal_codes??[],schedule:zone.schedule ? {...zone.schedule,order_deadlines:zone.schedule.order_deadlines?.length ? zone.schedule.order_deadlines : undefined} : null,delivery_fee:zone.delivery_fee??null,min_order:zone.min_order??null});
 }
 /** Exclude only invalid drawing geometry; do not remove records from the editable inventory. */
 export function deliveryZoneCanDraw(zone: DeliveryZone): boolean {
@@ -72,6 +72,14 @@ export function deliveryScheduleWeekdays(value: DeliverySchedule): number[] {
 /** Validate zone weekdays and backwards-compatible legacy calendars. */
 export function validDeliverySchedule(value: DeliverySchedule): boolean {
   if (!value || !['customer','automatic','restaurant'].includes(value.mode) || typeof value.offer_pickup !== 'boolean') return false;
+  if (value.order_deadlines !== undefined) {
+    if (!Array.isArray(value.order_deadlines) || value.order_deadlines.length > 7) return false;
+    const used = new Set<number>();
+    for (const rule of value.order_deadlines) {
+      if (!rule || !Array.isArray(rule.days) || !rule.days.length || !Number.isSafeInteger(rule.days_before) || rule.days_before < 0 || rule.days_before > 365 || !/^([01]\d|2[0-3]):[0-5]\d$/.test(rule.time)) return false;
+      for (const day of rule.days) { if (!Number.isInteger(day) || day < 0 || day > 6 || used.has(day) || !deliveryScheduleWeekdays(value).includes(day)) return false; used.add(day); }
+    }
+  }
   if (value.same_day !== undefined) {
     const rule = value.same_day;
     if (!rule || !Array.isArray(rule.days) || new Set(rule.days).size !== rule.days.length || !rule.days.every(day => Number.isInteger(day) && deliveryScheduleWeekdays(value).includes(day)) || !Number.isSafeInteger(rule.transit_minutes) || rule.transit_minutes < 0 || rule.transit_minutes > 1440 || !['inherit','restaurant'].includes(rule.time_mode)) return false;

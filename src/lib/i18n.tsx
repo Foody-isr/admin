@@ -120,6 +120,18 @@ export function i18nOr(t: (key: string) => string, key: string, fallback: string
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    preparedStockUntil: "Prepared stock usable through",
+    zoneDeadlineTitle: "Order deadlines",
+    zoneDeadlineHint: "Close orders before the delivery date. Deadlines also apply to ready products and never change pickup. Times use the restaurant timezone.",
+    zoneDeadlineBefore: "Order before",
+    preparedStockTitle: "Products already prepared",
+    preparedStockHint: "Optional shelf stock, shared across this article’s formats. Available units can skip production through the chosen receiving date; otherwise normal preparation and product deadlines apply. Sales limits, ingredients, hours and delivery rules still apply. Apply saves immediately.",
+    preparedStockEnable: "Use an independent shelf counter",
+    preparedStockQuantity: "Remaining prepared units",
+    preparedStockSaved: "Prepared stock saved.",
+    preparedStockError: "Prepared stock could not be confirmed. Keep your entry and reload the current stock before another save. This option requires a compatible API.",
+    preparedStockReload: "Reload current stock",
+
     itemMenuDraftHint: "Choose or create groups here. Saving the item updates the carte drafts; publish each carte to make these changes visible.",
     itemMenuDraftLoadFailed: "The carte draft could not be loaded. Retry; your item and selections are retained.",
     itemMenuGroupPending: "New group · created when the item is saved",
@@ -840,6 +852,7 @@ const translations: Record<Locale, Record<string, string>> = {
     orderingSimulationUnresolved: "The address could not be located. Enter a more precise address.",
     orderingSimulationOutside: "This address is outside the active delivery zones.",
     orderingSimulationPreparation: "Product preparation reference:",
+    orderingSimulationReadyStock: "The calculation includes already available stock. Basket quantities, service hours and delivery rules still apply.",
     orderingSimulationNoZoneCalendar: "This address has no zone calendar. Review the restaurant’s ordering mode and zone settings.",
     orderingSimulationSameDayDisabled: "Same-day delivery is not allowed in this zone on this day.",
     orderingSimulationNoDate: "No receiving window is available on this date after applying the service calendar, zone days and product preparation.",
@@ -876,6 +889,7 @@ const translations: Record<Locale, Record<string, string>> = {
     deliveryZoneChanged: "This zone changed since it was loaded. Refresh the inventory and reopen it; your draft has been kept.",
     sameDayZoneInUse: "This zone is used by same-day rules. Change the reference zones before disabling or deleting it.",
     sameDayNeedsZone: "Same-day rules require at least one active delivery zone.",
+    orderingDeadlineNeedsZone: "Clear and save the ordering deadlines before deleting the last delivery zone. Disabling the zone keeps delivery closed.",
     deliveryEstimatedArrival: "Estimated arrival",
     deliverySettingsPriority: "Zones define coverage, days, prices and minimums. Restaurant delivery hours define receiving times; custom slot hours override them. Product preparation and same-day rules then limit availability.",
     deliverySlotPending: "Delivery time awaiting confirmation",
@@ -9471,6 +9485,18 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
   he: {
+    preparedStockUntil: "ניתן להשתמש במלאי המוכן עד",
+    zoneDeadlineTitle: "מועדי סגירת הזמנות",
+    zoneDeadlineHint: "סגירת הזמנות לפני תאריך המשלוח. המועדים חלים גם על מוצרים מוכנים ואינם משנים איסוף עצמי. השעות הן לפי אזור הזמן של המסעדה.",
+    zoneDeadlineBefore: "להזמין לפני",
+    preparedStockTitle: "מוצרים שכבר הוכנו",
+    preparedStockHint: "מלאי מוכן אופציונלי, משותף לכל הגדלים של הפריט. יחידות זמינות יכולות לחסוך הכנה עד תאריך המסירה שנבחר; אחרת חלים זמן ההכנה ומועדי הסגירה. מגבלות המכירה, המרכיבים, השעות וכללי המשלוח עדיין חלים. החלה שומרת מיד.",
+    preparedStockEnable: "שימוש במונה נפרד למלאי מוכן",
+    preparedStockQuantity: "יחידות מוכנות שנותרו",
+    preparedStockSaved: "המלאי המוכן נשמר.",
+    preparedStockError: "לא ניתן היה לאשר את המלאי המוכן. שמרו את הערך שהקלדתם וטענו את המלאי הנוכחי לפני שמירה נוספת. אפשרות זו דורשת API תואם.",
+    preparedStockReload: "טעינת המלאי הנוכחי מחדש",
+
     itemMenuDraftHint: "בחרו או צרו קבוצות כאן. שמירת הפריט מעדכנת את טיוטות התפריטים; פרסמו כל תפריט כדי שהשינויים יוצגו ללקוחות.",
     itemMenuDraftLoadFailed: "לא ניתן לטעון את טיוטת התפריט. נסו שוב; הפריט והבחירות שלכם נשמרים בטופס.",
     itemMenuGroupPending: "קבוצה חדשה · תיווצר בשמירת הפריט",
@@ -10191,6 +10217,7 @@ const translations: Record<Locale, Record<string, string>> = {
     orderingSimulationUnresolved: "לא ניתן לאתר את הכתובת. הזינו כתובת מדויקת יותר.",
     orderingSimulationOutside: "הכתובת נמצאת מחוץ לאזורי המשלוח הפעילים.",
     orderingSimulationPreparation: "זמן ההכנה של המוצרים:",
+    orderingSimulationReadyStock: "החישוב כולל מלאי שכבר זמין. כמויות הסל, שעות השירות וכללי המשלוח עדיין חלים.",
     orderingSimulationNoZoneCalendar: "לכתובת זו אין לוח זמנים אזורי. בדקו את מצב ההזמנות והגדרות האזור.",
     orderingSimulationSameDayDisabled: "משלוח באותו יום אינו מותר באזור זה ביום זה.",
     orderingSimulationNoDate: "לא נותר חלון קבלה בתאריך זה לאחר החלת שעות השירות, ימי האזור והכנת המוצרים.",
@@ -10227,6 +10254,7 @@ const translations: Record<Locale, Record<string, string>> = {
     deliveryZoneChanged: "האזור השתנה מאז הטעינה. רעננו את הרשימה ופתחו אותו מחדש; הטיוטה נשמרה.",
     sameDayZoneInUse: "האזור משמש בכללי אותו יום. שנו את אזורי הייחוס לפני השבתה או מחיקה.",
     sameDayNeedsZone: "כללי אותו יום דורשים לפחות אזור משלוח פעיל אחד.",
+    orderingDeadlineNeedsZone: "יש להסיר ולשמור את מועדי סגירת ההזמנות לפני מחיקת אזור המשלוח האחרון. השבתת האזור משאירה את המשלוחים סגורים.",
     deliveryEstimatedArrival: "הגעה משוערת",
     deliverySettingsPriority: "האזורים מגדירים כיסוי, ימים, מחירים ומינימום. שעות המשלוח של המסעדה מגדירות זמני קבלה; שעות משבצות מותאמות מחליפות אותן. הכנת המוצרים וכללי אותו יום מגבילים לאחר מכן את הזמינות.",
     deliverySlotPending: "שעת משלוח ממתינה לאישור",
@@ -18813,6 +18841,18 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── French ──────────────────────────────────────────────────────────────
   fr: {
+    preparedStockUntil: "Stock prêt utilisable jusqu’au",
+    zoneDeadlineTitle: "Échéances de commande",
+    zoneDeadlineHint: "Fermez les commandes avant la date de livraison. Ces échéances s’appliquent aussi aux produits prêts et ne modifient jamais le retrait. Les heures suivent le fuseau du restaurant.",
+    zoneDeadlineBefore: "Commander avant",
+    preparedStockTitle: "Produits déjà préparés",
+    preparedStockHint: "Stock prêt facultatif, commun aux formats de cet article. Les unités disponibles peuvent éviter la fabrication jusqu’à la date de réception choisie ; sinon, le délai et les échéances du produit s’appliquent. Les limites de vente, ingrédients, horaires et règles de livraison restent applicables. Appliquer enregistre immédiatement.",
+    preparedStockEnable: "Utiliser un compteur de stock prêt indépendant",
+    preparedStockQuantity: "Unités préparées restantes",
+    preparedStockSaved: "Stock prêt enregistré.",
+    preparedStockError: "Le stock prêt n’a pas pu être confirmé. Conservez votre saisie et rechargez le stock actuel avant un nouvel enregistrement. Cette option nécessite une API compatible.",
+    preparedStockReload: "Recharger le stock actuel",
+
     itemMenuDraftHint: "Choisissez ou créez des groupes ici. Enregistrer l’article met à jour les brouillons des cartes ; publiez chaque carte pour rendre ces changements visibles.",
     itemMenuDraftLoadFailed: "Impossible de charger le brouillon de la carte. Réessayez ; votre article et vos sélections sont conservés.",
     itemMenuGroupPending: "Nouveau groupe · créé à l’enregistrement de l’article",
@@ -19533,6 +19573,7 @@ const translations: Record<Locale, Record<string, string>> = {
     orderingSimulationUnresolved: "L’adresse n’a pas pu être localisée. Précisez l’adresse.",
     orderingSimulationOutside: "Cette adresse est hors des zones de livraison actives.",
     orderingSimulationPreparation: "Préparation de référence des produits :",
+    orderingSimulationReadyStock: "Le calcul tient compte du stock déjà disponible. Les quantités du panier, les horaires et les règles de livraison restent applicables.",
     orderingSimulationNoZoneCalendar: "Cette adresse n’a pas de calendrier de zone. Vérifiez le mode de commande et les réglages de la zone.",
     orderingSimulationSameDayDisabled: "La livraison commandée pour le jour même n’est pas autorisée dans cette zone ce jour-là.",
     orderingSimulationNoDate: "Aucune plage disponible à cette date après application des horaires, des jours de zone et de la préparation des produits.",
@@ -19569,6 +19610,7 @@ const translations: Record<Locale, Record<string, string>> = {
     deliveryZoneChanged: "Cette zone a changé depuis son chargement. Actualisez la liste puis rouvrez-la ; votre saisie est conservée.",
     sameDayZoneInUse: "Cette zone sert aux règles du jour même. Modifiez les zones de référence avant de la désactiver ou de la supprimer.",
     sameDayNeedsZone: "Les règles du jour même nécessitent au moins une zone de livraison active.",
+    orderingDeadlineNeedsZone: "Retirez et enregistrez les heures limites avant de supprimer la dernière zone. Désactiver la zone maintient la livraison fermée.",
     deliveryEstimatedArrival: "Arrivée estimée",
     deliverySettingsPriority: "Les zones définissent le périmètre, les jours, les tarifs et les minimums. Les horaires de livraison du restaurant définissent les heures de réception ; les horaires de créneaux personnalisés les remplacent. La préparation des produits et les règles du jour même limitent ensuite la disponibilité.",
     deliverySlotPending: "Horaire de livraison à confirmer",

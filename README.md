@@ -1807,3 +1807,8 @@ assertion still expects a carte item without its existing source_menu_id; this
 payload is unchanged by this feature. The FR/HE/EN help and identical API support
 corpus are prepared together. Documentation contracts pin the reviewed immutable Landing commit for CI;
 release promotes the same verified develop artifacts.
+
+
+## Configurable production and delivery intake (local preparation)
+
+Compatible API migration 288 adds an independent Products already prepared counter and receiving-date validity in a saved article’s Stock & availability section. Apply saves only that counter with its current revision; conflicts retain input and require Reload current stock. Delivery zones advertise order-deadline support before exposing day-offset/time controls. Empty/default policies retain existing behavior. These settings are restaurant-owned and do not configure Lovely or other tenants automatically.

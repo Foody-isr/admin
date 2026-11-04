@@ -9,15 +9,15 @@ import type { DeliverySchedule, DeliveryZoneSameDay } from '@/lib/api';
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
 
 /** Keeps delivery days and same-day exceptions together, within restaurant hours. */
-export function ZoneScheduleFields({ value, onChange, sameDaySupported = false }: { value: DeliverySchedule | null; onChange: (value: DeliverySchedule | null) => void; sameDaySupported?: boolean }) {
+export function ZoneScheduleFields({ value, onChange, sameDaySupported = false, deadlinesSupported = false }: { value: DeliverySchedule | null; onChange: (value: DeliverySchedule | null) => void; sameDaySupported?: boolean; deadlinesSupported?: boolean }) {
   const { t } = useI18n();
   const days = value ? deliveryScheduleWeekdays(value) : WEEK;
-  const update = (changes: Partial<DeliverySchedule>) => onChange({ mode: value?.mode ?? 'customer', days, offer_pickup: value?.offer_pickup ?? false, ...(value?.same_day ? { same_day: value.same_day } : {}), ...changes });
+  const update = (changes: Partial<DeliverySchedule>) => onChange({ mode: value?.mode ?? 'customer', days, offer_pickup: value?.offer_pickup ?? false, ...(value?.order_deadlines ? {order_deadlines: value.order_deadlines} : {}), ...(value?.same_day ? { same_day: value.same_day } : {}), ...changes });
   const rule = value?.same_day;
   const patchRule = (changes: Partial<DeliveryZoneSameDay>) => update({ same_day: { days: [...days], transit_minutes: 0, time_mode: 'inherit', ...rule, ...changes } });
   const changeDay = (day: number, checked: boolean) => {
     const next = checked ? [...days, day] : days.filter(d => d !== day);
-    update({ days: next, ...(rule ? { same_day: { ...rule, days: rule.days.filter(d => next.includes(d)) } } : {}) });
+    update({ days: next, ...(value?.order_deadlines ? {order_deadlines:value.order_deadlines.map(deadline => ({...deadline,days:deadline.days.filter(d=>next.includes(d))})).filter(deadline=>deadline.days.length)} : {}), ...(rule ? { same_day: { ...rule, days: rule.days.filter(d => next.includes(d)) } } : {}) });
   };
   return <section className="space-y-6 border-t border-[var(--line)] pt-5">
     <p className="text-fs-sm leading-relaxed text-[var(--fg-muted)]">{t('zoneScheduleHint')}</p>
@@ -26,11 +26,26 @@ export function ZoneScheduleFields({ value, onChange, sameDaySupported = false }
       <div className="flex flex-wrap gap-x-5 gap-y-3">{WEEK.map(day => <label key={day} className="flex items-center gap-2 text-fs-sm"><Checkbox checked={days.includes(day)} onCheckedChange={checked => changeDay(day, checked === true)} /><span>{t(`weekday_${day}`)}</span></label>)}</div>
     </fieldset>
     <Field label={t('zoneFutureTimeChoice')} grow><Select value={value?.mode ?? 'legacy'} onChange={event => event.target.value === 'legacy' ? onChange(null) : update({ mode: event.target.value as DeliverySchedule['mode'] })}>
-      {!rule && <option value="legacy">{t('deliveryScheduleLegacy')}</option>}
+      {!rule && !value?.order_deadlines?.length && <option value="legacy">{t('deliveryScheduleLegacy')}</option>}
       <option value="customer">{t('deliveryScheduleCustomer')}</option>
       <option value="automatic">{t('deliveryScheduleAutomatic')}</option>
       <option value="restaurant">{t('deliveryScheduleRestaurant')}</option>
     </Select></Field>
+    {deadlinesSupported && <fieldset className="space-y-4 border-t border-[var(--line)] pt-5">
+      <legend className="px-1 text-fs-md font-semibold">{t('zoneDeadlineTitle')}</legend>
+      <p className="text-fs-sm text-[var(--fg-muted)]">{t('zoneDeadlineHint')}</p>
+      {days.map(day => {
+        const deadline = value?.order_deadlines?.find(entry=>entry.days.includes(day));
+        const patch = (daysBefore: number, time: string) => update({order_deadlines:[...(value?.order_deadlines??[]).map(entry=>({...entry,days:entry.days.filter(d=>d!==day)})).filter(entry=>entry.days.length),{days:[day],days_before:daysBefore,time}]});
+        return <div key={day} className="flex flex-wrap items-end gap-3">
+          <Field label={t(`weekday_${day}`)}><Select aria-label={`${t('zoneDeadlineBefore')} ${t(`weekday_${day}`)}`} value={deadline?.days_before??''} onChange={event=>event.target.value==='' ? update({order_deadlines:(value?.order_deadlines??[]).map(entry=>({...entry,days:entry.days.filter(d=>d!==day)})).filter(entry=>entry.days.length)}) : patch(Number(event.target.value),deadline?.time??'13:00')}>
+            <option value="">{t('itemPrepNoDeadline')}</option>
+            {Array.from(new Set([0,1,2,3,4,5,6,7,14,...(deadline ? [deadline.days_before] : [])])).sort((a,b)=>a-b).map(offset=><option key={offset} value={offset}>{offset===0?t('itemPrepSameDay'):offset===1?t('itemPrepPreviousDay'):t('itemPrepDaysBefore').replace('{days}',String(offset))}</option>)}
+          </Select></Field>
+          {deadline && <Field label={t('itemPrepCutoffTime')}><Input type="time" aria-label={`${t('itemPrepCutoffTime')} ${t(`weekday_${day}`)}`} value={deadline.time} onChange={event=>patch(deadline.days_before,event.target.value)} /></Field>}
+        </div>;
+      })}
+    </fieldset>}
     {sameDaySupported && <fieldset className="space-y-4 border-t border-[var(--line)] pt-5">
       <legend className="px-1 text-fs-md font-semibold">{t('sameDayTitle')}</legend>
       {rule ? <>
