@@ -90,6 +90,7 @@ export default function OrderingSimulation({ rid, timezone, dirty, pickupEnabled
         {!current.resolved ? <p>{t('orderingSimulationUnresolved')}</p> : !current.deliverable ? <p>{t('orderingSimulationOutside')}</p> : <>
           {zone && <p className="font-semibold">{zone.name} · {money(current.delivery_fee ?? 0)}</p>}
           {calendar && <p>{t('orderingSimulationPreparation')} <bdi>{calendar.lead_time_minutes} {t('minutes')}</bdi>{calendar.constrained_by && <> · {calendar.constrained_by.name}</>}</p>}
+          {calendar?.prepared_stock_applied && <p>{t('orderingSimulationReadyStock')}</p>}
           {zone?.schedule?.same_day && policy && <p>{t('zoneSameDayTransit')} : <bdi>{zone.schedule.same_day.transit_minutes}</bdi></p>}
           {!calendar ? <p>{t('orderingSimulationNoZoneCalendar')}</p> : !windows.length ? <><p className="font-medium">{t(policy?.unavailable_reason === 'same_day_disabled' || policy?.unavailable_reason === 'same_day_outside_coverage' ? 'orderingSimulationSameDayDisabled' : 'orderingSimulationNoDate')}</p>{nextDate && <p>{t('orderingSimulationNextDate')} <bdi>{nextDate}</bdi></p>}</> : <>
             <p className="font-semibold">{t(mode === 'restaurant' ? 'orderingSimulationEstimate' : 'orderingSimulationSlots')}</p>

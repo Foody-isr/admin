@@ -1792,14 +1792,17 @@ an outline and a linked inline message. Equal start/end handover windows remain
 invalid with a specific explanation; an event at the handover end is accepted.
 An event starting before handover finishes produces a nonblocking warning.
 Recipient-provided details remain deferrable through the explicit Foody-link choice.
-Production date/status remains visible, with the authorized inclusion control on
-the final step. Optional event date/address/contact reuse is explicit and never
-silently synchronizes later edits. Existing API payment and fulfillment contracts
-are retained; no migration or production mutation is needed.
+Only the final step asks Add to production plan with mandatory Yes/No radios;
+neither is selected initially and earlier steps have no production banner.
+The choice survives step/payment changes. No also excludes automatically eligible
+orders after scheduling/payment. Yes retains prepared-link/event confirmation gates. Optional event date/address/contact reuse is explicit and never
+silently synchronizes later edits. Deploy the compatible API accepting optional staff production_plan before this UI.
+Guest and older POS clients retain their existing omitted-field behavior; the
+server owns the stored metadata. No schema migration is needed.
 
 Synthetic acceptance: `FOODY_PREVIEW_PRODUCTION=1 FOODY_PREVIEW_LOW_DISK=1 npx
 playwright test -c playwright.redesign.config.ts internal-sumit-checkout.spec.ts
-internal-combo-substitutions.spec.ts` (34 passing). The adjacent library submission
+internal-combo-substitutions.spec.ts` (41 passing). The adjacent library submission
 assertion still expects a carte item without its existing source_menu_id; this
 payload is unchanged by this feature. The FR/HE/EN help and identical API support
 corpus are prepared together. Documentation contracts pin the reviewed immutable Landing commit for CI;
@@ -1808,3 +1811,8 @@ release promotes the same verified develop artifacts.
 ## Transaction history workspace
 
 The restaurant Transactions destination requires payments.view or payments.manage and reads the same /api/v1/transactions projection as POS. Search, dates, channel and payment-method filters retain restaurant headers and query scoping. Details is read-only; gross confirmed collection and locally recorded returns remain separate by currency. Stancer, Sumit and Verifone keep their actual origins, without changing POS terminal providers. An unavailable original order never removes an immutable cash tender or grants a refund. Publish the matching FR/HE/EN transactions guide with the compatible API/Admin/POS release.
+
+
+## Configurable production and delivery intake (local preparation)
+
+Compatible API migration 288 adds an independent Products already prepared counter and receiving-date validity in a saved article’s Stock & availability section. Apply saves only that counter with its current revision; conflicts retain input and require Reload current stock. Delivery zones advertise order-deadline support before exposing day-offset/time controls. Empty/default policies retain existing behavior. These settings are restaurant-owned and do not configure Lovely or other tenants automatically.

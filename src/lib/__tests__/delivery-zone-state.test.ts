@@ -67,3 +67,21 @@ test('zone same-day weekdays stay within the delivery calendar and survive fee e
  for(const same_day of [{...schedule.same_day,days:[6]},{...schedule.same_day,days:[1,1]},{...schedule.same_day,days:null},{...schedule.same_day,transit_minutes:NaN},{...schedule.same_day,transit_minutes:1441},{...schedule.same_day,time_mode:'customer'}])assert.equal(validDeliverySchedule({...schedule,same_day} as any),false);
  assert.equal(validDeliverySchedule({...schedule,same_day:{...schedule.same_day,days:[]}}),true);
 });
+
+
+test('per-zone ordering deadlines survive unrelated fee edits and reject ambiguous calendars',()=>{
+ const schedule={mode:'customer' as const,days:[0,5],offer_pickup:true,order_deadlines:[{days:[5],days_before:0,time:'13:00'},{days:[0],days_before:2,time:'23:59'}]};
+ assert.equal(validDeliverySchedule(schedule),true);
+ for(const order_deadlines of [[{days:[5,5],days_before:0,time:'13:00'}],[{days:[6],days_before:0,time:'13:00'}],[{days:[5],days_before:-1,time:'13:00'}],[{days:[5],days_before:0,time:'24:00'}]])assert.equal(validDeliverySchedule({...schedule,order_deadlines}),false);
+ const zone={id:7,restaurant_id:1,name:'West',type:'cities' as const,is_active:true,cities:['Synthetic city'],created_at:'2026-11-04T00:00:00Z',schedule};
+ const draft=deliveryZoneDraft(zone);draft.deliveryFee='15';
+ assert.deepEqual(deliveryZonePayload(draft,zone).schedule,schedule);
+});
+
+
+test('explicit deadline removal agrees with Go omitempty without dropping the write intent',()=>{
+ const saved={...zone,schedule:{mode:'customer' as const,days:[5],offer_pickup:false}};
+ const input={...saved,schedule:{...saved.schedule,order_deadlines:[]}};
+ assert.equal(deliveryZoneSignature(saved),deliveryZoneSignature(input));
+ assert.deepEqual(deliveryZonePayload(deliveryZoneDraft(input),saved).schedule?.order_deadlines,[],'the API still receives explicit removal');
+});

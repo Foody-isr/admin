@@ -5311,6 +5311,9 @@ export interface CreateOrderInput {
   /** When true the order is pinned onto the production sheet regardless of
    *  scheduling/payment — the "Ajouter au plan de production" checkbox. */
   force_production?: boolean;
+  /** Explicit staff inclusion choice; false suppresses automatic admission.
+   *  Omitted by legacy clients to retain their existing production rules. */
+  production_plan?: boolean;
   items: CreateOrderItemInput[];
   combos?: CreateOrderComboInput[];
   discount_code?: string;
@@ -9855,7 +9858,9 @@ export interface DeliveryZoneSameDay {
   time_mode: 'inherit' | 'restaurant';
 }
 
+export interface OrderingDeadline { days: number[]; days_before: number; time: string }
 export interface DeliverySchedule {
+  order_deadlines?: OrderingDeadline[];
   same_day?: DeliveryZoneSameDay;
   mode: 'customer' | 'automatic' | 'restaurant';
   days?: number[];
@@ -9916,8 +9921,8 @@ export async function getDeliveryZones(restaurantId: number): Promise<DeliveryZo
 }
 
 /** Reads zone capabilities from the same scoped response as the inventory. */
-export async function getDeliveryZoneWorkspace(restaurantId: number): Promise<{ zones: DeliveryZone[]; zone_same_day_supported?: boolean; legacy_same_day_active?: boolean }> {
-  const data = await apiFetch<{ zones: DeliveryZone[] | null; zone_same_day_supported?: boolean; legacy_same_day_active?: boolean }>(
+export async function getDeliveryZoneWorkspace(restaurantId: number): Promise<{ zones: DeliveryZone[]; order_deadlines_supported?: boolean; zone_same_day_supported?: boolean; legacy_same_day_active?: boolean }> {
+  const data = await apiFetch<{ zones: DeliveryZone[] | null; order_deadlines_supported?: boolean; zone_same_day_supported?: boolean; legacy_same_day_active?: boolean }>(
     `/api/v1/delivery/zones?restaurant_id=${restaurantId}`, restaurantId
   );
   if (!data || !(Array.isArray(data.zones) || data.zones === null)) throw new Error('Invalid delivery zone response');
@@ -11383,6 +11388,7 @@ export function cashGuaranteeAction(restaurantId: number, orderId: number, actio
 /** The server calendar used by the read-only ordering simulation. */
 export interface AvailabilitySimulationCalendar {
   enabled: boolean;
+  prepared_stock_applied?: boolean;
   evaluated_at?: string;
   timezone?: string;
   delivery_mode?: DeliverySchedule['mode'];
@@ -11426,3 +11432,14 @@ export async function editEventOrder(restaurantId:number,orderId:number,input:{e
 
 /** Rechecks the event's existing bank authorization without reserving or debiting again. */
 export function reconcileEventHold(restaurantId:number,orderId:number):Promise<{hold:NonNullable<OrderEventConfig['hold']>}>{return apiFetch(`/api/v1/orders/${orderId}/event-hold/reconcile`,restaurantId,{method:'POST',body:'{}'});}
+
+/** Independent remaining shelf stock; null disables the opt-in pool. */
+export interface PreparedStock { available_until: string; quantity: number | null; revision: number }
+/** Read the selected restaurant's current shelf quantity before editing. */
+export async function getPreparedStock(rid: number, itemId: number): Promise<PreparedStock> {
+  return apiFetch<PreparedStock>(`/api/v1/menu/items/${itemId}/prepared-stock`, rid);
+}
+/** Save a reviewed remaining quantity, rejecting concurrent reservation changes. */
+export async function setPreparedStock(rid: number, itemId: number, quantity: number | null, revision: number, availableUntil: string): Promise<PreparedStock> {
+  return apiFetch<PreparedStock>(`/api/v1/menu/items/${itemId}/prepared-stock`, rid, { method: 'PUT', body: JSON.stringify({quantity, expected_revision: revision, available_until: availableUntil}) });
+}

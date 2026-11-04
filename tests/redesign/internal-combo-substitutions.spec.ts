@@ -47,6 +47,7 @@ async function submit(page:Page,state:Awaited<ReturnType<typeof install>>){
  await page.getByRole('region',{name:'Finaliser la commande',exact:true}).getByRole('combobox',{name:'Numéro de téléphone',exact:true}).fill('0500000000');
  await page.getByRole('region',{name:'Finaliser la commande',exact:true}).getByRole('button',{name:'Continuer',exact:true}).click();
  await page.getByRole('region',{name:'Finaliser la commande',exact:true}).getByRole('radio',{name:'Payer plus tard',exact:true}).check();
+ await page.getByRole('group',{name:'Ajouter au plan de production',exact:true}).getByRole('radio',{name:'Non',exact:true}).check();
  await page.getByRole('region',{name:'Finaliser la commande',exact:true}).getByRole('button',{name:/^Créer la commande/}).click();
  await expect.poll(()=>state.orders.length).toBe(1);
  return state.orders[0].combos[0].selections;

@@ -7,7 +7,7 @@ type Input = Parameters<typeof validateCheckout>[0];
 const valid = (): Input => ({
   fulfillment: { timing: 'scheduled', scheduledFor: '2026-11-06', windowStart: '10:00', windowEnd: '12:00' },
   orderType: 'pickup', customerName: 'Client démo', customerPhone: '0500000000', address: '',
-  intent: 'later', linkEnabled: true, cardEnabled: true, holdEnabled: true,
+  productionPlan: false, intent: 'later', linkEnabled: true, cardEnabled: true, holdEnabled: true,
   feeValid: true, feeTouched: false, received: false, total: 100, discountedTotal: 100,
   manualStarted: false, manualValue: 0, manualType: 'fixed', manualReason: '',
 });
@@ -71,4 +71,9 @@ test('received payments and incomplete discounts identify every outstanding ackn
 test('every validation code has the same localized coverage in all three languages', () => {
   assert.deepEqual(Object.keys(checkoutStepCopy.fr.errors), Object.keys(checkoutStepCopy.en.errors));
   assert.deepEqual(Object.keys(checkoutStepCopy.fr.errors), Object.keys(checkoutStepCopy.he.errors));
+});
+
+test('production inclusion requires an explicit answer and accepts both yes and no', () => {
+  assert.deepEqual(validateCheckout({ ...valid(), productionPlan: null }), [{ field: 'productionPlan', step: 'payment', code: 'productionPlan' }]);
+  for (const productionPlan of [true, false]) assert.deepEqual(validateCheckout({ ...valid(), productionPlan }), []);
 });

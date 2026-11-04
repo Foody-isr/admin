@@ -3,6 +3,7 @@ import { createFixture } from './fixtures.mjs';
 
 async function install(page: Page, locale = 'en') {
   const fixture = createFixture({ library: true });
+  const prepared = {available_until:'2030-10-11',quantity:null as number|null, revision:0, conflict:false, writes:[] as unknown[]};
   await page.addInitScript(
     ({ locale }) => {
       localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
@@ -22,6 +23,14 @@ async function install(page: Page, locale = 'en') {
   );
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
+    if (new URL(request.url()).pathname.endsWith('/prepared-stock')) {
+      if (request.method()==='PUT') {
+        prepared.writes.push(request.postDataJSON());
+        if (prepared.conflict) return route.fulfill({status:409,json:{error:'sales_stock_conflict'}});
+        const input=request.postDataJSON(); expect(input.expected_revision).toBe(prepared.revision); prepared.quantity=input.quantity;prepared.available_until=input.available_until; prepared.revision++;
+      }
+      return route.fulfill({json:{quantity:prepared.quantity,revision:prepared.revision,available_until:prepared.available_until}});
+    }
     const result = fixture.response(
       request.url(),
       request.method(),
@@ -39,7 +48,7 @@ async function install(page: Page, locale = 'en') {
       : route.abort(),
   );
   await page.goto('/1/menu/items/1?tab=availability');
-  return fixture;
+  return Object.assign(fixture,{prepared});
 }
 
 const preparationDialog = (page: Page) =>
@@ -220,4 +229,29 @@ test('French summary separates weekday conditions and keeps a simple delay on on
     const second = await summary.locator('p').nth(1).boundingBox();
     expect(second!.y).toBeGreaterThan(first!.y + first!.height);
   }
+});
+
+
+test('prepared stock is opt-in, saves only its own pool and requires reload after a conflict', async({page})=>{
+  const fixture=await install(page);
+  const editor=page.getByRole('region',{name:'Products already prepared'});
+  await expect(editor.getByRole('checkbox')).not.toBeChecked();
+  expect(fixture.prepared.writes).toEqual([]);
+  await editor.getByRole('checkbox').check();
+  await editor.getByLabel('Remaining prepared units').fill('3');
+  await editor.getByRole('button',{name:'Apply',exact:true}).click();
+  await expect(editor.getByRole('status')).toHaveText('Prepared stock saved.');
+  expect(fixture.prepared.writes).toEqual([{quantity:3,expected_revision:0,available_until:'2030-10-11'}]);
+  expect(fixture.writes).toEqual([]);
+  fixture.prepared.conflict=true;
+  await editor.getByLabel('Remaining prepared units').fill('5');
+  await editor.getByRole('button',{name:'Apply',exact:true}).click();
+  await expect(editor.getByRole('alert')).toBeVisible();
+  await expect(editor.getByLabel('Remaining prepared units')).toHaveValue('5');
+  await expect(editor.getByRole('button',{name:'Apply',exact:true})).toBeDisabled();
+  fixture.prepared.quantity=2;fixture.prepared.revision++;
+  await editor.getByRole('button',{name:'Reload current stock'}).click();
+  await expect(editor.getByLabel('Remaining prepared units')).toHaveValue('2');
+  await expect(editor.getByRole('alert')).toHaveCount(0);
+  expect(fixture.prepared.writes).toHaveLength(2);
 });

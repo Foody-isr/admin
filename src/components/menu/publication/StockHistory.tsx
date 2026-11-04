@@ -153,6 +153,7 @@ export function StockHistory({
                 </td>
                 <td className="p-3">
                   {t(`stockEvent_${event.kind}`)}
+                  {event.mode === "prepared" && <div className="text-xs">{t("preparedStockTitle")}</div>}
                   {event.order_id && (
                     <div>
                       <Link
