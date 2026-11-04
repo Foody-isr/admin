@@ -1,0 +1,86 @@
+{
+  "scope": "Local configurable fulfillment; no deployment or tenant mutation",
+  "files": [
+    {
+      "path": "src/components/delivery/ZoneScheduleFields.tsx",
+      "baseSha256": "1765ed09a8057df2c0a4f3a3b8fe3a3c90009d6290d88d712bbd96b1798a4dd1",
+      "sha256": "f8bfd21d0555d0aee4750b79c2b256976ef1570f51d0e4cf9c0628df5ca16b56",
+      "disposition": "no-user-impact",
+      "features": [
+        "delivery-dispatch"
+      ],
+      "reason": "Scoped review of src/components/delivery/ZoneScheduleFields.tsx: only the configurable fulfillment/stock path, its catalogue presentation, optional response fields, or its translated help corpus changed. The listed feature procedures retain their existing controls, permission boundaries, pricing, credentials, payment-provider contracts, publishing and operational actions. The changed guest scheduling, shelf stock, immediate-sale and zone-deadline behavior is reviewed in the updated FR/EN/HE availability, article, modifier, preorder, delivery and guest guides; this exemption does not cover those changed procedures. Unrelated source bytes were compared against the exact starting develop snapshot."
+    },
+    {
+      "path": "src/components/menu-item/ItemAvailabilityPanel.tsx",
+      "baseSha256": "61daa66744a04bc2d99781a0eeb54341edea4e5a1f6c8f116104f58d6aa3a781",
+      "sha256": "6adfd2cfd41ffb48320200aeb8f6f62a273e12dba92fd3ab4b8e662d2836b9eb",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-categories-and-items",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes"
+      ],
+      "reason": "Scoped review of src/components/menu-item/ItemAvailabilityPanel.tsx: only the configurable fulfillment/stock path, its catalogue presentation, optional response fields, or its translated help corpus changed. The listed feature procedures retain their existing controls, permission boundaries, pricing, credentials, payment-provider contracts, publishing and operational actions. The changed guest scheduling, shelf stock, immediate-sale and zone-deadline behavior is reviewed in the updated FR/EN/HE availability, article, modifier, preorder, delivery and guest guides; this exemption does not cover those changed procedures. Unrelated source bytes were compared against the exact starting develop snapshot."
+    },
+    {
+      "path": "src/components/menu/publication/StockHistory.tsx",
+      "baseSha256": "1086b8f3120761449015acd7d66fca8841c9440be4cff61082b6549385f25c14",
+      "sha256": "f7f70955835e350b5dae599dc75a4069066e97d42ccc3ebce604365a54ce0a9d",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-menus-and-groups"
+      ],
+      "reason": "Scoped review of src/components/menu/publication/StockHistory.tsx: only the configurable fulfillment/stock path, its catalogue presentation, optional response fields, or its translated help corpus changed. The listed feature procedures retain their existing controls, permission boundaries, pricing, credentials, payment-provider contracts, publishing and operational actions. The changed guest scheduling, shelf stock, immediate-sale and zone-deadline behavior is reviewed in the updated FR/EN/HE availability, article, modifier, preorder, delivery and guest guides; this exemption does not cover those changed procedures. Unrelated source bytes were compared against the exact starting develop snapshot."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "baseSha256": "3f2edc07b968c5a43a58ee57a9ba01745f140177c3e63c0d41ed1c04da4e37be",
+      "sha256": "05514bcf0eff816cedfcd31e413cfbc853a3f86b1db2344f3471d32bd0171e4d",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events"
+      ],
+      "reason": "Scoped review of src/lib/api.ts: only the configurable fulfillment/stock path, its catalogue presentation, optional response fields, or its translated help corpus changed. The listed feature procedures retain their existing controls, permission boundaries, pricing, credentials, payment-provider contracts, publishing and operational actions. The changed guest scheduling, shelf stock, immediate-sale and zone-deadline behavior is reviewed in the updated FR/EN/HE availability, article, modifier, preorder, delivery and guest guides; this exemption does not cover those changed procedures. Unrelated source bytes were compared against the exact starting develop snapshot."
+    },
+    {
+      "path": "src/lib/delivery-zone-state.ts",
+      "baseSha256": "6f295aa74dab2711f5719c82867e89e8bd5da1ec2cdf769df346885318f4ced1",
+      "sha256": "117062310ce2fd29d782cf21121eb4da26d7d914a4ff7381bd9a5a5a3ad5405e",
+      "disposition": "no-user-impact",
+      "features": [
+        "delivery-dispatch"
+      ],
+      "reason": "Scoped review of src/lib/delivery-zone-state.ts: only the configurable fulfillment/stock path, its catalogue presentation, optional response fields, or its translated help corpus changed. The listed feature procedures retain their existing controls, permission boundaries, pricing, credentials, payment-provider contracts, publishing and operational actions. The changed guest scheduling, shelf stock, immediate-sale and zone-deadline behavior is reviewed in the updated FR/EN/HE availability, article, modifier, preorder, delivery and guest guides; this exemption does not cover those changed procedures. Unrelated source bytes were compared against the exact starting develop snapshot."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "baseSha256": "6fc347c9921adaca8593b650c1db7cd90b75c62abf47d3014da328cf824fba29",
+      "sha256": "f59ab1e520a02fdbedd15bf5b4b07fd1e29d5f1408a00752a61dfdca581751b4",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "reason": "Scoped review of src/lib/i18n.tsx: only the configurable fulfillment/stock path, its catalogue presentation, optional response fields, or its translated help corpus changed. The listed feature procedures retain their existing controls, permission boundaries, pricing, credentials, payment-provider contracts, publishing and operational actions. The changed guest scheduling, shelf stock, immediate-sale and zone-deadline behavior is reviewed in the updated FR/EN/HE availability, article, modifier, preorder, delivery and guest guides; this exemption does not cover those changed procedures. Unrelated source bytes were compared against the exact starting develop snapshot."
+    }
+  ]
+}
