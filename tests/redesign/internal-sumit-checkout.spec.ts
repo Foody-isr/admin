@@ -54,6 +54,7 @@ async function paymentStep(panel: Locator) {
   await panel.getByRole('button', { name: 'Continuer', exact: true }).click();
   if (await panel.locator('[aria-current="step"]').filter({ hasText: 'Événement' }).count()) await panel.getByRole('button', { name: 'Continuer', exact: true }).click();
   await expect(panel.locator('[aria-current="step"]')).toContainText('Paiement et confirmation');
+  await panel.getByRole('group', { name: 'Ajouter au plan de production', exact: true }).getByRole('radio', { name: 'Non', exact: true }).check();
 }
 async function chooseLink(panel: Locator) {
   await panel.getByRole('checkbox', { name: 'Le client complétera ses informations via le lien Foody', exact: true }).check();
@@ -62,6 +63,49 @@ async function chooseLink(panel: Locator) {
 async function receptionStep(panel: Locator) {
   await panel.getByRole('navigation').getByRole('button', { name: /Réception et client/ }).click();
 }
+
+test('production is asked only at confirmation and an explicit No is required before creation', async ({ page }, info) => {
+  const state = await install(page, false);
+  const panel = await checkout(page);
+  await expect(panel.locator('[data-production-summary]')).toHaveCount(0);
+  await expect(panel.getByRole('group', { name: 'Ajouter au plan de production', exact: true })).toHaveCount(0);
+  await fillCustomer(panel);
+  await panel.getByRole('button', { name: 'Continuer', exact: true }).click();
+  const group = panel.getByRole('group', { name: 'Ajouter au plan de production', exact: true });
+  const yes = group.getByRole('radio', { name: 'Oui', exact: true });
+  const no = group.getByRole('radio', { name: 'Non', exact: true });
+  await expect(yes).not.toBeChecked();
+  await expect(no).not.toBeChecked();
+  await panel.getByRole('radio', { name: 'Payer plus tard', exact: true }).check();
+  await panel.getByRole('button', { name: 'Créer la commande', exact: true }).click();
+  await expect(yes).toBeFocused();
+  await expect(yes).toHaveAttribute('aria-invalid', 'true');
+  await expect(no).toHaveAttribute('aria-invalid', 'true');
+  await expect(group).toContainText('Choisissez Oui ou Non');
+  await page.screenshot({ path: info.outputPath('production-choice-required-fr.png') });
+  expect(state.created).toHaveLength(0);
+  await no.check();
+  await panel.getByRole('button', { name: 'Créer la commande', exact: true }).click();
+  expect(state.created[0]).toMatchObject({ production_plan: false });
+  expect(state.created[0]).not.toHaveProperty('force_production');
+});
+
+test('an explicit Yes survives earlier steps and a change of payment intent', async ({ page }) => {
+  const state = await install(page, true);
+  const panel = await checkout(page);
+  await fillCustomer(panel);
+  await paymentStep(panel);
+  const yes = panel.getByRole('group', { name: 'Ajouter au plan de production', exact: true }).getByRole('radio', { name: 'Oui', exact: true });
+  await yes.check();
+  await panel.getByRole('radio', { name: 'Lien de paiement', exact: true }).check();
+  await panel.getByRole('button', { name: 'Précédent', exact: true }).click();
+  await panel.getByRole('button', { name: 'Continuer', exact: true }).click();
+  await expect(yes).toBeChecked();
+  await panel.getByRole('radio', { name: 'Payer plus tard', exact: true }).check();
+  await expect(yes).toBeChecked();
+  await panel.getByRole('button', { name: 'Créer la commande', exact: true }).click();
+  expect(state.created[0]).toMatchObject({ production_plan: true });
+});
 
 for (const width of [1024, 1440, 1920]) test(`the ticket and catalogue remain fixed through checkout at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 1000 });
@@ -198,7 +242,7 @@ test('staff can share a Foody basket without recipient details or payment permis
   await panel.getByRole('button', { name: 'Créer le lien de paiement', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Lien de paiement prêt' })).toBeVisible();
   expect(state.created).toHaveLength(1);
-  expect(state.created[0]).toMatchObject({ internal_checkout: 'link', payment_required: false, force_production: false, customer_name: '', customer_phone: '' });
+  expect(state.created[0]).toMatchObject({ internal_checkout: 'link', payment_required: false, production_plan: false, customer_name: '', customer_phone: '' });
   expect(state.paymentRequests()).toBe(0);
   await page.screenshot({ path: info.outputPath('sumit-customer-link.png') });
 });
@@ -304,7 +348,8 @@ test('equal handover hours identify both fields while an event at handover end i
   await panel.locator('[id="checkout-event.event_time"]').fill('12:00');
   await panel.getByRole('button', { name: 'Continuer', exact: true }).click();
   await panel.getByRole('radio', { name: 'Payer plus tard', exact: true }).check();
-  await expect(panel.locator('[data-production-summary]')).toContainText('incluse');
+  await expect(panel.locator('[data-production-summary]')).toHaveCount(0);
+  await panel.getByRole('group', { name: 'Ajouter au plan de production', exact: true }).getByRole('radio', { name: 'Non', exact: true }).check();
   await expect(panel.getByRole('checkbox', { name: /Ajouter au plan de production/ })).toHaveCount(0);
   await page.screenshot({ path: info.outputPath('checkout-event-payment-fr.png') });
   await panel.getByRole('button', { name: 'Créer la commande', exact: true }).click();
@@ -350,9 +395,9 @@ for (const mode of ['hold', 'deposit_hold'] as const) test(`event link preserves
   await panel.getByRole('textbox', { name: /Frais de livraison/ }).fill('35,50');
   await chooseLink(panel);
   await panel.getByRole('combobox', { name: 'Paiement maintenant', exact: true }).selectOption(mode);
-  await panel.getByRole('checkbox', { name: /Ajouter au plan de production/ }).check();
+  await panel.getByRole('group', { name: 'Ajouter au plan de production', exact: true }).getByRole('radio', { name: 'Oui', exact: true }).check();
   await panel.getByRole('button', { name: 'Créer le lien de paiement', exact: true }).click();
-  expect(state.created[0]).toMatchObject({ force_production: true, internal_checkout: 'link', delivery_fee: 35.5, delivery_fee_fixed: true, scheduled_for: '2026-11-04', event_config: { payment_mode: mode, hold_type: 'percent', hold_value: 100 } });
+  expect(state.created[0]).toMatchObject({ production_plan: true, internal_checkout: 'link', delivery_fee: 35.5, delivery_fee_fixed: true, scheduled_for: '2026-11-04', event_config: { payment_mode: mode, hold_type: 'percent', hold_value: 100 } });
 });
 
 test('deposit errors stay in payment and open the exact field', async ({ page }) => {
@@ -423,7 +468,11 @@ for (const variant of [
   await expect(action).toBeEnabled();
   const box = await action.boundingBox();
   expect(box!.y + box!.height).toBeLessThanOrEqual(variant.height);
-  await expect(panel.locator('[data-production-summary]')).toBeVisible();
+  await expect(panel.locator('[data-production-summary]')).toHaveCount(0);
+  const production = panel.locator('input[name="production-plan"]');
+  await expect(production).toHaveCount(2);
+  await expect(panel.locator('input[name="production-plan"]:checked')).toHaveCount(0);
+  await production.nth(1).check();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath(`checkout-steps-${variant.locale}.png`) });
 });

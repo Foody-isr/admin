@@ -50,7 +50,7 @@ export function EventOrderFields({
   return (
     <div className="space-y-4">
       {!paymentOnly && <>
-        <p className="text-fs-xs text-[var(--fg-muted)]">{c.dueHint}</p>
+        {!progressive && <p className="text-fs-xs text-[var(--fg-muted)]">{c.dueHint}</p>}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{fields(progressive ? ['guests', 'event_date', 'event_time'] : ['name', 'guests', 'event_date', 'event_time', 'venue', 'contact', 'notes'])}</div>
         {progressive && <details><summary className="cursor-pointer py-2 text-fs-sm font-medium">{stepCopy.additional}</summary><div className="grid grid-cols-1 gap-3 pt-3 sm:grid-cols-2">{fields(['name', 'venue', 'contact', 'notes'])}</div></details>}
         {progressive && clientRequirements && <details><summary className="cursor-pointer py-2 text-fs-sm font-medium">{stepCopy.requirements}</summary><div className="space-y-3 pt-3">{(['guests', 'event_date', 'event_time'] as const).map(requirement)}<label className="flex items-center gap-2 text-fs-xs"><input type="checkbox" checked={!!value.allow_date_change} onChange={e => update({ allow_date_change: e.target.checked })}/>{c.allowDateChange}</label></div></details>}
