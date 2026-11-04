@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "3c0fe36f4d9b6216ef39dfa9d7a7a45a853b4b03",
-  "documentationRevision": "fba3554616a8a5939360e9c8b12284e168a15e849a45612a18a6f29b4eceb956",
+  "documentationRef": "55bf66079a72f28619b81090723d23bebda6f9f4",
+  "documentationRevision": "491e72560e522e4f965cb495261e837839671e5ac61bac14797b54bd5ff8a66d",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -430,15 +430,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/managing-orders.mdx",
-          "sha256": "68b10b92dedcb80cdbe85f4fecab28a1fadfe73d39d31c55b06747673ae83700"
+          "sha256": "7c29a98653d07b01982f8a062d27a8a77334db3cd5b57dde3db638698da3cc67"
         },
         "fr": {
           "path": "src/content/help/fr/orders/managing-orders.mdx",
-          "sha256": "5fb1ddc91905eba29d379892935886044736885afc9aae0a372af6584969f66a"
+          "sha256": "fe8aef412200a5ee930246abc26f46592b86cb01c4a10e0de4dd862f16b3dfb8"
         },
         "he": {
           "path": "src/content/help/he/orders/managing-orders.mdx",
-          "sha256": "e402ffadf8b87648f832ffb176b773dde971302c50dc80487e64376dd7b505c4"
+          "sha256": "7c914d7de129a16fb362142b69c5266848a4be741e9b374679d612ad996e1c80"
         }
       }
     },
@@ -620,15 +620,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/order-details.mdx",
-          "sha256": "c500cfc6a230e013409090270e1e847a88ac6f513efcc60adf20a8230bea361a"
+          "sha256": "72f5135ee5fec9877e09bd07abcf37772c744dc4e732620575b6fcf2040bf83a"
         },
         "fr": {
           "path": "src/content/help/fr/orders/order-details.mdx",
-          "sha256": "10ba2cf0ef6b39a86fbe81462fcafa31ffdff5b0516eed21711b5403f04cbf8b"
+          "sha256": "1986aaaabeafa33edc4695919656f246899b6e977c9e17c13ef6765723beb1bc"
         },
         "he": {
           "path": "src/content/help/he/orders/order-details.mdx",
-          "sha256": "216ec6a4a992c1989f8cbe6233c98ec97e1d3656b91c0162939842af7ec36c75"
+          "sha256": "0c4678544153335100ee71a3e9ffd7edbac055a2274f9db990ff83a01043471f"
         }
       }
     },
@@ -1988,15 +1988,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/internal-sumit-checkout.mdx",
-          "sha256": "81a0c724502c09e29b754a505bc6cb00a49bd41861162deefa12e7804fe10223"
+          "sha256": "96b0a072fc98d43148d3e29d6d61a98c601d97a311a6575bbbc69d6f7eb60c89"
         },
         "fr": {
           "path": "src/content/help/fr/orders/internal-sumit-checkout.mdx",
-          "sha256": "f1271370f3f6ce4c8ceb572f096da7f06b2874a5461efe2619d09e9d4b4ae9b5"
+          "sha256": "4a00fc76417136edb0541f3661a80911987ac95fe5384831f4bc4f2d10633183"
         },
         "he": {
           "path": "src/content/help/he/orders/internal-sumit-checkout.mdx",
-          "sha256": "50549e449f8a9c0f954ea9c2f197d860e1db1a9f9933ee0cff6218bab628505e"
+          "sha256": "65a3183e4a61e7ccbaee9d7cf939d29e3a1ae00a2f390da7a96218b8a867716b"
         }
       }
     },
@@ -2045,15 +2045,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/event-orders.mdx",
-          "sha256": "3d1ecb75c33e2f17510381d8f755993298b571945be36fb24b19aae637c6ced8"
+          "sha256": "24077072b50997188c5dfddb4798d8b7287d843ab0568a9c1bf2dd52e653f9ca"
         },
         "fr": {
           "path": "src/content/help/fr/orders/event-orders.mdx",
-          "sha256": "f8d807a29305dfaa4c5522636805234636014d026b338538f145d83cb4654be8"
+          "sha256": "b7d16517fe6fcd91778b5033c716d1bccd8e8ff2de9ce1f6f665176e37bad340"
         },
         "he": {
           "path": "src/content/help/he/orders/event-orders.mdx",
-          "sha256": "b39747e2481101fb50a544832b7a6cf181c6161629d8e272e124a4b4fc146dda"
+          "sha256": "328436dbbfd6ca38d4d9b3f24c5826f59bdb164de28210ebaf4cb53128a90c70"
         }
       }
     }
@@ -3004,7 +3004,7 @@
       ]
     },
     "src/app/[restaurantId]/orders/new/page.tsx": {
-      "sha256": "2ff547e278a4ad30452676307fdb449d09bb22315a4071583082184c5fa6e50e",
+      "sha256": "e76dae582731cd9dcbe0835a3f7ed8c02a8154a1ab6518ad549d2876824d0ba9",
       "features": [
         "orders-managing-orders",
         "order-detail",
@@ -3911,7 +3911,7 @@
       ]
     },
     "src/components/customers/CustomerDeliveryFields.tsx": {
-      "sha256": "439c518322a5fab66fbe174d98b539a6f1cc1aaf02281e9dbc9894f9fa6f0816",
+      "sha256": "71fcac9c73b96473b8438e8321d24beeaa450aae5095cc9394ac3d54bcd1b1a1",
       "features": [
         "customers-profiles"
       ]
@@ -5068,7 +5068,7 @@
       ]
     },
     "src/components/orders/CustomerPicker.tsx": {
-      "sha256": "8056c2cabf0ca5687be845ca4624e21b9666e69a3a2cdd5475942c357720ed1a",
+      "sha256": "b5333b97ff2f01478942a4d379398bc7e428a70692e3001d3131396575b4944a",
       "features": [
         "orders-managing-orders",
         "order-detail"
@@ -5110,7 +5110,7 @@
       ]
     },
     "src/components/orders/EventOrderFields.tsx": {
-      "sha256": "f506c3a4288b9f24822c23e8a3ee6d233f01e054ceb6a95c1d6c00fd5898a5ad",
+      "sha256": "752dcc89a0820bf2c1526cf301df25be3cf3a238181336d995b6c1aa90ca5198",
       "features": [
         "orders-events"
       ]
@@ -5122,7 +5122,7 @@
       ]
     },
     "src/components/orders/FulfillmentSection.tsx": {
-      "sha256": "dfa596cf1c4954a4eef3ccb707f646c12606f0a38b3b817ed05550afb7ffa385",
+      "sha256": "c603fddbc35af4a43fa5b74d9e7f21a4a93d55482d6e44707c3e5ac0abf926eb",
       "features": [
         "orders-managing-orders",
         "order-detail"
@@ -5138,7 +5138,7 @@
       ]
     },
     "src/components/orders/NewOrderCheckoutPanel.tsx": {
-      "sha256": "cb24ff78f62bb2d4d032d6ee964a516c16d38ea458ec31089f96be33878d9c8e",
+      "sha256": "b365c7de5305f5c31b957627ba32165816a5d7f020c125ce6b6c9cd0ea3cc1a5",
       "features": [
         "orders-managing-orders",
         "order-detail",
@@ -5433,7 +5433,7 @@
       ]
     },
     "src/components/orders/order-checkout.module.css": {
-      "sha256": "eb6a9182bba54c1c81d102e643eb61c58af645d88eb2f1c7936254ca08578eb5",
+      "sha256": "f4b5ece7e37c2cd17c4c0592ef4ca016d34de02155fd2bc5de5723c3621fa677",
       "features": [
         "orders-managing-orders",
         "order-detail"
@@ -6782,6 +6782,20 @@
     },
     "src/lib/orders/checkout-fields.ts": {
       "sha256": "cbeb56f4316942277067b632cb294005304726367e17ca758ffb8aac516ff26f",
+      "features": [
+        "order-detail",
+        "shared-runtime"
+      ]
+    },
+    "src/lib/orders/checkout-step-copy.ts": {
+      "sha256": "4242cc69b1a6ecfbc6d906659cd4d442953d1e6b7d8f36d2b8174ca834b25436",
+      "features": [
+        "order-detail",
+        "shared-runtime"
+      ]
+    },
+    "src/lib/orders/checkout-validation.ts": {
+      "sha256": "ad901dd687e126fc68abd81d1db0e829f242d049007b45761344ae3821588329",
       "features": [
         "order-detail",
         "shared-runtime"
@@ -17086,6 +17100,23 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/menu-item/ItemMenuSaveNotice.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/menu-item/ItemMenuSaveNotice.tsx",
+      "line": 1,
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-menus-and-groups"
+      ],
+      "labels": [
+        "done",
+        "itemMenuDraftSaved",
+        "itemMenuSavedTitle"
+      ],
+      "actions": []
+    },
+    {
       "id": "foodyadmin:src/components/menu-item/ItemPreparationDialog.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/menu-item/ItemPreparationDialog.tsx",
@@ -19116,7 +19147,6 @@
       ],
       "labels": [
         "addToProduction",
-        "addToProductionHint",
         "apply",
         "applyDiscount",
         "chooseCoupon",
@@ -19131,24 +19161,19 @@
         "customerPickerLinked",
         "customerPickerOrders",
         "delivery",
+        "deliveryAddress",
         "deliveryFee",
         "discountLine",
         "enterCode",
         "invalidCode",
         "manualDiscount",
         "manualDiscountReason",
-        "orderCheckoutAddressRequired",
         "orderCheckoutBack",
         "orderCheckoutCard",
         "orderCheckoutCardHint",
-        "orderCheckoutChoose",
-        "orderCheckoutContactRequired",
         "orderCheckoutCreateLink",
-        "orderCheckoutDeliveryFeeInvalid",
         "orderCheckoutDeliveryFeeOverride",
         "orderCheckoutDeliveryFeeReset",
-        "orderCheckoutDiscountInvalid",
-        "orderCheckoutFulfillmentRequired",
         "orderCheckoutFulfillmentTitle",
         "orderCheckoutIntent",
         "orderCheckoutLater",
@@ -19157,11 +19182,8 @@
         "orderCheckoutLinkHint",
         "orderCheckoutOpenCard",
         "orderCheckoutOptionalCustomer",
-        "orderCheckoutPositiveTotal",
-        "orderCheckoutProduction",
         "orderCheckoutProductionAfterPayment",
         "orderCheckoutReceived",
-        "orderCheckoutReceivedRequired",
         "orderCheckoutRecord",
         "orderCheckoutRecordAction",
         "orderCheckoutRecordHint",
@@ -25252,6 +25274,21 @@
       ]
     },
     {
+      "id": "foodyadmin:src/lib/item-menu-assignments.ts:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/lib/item-menu-assignments.ts",
+      "line": 1,
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-menus-and-groups"
+      ],
+      "labels": [],
+      "actions": [
+        "saveItemMenuAssignments"
+      ]
+    },
+    {
       "id": "foodyadmin:src/lib/item-options.ts:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/lib/item-options.ts",
@@ -25950,38 +25987,6 @@
       "labels": [],
       "actions": [
         "removeProcessingGuard"
-      ]
-    },
-    {
-      "id": "foodyadmin:src/components/menu-item/ItemMenuSaveNotice.tsx:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/components/menu-item/ItemMenuSaveNotice.tsx",
-      "line": 1,
-      "features": [
-        "menu-categories-and-items",
-        "menu-creating-a-menu-item",
-        "menu-menus-and-groups"
-      ],
-      "labels": [
-        "done",
-        "itemMenuDraftSaved",
-        "itemMenuSavedTitle"
-      ],
-      "actions": []
-    },
-    {
-      "id": "foodyadmin:src/lib/item-menu-assignments.ts:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/lib/item-menu-assignments.ts",
-      "line": 1,
-      "features": [
-        "menu-categories-and-items",
-        "menu-creating-a-menu-item",
-        "menu-menus-and-groups"
-      ],
-      "labels": [],
-      "actions": [
-        "saveItemMenuAssignments"
       ]
     }
   ]

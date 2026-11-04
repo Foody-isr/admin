@@ -694,7 +694,7 @@ export default function NewOrderPage() {
         <Button className="flex-1" variant={mobilePane === 'catalogue' ? 'primary' : 'secondary'} aria-pressed={mobilePane === 'catalogue'} disabled={submitting} onClick={() => { setCheckoutOpen(false); setMobilePane('catalogue'); }}>{t('items')}</Button>
         <Button className="flex-1" variant={mobilePane === 'ticket' ? 'primary' : 'secondary'} aria-pressed={mobilePane === 'ticket'} onClick={() => setMobilePane('ticket')}>{t('orderItems')} · {itemCount}</Button>
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--bg)] lg:grid-cols-[minmax(0,1fr)_minmax(360px,410px)]">
+      <div className={cn("grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--bg)]", checkoutOpen ? "lg:grid-cols-[minmax(0,1fr)_minmax(440px,560px)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(360px,410px)]")}>
         {/* ─── Catalog ──────────────────────────────────────────────────── */}
         <fieldset disabled={checkoutOpen || submitting} className={cn("min-h-0 min-w-0 flex-col border-[var(--line)] lg:flex lg:border-e", mobilePane === 'catalogue' ? 'flex' : 'hidden')}>
           {/* Header: back + title + carte tabs + search + category chips */}

@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, Chip, Field, Input } from '@/components/ds';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { ChoiceRow } from '@/components/ds/Selection';
 import { cn } from '@/lib/utils';
 import {
-  ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, LinkIcon, CheckIcon, TagIcon, XIcon, ArrowLeftIcon, ClockIcon, ChevronDownIcon,
+  ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, LinkIcon, TagIcon, XIcon, ArrowLeftIcon, ClockIcon, ChevronDownIcon,
 } from 'lucide-react';
 import { FulfillmentSection } from './FulfillmentSection';
 import {
@@ -24,6 +24,8 @@ import { usePermissions } from '@/lib/permissions-context';
 import { CustomerPicker } from './CustomerPicker';
 import { CustomerDeliveryFields } from '@/components/customers/CustomerDeliveryFields';
 import type { DraftCustomer } from '@/lib/orders/orderDraft';
+import { checkoutStepCopy } from '@/lib/orders/checkout-step-copy';
+import { validateCheckout, checkoutFieldProps, type CheckoutStep, type CheckoutField, type CheckoutIssue, type CheckoutErrors } from '@/lib/orders/checkout-validation';
 import styles from './order-checkout.module.css';
 import { EventOrderFields } from './EventOrderFields';
 import { eventOrderCopy } from '@/lib/orders/event-order-copy';
@@ -112,13 +114,40 @@ export function NewOrderCheckoutPanel({
   const { money } = useCurrency();
   const { t, locale } = useI18n();
   const ec = eventOrderCopy[locale];
+  const copy = checkoutStepCopy[locale];
   const [eventConfig,setEventConfig] = useState<OrderEventConfig | undefined>(initialState?.eventConfig);
   const eventTouched = useRef(false);
   useEffect(()=>{if(cateringDetected&&!eventTouched.current){setEventConfig(current=>current??{name:"",guests:0,event_date:"",event_time:"",venue:"",contact:"",notes:"",require_guests:true,require_date:true,require_time:true,payment_mode:"full",deposit_type:"percent",deposit_value:30,hold_type:"percent",hold_value:100,balance_due_date:""});}},[cateringDetected]);
   const { hasAnyPermission } = usePermissions();
   const canManualDiscount = hasAnyPermission('orders.discount');
   const headingRef = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { if (open) headingRef.current?.focus(); }, [open]);
+  const panelRef = useRef<HTMLElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [step, setStep] = useState<CheckoutStep>('reception');
+  const [visited, setVisited] = useState<CheckoutStep[]>(['reception']);
+  const [attempted, setAttempted] = useState<CheckoutStep[]>([]);
+  const [focusRequest, setFocusRequest] = useState<{ field: CheckoutField; sequence: number } | null>(null);
+  const [dismissedError, setDismissedError] = useState<string | null>(null);
+  const [serverIssue, setServerIssue] = useState<CheckoutIssue | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const target = focusRequest?.field === 'intent'
+      ? panelRef.current?.querySelector<HTMLElement>('input[name="order-payment-intent"]')
+      : focusRequest ? panelRef.current?.querySelector<HTMLElement>(`[id="checkout-${focusRequest.field}"]`)
+        ?? (focusRequest.field === 'windowStart' || focusRequest.field === 'windowEnd' ? panelRef.current?.querySelector<HTMLElement>('#checkout-scheduledFor') : null) : null;
+    if (target) {
+      let parent = target.parentElement;
+      while (parent && parent !== panelRef.current) {
+        if (parent instanceof HTMLDetailsElement) parent.open = true;
+        parent = parent.parentElement;
+      }
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({ block: 'center', inline: 'nearest' });
+    } else {
+      contentRef.current?.scrollTo({ top: 0 });
+      headingRef.current?.focus({ preventScroll: true });
+    }
+  }, [open, step, focusRequest]);
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -187,6 +216,7 @@ export function NewOrderCheckoutPanel({
     setLinked(initialState.linked);
     setOrderType(initialState.orderType);
     setFulfillment(initialState.fulfillment);
+    if (initialState.eventConfig) setEventConfig(initialState.eventConfig);
   }, [initialState]);
 
   // Reports the draftable slice of state up on every change, so the page can
@@ -236,30 +266,14 @@ export function NewOrderCheckoutPanel({
     setDiscountValidating(false);
     setAppliedCoupon(null);
     setDiscountError(null);
-  }, [open, discountContext]);
+  }, [discountContext]);
 
   // Preserve the chosen date while returning to articles; refresh changed series windows.
   const isEvent = !!eventConfig;
   const targets = useMemo(() => buildFulfillmentTargets(isEvent ? null : batchConfig, orderType), [batchConfig, orderType, isEvent]);
   const fulfillmentContext = useRef<string | null>(null);
   useEffect(() => {
-    if (!open) {
-      setReceived(false);
-      // Reset discount state when the drawer closes so it starts fresh next time.
-      // Deliberately does NOT touch customer-sheet fields (name, phone, address,
-      // city, floor, apt, entryCode, deliveryNotes, linked): those are meant to
-      // survive a close/reopen exactly like the rest of the sheet, and since
-      // Task 3 they're also what a persisted draft records. Resetting entryCode
-      // or linked here used to silently drop them from the draft on every close.
-      setCouponCode('');
-      setDiscountError(null);
-      setAppliedCoupon(null);
-      setManualType('fixed');
-      setManualValue('');
-      setManualReason('');
-      setAppliedManual(null);
-      return;
-    }
+    if (!open) return;
     // An event has a staff-chosen handover date, independent of carte series.
     // Never reconcile this free calendar against the weekly batch targets.
     if (isEvent) {
@@ -373,21 +387,27 @@ export function NewOrderCheckoutPanel({
         setAppliedCoupon({ code, amount: res.discount.amount, newTotal: res.discount.new_total });
       } else {
         setDiscountError(t(reasonKey(res.reason ?? 'not_found')));
+        setFocusRequest(current => ({ field: 'coupon', sequence: (current?.sequence ?? 0) + 1 }));
       }
     } catch {
-      if (request === discountRequest.current) setDiscountError(t('invalidCode'));
+      if (request === discountRequest.current) {
+        setDiscountError(t('invalidCode'));
+        setFocusRequest(current => ({ field: 'coupon', sequence: (current?.sequence ?? 0) + 1 }));
+      }
     } finally {
       if (request === discountRequest.current) setDiscountValidating(false);
     }
   }
 
+  function manualAmount(type: 'fixed' | 'percent', value: number): number {
+    return type === 'fixed' ? Math.min(value, total)
+      : Math.round(total * (Math.min(100, Math.max(0, value)) / 100) * 100) / 100;
+  }
+
   function applyManualDiscount() {
     const val = parseFloat(manualValue);
     if (!Number.isFinite(val) || val <= 0 || (manualType === 'percent' && val > 100) || !manualReason.trim()) return;
-    const amount =
-      manualType === 'fixed'
-        ? Math.min(val, total)
-        : Math.round(total * (Math.min(100, Math.max(0, val)) / 100) * 100) / 100;
+    const amount = manualAmount(manualType, val);
     setAppliedManual({ type: manualType, value: val, reason: manualReason.trim(), amount });
     setAppliedCoupon(null); // mutually exclusive
     setDiscountError(null);
@@ -414,48 +434,76 @@ export function NewOrderCheckoutPanel({
           type: manualType,
           value: manualValNum,
           reason: manualReason.trim(),
-          amount:
-            manualType === 'fixed'
-              ? Math.min(manualValNum, total)
-              : Math.round(total * (Math.min(100, Math.max(0, manualValNum)) / 100) * 100) / 100,
+          amount: manualAmount(manualType, manualValNum),
         }
       : null;
   // The manual discount that actually applies: an explicitly-applied one wins,
   // else the pending typed one. A coupon takes precedence over both.
-  const effectiveManual = appliedCoupon ? null : (appliedManual ?? pendingManual);
+  const selectedManual = appliedManual ?? pendingManual;
+  const effectiveManual = appliedCoupon || !selectedManual ? null : {
+    ...selectedManual, amount: manualAmount(selectedManual.type, selectedManual.value),
+  };
 
   // The applied discount amount (0 if none). Clamped so total never goes negative.
   const appliedAmount = appliedCoupon?.amount ?? effectiveManual?.amount ?? 0;
   const discountedTotal = Math.max(0, total + feeValue - appliedAmount);
 
   const hosted = payMethod === 'link' || payMethod === 'sumit_card';
-  const capabilityReady = intent !== 'link' || sumitCheckoutEnabled;
-  const cardReady = intent !== 'charge_card' || sumitCardEnabled;
-  const contactReady = intent === 'link' || !!(customerName.trim() && customerPhone.trim());
-  const addressReady = intent === 'link' || orderType !== 'delivery' || !!address.trim();
-  const fulfillmentReady = fulfillment.timing === 'immediate' || !!(fulfillment.scheduledFor && /^\d{4}-\d{2}-\d{2}$/.test(fulfillment.scheduledFor) &&
-    ((!fulfillment.windowStart && !fulfillment.windowEnd) || (fulfillment.windowStart && fulfillment.windowEnd && fulfillment.windowStart < fulfillment.windowEnd)));
   const manualStarted = canManualDiscount && !appliedCoupon && !appliedManual && !!(manualValue.trim() || manualReason.trim());
-  const manualReady = !manualStarted || (Number.isFinite(manualValNum) && manualValNum > 0 && (manualType !== 'percent' || manualValNum <= 100) && !!manualReason.trim());
-  useEffect(()=>{if(payMethod==="sumit_card"&&eventConfig?.payment_mode==="none"){setEventConfig(current=>current?{...current,payment_mode:"full"}:current);}},[payMethod,eventConfig?.payment_mode]);
-  const needsEventHold=hosted&&(eventConfig?.payment_mode==='hold'||eventConfig?.payment_mode==='deposit_hold');
-  const eventDeposit=eventConfig?.payment_mode==='deposit_hold'?(eventConfig.deposit_type==='percent'?Math.round(discountedTotal*eventConfig.deposit_value)/100:eventConfig.deposit_value):0;
-  const holdRemaining=discountedTotal-eventDeposit;
-  const eventHoldAmount=eventConfig?.hold_type==='fixed'?(eventConfig.hold_value??0):holdRemaining*(eventConfig?.hold_value??100)/100;
-  const eventHoldInvalid=needsEventHold&&(!sumitHoldEnabled||!Number.isFinite(eventHoldAmount)||eventHoldAmount<=0||eventHoldAmount>holdRemaining);
-  const eventInvalid = eventHoldInvalid || !!eventConfig && (fulfillment.timing !== "scheduled" || !fulfillment.scheduledFor || (intent !== "link" && (eventConfig.require_guests && !eventConfig.guests || eventConfig.require_date && !eventConfig.event_date || eventConfig.require_time && !eventConfig.event_time)) || hosted && (eventConfig.payment_mode === "deposit" || eventConfig.payment_mode === "deposit_hold") && (!Number.isFinite(eventConfig.deposit_value) || eventConfig.deposit_value <= 0 || eventConfig.deposit_type === "percent" && eventConfig.deposit_value >= 100 || eventConfig.deposit_type === "fixed" && eventConfig.deposit_value >= discountedTotal));
-  const validationHint = eventInvalid ? ec.requiredError : !intent || !capabilityReady || !cardReady ? t('orderCheckoutChoose')
-    : orderType === 'delivery' && !feeValid ? t('orderCheckoutDeliveryFeeInvalid')
-    : !fulfillmentReady ? t('orderCheckoutFulfillmentRequired')
-    : !contactReady ? t('orderCheckoutContactRequired')
-    : !addressReady ? t('orderCheckoutAddressRequired')
-    : orderType === 'delivery' && intent !== 'link' && !feeTouched && !automaticFeeReady
-      ? t(currentFeeQuote?.status === 'error' ? 'orderCheckoutDeliveryFeeUnavailable' : 'orderCheckoutDeliveryFeeCalculating')
-    : !manualReady ? t('orderCheckoutDiscountInvalid')
-    : hosted && discountedTotal <= 0 ? t('orderCheckoutPositiveTotal')
-    : intent === 'record' && !received ? t('orderCheckoutReceivedRequired') : '';
-  const canConfirm = !validationHint && !submitting && !discountValidating && total > 0;
-  const showCustomer = intent && (intent !== 'link' || optionalCustomer || customerName || customerPhone);
+  const steps: CheckoutStep[] = eventConfig ? ['reception', 'event', 'payment'] : ['reception', 'payment'];
+  const stepIndex = steps.indexOf(step);
+  const issues = validateCheckout({ fulfillment, orderType, customerName, customerPhone, address, intent,
+    linkEnabled: sumitCheckoutEnabled, cardEnabled: sumitCardEnabled, holdEnabled: sumitHoldEnabled,
+    feeValid, feeTouched, feeStatus: currentFeeQuote?.status, received, total, discountedTotal,
+    manualStarted, manualValue: manualValNum, manualType, manualReason, event: eventConfig });
+  const visibleIssues = [...issues.filter(issue => attempted.includes(issue.step)), ...(serverIssue ? [serverIssue] : [])];
+  const fieldErrors: CheckoutErrors = Object.fromEntries(visibleIssues.map(issue => [issue.field, copy.errors[issue.code]]));
+  const showCustomer = intent !== 'link' || optionalCustomer || customerName || customerPhone;
+  const productionIncluded = !!intent && !hosted && (!!eventConfig || addToProduction || fulfillment.timing === 'scheduled' && (payment?.paymentCollected || recordedMethod === 'cash'));
+  const timingWarning = !!(eventConfig?.event_date && eventConfig.event_time && fulfillment.scheduledFor && fulfillment.windowEnd &&
+    `${fulfillment.scheduledFor}T${fulfillment.windowEnd}` > `${eventConfig.event_date}T${eventConfig.event_time}`);
+
+  const focusIssue = useCallback((issue: CheckoutIssue) => {
+    setStep(issue.step);
+    setVisited(current => current.includes(issue.step) ? current : [...current, issue.step]);
+    setFocusRequest(current => ({ field: issue.field, sequence: (current?.sequence ?? 0) + 1 }));
+  }, []);
+  function goToStep(target: CheckoutStep) {
+    const targetIndex = steps.indexOf(target);
+    if (targetIndex > stepIndex) {
+      const checked = steps.slice(0, targetIndex);
+      setAttempted(current => Array.from(new Set([...current, ...checked])));
+      const first = issues.find(issue => checked.includes(issue.step));
+      if (first) { focusIssue(first); return; }
+    }
+    setServerIssue(null);
+    setFocusRequest(null);
+    setVisited(current => current.includes(target) ? current : [...current, target]);
+    setStep(target);
+  }
+  const inlineError = (field: CheckoutField) => fieldErrors[field] && <p id={`checkout-${field}-error`} className="text-fs-xs text-[var(--danger-500)]">{fieldErrors[field]}</p>;
+  useEffect(() => {
+    if (payMethod === 'sumit_card' && eventConfig?.payment_mode === 'none') setEventConfig(current => current ? { ...current, payment_mode: 'full' } : current);
+  }, [payMethod, eventConfig?.payment_mode]);
+  useEffect(() => {
+    if (!error) { setServerIssue(null); setDismissedError(null); return; }
+    const mappings: [string, CheckoutField, CheckoutStep, CheckoutIssue['code']][] = [
+      ['event fulfillment date required', 'scheduledFor', 'reception', 'date'],
+      ['invalid scheduled_for date format, expected YYYY-MM-DD', 'scheduledFor', 'reception', 'date'],
+      ['invalid event time', 'event.event_time', 'event', 'eventTime'],
+      ['invalid deposit', 'event.deposit_value', 'payment', 'deposit'],
+      ['deposit must be below the order total', 'event.deposit_value', 'payment', 'deposit'],
+      ['invalid hold amount', 'event.hold_value', 'payment', 'hold'],
+      ['hold exceeds the remaining balance', 'event.hold_value', 'payment', 'hold'],
+      ['invalid delivery fee', 'deliveryFee', 'reception', 'fee'],
+    ];
+    const match = mappings.find(([message]) => message === error);
+    if (match) {
+      const issue = { field: match[1], step: match[2], code: match[3] };
+      setServerIssue(issue);
+      focusIssue(issue);
+    }
+  }, [error, focusIssue]);
   const actionLabel = intent === 'link' && eventConfig?.payment_mode === 'none' ? ec.createLink : intent === 'link' ? t('orderCheckoutCreateLink') : intent === 'charge_card' ? t('orderCheckoutOpenCard')
     : intent === 'record' ? t('orderCheckoutRecordAction') : t('createOrder');
   const intents: { key: InternalPaymentIntent; icon: React.ReactNode; label: string; hint: string }[] = [
@@ -464,7 +512,7 @@ export function NewOrderCheckoutPanel({
     { key: 'record', icon: <BanknoteIcon />, label: t('orderCheckoutRecord'), hint: t('orderCheckoutRecordHint') },
     { key: 'later', icon: <ClockIcon />, label: t('orderCheckoutLater'), hint: t('orderCheckoutLaterHint') },
   ];
-  function chooseIntent(value: InternalPaymentIntent) {
+  function chooseIntent(value: InternalPaymentIntent | null) {
     setIntent(value);
     setReceived(false);
     setAddToProduction(false);
@@ -498,10 +546,14 @@ export function NewOrderCheckoutPanel({
   };
 
   function confirm() {
-    if (!canConfirm || !payment) return;
+    if (submitting || discountValidating) return;
+    setAttempted(steps);
+    setServerIssue(null);
+    if (issues.length) { focusIssue(issues[0]); return; }
+    if (!payment) return;
     onConfirm({
       customerName, customerPhone, orderType,
-      eventConfig: eventConfig ? {...eventConfig,payment_mode:hosted?eventConfig.payment_mode:"none"} : undefined,
+      eventConfig: eventConfig ? { ...eventConfig, payment_mode: hosted ? eventConfig.payment_mode : 'none', deposit_value: hosted ? eventConfig.deposit_value : 0 } : undefined,
       address: intent === 'link' ? '' : address, city: intent === 'link' ? '' : city,
       floor: intent === 'link' ? '' : floor, apt: intent === 'link' ? '' : apt,
       entryCode: intent === 'link' ? '' : entryCode, deliveryNotes: intent === 'link' ? '' : deliveryNotes,
@@ -511,23 +563,37 @@ export function NewOrderCheckoutPanel({
     });
   }
 
-  return <section aria-labelledby="order-finalization-title" data-order-finalization className={cn(styles.panel, 'min-h-0 flex-1 flex-col', open ? 'flex' : 'hidden')}>
-    <header className="flex shrink-0 items-center gap-3 border-b border-[var(--line)] px-4 py-4">
-      <Button variant="ghost" icon size="sm" onClick={onClose} disabled={submitting} aria-label={t('orderCheckoutBack')}><ArrowLeftIcon className="rtl:rotate-180" /></Button>
-      <div className="flex min-w-0 items-center gap-2"><h2 ref={headingRef} tabIndex={-1} id="order-finalization-title" className="text-fs-md font-semibold focus:outline-none">{t('orderCheckoutTitle')}</h2><Badge>{itemCount}</Badge></div>
+  return <section ref={panelRef} aria-labelledby="order-finalization-title" data-order-finalization className={cn(styles.panel, 'min-h-0 flex-1 flex-col', open ? 'flex' : 'hidden')}>
+    <header className="shrink-0 border-b border-[var(--line)] px-4 py-4">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" icon size="sm" onClick={onClose} disabled={submitting} aria-label={t('orderCheckoutBack')}><ArrowLeftIcon className="rtl:rotate-180" /></Button>
+        <h2 ref={headingRef} tabIndex={-1} id="order-finalization-title" className="min-w-0 flex-1 text-fs-md font-semibold focus:outline-none">{t('orderCheckoutTitle')}</h2><Badge>{itemCount}</Badge>
+      </div>
+      <nav aria-label={t('orderCheckoutTitle')} className="mt-4"><ol className="flex gap-2">{steps.map((key, index) => <li key={key} className="min-w-0 flex-1">
+        <button type="button" disabled={submitting || !visited.includes(key)} aria-current={step === key ? 'step' : undefined} onClick={() => goToStep(key)} className={cn(styles.step, 'w-full text-start')}>
+          <span className="text-fs-xs tabular-nums">{index + 1}</span><span>{copy.steps[key]}</span>
+          {attempted.includes(key) && issues.some(issue => issue.step === key) && <span className="text-[var(--danger-500)]" aria-hidden="true">!</span>}
+        </button>
+      </li>)}</ol></nav>
     </header>
-    <div className="min-h-0 flex-1 overflow-y-auto px-4">
-      <fieldset disabled={submitting} className="min-w-0 divide-y divide-[var(--line)]">
-        <section className="space-y-4 py-5"><label className="flex items-center gap-2 text-fs-sm font-semibold"><input type="checkbox" checked={!!eventConfig} onChange={e=>{eventTouched.current=true;setEventConfig(e.target.checked?{name:"",guests:0,event_date:"",event_time:"",venue:"",contact:"",notes:"",require_guests:true,require_date:true,require_time:true,payment_mode:"full",deposit_type:"percent",deposit_value:30,hold_type:"percent",hold_value:100,balance_due_date:""}:undefined);}}/>{ec.badge}</label>{eventConfig&&<EventOrderFields value={eventConfig} onChange={setEventConfig} online={false}/>}</section>
-        {itemsSummary && <details className="py-4"><summary className="flex cursor-pointer list-none items-center justify-between text-fs-sm font-medium">{t('orderItems')}<ChevronDownIcon className="size-4" /></summary><div className="pt-3">{itemsSummary}</div></details>}
+    <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto px-4">
+      <p className="pt-4 text-fs-xs text-[var(--fg-muted)]" role="status">{copy.progress.replace('{current}', String(stepIndex + 1)).replace('{total}', String(steps.length))}</p>
+      {visibleIssues.length > 0 && <div role="alert" className="my-4 rounded-md border border-[var(--danger-500)] p-3 text-fs-xs text-[var(--danger-500)]"><p className="font-semibold">{copy.errorsTitle.replace('{count}', String(visibleIssues.length))}</p><ul className="mt-2 space-y-2">{visibleIssues.map(issue => <li key={issue.field}><button type="button" onClick={() => focusIssue(issue)} className="text-start underline underline-offset-2">{copy.errors[issue.code]}</button></li>)}</ul></div>}
+      <fieldset disabled={submitting} className="min-w-0" onChangeCapture={() => { setServerIssue(null); setDismissedError(error); }}>
+        <div hidden={step !== 'reception'}>
+          <label className="flex items-center gap-2 py-4 text-fs-sm font-semibold"><input type="checkbox" checked={!!eventConfig} onChange={e => {
+            eventTouched.current = true;
+            setEventConfig(e.target.checked ? { name: '', guests: 0, event_date: '', event_time: '', venue: '', contact: '', notes: '', require_guests: true, require_date: true, require_time: true, payment_mode: 'full', deposit_type: 'percent', deposit_value: 30, hold_type: 'percent', hold_value: 100, balance_due_date: '' } : undefined);
+          }}/>{ec.badge}</label>
+          {sumitCheckoutEnabled && <div className="border-b border-[var(--line)] pb-3"><ChoiceRow type="checkbox" checked={intent === 'link'} onChange={e => chooseIntent(e.target.checked ? 'link' : null)} label={copy.detailsByClient} aria-label={copy.detailsByClient} description={copy.detailsByClientHint}/></div>}
         <section className="space-y-4 py-5">
           <h3 className="text-fs-sm font-semibold">{t('orderCheckoutFulfillmentTitle')}</h3>
           <div className={cn(styles.paired, 'grid grid-cols-2 gap-2')}>
             <ChoiceRow type="radio" name="order-reception" checked={orderType === 'pickup'} onChange={() => setOrderType('pickup')} label={<span className="inline-flex items-center gap-2"><ShoppingBagIcon className="size-4" />{t('pickup')}</span>} />
             <ChoiceRow type="radio" name="order-reception" checked={orderType === 'delivery'} onChange={() => setOrderType('delivery')} label={<span className="inline-flex items-center gap-2"><TruckIcon className="size-4" />{t('delivery')}</span>} />
           </div>
-          <FulfillmentSection serviceLabels orderType={orderType} batchConfig={isEvent ? null : batchConfig} value={fulfillment} onChange={setFulfillment} allowImmediate={!isEvent} />
-          {orderType === 'delivery' && <div className="space-y-3">
+          <FulfillmentSection serviceLabels orderType={orderType} batchConfig={isEvent ? null : batchConfig} value={fulfillment} onChange={setFulfillment} allowImmediate={!isEvent} errors={fieldErrors} />
+          {orderType === 'delivery' && <div id={!(isEvent || feeOverrideOpen || feeTouched) ? 'checkout-deliveryFee' : undefined} tabIndex={-1} className="space-y-3">
             {!isEvent && !feeTouched && payMethod !== 'link' && <p className="text-fs-xs text-[var(--fg-muted)]" role="status">
               {t(!address.trim() ? 'orderCheckoutDeliveryFeeAutomatic'
                 : currentFeeQuote?.status === 'error' ? 'orderCheckoutDeliveryFeeUnavailable'
@@ -542,28 +608,16 @@ export function NewOrderCheckoutPanel({
               onChange={(e) => { setDeliveryFee(e.target.value); setFeeTouched(!!e.target.value.trim()); }}
               inputMode="decimal"
               placeholder="0.00"
-              aria-invalid={!feeValid}
-              aria-describedby="delivery-fee-hint"
+              {...checkoutFieldProps('deliveryFee', fieldErrors)}
+              aria-label={t('deliveryFee')}
+              aria-describedby={fieldErrors.deliveryFee ? 'checkout-deliveryFee-error' : 'delivery-fee-hint'}
             />
             <p id="delivery-fee-hint" className="text-fs-xs text-[var(--fg-muted)]">{t(feeValid ? 'orderCheckoutDeliveryFeeHint' : 'orderCheckoutDeliveryFeeInvalid')}</p>
             </Field>}
             {feeTouched && <Button variant="ghost" size="sm" onClick={() => { setFeeTouched(false); setFeeOverrideOpen(false); setDeliveryFee(''); }}>{t('orderCheckoutDeliveryFeeReset')}</Button>}
+            {inlineError('deliveryFee')}
           </div>}
         </section>
-        <fieldset className="min-w-0 py-5">
-          <legend className="float-start mb-2 w-full text-fs-sm font-semibold">{t('orderCheckoutIntent')}</legend>
-          <div className="clear-both divide-y divide-[var(--line)]">{intents.map(option => <ChoiceRow key={option.key} type="radio" name="order-payment-intent" aria-label={option.label} checked={intent === option.key} onChange={() => chooseIntent(option.key)}
-            label={<span className="flex items-center gap-2"><span className="shrink-0 [&_svg]:size-4">{option.icon}</span>{option.label}</span>} description={option.hint} />)}</div>
-          {(intent === 'record' || intent === 'later') && <div className="mt-4 space-y-3 rounded-lg bg-[var(--surface-2)] p-3">
-            <p className="text-fs-xs font-medium text-[var(--fg-muted)]">{t(intent === 'record' ? 'orderCheckoutReceivedMethod' : 'orderCheckoutExpectedMethod')}</p>
-            <div className={cn(styles.paired, 'grid grid-cols-2 gap-2')}>
-              <ChoiceRow type="radio" name="order-recorded-method" checked={recordedMethod === 'cash'} onChange={() => setRecordedMethod('cash')} label={t('payMethodCash')} />
-              <ChoiceRow type="radio" name="order-recorded-method" checked={recordedMethod === 'card'} onChange={() => setRecordedMethod('card')} label={t(intent === 'record' ? 'orderCheckoutExternalCard' : 'payMethodCard')} />
-            </div>
-            {intent === 'record' && <ChoiceRow type="checkbox" checked={received} onChange={event => setReceived(event.target.checked)} label={t('orderCheckoutReceived').replace('{amount}', money(discountedTotal))} />}
-          </div>}
-        </fieldset>
-        {eventConfig&&hosted&&<section className="space-y-3 py-5"><EventOrderFields value={eventConfig} onChange={setEventConfig} online paymentOnly holdEnabled={sumitHoldEnabled} allowNoPayment={payMethod==='link'}/></section>}
         {intent === 'link' && !showCustomer && <div className="py-4"><Button variant="ghost" size="sm" onClick={() => setOptionalCustomer(true)}>{t('orderCheckoutOptionalCustomer')}</Button></div>}
         {showCustomer && <section className="space-y-3 py-5"><h3 className="text-fs-sm font-semibold">{t('customer')}</h3>
         <div className="flex flex-col gap-[var(--s-3)]">
@@ -571,23 +625,27 @@ export function NewOrderCheckoutPanel({
             <CustomerPicker
               restaurantId={restaurantId}
               field="name"
+              inputProps={{ ...checkoutFieldProps('customerName', fieldErrors), 'aria-label': t('customerName') }}
               value={customerName}
               onChange={(v) => { setCustomerName(v); setLinked(null); }}
               onPick={applyCustomer}
               placeholder={t('customerNamePlaceholder')}
               skipNextSearchRef={nameSkipSearchRef}
             />
+            {inlineError('customerName')}
           </Field>
           <Field label={t('customerPhone')}>
             <CustomerPicker
               restaurantId={restaurantId}
               field="phone"
+              inputProps={{ ...checkoutFieldProps('customerPhone', fieldErrors), 'aria-label': t('customerPhone') }}
               value={customerPhone}
               onChange={(v) => { setCustomerPhone(v); setLinked(null); }}
               onPick={applyCustomer}
               placeholder="05X-XXXXXXX"
               skipNextSearchRef={phoneSkipSearchRef}
             />
+            {inlineError('customerPhone')}
           </Field>
           {linked && (
             // The whole chip unlinks on click (its trailing × is decorative,
@@ -606,6 +664,8 @@ export function NewOrderCheckoutPanel({
           {orderType === 'delivery' && payMethod !== 'link' && (
             <>
               <CustomerDeliveryFields
+                addressInputProps={{ ...checkoutFieldProps('address', fieldErrors), 'aria-label': t('deliveryAddress') }}
+                addressError={inlineError('address')}
                 value={{ address, city, floor, apt, entryCode, deliveryNotes }}
                 onChange={(p) => {
                   if (p.address !== undefined) setAddress(p.address);
@@ -639,6 +699,35 @@ export function NewOrderCheckoutPanel({
 
 
         </section>}
+
+        </div>
+        {eventConfig && <div hidden={step !== 'event'} className="space-y-4 py-5">
+          <h3 className="text-fs-sm font-semibold">{copy.steps.event}</h3>
+          <div className="flex flex-wrap gap-2">
+            {fulfillment.scheduledFor && <Button variant="secondary" size="sm" onClick={() => setEventConfig(current => current ? { ...current, event_date: fulfillment.scheduledFor! } : current)}>{copy.sameDate}</Button>}
+            {orderType === 'delivery' && address.trim() && <Button variant="secondary" size="sm" onClick={() => { setEventConfig(current => current ? { ...current, venue: [address, city].filter(Boolean).join(', ') } : current); focusIssue({ field: 'event.venue', step: 'event', code: 'venue' }); }}>{copy.useAddress}</Button>}
+            {(customerName || customerPhone) && <Button variant="secondary" size="sm" onClick={() => { setEventConfig(current => current ? { ...current, contact: [customerName, customerPhone].filter(Boolean).join(' · ') } : current); focusIssue({ field: 'event.contact', step: 'event', code: 'contact' }); }}>{copy.useContact}</Button>}
+          </div>
+          <EventOrderFields value={eventConfig} onChange={setEventConfig} online={false} progressive clientRequirements={intent === 'link'} errors={fieldErrors}/>
+          {timingWarning && <p role="status" className="text-fs-xs text-[var(--warning-500)]">{copy.timingWarning}</p>}
+        </div>}
+        <div hidden={step !== 'payment'}>
+        <fieldset className="min-w-0 py-5"><span id="checkout-intent" tabIndex={-1} className="sr-only">{copy.steps.payment}</span>
+          <legend className="float-start mb-2 w-full text-fs-sm font-semibold">{t('orderCheckoutIntent')}</legend>
+          <div className="clear-both divide-y divide-[var(--line)]">{intents.map(option => <ChoiceRow key={option.key} type="radio" name="order-payment-intent" aria-label={option.label} aria-invalid={!!fieldErrors.intent || undefined} aria-describedby={fieldErrors.intent ? 'checkout-intent-error' : undefined} checked={intent === option.key} onChange={() => chooseIntent(option.key)}
+            label={<span className="flex items-center gap-2"><span className="shrink-0 [&_svg]:size-4">{option.icon}</span>{option.label}</span>} description={option.hint} />)}</div>
+          {inlineError('intent')}
+          {(intent === 'record' || intent === 'later') && <div className="mt-4 space-y-3 rounded-lg bg-[var(--surface-2)] p-3">
+            <p className="text-fs-xs font-medium text-[var(--fg-muted)]">{t(intent === 'record' ? 'orderCheckoutReceivedMethod' : 'orderCheckoutExpectedMethod')}</p>
+            <div className={cn(styles.paired, 'grid grid-cols-2 gap-2')}>
+              <ChoiceRow type="radio" name="order-recorded-method" checked={recordedMethod === 'cash'} onChange={() => setRecordedMethod('cash')} label={t('payMethodCash')} />
+              <ChoiceRow type="radio" name="order-recorded-method" checked={recordedMethod === 'card'} onChange={() => setRecordedMethod('card')} label={t(intent === 'record' ? 'orderCheckoutExternalCard' : 'payMethodCard')} />
+            </div>
+            {intent === 'record' && <ChoiceRow {...checkoutFieldProps('received', fieldErrors)} type="checkbox" checked={received} onChange={event => setReceived(event.target.checked)} label={t('orderCheckoutReceived').replace('{amount}', money(discountedTotal))} />}
+            {inlineError('received')}
+          </div>}
+        </fieldset>
+        {eventConfig&&hosted&&<section className="space-y-3 py-5"><EventOrderFields value={eventConfig} onChange={setEventConfig} online paymentOnly errors={fieldErrors} holdEnabled={sumitHoldEnabled} allowNoPayment={payMethod==='link'}/></section>}
         <details className="py-4"><summary className="flex cursor-pointer list-none items-center gap-2 text-fs-sm font-medium"><TagIcon className="size-4" /><span className="flex-1">{t('applyDiscount')}</span>{appliedAmount > 0 && <span className="tabular-nums">−{money(appliedAmount)}</span>}<ChevronDownIcon className="size-4" /></summary><div className="pt-4">
         <div className="flex flex-col gap-2">
 
@@ -671,6 +760,10 @@ export function NewOrderCheckoutPanel({
               <div className="flex gap-2">
                 {coupons.length > 0 && (
                   <select
+                    id="checkout-coupon-choice"
+                    aria-label={t('chooseCoupon')}
+                    aria-invalid={!!discountError || undefined}
+                    aria-describedby={discountError ? 'checkout-coupon-error' : undefined}
                     value={couponCode}
                     onChange={(e) => { setCouponCode(e.target.value); setDiscountError(null); }}
                     className="h-9 flex-1 rounded-lg border border-[var(--line-strong)] bg-[var(--surface)] ps-[var(--s-3)] pe-[var(--s-3)] text-fs-sm outline-none focus:border-[var(--brand-500)] focus:shadow-ring"
@@ -682,6 +775,10 @@ export function NewOrderCheckoutPanel({
                   </select>
                 )}
                 <Input
+                  id="checkout-coupon"
+                  aria-label={t('enterCode')}
+                  aria-invalid={!!discountError || undefined}
+                  aria-describedby={discountError ? 'checkout-coupon-error' : undefined}
                   value={couponCode}
                   onChange={(e) => { setCouponCode(e.target.value); setDiscountError(null); }}
                   placeholder={t('enterCode')}
@@ -698,7 +795,7 @@ export function NewOrderCheckoutPanel({
               </div>
 
               {discountError && (
-                <p className="text-fs-xs text-[var(--danger-500)]">{discountError}</p>
+                <p id="checkout-coupon-error" className="text-fs-xs text-[var(--danger-500)]">{discountError}</p>
               )}
 
               {/* Manual discount (owner/manager with orders.discount permission only) */}
@@ -715,6 +812,7 @@ export function NewOrderCheckoutPanel({
                       <option value="percent">{t('typePercent')}</option>
                     </select>
                     <Input
+                      {...checkoutFieldProps('manualValue', fieldErrors)} aria-label={t('manualDiscount')}
                       value={manualValue}
                       onChange={(e) => setManualValue(e.target.value)}
                       placeholder={manualType === 'fixed' ? '0.00' : '0'}
@@ -722,12 +820,15 @@ export function NewOrderCheckoutPanel({
                       className="w-24 shrink-0"
                     />
                   </div>
+                  {inlineError('manualValue')}
                   <Field label={t('manualDiscountReason')}>
                     <Input
+                      {...checkoutFieldProps('manualReason', fieldErrors)} aria-label={t('manualDiscountReason')}
                       value={manualReason}
                       onChange={(e) => setManualReason(e.target.value)}
                       placeholder={t('manualDiscountReason')}
                     />
+                    {inlineError('manualReason')}
                   </Field>
                   <button
                     type="button"
@@ -745,44 +846,31 @@ export function NewOrderCheckoutPanel({
 
 
         </div></details>
-        {hosted && (!eventConfig || !hasAnyPermission('kitchen.manage')) ? <p className="flex items-center gap-2 py-4 text-fs-xs text-[var(--fg-muted)]"><ClockIcon className="size-4 shrink-0" />{t('orderCheckoutProductionAfterPayment')}</p>
-          : <details className="py-4"><summary className="flex cursor-pointer list-none items-center justify-between text-fs-sm font-medium">{t('orderCheckoutProduction')}<ChevronDownIcon className="size-4" /></summary><div className="pt-4">
-        {/* Force onto the production sheet, bypassing the scheduled/paid gates. */}
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={addToProduction}
-          onClick={() => setAddToProduction((v) => !v)}
-          className="flex items-start gap-[var(--s-3)] rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] py-2 text-start"
-        >
-          <span
-            className={cn(
-              'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border',
-              addToProduction
-                ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
-                : 'border-[var(--line-strong)] bg-[var(--surface-2)]',
-            )}
-          >
-            {addToProduction && <CheckIcon className="h-3 w-3" strokeWidth={3} />}
-          </span>
-          <span className="flex flex-col gap-0.5">
-            <span className="text-fs-sm font-medium text-[var(--fg)]">{t('addToProduction')}</span>
-            <span className="text-fs-xs text-[var(--fg-muted)]">{t('addToProductionHint')}</span>
-          </span>
-        </button>
+
+          <div className="py-4"><h3 className="text-fs-sm font-semibold">{t('orderItems')}</h3><div className="mt-3">{itemsSummary}</div></div>
 
 
-          </div></details>}
+        </div>
       </fieldset>
     </div>
     <footer className="shrink-0 space-y-3 border-t border-[var(--line)] bg-[var(--surface)] p-4">
+      <div className="border-b border-[var(--line)] pb-3 text-fs-xs" data-production-summary>
+        <p className="font-semibold">{copy.production}</p>
+        <p className="mt-1 text-[var(--fg-muted)]">{fulfillment.timing === 'scheduled' && fulfillment.scheduledFor ? copy.productionDate.replace('{date}', new Date(`${fulfillment.scheduledFor}T00:00:00`).toLocaleDateString(locale)) : copy.productionUnscheduled}</p>
+        <p className="mt-1 text-[var(--fg-muted)]">{hosted ? (eventConfig ? copy.productionPending : t('orderCheckoutProductionAfterPayment')) : productionIncluded ? copy.productionIncluded : copy.productionAutomatic}</p>
+      </div>
+      {step === 'payment' && (!productionIncluded || addToProduction) && !(hosted && (!eventConfig || !hasAnyPermission('kitchen.manage'))) && <label className="flex items-start gap-2 text-fs-xs"><input type="checkbox" className="mt-0.5 shrink-0" checked={addToProduction} onChange={e => setAddToProduction(e.target.checked)} disabled={submitting}/><span>{t('addToProduction')}</span></label>}
       {feeValue > 0 && <div className="flex justify-between text-fs-xs text-[var(--fg-muted)]"><span>{t('deliveryFee')}</span><span className="tabular-nums">{money(feeValue)}</span></div>}
       {appliedAmount > 0 && <div className="flex justify-between text-fs-xs text-[var(--fg-muted)]"><span>{t('discountLine')}</span><span className="tabular-nums">−{money(appliedAmount)}</span></div>}
-      <div className="flex items-center justify-between gap-3"><span className="text-fs-sm text-[var(--fg-muted)]">{t(intent === 'link' && orderType === 'delivery' && !fixedLinkFee ? 'subtotal' : 'total')}</span><strong className="tabular-nums text-fs-xl">{money(discountedTotal)}</strong></div>
+      <div className="flex items-center justify-between gap-3"><span className="text-fs-sm text-[var(--fg-muted)]">{t(intent === 'link' && orderType === 'delivery' && !fixedLinkFee ? 'subtotal' : 'total')}</span><strong id="checkout-total" tabIndex={-1} className="tabular-nums text-fs-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">{money(discountedTotal)}</strong></div>
+      {inlineError('total')}
       {intent === 'link' && orderType === 'delivery' && <p className="text-fs-xs text-[var(--fg-muted)]">{t(fixedLinkFee ? 'orderCheckoutDeliveryFeeFixed' : 'sumitDeliveryCalculated')}</p>}
-      {error && <p role="alert" className="text-fs-sm text-[var(--danger-500)]">{error}</p>}
-      {validationHint && !submitting && <p id="order-finalization-hint" role="status" className="text-fs-xs text-[var(--fg-muted)]">{validationHint}</p>}
-      <Button className="min-h-12 w-full whitespace-normal text-center" onClick={confirm} disabled={!canConfirm} aria-describedby={validationHint ? 'order-finalization-hint' : undefined}>{submitting ? `${t('creating')}…` : actionLabel}</Button>
+
+      {error && error !== dismissedError && !serverIssue && <p role="alert" className="text-fs-sm text-[var(--danger-500)]">{error}</p>}
+      <div className="flex gap-2">
+        {stepIndex > 0 && <Button variant="secondary" className="min-h-12" disabled={submitting} onClick={() => goToStep(steps[stepIndex - 1])}>{copy.previous}</Button>}
+        <Button className="min-h-12 flex-1 whitespace-normal text-center" onClick={() => step === 'payment' ? confirm() : goToStep(steps[stepIndex + 1])} disabled={submitting || discountValidating}>{submitting ? `${t('creating')}…` : step === 'payment' ? actionLabel : copy.next}</Button>
+      </div>
     </footer>
   </section>;
 }
