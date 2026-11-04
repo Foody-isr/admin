@@ -63,6 +63,44 @@ async function receptionStep(panel: Locator) {
   await panel.getByRole('navigation').getByRole('button', { name: /Réception et client/ }).click();
 }
 
+for (const width of [1024, 1440, 1920]) test(`the ticket and catalogue remain fixed through checkout at ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 1000 });
+  const state = await install(page, true, true, 'fr', true);
+  await page.goto('/1/orders/new');
+  const item = page.getByRole('button', { name: /Salade méditerranéenne/ }).first();
+  await item.click();
+  const ticket = page.getByRole('complementary', { name: 'Articles de la commande', exact: true });
+  const originalTicket = await ticket.boundingBox();
+  const originalItem = await item.boundingBox();
+  expect(originalItem!.width).toBeGreaterThanOrEqual(128);
+  await page.screenshot({ path: info.outputPath(`ticket-${width}.png`) });
+  await ticket.getByRole('button', { name: 'Continuer', exact: true }).click();
+  const panel = page.getByRole('region', { name: 'Finaliser la commande', exact: true });
+  const expectStableLayout = async () => {
+    const currentTicket = await ticket.boundingBox();
+    const currentItem = await item.boundingBox();
+    expect(currentTicket!.x).toBeCloseTo(originalTicket!.x, 0);
+    expect(currentTicket!.width).toBeCloseTo(originalTicket!.width, 0);
+    expect(currentItem!.width).toBeCloseTo(originalItem!.width, 0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  };
+  await expectStableLayout();
+  await page.screenshot({ path: info.outputPath(`reception-${width}.png`) });
+  await panel.getByRole('checkbox', { name: 'Le client complétera ses informations via le lien Foody', exact: true }).check();
+  await panel.locator('#checkout-scheduledFor').fill('2026-11-06');
+  await panel.getByRole('button', { name: 'Continuer', exact: true }).click();
+  await expect(panel.locator('[aria-current="step"]')).toContainText('Événement');
+  await expectStableLayout();
+  await page.screenshot({ path: info.outputPath(`event-${width}.png`) });
+  await panel.getByRole('button', { name: 'Continuer', exact: true }).click();
+  await expect(panel.locator('[aria-current="step"]')).toContainText('Paiement et confirmation');
+  await expectStableLayout();
+  await page.screenshot({ path: info.outputPath(`checkout-${width}.png`) });
+  await panel.getByRole('button', { name: 'Retour aux articles', exact: true }).click();
+  await expectStableLayout();
+  expect(state.created).toHaveLength(0);
+});
+
 test('a confirmed event exposes its remaining payment link without a post-payment item edit', async ({ page }) => {
   await install(page, true);
   let collections = 0;
@@ -366,9 +404,11 @@ for (const variant of [
   { locale: 'fr', width: 1440, height: 1000, title: 'Finaliser la commande', next: 'Continuer', details: 'Le client complétera ses informations via le lien Foody', create: 'Créer le lien de paiement' },
   { locale: 'en', width: 390, height: 844, title: 'Complete order', next: 'Continue', details: 'The customer will complete their details through the Foody link', create: 'Create payment link' },
   { locale: 'he', width: 1440, height: 1000, title: 'סיום ההזמנה', next: 'המשך', details: 'הלקוח ישלים את הפרטים דרך קישור Foody', create: 'יצירת קישור לתשלום' },
-]) test(`step navigation, production and final action fit ${variant.locale}`, async ({ page }, info) => {
+  { locale: 'fr', width: 390, height: 844, catering: true, title: 'Finaliser la commande', next: 'Continuer', details: 'Le client complétera ses informations via le lien Foody', create: 'Créer le lien de paiement' },
+  { locale: 'he', width: 390, height: 844, catering: true, title: 'סיום ההזמנה', next: 'המשך', details: 'הלקוח ישלים את הפרטים דרך קישור Foody', create: 'יצירת קישור לתשלום' },
+]) test(`step navigation, production and final action fit ${variant.locale} at ${variant.width}px`, async ({ page }, info) => {
   await page.setViewportSize(variant);
-  await install(page, true, true, variant.locale);
+  await install(page, true, true, variant.locale, variant.catering ?? false);
   await page.goto('/1/orders/new');
   await page.getByRole('button', { name: /^Salade méditerranéenne/ }).first().click();
   if (variant.width < 1024) await page.locator('main > div').getByRole('button', { name: /· 1$/ }).click();
@@ -376,7 +416,9 @@ for (const variant of [
   const panel = page.getByRole('region', { name: variant.title, exact: true });
   await expect(panel.getByRole('heading', { name: variant.title, exact: true })).toBeFocused();
   await panel.getByRole('checkbox', { name: variant.details, exact: true }).check();
+  if (variant.catering) await panel.locator('#checkout-scheduledFor').fill('2026-11-06');
   await panel.getByRole('button', { name: variant.next, exact: true }).click();
+  if (variant.catering) await panel.getByRole('button', { name: variant.next, exact: true }).click();
   const action = panel.getByRole('button', { name: variant.create, exact: true });
   await expect(action).toBeEnabled();
   const box = await action.boundingBox();

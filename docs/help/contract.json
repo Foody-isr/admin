@@ -3004,7 +3004,7 @@
       ]
     },
     "src/app/[restaurantId]/orders/new/page.tsx": {
-      "sha256": "e76dae582731cd9dcbe0835a3f7ed8c02a8154a1ab6518ad549d2876824d0ba9",
+      "sha256": "e7216dd4441eb1b65658f6d7c23649d87b7a600323a8fa3d37bdc2b8cdc6601f",
       "features": [
         "orders-managing-orders",
         "order-detail",
@@ -5138,7 +5138,7 @@
       ]
     },
     "src/components/orders/NewOrderCheckoutPanel.tsx": {
-      "sha256": "b365c7de5305f5c31b957627ba32165816a5d7f020c125ce6b6c9cd0ea3cc1a5",
+      "sha256": "7c2ec89e3e54fd00773a594d65af374d3245c468f2b24af7f2f385994d56bf33",
       "features": [
         "orders-managing-orders",
         "order-detail",
@@ -5433,7 +5433,7 @@
       ]
     },
     "src/components/orders/order-checkout.module.css": {
-      "sha256": "f4b5ece7e37c2cd17c4c0592ef4ca016d34de02155fd2bc5de5723c3621fa677",
+      "sha256": "fccbea8bd4a5d0d0b7253cb4f11a3909b899d2b30656abd237c4f2588fa4df93",
       "features": [
         "orders-managing-orders",
         "order-detail"

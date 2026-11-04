@@ -6,7 +6,7 @@ import { useI18n, useCurrency } from '@/lib/i18n';
 import { ChoiceRow } from '@/components/ds/Selection';
 import { cn } from '@/lib/utils';
 import {
-  ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, LinkIcon, TagIcon, XIcon, ArrowLeftIcon, ClockIcon, ChevronDownIcon,
+  ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, LinkIcon, TagIcon, XIcon, ArrowLeftIcon, ClockIcon, ChevronDownIcon, CheckIcon, ChefHatIcon,
 } from 'lucide-react';
 import { FulfillmentSection } from './FulfillmentSection';
 import {
@@ -564,29 +564,31 @@ export function NewOrderCheckoutPanel({
   }
 
   return <section ref={panelRef} aria-labelledby="order-finalization-title" data-order-finalization className={cn(styles.panel, 'min-h-0 flex-1 flex-col', open ? 'flex' : 'hidden')}>
-    <header className="shrink-0 border-b border-[var(--line)] px-4 py-4">
+    <header className={styles.header}>
       <div className="flex items-center gap-3">
         <Button variant="ghost" icon size="sm" onClick={onClose} disabled={submitting} aria-label={t('orderCheckoutBack')}><ArrowLeftIcon className="rtl:rotate-180" /></Button>
         <h2 ref={headingRef} tabIndex={-1} id="order-finalization-title" className="min-w-0 flex-1 text-fs-md font-semibold focus:outline-none">{t('orderCheckoutTitle')}</h2><Badge>{itemCount}</Badge>
       </div>
-      <nav aria-label={t('orderCheckoutTitle')} className="mt-4"><ol className="flex gap-2">{steps.map((key, index) => <li key={key} className="min-w-0 flex-1">
-        <button type="button" disabled={submitting || !visited.includes(key)} aria-current={step === key ? 'step' : undefined} onClick={() => goToStep(key)} className={cn(styles.step, 'w-full text-start')}>
-          <span className="text-fs-xs tabular-nums">{index + 1}</span><span>{copy.steps[key]}</span>
-          {attempted.includes(key) && issues.some(issue => issue.step === key) && <span className="text-[var(--danger-500)]" aria-hidden="true">!</span>}
+      <nav aria-label={t('orderCheckoutTitle')} className={styles.navigation}><ol className={styles.steps}>{steps.map((key, index) => <li key={key} className={styles.stepItem}>
+        <button type="button" disabled={submitting || !visited.includes(key)} aria-current={step === key ? 'step' : undefined} data-visited={visited.includes(key)} data-error={attempted.includes(key) && issues.some(issue => issue.step === key)} onClick={() => goToStep(key)} className={styles.step}>
+          <span className={styles.stepMarker} aria-hidden="true">{attempted.includes(key) && issues.some(issue => issue.step === key) ? '!' : visited.includes(key) && index < stepIndex ? <CheckIcon /> : index + 1}</span>
+          <span>{copy.steps[key]}</span>
         </button>
       </li>)}</ol></nav>
     </header>
-    <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto px-4">
-      <p className="pt-4 text-fs-xs text-[var(--fg-muted)]" role="status">{copy.progress.replace('{current}', String(stepIndex + 1)).replace('{total}', String(steps.length))}</p>
+    <div ref={contentRef} className={styles.content}>
+      <p className="sr-only" role="status">{copy.progress.replace('{current}', String(stepIndex + 1)).replace('{total}', String(steps.length))}</p>
       {visibleIssues.length > 0 && <div role="alert" className="my-4 rounded-md border border-[var(--danger-500)] p-3 text-fs-xs text-[var(--danger-500)]"><p className="font-semibold">{copy.errorsTitle.replace('{count}', String(visibleIssues.length))}</p><ul className="mt-2 space-y-2">{visibleIssues.map(issue => <li key={issue.field}><button type="button" onClick={() => focusIssue(issue)} className="text-start underline underline-offset-2">{copy.errors[issue.code]}</button></li>)}</ul></div>}
       <fieldset disabled={submitting} className="min-w-0" onChangeCapture={() => { setServerIssue(null); setDismissedError(error); }}>
         <div hidden={step !== 'reception'}>
-          <label className="flex items-center gap-2 py-4 text-fs-sm font-semibold"><input type="checkbox" checked={!!eventConfig} onChange={e => {
+          <div className={styles.contextOptions}>
+          <ChoiceRow type="checkbox" label={ec.badge} checked={!!eventConfig} onChange={e => {
             eventTouched.current = true;
             setEventConfig(e.target.checked ? { name: '', guests: 0, event_date: '', event_time: '', venue: '', contact: '', notes: '', require_guests: true, require_date: true, require_time: true, payment_mode: 'full', deposit_type: 'percent', deposit_value: 30, hold_type: 'percent', hold_value: 100, balance_due_date: '' } : undefined);
-          }}/>{ec.badge}</label>
-          {sumitCheckoutEnabled && <div className="border-b border-[var(--line)] pb-3"><ChoiceRow type="checkbox" checked={intent === 'link'} onChange={e => chooseIntent(e.target.checked ? 'link' : null)} label={copy.detailsByClient} aria-label={copy.detailsByClient} description={copy.detailsByClientHint}/></div>}
-        <section className="space-y-4 py-5">
+          }}/>
+          {sumitCheckoutEnabled && <ChoiceRow type="checkbox" checked={intent === 'link'} onChange={e => chooseIntent(e.target.checked ? 'link' : null)} label={copy.detailsByClient} aria-label={copy.detailsByClient} description={copy.detailsByClientHint}/>}
+          </div>
+        <section className={cn(styles.formSection, 'space-y-4')}>
           <h3 className="text-fs-sm font-semibold">{t('orderCheckoutFulfillmentTitle')}</h3>
           <div className={cn(styles.paired, 'grid grid-cols-2 gap-2')}>
             <ChoiceRow type="radio" name="order-reception" checked={orderType === 'pickup'} onChange={() => setOrderType('pickup')} label={<span className="inline-flex items-center gap-2"><ShoppingBagIcon className="size-4" />{t('pickup')}</span>} />
@@ -619,7 +621,7 @@ export function NewOrderCheckoutPanel({
           </div>}
         </section>
         {intent === 'link' && !showCustomer && <div className="py-4"><Button variant="ghost" size="sm" onClick={() => setOptionalCustomer(true)}>{t('orderCheckoutOptionalCustomer')}</Button></div>}
-        {showCustomer && <section className="space-y-3 py-5"><h3 className="text-fs-sm font-semibold">{t('customer')}</h3>
+        {showCustomer && <section className={cn(styles.formSection, 'space-y-3')}><h3 className="text-fs-sm font-semibold">{t('customer')}</h3>
         <div className="flex flex-col gap-[var(--s-3)]">
           <Field label={t('customerName')}>
             <CustomerPicker
@@ -853,11 +855,14 @@ export function NewOrderCheckoutPanel({
         </div>
       </fieldset>
     </div>
-    <footer className="shrink-0 space-y-3 border-t border-[var(--line)] bg-[var(--surface)] p-4">
-      <div className="border-b border-[var(--line)] pb-3 text-fs-xs" data-production-summary>
-        <p className="font-semibold">{copy.production}</p>
-        <p className="mt-1 text-[var(--fg-muted)]">{fulfillment.timing === 'scheduled' && fulfillment.scheduledFor ? copy.productionDate.replace('{date}', new Date(`${fulfillment.scheduledFor}T00:00:00`).toLocaleDateString(locale)) : copy.productionUnscheduled}</p>
-        <p className="mt-1 text-[var(--fg-muted)]">{hosted ? (eventConfig ? copy.productionPending : t('orderCheckoutProductionAfterPayment')) : productionIncluded ? copy.productionIncluded : copy.productionAutomatic}</p>
+    <footer className={cn(styles.footer, 'shrink-0 space-y-3 border-t border-[var(--line)] bg-[var(--surface)]')}>
+      <div className={styles.production} data-production-summary>
+        <ChefHatIcon className={styles.productionIcon} aria-hidden="true" />
+        <div className={styles.productionCopy}>
+          <div className={styles.productionHeading}><p className="font-semibold">{copy.production}</p>
+          <p className="text-[var(--fg-muted)]">{fulfillment.timing === 'scheduled' && fulfillment.scheduledFor ? copy.productionDate.replace('{date}', new Date(`${fulfillment.scheduledFor}T00:00:00`).toLocaleDateString(locale)) : copy.productionUnscheduled}</p></div>
+          <p className="text-[var(--fg-muted)]">{hosted ? (eventConfig ? copy.productionPending : t('orderCheckoutProductionAfterPayment')) : productionIncluded ? copy.productionIncluded : copy.productionAutomatic}</p>
+        </div>
       </div>
       {step === 'payment' && (!productionIncluded || addToProduction) && !(hosted && (!eventConfig || !hasAnyPermission('kitchen.manage'))) && <label className="flex items-start gap-2 text-fs-xs"><input type="checkbox" className="mt-0.5 shrink-0" checked={addToProduction} onChange={e => setAddToProduction(e.target.checked)} disabled={submitting}/><span>{t('addToProduction')}</span></label>}
       {feeValue > 0 && <div className="flex justify-between text-fs-xs text-[var(--fg-muted)]"><span>{t('deliveryFee')}</span><span className="tabular-nums">{money(feeValue)}</span></div>}
