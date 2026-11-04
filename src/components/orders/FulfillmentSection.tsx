@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import type { BatchFulfillmentConfigResponse } from '@/lib/api';
+import { checkoutFieldProps, type CheckoutErrors } from '@/lib/orders/checkout-validation';
 import {
   buildFulfillmentTargets,
   type FulfillmentValue,
@@ -18,6 +19,7 @@ interface FulfillmentSectionProps {
   allowImmediate?: boolean;
   /** Use customer handover labels in the new-order finalization panel. */
   serviceLabels?: boolean;
+  errors?: CheckoutErrors;
 }
 
 function TimingTile({
@@ -56,7 +58,7 @@ function formatTargetDay(iso: string, locale: string): string {
 
 /** Selects the handover date and window, preserving the shared staff series rules. */
 export function FulfillmentSection({
-  orderType, batchConfig, value, onChange, allowImmediate = true, serviceLabels = false,
+  orderType, batchConfig, value, onChange, allowImmediate = true, serviceLabels = false, errors = {},
 }: FulfillmentSectionProps) {
   const { t, locale } = useI18n();
   const targets = useMemo(
@@ -65,6 +67,7 @@ export function FulfillmentSection({
   );
   const hasTargets = targets.length > 0;
   const selectedTarget = targets.find((x) => x.id === value.scheduledFor);
+  const targetError = errors.scheduledFor || errors.windowStart || errors.windowEnd;
   const forcingClosedSerie = value.timing === 'scheduled' && !!selectedTarget?.orderingClosed;
 
   function selectTarget(date: string) {
@@ -108,6 +111,7 @@ export function FulfillmentSection({
         <label className="flex flex-col gap-1 text-fs-xs text-[var(--fg-muted)]">
           {t(serviceLabels ? orderType === 'pickup' ? 'orderCheckoutPickupDay' : 'orderCheckoutDeliveryDay' : 'fulfillmentDay')}
           <select
+            {...(serviceLabels ? { ...checkoutFieldProps('scheduledFor', errors), 'aria-invalid': !!targetError || undefined, 'aria-describedby': targetError ? 'checkout-scheduledFor-error' : undefined } : {})}
             value={value.scheduledFor ?? targets[0].id}
             onChange={(e) => selectTarget(e.target.value)}
             className="rounded-md border border-[var(--line-strong)] bg-[var(--surface)] p-[var(--s-2)] text-fs-sm text-[var(--fg)]"
@@ -118,6 +122,7 @@ export function FulfillmentSection({
               </option>
             ))}
           </select>
+          {targetError && <span id="checkout-scheduledFor-error" className="text-[var(--danger-500)]">{targetError}</span>}
         </label>
       )}
 
@@ -135,6 +140,7 @@ export function FulfillmentSection({
           <label className="flex flex-col gap-1 text-fs-xs text-[var(--fg-muted)]">
             {t('fulfillmentDate')}
             <input
+              {...(serviceLabels ? checkoutFieldProps('scheduledFor', errors) : {})}
               type="date"
               value={value.scheduledFor ?? ''}
               onChange={(e) =>
@@ -142,25 +148,30 @@ export function FulfillmentSection({
               }
               className="rounded-md border border-[var(--line-strong)] bg-[var(--surface)] p-[var(--s-2)] text-fs-sm text-[var(--fg)]"
             />
+            {errors.scheduledFor && <span id="checkout-scheduledFor-error" className="text-[var(--danger-500)]">{errors.scheduledFor}</span>}
           </label>
           <div className="grid grid-cols-2 gap-2">
             <label className="flex flex-col gap-1 text-fs-xs text-[var(--fg-muted)]">
               {t('fulfillmentFrom')}
               <input
+                {...(serviceLabels ? checkoutFieldProps('windowStart', errors) : {})}
                 type="time"
                 value={value.windowStart ?? ''}
                 onChange={(e) => onChange({ ...value, windowStart: e.target.value })}
                 className="rounded-md border border-[var(--line-strong)] bg-[var(--surface)] p-[var(--s-2)] text-fs-sm text-[var(--fg)]"
               />
+              {errors.windowStart && <span id="checkout-windowStart-error" className="text-[var(--danger-500)]">{errors.windowStart}</span>}
             </label>
             <label className="flex flex-col gap-1 text-fs-xs text-[var(--fg-muted)]">
               {t('fulfillmentTo')}
               <input
+                {...(serviceLabels ? checkoutFieldProps('windowEnd', errors) : {})}
                 type="time"
                 value={value.windowEnd ?? ''}
                 onChange={(e) => onChange({ ...value, windowEnd: e.target.value })}
                 className="rounded-md border border-[var(--line-strong)] bg-[var(--surface)] p-[var(--s-2)] text-fs-sm text-[var(--fg)]"
               />
+              {errors.windowEnd && <span id="checkout-windowEnd-error" className="text-[var(--danger-500)]">{errors.windowEnd}</span>}
             </label>
           </div>
         </div>

@@ -1779,3 +1779,28 @@ inputs. A private link can retain a staff fee (including zero) by submitting
 `delivery_fee_fixed: true` alongside `delivery_fee`. A blank field omits both
 and retains address-based pricing. Deploy the compatible API before Admin.
 Synthetic regressions: `internal-sumit-checkout.spec.ts`.
+
+
+## Manual order steps (4 November 2026)
+
+New-order finalization has Reception and customer, then Payment and confirmation;
+Event / Catering inserts Event between them. Visited step titles and Previous
+retain all in-memory fields, including payment choice, delivery quotes and discounts.
+Continue validates required fields and focuses the first error; the correction list
+opens earlier steps and collapsed optional sections. All invalid controls receive
+an outline and a linked inline message. Equal start/end handover windows remain
+invalid with a specific explanation; an event at the handover end is accepted.
+An event starting before handover finishes produces a nonblocking warning.
+Recipient-provided details remain deferrable through the explicit Foody-link choice.
+Production date/status remains visible, with the authorized inclusion control on
+the final step. Optional event date/address/contact reuse is explicit and never
+silently synchronizes later edits. Existing API payment and fulfillment contracts
+are retained; no migration or production mutation is needed.
+
+Synthetic acceptance: `FOODY_PREVIEW_PRODUCTION=1 FOODY_PREVIEW_LOW_DISK=1 npx
+playwright test -c playwright.redesign.config.ts internal-sumit-checkout.spec.ts
+internal-combo-substitutions.spec.ts` (34 passing). The adjacent library submission
+assertion still expects a carte item without its existing source_menu_id; this
+payload is unchanged by this feature. The FR/HE/EN help and identical API support
+corpus are prepared together. Documentation contracts pin the reviewed immutable Landing commit for CI;
+release promotes the same verified develop artifacts.

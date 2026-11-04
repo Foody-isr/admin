@@ -16,3 +16,31 @@
   border-color: var(--action);
   background: var(--surface-2);
 }
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 4px;
+  border-bottom: 2px solid var(--line);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--fg-muted);
+}
+.step[aria-current='step'] {
+  border-color: var(--action);
+  color: var(--fg);
+  font-weight: 600;
+}
+.step:disabled { opacity: .5; }
+.step:focus-visible { outline: 2px solid var(--brand-500); outline-offset: 2px; }
+.panel :is(input, select, textarea, button)[aria-invalid='true'] {
+  border-color: var(--danger-500);
+  outline: 2px solid var(--danger-500);
+  outline-offset: 1px;
+}
+.panel :global(.choice-row):has(input[aria-invalid='true']) {
+  outline: 2px solid var(--danger-500);
+  outline-offset: -2px;
+}
