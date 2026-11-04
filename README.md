@@ -1792,14 +1792,17 @@ an outline and a linked inline message. Equal start/end handover windows remain
 invalid with a specific explanation; an event at the handover end is accepted.
 An event starting before handover finishes produces a nonblocking warning.
 Recipient-provided details remain deferrable through the explicit Foody-link choice.
-Production date/status remains visible, with the authorized inclusion control on
-the final step. Optional event date/address/contact reuse is explicit and never
-silently synchronizes later edits. Existing API payment and fulfillment contracts
-are retained; no migration or production mutation is needed.
+Only the final step asks Add to production plan with mandatory Yes/No radios;
+neither is selected initially and earlier steps have no production banner.
+The choice survives step/payment changes. No also excludes automatically eligible
+orders after scheduling/payment. Yes retains prepared-link/event confirmation gates. Optional event date/address/contact reuse is explicit and never
+silently synchronizes later edits. Deploy the compatible API accepting optional staff production_plan before this UI.
+Guest and older POS clients retain their existing omitted-field behavior; the
+server owns the stored metadata. No schema migration is needed.
 
 Synthetic acceptance: `FOODY_PREVIEW_PRODUCTION=1 FOODY_PREVIEW_LOW_DISK=1 npx
 playwright test -c playwright.redesign.config.ts internal-sumit-checkout.spec.ts
-internal-combo-substitutions.spec.ts` (34 passing). The adjacent library submission
+internal-combo-substitutions.spec.ts` (41 passing). The adjacent library submission
 assertion still expects a carte item without its existing source_menu_id; this
 payload is unchanged by this feature. The FR/HE/EN help and identical API support
 corpus are prepared together. Documentation contracts pin the reviewed immutable Landing commit for CI;

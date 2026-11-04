@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-04",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "79b54f1c16fa857e5969ed2e0a06a022b6aa94a7653f64a2b145bb5b93034740",
+      "baseSha256": "3f2edc07b968c5a43a58ee57a9ba01745f140177c3e63c0d41ed1c04da4e37be",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only manual-order production-plan intent and its optional staff input change. The reviewed scope retains its existing controls, permissions, financial/provider behavior, guest/POS omitted-field behavior and documented procedures. The new final-step Yes/No, explicit exclusion and existing confirmation gates are documented in the affected order, event, production and internal API guides in all three languages."
+    },
+    {
+      "path": "src/lib/orders/checkout-step-copy.ts",
+      "sha256": "ad4cc73eb24fe5c35da6be62ae8ee0f4af03bb75e15a51c44e7a27b87da7ad24",
+      "baseSha256": "4242cc69b1a6ecfbc6d906659cd4d442953d1e6b7d8f36d2b8174ca834b25436",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only manual-order production-plan intent and its optional staff input change. The reviewed scope retains its existing controls, permissions, financial/provider behavior, guest/POS omitted-field behavior and documented procedures. The new final-step Yes/No, explicit exclusion and existing confirmation gates are documented in the affected order, event, production and internal API guides in all three languages."
+    },
+    {
+      "path": "src/lib/orders/checkout-validation.ts",
+      "sha256": "dc0d4ec9be72c06bfabd26a492438dba7d320beb7f0d5eb048a29ef108ed689d",
+      "baseSha256": "ad901dd687e126fc68abd81d1db0e829f242d049007b45761344ae3821588329",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only manual-order production-plan intent and its optional staff input change. The reviewed scope retains its existing controls, permissions, financial/provider behavior, guest/POS omitted-field behavior and documented procedures. The new final-step Yes/No, explicit exclusion and existing confirmation gates are documented in the affected order, event, production and internal API guides in all three languages."
+    }
+  ],
+  "documentationRef": "b8f16d9a3d386339d76a8d717b3e53edaa9218bf"
+}

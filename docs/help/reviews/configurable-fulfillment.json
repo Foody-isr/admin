@@ -1,5 +1,5 @@
 {
-  "scope": "Local configurable fulfillment; no deployment or tenant mutation",
+  "scope": "Configurable fulfillment release; no automatic tenant configuration",
   "files": [
     {
       "path": "src/components/delivery/ZoneScheduleFields.tsx",
@@ -36,8 +36,8 @@
     },
     {
       "path": "src/lib/api.ts",
-      "baseSha256": "3f2edc07b968c5a43a58ee57a9ba01745f140177c3e63c0d41ed1c04da4e37be",
-      "sha256": "05514bcf0eff816cedfcd31e413cfbc853a3f86b1db2344f3471d32bd0171e4d",
+      "baseSha256": "79b54f1c16fa857e5969ed2e0a06a022b6aa94a7653f64a2b145bb5b93034740",
+      "sha256": "ac046ffdb4b6a0a6c42715b427017d9a983033b8103a7681936d4bb99c16113e",
       "disposition": "no-user-impact",
       "features": [
         "customers-profiles",

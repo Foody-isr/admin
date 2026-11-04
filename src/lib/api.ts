@@ -5301,6 +5301,9 @@ export interface CreateOrderInput {
   /** When true the order is pinned onto the production sheet regardless of
    *  scheduling/payment — the "Ajouter au plan de production" checkbox. */
   force_production?: boolean;
+  /** Explicit staff inclusion choice; false suppresses automatic admission.
+   *  Omitted by legacy clients to retain their existing production rules. */
+  production_plan?: boolean;
   items: CreateOrderItemInput[];
   combos?: CreateOrderComboInput[];
   discount_code?: string;

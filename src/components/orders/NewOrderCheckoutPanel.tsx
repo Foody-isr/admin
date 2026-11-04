@@ -6,7 +6,7 @@ import { useI18n, useCurrency } from '@/lib/i18n';
 import { ChoiceRow } from '@/components/ds/Selection';
 import { cn } from '@/lib/utils';
 import {
-  ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, LinkIcon, TagIcon, XIcon, ArrowLeftIcon, ClockIcon, ChevronDownIcon, CheckIcon, ChefHatIcon,
+  ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, LinkIcon, TagIcon, XIcon, ArrowLeftIcon, ClockIcon, ChevronDownIcon, CheckIcon,
 } from 'lucide-react';
 import { FulfillmentSection } from './FulfillmentSection';
 import {
@@ -53,7 +53,7 @@ export interface CheckoutData {
   paymentMethod: PaymentMethodChoice;
   paymentCollected: boolean;
   fulfillment: FulfillmentValue;
-  /** Force the order onto the production sheet regardless of scheduling/payment. */
+  /** Explicit production-plan inclusion; false also prevents automatic inclusion. */
   addToProduction: boolean;
   /** Coupon code applied by staff (mutually exclusive with manualDiscount). */
   discountCode?: string;
@@ -180,9 +180,8 @@ export function NewOrderCheckoutPanel({
   const [optionalCustomer, setOptionalCustomer] = useState(false);
   const payment = internalOrderPayment(intent, recordedMethod, received);
   const payMethod = payment?.paymentMethod ?? 'cash';
-  // "Ajouter au plan de production" override: pins the order onto the production
-  // sheet even when it wouldn't normally qualify (unscheduled / unpaid).
-  const [addToProduction, setAddToProduction] = useState(false);
+  // No initial choice: staff must explicitly answer on the final step.
+  const [addToProduction, setAddToProduction] = useState<boolean | null>(null);
 
   const [fulfillment, setFulfillment] = useState<FulfillmentValue>({ timing: 'immediate' });
 
@@ -455,11 +454,10 @@ export function NewOrderCheckoutPanel({
   const issues = validateCheckout({ fulfillment, orderType, customerName, customerPhone, address, intent,
     linkEnabled: sumitCheckoutEnabled, cardEnabled: sumitCardEnabled, holdEnabled: sumitHoldEnabled,
     feeValid, feeTouched, feeStatus: currentFeeQuote?.status, received, total, discountedTotal,
-    manualStarted, manualValue: manualValNum, manualType, manualReason, event: eventConfig });
+    productionPlan: addToProduction, manualStarted, manualValue: manualValNum, manualType, manualReason, event: eventConfig });
   const visibleIssues = [...issues.filter(issue => attempted.includes(issue.step)), ...(serverIssue ? [serverIssue] : [])];
   const fieldErrors: CheckoutErrors = Object.fromEntries(visibleIssues.map(issue => [issue.field, copy.errors[issue.code]]));
   const showCustomer = intent !== 'link' || optionalCustomer || customerName || customerPhone;
-  const productionIncluded = !!intent && !hosted && (!!eventConfig || addToProduction || fulfillment.timing === 'scheduled' && (payment?.paymentCollected || recordedMethod === 'cash'));
   const timingWarning = !!(eventConfig?.event_date && eventConfig.event_time && fulfillment.scheduledFor && fulfillment.windowEnd &&
     `${fulfillment.scheduledFor}T${fulfillment.windowEnd}` > `${eventConfig.event_date}T${eventConfig.event_time}`);
 
@@ -515,7 +513,6 @@ export function NewOrderCheckoutPanel({
   function chooseIntent(value: InternalPaymentIntent | null) {
     setIntent(value);
     setReceived(false);
-    setAddToProduction(false);
   }
   // Any amount or recorded-method change needs a fresh receipt acknowledgement.
   useEffect(() => { setReceived(false); }, [discountedTotal, recordedMethod]);
@@ -550,14 +547,14 @@ export function NewOrderCheckoutPanel({
     setAttempted(steps);
     setServerIssue(null);
     if (issues.length) { focusIssue(issues[0]); return; }
-    if (!payment) return;
+    if (!payment || addToProduction === null) return;
     onConfirm({
       customerName, customerPhone, orderType,
       eventConfig: eventConfig ? { ...eventConfig, payment_mode: hosted ? eventConfig.payment_mode : 'none', deposit_value: hosted ? eventConfig.deposit_value : 0 } : undefined,
       address: intent === 'link' ? '' : address, city: intent === 'link' ? '' : city,
       floor: intent === 'link' ? '' : floor, apt: intent === 'link' ? '' : apt,
       entryCode: intent === 'link' ? '' : entryCode, deliveryNotes: intent === 'link' ? '' : deliveryNotes,
-      deliveryFee: orderType === 'delivery' && (intent !== 'link' || fixedLinkFee) ? feeValue : undefined, ...payment, fulfillment, addToProduction: hosted && !eventConfig ? false : addToProduction,
+      deliveryFee: orderType === 'delivery' && (intent !== 'link' || fixedLinkFee) ? feeValue : undefined, ...payment, fulfillment, addToProduction,
       ...(appliedCoupon ? { discountCode: appliedCoupon.code } : {}),
       ...(effectiveManual ? { manualDiscount: { type: effectiveManual.type, value: effectiveManual.value, reason: effectiveManual.reason } } : {}),
     });
@@ -849,6 +846,15 @@ export function NewOrderCheckoutPanel({
 
         </div></details>
 
+          <fieldset className={cn(styles.formSection, 'min-w-0')}>
+            <legend className="float-start mb-3 w-full text-fs-sm font-semibold">{t('addToProduction')}</legend>
+            <div className={cn(styles.paired, 'clear-both grid grid-cols-2 gap-2')}>
+              <ChoiceRow type="radio" name="production-plan" required checked={addToProduction === true} onChange={() => setAddToProduction(true)} label={t('yes')} {...checkoutFieldProps('productionPlan', fieldErrors)} />
+              <ChoiceRow type="radio" name="production-plan" required checked={addToProduction === false} onChange={() => setAddToProduction(false)} label={t('no')} aria-invalid={!!fieldErrors.productionPlan || undefined} aria-describedby={fieldErrors.productionPlan ? 'checkout-productionPlan-error' : undefined} />
+            </div>
+            {inlineError('productionPlan')}
+          </fieldset>
+
           <div className="py-4"><h3 className="text-fs-sm font-semibold">{t('orderItems')}</h3><div className="mt-3">{itemsSummary}</div></div>
 
 
@@ -856,15 +862,6 @@ export function NewOrderCheckoutPanel({
       </fieldset>
     </div>
     <footer className={cn(styles.footer, 'shrink-0 space-y-3 border-t border-[var(--line)] bg-[var(--surface)]')}>
-      <div className={styles.production} data-production-summary>
-        <ChefHatIcon className={styles.productionIcon} aria-hidden="true" />
-        <div className={styles.productionCopy}>
-          <div className={styles.productionHeading}><p className="font-semibold">{copy.production}</p>
-          <p className="text-[var(--fg-muted)]">{fulfillment.timing === 'scheduled' && fulfillment.scheduledFor ? copy.productionDate.replace('{date}', new Date(`${fulfillment.scheduledFor}T00:00:00`).toLocaleDateString(locale)) : copy.productionUnscheduled}</p></div>
-          <p className="text-[var(--fg-muted)]">{hosted ? (eventConfig ? copy.productionPending : t('orderCheckoutProductionAfterPayment')) : productionIncluded ? copy.productionIncluded : copy.productionAutomatic}</p>
-        </div>
-      </div>
-      {step === 'payment' && (!productionIncluded || addToProduction) && !(hosted && (!eventConfig || !hasAnyPermission('kitchen.manage'))) && <label className="flex items-start gap-2 text-fs-xs"><input type="checkbox" className="mt-0.5 shrink-0" checked={addToProduction} onChange={e => setAddToProduction(e.target.checked)} disabled={submitting}/><span>{t('addToProduction')}</span></label>}
       {feeValue > 0 && <div className="flex justify-between text-fs-xs text-[var(--fg-muted)]"><span>{t('deliveryFee')}</span><span className="tabular-nums">{money(feeValue)}</span></div>}
       {appliedAmount > 0 && <div className="flex justify-between text-fs-xs text-[var(--fg-muted)]"><span>{t('discountLine')}</span><span className="tabular-nums">−{money(appliedAmount)}</span></div>}
       <div className="flex items-center justify-between gap-3"><span className="text-fs-sm text-[var(--fg-muted)]">{t(intent === 'link' && orderType === 'delivery' && !fixedLinkFee ? 'subtotal' : 'total')}</span><strong id="checkout-total" tabIndex={-1} className="tabular-nums text-fs-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">{money(discountedTotal)}</strong></div>
