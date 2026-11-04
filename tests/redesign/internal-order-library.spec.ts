@@ -71,6 +71,7 @@ test('library adds off-menu items alongside carte items and submits the existing
   await dialog.getByRole('combobox', { name: 'Numéro de téléphone', exact: true }).fill('0500000000');
   await dialog.getByRole('button', { name: 'Continuer', exact: true }).click();
   await dialog.getByRole('radio', { name: 'Payer plus tard', exact: true }).check();
+  await dialog.getByRole('group', { name: 'Ajouter au plan de production', exact: true }).getByRole('radio', { name: 'Non', exact: true }).check();
   await dialog.getByRole('button', { name: /^Créer la commande/ }).click();
   await expect.poll(() => state.orders.length).toBe(1);
   expect(state.orders[0].items).toEqual([

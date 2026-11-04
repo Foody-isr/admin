@@ -45,18 +45,6 @@
 }
 .panel :is(input, select, textarea):not([type='checkbox'], [type='radio']):hover { border-color: var(--fg-muted); }
 .footer { padding: 16px 20px; }
-.production {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--line);
-  font-size: 12px;
-  line-height: 1.5;
-}
-.productionIcon { flex: 0 0 18px; width: 18px; height: 18px; margin-top: 1px; color: var(--fg-muted); }
-.productionCopy { flex: 1; min-width: 0; }
-.productionHeading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; margin-bottom: 4px; }
 .navigation { margin-top: 20px; }
 .steps { display: flex; }
 .stepItem { position: relative; min-width: 0; flex: 1; }
@@ -141,5 +129,4 @@
   .contextOptions { margin-top: 16px; padding-inline: 12px; }
   .navigation { margin-top: 16px; }
   .formSection { padding-block: 20px; }
-  .productionHeading { display: block; }
 }

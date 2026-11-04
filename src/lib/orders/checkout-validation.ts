@@ -3,8 +3,8 @@ import type { FulfillmentValue } from './fulfillment';
 import type { InternalPaymentIntent } from './internal-order-payment';
 
 export type CheckoutStep = 'reception' | 'event' | 'payment';
-export type CheckoutField = 'scheduledFor' | 'windowStart' | 'windowEnd' | 'customerName' | 'customerPhone' | 'address' | 'deliveryFee' | 'intent' | 'received' | 'manualValue' | 'manualReason' | 'coupon' | 'total' | `event.${keyof OrderEventConfig}`;
-export type CheckoutError = 'date' | 'time' | 'windowEnd' | 'windowOrder' | 'name' | 'phone' | 'address' | 'fee' | 'feePending' | 'feeUnavailable' | 'intent' | 'capability' | 'received' | 'manualValue' | 'manualReason' | 'guests' | 'eventDate' | 'eventTime' | 'eventName' | 'venue' | 'contact' | 'notes' | 'deposit' | 'hold' | 'holdUnavailable' | 'balanceDate' | 'total';
+export type CheckoutField = 'scheduledFor' | 'windowStart' | 'windowEnd' | 'customerName' | 'customerPhone' | 'address' | 'deliveryFee' | 'intent' | 'received' | 'manualValue' | 'manualReason' | 'coupon' | 'total' | 'productionPlan' | `event.${keyof OrderEventConfig}`;
+export type CheckoutError = 'date' | 'time' | 'windowEnd' | 'windowOrder' | 'name' | 'phone' | 'address' | 'fee' | 'feePending' | 'feeUnavailable' | 'intent' | 'capability' | 'received' | 'manualValue' | 'manualReason' | 'guests' | 'eventDate' | 'eventTime' | 'eventName' | 'venue' | 'contact' | 'notes' | 'deposit' | 'hold' | 'holdUnavailable' | 'balanceDate' | 'total' | 'productionPlan';
 export interface CheckoutIssue { field: CheckoutField; step: CheckoutStep; code: CheckoutError }
 export type CheckoutErrors = Partial<Record<CheckoutField, string>>;
 
@@ -22,6 +22,7 @@ interface CheckoutValidation {
   feeTouched: boolean;
   feeStatus?: 'loading' | 'ready' | 'error';
   received: boolean;
+  productionPlan: boolean | null;
   total: number;
   discountedTotal: number;
   manualStarted: boolean;
@@ -90,6 +91,7 @@ export function validateCheckout(value: CheckoutValidation): CheckoutIssue[] {
   if (!intent) add('intent', 'payment', 'intent');
   else if (intent === 'link' && !value.linkEnabled || intent === 'charge_card' && !value.cardEnabled) add('intent', 'payment', 'capability');
   if (intent === 'record' && !value.received) add('received', 'payment', 'received');
+  if (value.productionPlan === null) add('productionPlan', 'payment', 'productionPlan');
   if (value.manualStarted) {
     if (!Number.isFinite(value.manualValue) || value.manualValue <= 0 || value.manualType === 'percent' && value.manualValue > 100) add('manualValue', 'payment', 'manualValue');
     if (!value.manualReason.trim()) add('manualReason', 'payment', 'manualReason');

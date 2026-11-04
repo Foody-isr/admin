@@ -555,7 +555,7 @@ export default function NewOrderPage() {
         payment_status: paymentStatus,
         payment_required: false,
         ...(isSumit ? { internal_checkout: isLink ? 'link' as const : 'card' as const } : {}),
-        force_production: data.addToProduction,
+        production_plan: data.addToProduction,
         ...(data.fulfillment.timing === 'scheduled' && data.fulfillment.scheduledFor
           ? {
               is_scheduled: true,
