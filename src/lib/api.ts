@@ -11378,6 +11378,7 @@ export function cashGuaranteeAction(restaurantId: number, orderId: number, actio
 /** The server calendar used by the read-only ordering simulation. */
 export interface AvailabilitySimulationCalendar {
   enabled: boolean;
+  prepared_stock_applied?: boolean;
   evaluated_at?: string;
   timezone?: string;
   delivery_mode?: DeliverySchedule['mode'];

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "3d130aa619e98877bfd77684752e9eb463ef5cff",
-  "documentationRevision": "136ad792de85592f3a3953d4764817e29985aa6bc397b8e1fe254ae0d5b737e5",
+  "documentationRef": "WORKSPACE",
+  "documentationRevision": "a91ef623f37219c0b9cfcf9efb1862040432e884d3a9a5cd3a844f6e21c1c1a8",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -240,15 +240,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/kitchen/availability.mdx",
-          "sha256": "9d61541aff9e804558abfadd0290728ffe206f32c7ae72c1a311f8b8e5071cfd"
+          "sha256": "4dc9fdbf5a2ea5e1c111f7e518adefdaec8b4eee83c0bc842d43b93cb9bfbefb"
         },
         "fr": {
           "path": "src/content/help/fr/kitchen/availability.mdx",
-          "sha256": "6492f979bdc3f6e2f2c593a4c2a63c0c3c3b10bf37749061d58e5953a57baff9"
+          "sha256": "db44ec6b3414643885adfbf119851126b44f5a4d17389d69734cc32a6d0416a5"
         },
         "he": {
           "path": "src/content/help/he/kitchen/availability.mdx",
-          "sha256": "10a777bcb5c40d5a140d4283aed23417b2bb18648c847101c062913c14e42e64"
+          "sha256": "b2856db6c2ece74f9571e743794181320a71446b1ca3932c6c2d3915ba388029"
         }
       }
     },
@@ -658,15 +658,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/preorders-and-batches.mdx",
-          "sha256": "ecc318fb5a9fbc71831cc36f90c9aeb789da514296d1304afccfd9f9c76e0d53"
+          "sha256": "61db5e35c7048ec62b682e7dcc4484c581731399112369f23f64069e653a2c67"
         },
         "fr": {
           "path": "src/content/help/fr/orders/preorders-and-batches.mdx",
-          "sha256": "253668859e1696786f6335f9bdabbf026e7027a2da6be0805480fe4caed1523b"
+          "sha256": "ac34497fe708fa679fbc7e032bacfd0a1c452e6a0d0d55a8466a6c08b302afb4"
         },
         "he": {
           "path": "src/content/help/he/orders/preorders-and-batches.mdx",
-          "sha256": "8777c0cb2d6328304b461d37765685acc1735a7987dbdbb9769e0651b1be787b"
+          "sha256": "8a6f7ab645b9615ec420338acf6436a1898ef30cdf70c5023e10403d8ad819b5"
         }
       }
     },
@@ -1076,15 +1076,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/fulfillment-and-ordering.mdx",
-          "sha256": "e5bd2954640f38c7a3f0d45f77ed1e398f7a03d7aba94232f317356318cb43ef"
+          "sha256": "13898d30e666817a8f550eaf41d976b5f72ed221c0d3f1beeb80494aa520d197"
         },
         "fr": {
           "path": "src/content/help/fr/settings/fulfillment-and-ordering.mdx",
-          "sha256": "f722458358e331b9d96286695905ac77b12b10acaa22160f1c37aa424ddfeace"
+          "sha256": "0d8fb31cfe21927a7990a3e692e48861fd6aff69e042a49823082a798a4e2f90"
         },
         "he": {
           "path": "src/content/help/he/settings/fulfillment-and-ordering.mdx",
-          "sha256": "24949248b88d4646b79f8c46844617f15cce2d93d65d8cb43b1de52a8da0f724"
+          "sha256": "62593f48f830e3f98e0153303e67d0c319842c0c07857236c5dbc75c19a0c8c6"
         }
       }
     },
@@ -3277,7 +3277,7 @@
       ]
     },
     "src/app/[restaurantId]/settings/orders/OrderingSimulation.tsx": {
-      "sha256": "4fd9861648b2eada9a5848fecc6e0999b6eb6b62b926702d97a48ebc40e25df9",
+      "sha256": "502bce4f17112d426f09e9f8145ae764ab21f2c36e998e245171ffd160f6fc68",
       "features": [
         "order-types",
         "preorders",
@@ -6430,7 +6430,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "ac046ffdb4b6a0a6c42715b427017d9a983033b8103a7681936d4bb99c16113e",
+      "sha256": "7b5e5f76515786ba8b4267513bcc2d1ea30daa2fa871626a2256c3fefe2699f3",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6624,7 +6624,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "f59ab1e520a02fdbedd15bf5b4b07fd1e29d5f1408a00752a61dfdca581751b4",
+      "sha256": "de69e4eed8edf0d5ff5f7c1f86973532415c11b3378b5d6d1b870ec8e35fb5d1",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -13293,6 +13293,7 @@
         "orderingSimulationOrderedAt",
         "orderingSimulationOutside",
         "orderingSimulationPreparation",
+        "orderingSimulationReadyStock",
         "orderingSimulationService",
         "orderingSimulationServiceDisabled",
         "orderingSimulationTitle",
