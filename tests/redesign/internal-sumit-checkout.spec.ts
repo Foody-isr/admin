@@ -300,6 +300,7 @@ for (const value of ['0', '45']) test(`a staff delivery quote of ${value} remain
   const state = await install(page, true);
   const panel = await checkout(page);
   await panel.getByRole('radio', { name: 'Livraison', exact: true }).check();
+  await panel.getByRole('button', { name: 'Définir des frais de livraison fixes', exact: true }).click();
   await panel.getByRole('textbox', { name: /Frais de livraison/ }).fill(value);
   await panel.getByRole('radio', { name: 'Lien de paiement', exact: true }).check();
   await panel.getByRole('button', { name: 'Créer le lien de paiement', exact: true }).click();
@@ -311,6 +312,7 @@ test('a malformed delivery fee blocks creation and pickup excludes it', async ({
   const panel = await checkout(page);
   await panel.getByRole('radio', { name: 'Livraison', exact: true }).check();
   await panel.getByRole('radio', { name: 'Lien de paiement', exact: true }).check();
+  await panel.getByRole('button', { name: 'Définir des frais de livraison fixes', exact: true }).click();
   const fee = panel.getByRole('textbox', { name: /Frais de livraison/ });
   const create = panel.getByRole('button', { name: 'Créer le lien de paiement', exact: true });
   for (const invalid of ['-5', '12abc', '1.234', 'Infinity']) {
@@ -339,6 +341,7 @@ test('a fee entered before payment survives selecting an existing customer for a
   await page.route(/\/customers\/search\?/, route => route.fulfill({ json: { customers: [{ name: 'Client synthétique', phone: '0500000000', phones: ['0500000000'], order_count: 1, addresses: [{ address: '12 rue démo', city: 'Ville démo', floor: '', apt: '', entry_code: '', delivery_notes: '', last_used: '2026-11-01' }] }] } }));
   const panel = await checkout(page);
   await panel.getByRole('radio', { name: 'Livraison', exact: true }).check();
+  await panel.getByRole('button', { name: 'Définir des frais de livraison fixes', exact: true }).click();
   const fee = panel.getByRole('textbox', { name: /Frais de livraison/ });
   await fee.fill('25');
   await panel.getByRole('radio', { name: 'Payer plus tard', exact: true }).check();
@@ -385,4 +388,99 @@ test('prepared event edit is atomic and keeps the draft after a stale revision',
  await expect(drawer.getByLabel('Nom de l’événement',{exact:true})).toHaveValue('Réception mise à jour');
  expect(writes).toHaveLength(1);
  expect(writes[0]).toMatchObject({expected_updated_at:row.updated_at,event_config:{name:'Réception mise à jour'}});
+});
+
+
+test('ordinary delivery calculates from the address and replaces a paid zone with a free zone', async ({page}, info) => {
+ const state=await install(page,false);
+ await page.route('**/public/delivery/check?*',route=>route.fulfill({json:{deliverable:true,resolved:true,delivery_fee:new URL(route.request().url()).searchParams.get('address')==='Zone gratuite'?0:25}}));
+ const panel=await checkout(page);
+ await panel.getByRole('radio',{name:'Livraison',exact:true}).check();
+ await expect(panel.getByRole('textbox',{name:/Frais de livraison/})).toHaveCount(0);
+ await expect(panel).toContainText('calculés automatiquement');
+ await panel.getByRole('radio',{name:'Payer plus tard',exact:true}).check();
+ await fillCustomer(panel);
+ const address=panel.getByRole('textbox',{name:'Adresse de livraison',exact:true});
+ await address.fill('12 rue démo');
+ await expect(panel.getByRole('status').filter({hasText:'Frais de livraison calculés'})).toContainText('25.00');
+ const create=panel.getByRole('button',{name:'Créer la commande',exact:true});
+ await address.fill('Zone gratuite');
+ await expect(create).toBeDisabled();
+ await expect(panel.getByRole('status').filter({hasText:'Frais de livraison calculés'})).toContainText('0.00');
+ await page.screenshot({path:info.outputPath('ordinary-delivery-automatic-fee.png')});
+ await create.click();
+ expect(state.created[0]).toMatchObject({delivery_fee:0,delivery_address:'Zone gratuite',payment_status:'unpaid'});
+ expect(state.created[0]).not.toHaveProperty('event_config');
+});
+
+test('a late address quote cannot overwrite the current address fee',async({page})=>{
+ const state=await install(page,false);
+ let old: import('@playwright/test').Route | undefined;
+ await page.route('**/public/delivery/check?*',route=>{
+  if(new URL(route.request().url()).searchParams.get('address')==='Ancienne adresse'){old=route;return;}
+  return route.fulfill({json:{deliverable:true,resolved:true,delivery_fee:10}});
+ });
+ const panel=await checkout(page);
+ await panel.getByRole('radio',{name:'Livraison',exact:true}).check();
+ await panel.getByRole('radio',{name:'Payer plus tard',exact:true}).check();
+ await fillCustomer(panel);
+ const address=panel.getByRole('textbox',{name:'Adresse de livraison',exact:true});
+ await address.fill('Ancienne adresse');
+ await expect.poll(()=>!!old).toBe(true);
+ await address.fill('Nouvelle adresse');
+ await expect(panel.getByRole('status').filter({hasText:'Frais de livraison calculés'})).toContainText('10.00');
+ await old!.fulfill({json:{deliverable:true,resolved:true,delivery_fee:50}});
+ await panel.getByRole('button',{name:'Créer la commande',exact:true}).click();
+ expect(state.created[0]).toMatchObject({delivery_fee:10,delivery_address:'Nouvelle adresse'});
+});
+
+test('failed fee lookup cannot silently create free delivery and can be retried',async({page})=>{
+ const state=await install(page,false);let unavailable=true;
+ await page.route('**/public/delivery/check?*',route=>unavailable?route.fulfill({status:503,json:{}}):route.fulfill({json:{deliverable:true,resolved:true}}));
+ const panel=await checkout(page);
+ await panel.getByRole('radio',{name:'Livraison',exact:true}).check();
+ await panel.getByRole('radio',{name:'Payer plus tard',exact:true}).check();
+ await fillCustomer(panel);
+ await panel.getByRole('textbox',{name:'Adresse de livraison',exact:true}).fill('12 rue démo');
+ await expect(panel).toContainText('Impossible de calculer les frais');
+ await expect(panel.getByRole('button',{name:'Créer la commande',exact:true})).toBeDisabled();
+ expect(state.created).toHaveLength(0);
+ unavailable=false;
+ await panel.getByRole('button',{name:'Réessayer',exact:true}).click();
+ await expect(panel.getByRole('status').filter({hasText:'Frais de livraison calculés'})).toContainText('0.00');
+ await panel.getByRole('button',{name:'Créer la commande',exact:true}).click();
+ expect(state.created[0]).toMatchObject({delivery_fee:0});
+});
+
+test('a fixed fee is an explicit exception and returning to address pricing recalculates it',async({page})=>{
+ const state=await install(page,false);
+ await page.route('**/public/delivery/check?*',route=>route.fulfill({json:{deliverable:true,resolved:true,delivery_fee:15}}));
+ const panel=await checkout(page);
+ await panel.getByRole('radio',{name:'Livraison',exact:true}).check();
+ await panel.getByRole('radio',{name:'Payer plus tard',exact:true}).check();
+ await fillCustomer(panel);
+ await panel.getByRole('textbox',{name:'Adresse de livraison',exact:true}).fill('12 rue démo');
+ await expect(panel.getByRole('status').filter({hasText:'Frais de livraison calculés'})).toContainText('15.00');
+ await panel.getByRole('button',{name:'Définir des frais de livraison fixes',exact:true}).click();
+ await panel.getByRole('textbox',{name:/Frais de livraison/}).fill('45');
+ await panel.getByRole('button',{name:'Calculer selon l’adresse',exact:true}).click();
+ await expect(panel.getByRole('textbox',{name:/Frais de livraison/})).toHaveCount(0);
+ await expect(panel.getByRole('status').filter({hasText:'Frais de livraison calculés'})).toContainText('15.00');
+ await panel.getByRole('button',{name:'Créer la commande',exact:true}).click();
+ expect(state.created[0]).toMatchObject({delivery_fee:15});
+});
+
+test('picking an existing customer calculates the ordinary delivery fee without entering a tariff',async({page})=>{
+ const state=await install(page,false);
+ await page.route(/\/customers\/search\?/,route=>route.fulfill({json:{customers:[{name:'Client synthétique',phone:'0500000000',phones:['0500000000'],order_count:1,addresses:[{address:'12 rue démo',city:'Ville démo',floor:'',apt:'',entry_code:'',delivery_notes:'',last_used:'2026-11-04'}]}]}}));
+ await page.route('**/public/delivery/check?*',route=>route.fulfill({json:{deliverable:true,resolved:true,delivery_fee:20}}));
+ const panel=await checkout(page);
+ await panel.getByRole('radio',{name:'Livraison',exact:true}).check();
+ await panel.getByRole('radio',{name:'Payer plus tard',exact:true}).check();
+ await panel.getByRole('combobox',{name:'Nom du client',exact:true}).fill('Client');
+ await panel.getByRole('option',{name:/Client synthétique/}).click();
+ await expect(panel.getByRole('textbox',{name:/Frais de livraison/})).toHaveCount(0);
+ await expect(panel.getByRole('status').filter({hasText:'Frais de livraison calculés'})).toContainText('20.00');
+ await panel.getByRole('button',{name:'Créer la commande',exact:true}).click();
+ expect(state.created[0]).toMatchObject({delivery_fee:20,delivery_address:'12 rue démo',delivery_city:'Ville démo'});
 });
