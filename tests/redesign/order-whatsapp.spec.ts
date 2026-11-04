@@ -304,14 +304,15 @@ test('changed order stops the remaining bulk queue and requires another review',
 });
 
 test('app drafts require explicit discard and never call the Business send API', async ({ page }) => {
+  const message = 'Commande confirmée ✅\n📅 Vendredi · 📍 תל אביב\n🚚 👩🏽‍🍳 ❤️ 😊\n50% + frais & reçu';
   const state = await install(page, false, true);
   const drawer = await confirmation(page);
   await drawer.getByRole('radio', { name: 'Application WhatsApp', exact: true }).check();
   await expect(drawer.getByRole('textbox')).not.toHaveAttribute('readonly', '');
-  await drawer.getByRole('textbox').fill('Un mot personnel pour le client démo.');
+  await drawer.getByRole('textbox').fill(message);
   await drawer.getByRole('radio', { name: 'WhatsApp Business', exact: true }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Annuler', exact: true }).click();
-  await expect(drawer.getByRole('textbox')).toHaveValue('Un mot personnel pour le client démo.');
+  await expect(drawer.getByRole('textbox')).toHaveValue(message);
   await drawer.getByRole('button', { name: 'Fermer', exact: true }).click();
   await expect(page.getByRole('alertdialog')).toBeVisible();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Annuler', exact: true }).click();
@@ -321,8 +322,10 @@ test('app drafts require explicit discard and never call the Business send API',
   await drawer.getByRole('button', { name: 'Ouvrir WhatsApp', exact: true }).click();
   await expect(drawer).toContainText('Conversation ouverte');
   const handoff = await page.evaluate(() => (window as unknown as { appHandoff: string }).appHandoff);
-  expect(new URL(handoff).pathname).toBe('/972500000000');
-  expect(new URL(handoff).searchParams.get('text')).toBe('Un mot personnel pour le client démo.');
+  expect(new URL(handoff).origin).toBe('https://api.whatsapp.com');
+  expect(new URL(handoff).pathname).toBe('/send');
+  expect(new URL(handoff).searchParams.get('phone')).toBe('972500000000');
+  expect(new URL(handoff).searchParams.get('text')).toBe(message);
   expect(state.writes.filter(row => row.path.endsWith('/send'))).toHaveLength(0);
 });
 

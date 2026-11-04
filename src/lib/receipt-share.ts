@@ -37,11 +37,13 @@ export function buildShareMessage(opts: {
     .trim();
 }
 
-/** wa.me deep link, or '' when the phone has no usable digits. */
+/** WhatsApp handoff URL, or '' when the phone has no usable digits. */
 export function buildWhatsAppUrl(phone: string | undefined, text: string): string {
   const digits = (phone || '').replace(/\D/g, '');
   if (!digits) return '';
-  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+  // The wa.me redirect replaces emoji with U+FFFD before handing off to Web/app.
+  // Use its destination directly and encode the original message exactly once.
+  return `https://api.whatsapp.com/send?phone=${digits}&text=${encodeURIComponent(text)}`;
 }
 
 /** mailto: link. `email` may be '' so the To field is left blank for staff to type. */
