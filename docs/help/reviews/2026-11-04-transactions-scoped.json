@@ -1,0 +1,67 @@
+{
+  "reviewedAt": "2026-11-04",
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "3043fa00726774b44f6d9403530dc109d6d66f39b2c8801b63444de2d93fac30",
+      "baseSha256": "6fc347c9921adaca8593b650c1db7cd90b75c62abf47d3014da328cf824fba29",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "reason": "Exact text comparison after removing the 96 newly added transactionHistory translation lines reproduces the base file. No existing label, permission, payment action, customer, catalog, delivery, website or order translation changes. The new Transactions procedure covers the new list/detail labels in all three languages."
+    },
+    {
+      "path": "src/components/Sidebar.tsx",
+      "sha256": "ae61688a629131a8513d3859e4f0629baef69655b539ec77a5185780ad3ba61a",
+      "baseSha256": "a7736ad0df925cf178f415429ba1e5691b946ccbff016f2e4efcd4934bfd1bb7",
+      "disposition": "no-user-impact",
+      "features": [
+        "global-search"
+      ],
+      "reason": "Removing only the ReceiptText icon import and the new payments-scoped Transactions navigation entry reproduces the base Sidebar file exactly. Global search handlers, visibility, query behavior and all previous destinations are unchanged. The new navigation item itself is documented in the Transactions guide."
+    },
+    {
+      "path": "src/lib/route-permissions.ts",
+      "sha256": "dd6c85c411a1d895b062664ea47a217618ec123326969f9f2108fd6dea440d6c",
+      "baseSha256": "f9fc057cea85dc9091fd991ef364a82c9dd3f11b14107071447925f373a51fea",
+      "disposition": "no-user-impact",
+      "features": [
+        "staff-roles",
+        "shared-runtime"
+      ],
+      "reason": "The sole source addition is the Transactions section permission entry. Removing that line reproduces the base file exactly. Existing staff role definitions, role editing, other route boundaries and default denied-route behavior remain unchanged; the new payments-view/manage boundary is documented and tested."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "5d35fd19cac2273410c573dd1a57b7e1c52ac952f8b35c0b71db2b3f57538072",
+      "baseSha256": "3f2edc07b968c5a43a58ee57a9ba01745f140177c3e63c0d41ed1c04da4e37be",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events"
+      ],
+      "reason": "Removing only the new pure Transactions decoder import and listTransactions GET helper reproduces the base API client exactly. The helper uses the existing restaurant-scoped apiFetch and creates no payment, refund, Deposit or provider request. Existing customer/catalog/delivery/event/Sumit/Stancer clients and provider initiation behavior are unchanged."
+    }
+  ]
+}

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 export const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 /** Defines the application footprint, excluding generated code and tests. */
 export const isSource = file => /^(?:src|app|components|lib|services|store|internal|config|cmd|ios\/Runner|ios\/AppIntents|android\/app\/src)\//.test(file)
- && /\.(?:tsx?|jsx?|mjs|css|go|dart|swift|kt|json|arb)$/.test(file)
+ && /\.(?:tsx?|jsx?|mjs|css|go|dart|swift|kt|m|h|json|arb)$/.test(file)
  && !/(?:^|\/)(?:__tests__|test|tests|node_modules|build|Pods|\.dart_tool|generated|l10n\/app_localizations[^/]*)(?:\/|$)|(?:\.test|\.spec|_test|\.g|\.freezed)\./.test(file);
 const git = (root, ...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }).trim();
 const read = file => JSON.parse(fs.readFileSync(file, 'utf8'));

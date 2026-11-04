@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "c52a075a1be2528c13eb46625c42777831c4e5e5",
-  "documentationRevision": "f842df12acf83762241adf9c99ea62469aea4d36e811a476c037ca091ecba149",
+  "documentationRef": "19b93e9786234a40346a512cba430c3c56b13616",
+  "documentationRevision": "27f5d811503ca17c9de1424093af7632746c112033bebefabcd819d46e2a4a1f",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -468,15 +468,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/printers/epson-tm-u220iib.mdx",
-          "sha256": "2bc14c045cb20a585bb6769028e38d23fc08411c09d4638e87e84d11f43e1e6a"
+          "sha256": "6587011c0faf6492413e6ab4acd3719a6ee7832bf351b0ecc56ae5509e9e0d90"
         },
         "fr": {
           "path": "src/content/help/fr/printers/epson-tm-u220iib.mdx",
-          "sha256": "ecc47002bc825d345473a4a95d4f69cabe41432ce9329c2bfdacd1e8434dd64c"
+          "sha256": "aafcef1a274287c6313999bcb727011ba025ba041bcb70545a2c6cb166469f8b"
         },
         "he": {
           "path": "src/content/help/he/printers/epson-tm-u220iib.mdx",
-          "sha256": "90229d39140f9bf6747a4364630e96331209a61a7536ee61126f661e28b1c00e"
+          "sha256": "6dd31f38d2021949ae2b65cc0b0b6b0fad04e2577e0db5f3cffda0ea264c76a3"
         }
       }
     },
@@ -1095,15 +1095,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/pos-behavior.mdx",
-          "sha256": "a3476436fbbb293b0d899594cbca481b03d289a048df94b20038955252b7fa1f"
+          "sha256": "bc7096c6f977414dd57772412a771a1f253d9cff191b9e64671a9c4f3da773ec"
         },
         "fr": {
           "path": "src/content/help/fr/settings/pos-behavior.mdx",
-          "sha256": "cabbe95b7aad56d23c56ee489c83cb814a73f84d4c40339c61f88205a69e4f2b"
+          "sha256": "77d024324e6413c0772d17f6cf2c9c8de0023fcd9fd9f80c1c632ba844c9ecd0"
         },
         "he": {
           "path": "src/content/help/he/settings/pos-behavior.mdx",
-          "sha256": "470373a3b142ea3a0f460a6f534f4429427b36b4539acb20efc67119ae04bd5b"
+          "sha256": "8f7d06649db775b24d6cae3235df3365ad61a3e556719e3dfb3d8306acafdd32"
         }
       }
     },
@@ -1285,15 +1285,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/pos-checkout.mdx",
-          "sha256": "77c166c71887cdd44818b723ea14bff84daec88c34963e7abaeb3fc6c503dae2"
+          "sha256": "da36fb1524cdcf80fa3b8a25eb0c2a07d780b3b4a62ad214d6ef77fdde7f7578"
         },
         "fr": {
           "path": "src/content/help/fr/payments/pos-checkout.mdx",
-          "sha256": "7d060e324c130a81feef951ec1e10ace372e8ce0a56b3d8327062bce10f35c11"
+          "sha256": "2a4ecea296da5af28ec36a030d1dcdfcaeba82555dd95a1c185833bf300a140d"
         },
         "he": {
           "path": "src/content/help/he/payments/pos-checkout.mdx",
-          "sha256": "72dd8da0c97525832f72179cf98d98eced69eb81c153e043ad320c1d9ee8d028"
+          "sha256": "631c22db97be9bff765fed5b705b5493e089c9653a4e8fb28008b64f9a3d17ac"
         }
       }
     },
@@ -1304,15 +1304,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/victa-mini.mdx",
-          "sha256": "98743f696ba585ca8335c94dab3fccafbd7d251d63b64dca70e6f2c85dc4a714"
+          "sha256": "c42654b31705887f11f1e3a21e02051d066665b7b47091a6146905bb564f9e12"
         },
         "fr": {
           "path": "src/content/help/fr/payments/victa-mini.mdx",
-          "sha256": "8f5567552639bc2aced739a3ed8f40f7f33674a1644a3f1f73f9556db95ef483"
+          "sha256": "d9bad97f2920b5d12a1009b49479f1c3b49058e5b1b1176852be3cdd83cf4101"
         },
         "he": {
           "path": "src/content/help/he/payments/victa-mini.mdx",
-          "sha256": "545405c8297159521b7dc6bdbf8563aac95a8eebd894f42abcca7e49d20335ca"
+          "sha256": "bb8677d362ffc5be3cb3cf013d4cda62d31b26d9aee37b5da8c7f8c73e15825c"
         }
       }
     },
@@ -1342,15 +1342,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/pos-workspace.mdx",
-          "sha256": "1d4ac0ef8f287227aff7253b770972bba638b2eca6e8fe4f856f09497c7a2aac"
+          "sha256": "f736e9de964225f7788654689a2349e029d4354768523cbf47d9d5e02ddbabab"
         },
         "fr": {
           "path": "src/content/help/fr/settings/pos-workspace.mdx",
-          "sha256": "9dee5e472cd6fd69e436b367bf1438763e1273842c754983f3556237ad8c49c2"
+          "sha256": "40d6820b9ba56680fc8e6242fabc6a7f04ba93d87a23311b79a51c3413827e66"
         },
         "he": {
           "path": "src/content/help/he/settings/pos-workspace.mdx",
-          "sha256": "0d5aad3286f7e4ade360aae8f5fdd430edab88d5676ccea3f9f6547beca7b5a4"
+          "sha256": "3fa50d01361bd79e1f8c6ca00102013ef1dbfa23b1066598fdd858979eee58bf"
         }
       }
     },
@@ -1361,15 +1361,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/printers/profiles-and-routing.mdx",
-          "sha256": "48cb37eb1f6035ad034b8846ddd1f35c5e43300634969081ac11ea588b9e5f4a"
+          "sha256": "7406d3cc2bdfa91ec0309236d115a922108c22300c2f918a254114d4ed8ab466"
         },
         "fr": {
           "path": "src/content/help/fr/printers/profiles-and-routing.mdx",
-          "sha256": "7e32820b04488f0e9b9c2e6717163ceef65b0dcb48721e8e324a15987bef23c4"
+          "sha256": "ff80a72ab70bddb21bd9bb40c4bc9a4d782777f277599838e92655ee026f0337"
         },
         "he": {
           "path": "src/content/help/he/printers/profiles-and-routing.mdx",
-          "sha256": "96d5d5c307386eb4bb46a98193e4ff1fe5f5d9c4d18968ccdb65be30efdeac23"
+          "sha256": "07de7c6fb797974aa1aac35c11d05177de9d497b32ccd1b09c8a0b6b23b78776"
         }
       }
     },
@@ -1380,15 +1380,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/printers/status-and-history.mdx",
-          "sha256": "a5474a50b038565ce60ae4b8009f2fdb6173a3999e7fc2f0017039418b81681c"
+          "sha256": "e9a73db062d3e87391ae2b35a18c83558514459808825b37a608323698ca97a0"
         },
         "fr": {
           "path": "src/content/help/fr/printers/status-and-history.mdx",
-          "sha256": "2927fda329fad2b40124f295dabceecd3c491350515d1483a922f620d187c4be"
+          "sha256": "329a281bff5448d12c9e8e88487b0f991f1c5df9577d71e3a53f0805f60964ce"
         },
         "he": {
           "path": "src/content/help/he/printers/status-and-history.mdx",
-          "sha256": "d44ff76f1170de43fe872ae428eef68f489f84dc0c12fd9197cfdfab5284649f"
+          "sha256": "57284af2b8abcbb34106b97044782d1ff3957149d981e33d036ee7f884b86663"
         }
       }
     },
@@ -1684,15 +1684,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/access-and-dashboard.md",
-          "sha256": "811001d9f669028058d9d0d47e0c3ad530456c9c9935aff71ddf73fde6ecf5c3"
+          "sha256": "7393c7b64907c131127e35ec2991bf67e5a2adc49878669dd5ef4af9a84a2c81"
         },
         "fr": {
           "path": "docs/help/internal/fr/access-and-dashboard.md",
-          "sha256": "6b79d0aa9ec4f45608c9ea5a5b3451f921f303a239464709493cf2a9fc33e402"
+          "sha256": "eeb02d0b4b43f5bde516624eac9fa765303e594234e0b5b610f3d867ea87bc5a"
         },
         "he": {
           "path": "docs/help/internal/he/access-and-dashboard.md",
-          "sha256": "316813d198fa0794976eafc6e4c8ac888854bede470aac67493a90206849f5c6"
+          "sha256": "6515d3eb337509f429bac0d5fce1159fee6ca9da5935e18b5fbf36b347b46491"
         }
       }
     },
@@ -1703,15 +1703,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/restaurant-onboarding.md",
-          "sha256": "6a552e11cf269dd85f30d1a7c342655e64b0cbc18d2921e0b9d6a38e022cf11e"
+          "sha256": "a96920d748fe168f8a7b37b0b408536b309251a543ee3c4db25968be7eda3b88"
         },
         "fr": {
           "path": "docs/help/internal/fr/restaurant-onboarding.md",
-          "sha256": "9f0a4032ee16f8ab2f14d92c51e744566b7ff5cd0a88641259aabd274a67067a"
+          "sha256": "ab86e82eac47c87583ab509484f9658b32001539f22556c40606cfb2755d3f33"
         },
         "he": {
           "path": "docs/help/internal/he/restaurant-onboarding.md",
-          "sha256": "43295404fd8da64382a625a4fe1a2c434ceceefeb4ad80004531a17f1ec0c353"
+          "sha256": "bb2dc2fe989a14741590b9f3ef2615844563db8c4f3c5a8cc946abb90a4b832d"
         }
       }
     },
@@ -1798,15 +1798,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "94ec047f3e5f90a38f22c9e1916e60c18d1d19aa270f17cb60c4ac2aea3464cc"
+          "sha256": "c9491df299b1c23dd4e6b53bc3aebf034da3a25b5bc08e369a17fe8cb85eefcd"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "e80a5b6de6ba707adec1a17423f81b7a63eeb6d306401737678eb513e522b047"
+          "sha256": "f61a7e84a5d4c636156f1eca763c0c60161d9bd8440ade3950a446ca10e273b9"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "623073228358fbe3541829288887aabb2f13e9895d04854db1d2ff37541ac3d4"
+          "sha256": "9b43a302f3bec05deee8438642ce20d21c756415b48fb9aa9373f814baf256de"
         }
       }
     },
@@ -2026,15 +2026,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/end-of-day.mdx",
-          "sha256": "f10db1d5102d4d4292513bee8437eba330246d164ad77f1a7911a8d90ad60edb"
+          "sha256": "2e1f984a4370f0bd99e1df32ffe869386ef8037ac145e2bc5262ee5c8b53ab9e"
         },
         "fr": {
           "path": "src/content/help/fr/payments/end-of-day.mdx",
-          "sha256": "e701ef83b11ad964d5e72b4d2d62dd29542810da1522b2ce80db148206071941"
+          "sha256": "5e09b701f9f445334a2b95a2435f584c771e6c2765be1005e865ed7765256e05"
         },
         "he": {
           "path": "src/content/help/he/payments/end-of-day.mdx",
-          "sha256": "38136432bf0eebf82348da9171f5c52e965cf793d1b2b9f9cde35d0911c57289"
+          "sha256": "cd7bdb20baabfdb75a74efb6ea240101995a098ec7dd3a1d0a1dc2214a13c96a"
         }
       }
     },
@@ -2054,6 +2054,44 @@
         "he": {
           "path": "src/content/help/he/orders/event-orders.mdx",
           "sha256": "86b1aa835647c8935e8a26d522f1623409a3fed0f10be99524e992647f1dc58f"
+        }
+      }
+    },
+    "payments/transactions": {
+      "feature": "payments-transactions",
+      "audience": "public",
+      "status": "available",
+      "translations": {
+        "en": {
+          "path": "src/content/help/en/payments/transactions.mdx",
+          "sha256": "73ccfff61d133c4263fe160b8d8395cadf8b8518ceee2bcf9e32c8e406cd3cc3"
+        },
+        "fr": {
+          "path": "src/content/help/fr/payments/transactions.mdx",
+          "sha256": "e3c38d2b325bc1fd4628da4f8ab68efb3354a616ec8166c84568a3b6e2e36d7c"
+        },
+        "he": {
+          "path": "src/content/help/he/payments/transactions.mdx",
+          "sha256": "bfbbb70635f52e585bbec506a13da887afbaa954dbae3231f991dbec5efbde77"
+        }
+      }
+    },
+    "payments/ashrait-terminal-inspection": {
+      "feature": "pos-ashrait-terminal-inspection",
+      "audience": "public",
+      "status": "available",
+      "translations": {
+        "en": {
+          "path": "src/content/help/en/payments/ashrait-terminal-inspection.mdx",
+          "sha256": "97f0ccc195344632ae18e7e821adbbdc294626d3df7f3ad0a5ccb0d3a4fb7daa"
+        },
+        "fr": {
+          "path": "src/content/help/fr/payments/ashrait-terminal-inspection.mdx",
+          "sha256": "fb562b85137a3ae69f9732b7e736e720e4adc6674887e2e838e8384884196719"
+        },
+        "he": {
+          "path": "src/content/help/he/payments/ashrait-terminal-inspection.mdx",
+          "sha256": "3948e66f8e093ea3428498c2157e2513934664d99e43d321fa1137e9f5a04389"
         }
       }
     }
@@ -2701,9 +2739,9 @@
       ]
     },
     "src/app/[restaurantId]/layout.tsx": {
-      "sha256": "fbe07d6638f411bfd400f4299bfd90a654039f7d065e67285b0c775a17a224e8",
+      "sha256": "415869a600fe445826b155e837a6a7d122c5a60d6db16c0292ff3f1d0db11122",
       "features": [
-        "shared-runtime"
+        "payments-transactions"
       ]
     },
     "src/app/[restaurantId]/marketing/discounts/page.tsx": {
@@ -3510,6 +3548,13 @@
         "table-service-policy"
       ]
     },
+    "src/app/[restaurantId]/transactions/page.tsx": {
+      "sha256": "0228d7330b7edbc3d25668027eee2fce0b94193f394fb6df526f5651d78a4591",
+      "features": [
+        "pos-payments",
+        "payments-transactions"
+      ]
+    },
     "src/app/[restaurantId]/website-v3/layout.tsx": {
       "sha256": "96116cc122468e313f7ee96825989c2843f10e6dd3a3df201e3522959ddf0232",
       "features": [
@@ -3713,10 +3758,11 @@
       ]
     },
     "src/components/Sidebar.tsx": {
-      "sha256": "a7736ad0df925cf178f415429ba1e5691b946ccbff016f2e4efcd4934bfd1bb7",
+      "sha256": "ae61688a629131a8513d3859e4f0629baef69655b539ec77a5185780ad3ba61a",
       "features": [
         "pos-payments",
-        "global-search"
+        "global-search",
+        "payments-transactions"
       ]
     },
     "src/components/StatusPill.tsx": {
@@ -6430,7 +6476,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "7b5e5f76515786ba8b4267513bcc2d1ea30daa2fa871626a2256c3fefe2699f3",
+      "sha256": "e8fec42e71064a315c10267821370a7269f5e616c8a5b04763ee62b7f9db32b5",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6441,7 +6487,8 @@
         "menu-product-photos",
         "orders-internal-sumit-checkout",
         "stancer-cash-guarantee",
-        "orders-events"
+        "orders-events",
+        "payments-transactions"
       ]
     },
     "src/lib/auth-context.tsx": {
@@ -6624,7 +6671,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "de69e4eed8edf0d5ff5f7c1f86973532415c11b3378b5d6d1b870ec8e35fb5d1",
+      "sha256": "b5901420c33bb6865c0e1f5c7d4f1a39168c525b92e1e0fb5558c60e9a19207a",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -6639,7 +6686,8 @@
         "shared-runtime",
         "menu-product-photos",
         "orders-internal-sumit-checkout",
-        "stancer-cash-guarantee"
+        "stancer-cash-guarantee",
+        "payments-transactions"
       ]
     },
     "src/lib/israel-cities.ts": {
@@ -7207,11 +7255,12 @@
       ]
     },
     "src/lib/route-permissions.ts": {
-      "sha256": "f9fc057cea85dc9091fd991ef364a82c9dd3f11b14107071447925f373a51fea",
+      "sha256": "dd6c85c411a1d895b062664ea47a217618ec123326969f9f2108fd6dea440d6c",
       "features": [
         "staff-roles",
         "pos-payments",
-        "shared-runtime"
+        "shared-runtime",
+        "payments-transactions"
       ]
     },
     "src/lib/runtime-origins.ts": {
@@ -7296,6 +7345,13 @@
       "sha256": "d99246d15f4e511bcc7744d3e53ac71c2517e7f34a361f14ca1246bd2b222fcc",
       "features": [
         "shared-runtime"
+      ]
+    },
+    "src/lib/transactions.ts": {
+      "sha256": "68f8f7b8defa144d51f766ce67bf7b831714295fad459c0032796c982296080e",
+      "features": [
+        "shared-runtime",
+        "payments-transactions"
       ]
     },
     "src/lib/units.ts": {
@@ -10596,7 +10652,7 @@
       "source": "src/app/[restaurantId]/layout.tsx",
       "line": 1,
       "features": [
-        "shared-runtime"
+        "payments-transactions"
       ],
       "labels": [
         "retry",
@@ -14495,6 +14551,62 @@
       ]
     },
     {
+      "id": "foodyadmin:src/app/[restaurantId]/transactions/page.tsx:next-page:1",
+      "kind": "next-page",
+      "source": "src/app/[restaurantId]/transactions/page.tsx",
+      "line": 1,
+      "features": [
+        "pos-payments",
+        "payments-transactions"
+      ],
+      "route": "/[restaurantId]/transactions"
+    },
+    {
+      "id": "foodyadmin:src/app/[restaurantId]/transactions/page.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/app/[restaurantId]/transactions/page.tsx",
+      "line": 1,
+      "features": [
+        "pos-payments",
+        "payments-transactions"
+      ],
+      "labels": [
+        "loading",
+        "retry",
+        "transactionHistoryAllMethods",
+        "transactionHistoryAllSources",
+        "transactionHistoryAllocationUnavailable",
+        "transactionHistoryAmount",
+        "transactionHistoryCard",
+        "transactionHistoryCash",
+        "transactionHistoryDate",
+        "transactionHistoryDetails",
+        "transactionHistoryEmpty",
+        "transactionHistoryExternalCard",
+        "transactionHistoryFind",
+        "transactionHistoryGross",
+        "transactionHistoryIntro",
+        "transactionHistoryLoadError",
+        "transactionHistoryMethod",
+        "transactionHistoryNext",
+        "transactionHistoryOnline",
+        "transactionHistoryPos",
+        "transactionHistoryPrevious",
+        "transactionHistoryProcessor",
+        "transactionHistoryReadOnly",
+        "transactionHistoryRecordedReturns",
+        "transactionHistoryReference",
+        "transactionHistorySearch",
+        "transactionHistorySource",
+        "transactionHistoryTransfer",
+        "transactionHistoryType",
+        "transactionHistoryUnknown",
+        "transactionHistoryVicta",
+        "transactions"
+      ],
+      "actions": []
+    },
+    {
       "id": "foodyadmin:src/app/[restaurantId]/website-v3/page.tsx:next-page:1",
       "kind": "next-page",
       "source": "src/app/[restaurantId]/website-v3/page.tsx",
@@ -14965,7 +15077,8 @@
       "line": 1,
       "features": [
         "pos-payments",
-        "global-search"
+        "global-search",
+        "payments-transactions"
       ],
       "labels": [
         "close",
@@ -25026,7 +25139,8 @@
         "menu-product-photos",
         "orders-internal-sumit-checkout",
         "stancer-cash-guarantee",
-        "orders-events"
+        "orders-events",
+        "payments-transactions"
       ],
       "labels": [],
       "actions": [

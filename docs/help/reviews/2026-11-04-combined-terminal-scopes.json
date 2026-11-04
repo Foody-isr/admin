@@ -1,0 +1,43 @@
+{
+  "reviewedAt": "2026-11-04",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "e8fec42e71064a315c10267821370a7269f5e616c8a5b04763ee62b7f9db32b5",
+      "baseSha256": "7b5e5f76515786ba8b4267513bcc2d1ea30daa2fa871626a2256c3fefe2699f3",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "delivery-zones",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-events",
+        "orders-internal-sumit-checkout",
+        "payments-how-payments-work",
+        "stancer-cash-guarantee"
+      ],
+      "reason": "Exact text comparison after removing only the Transactions decoder import and listTransactions GET helper reproduces current develop. Existing customer, catalog, delivery, event, Sumit, Stancer and payment initiation clients are unchanged. The new helper preserves the shared restaurant-scoped apiFetch and has no financial mutation."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "b5901420c33bb6865c0e1f5c7d4f1a39168c525b92e1e0fb5558c60e9a19207a",
+      "baseSha256": "de69e4eed8edf0d5ff5f7c1f86973532415c11b3378b5d6d1b870ec8e35fb5d1",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "delivery-dispatch",
+        "delivery-zones",
+        "google-account-setup",
+        "menu-menus-and-groups",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "website-order-design",
+        "website-sections",
+        "whatsapp"
+      ],
+      "reason": "Exact text comparison after removing precisely 96 transactionHistory translation lines reproduces current develop. Every existing customer, catalog, delivery, Google, website, event, Sumit, Stancer and WhatsApp label remains unchanged; the new Transactions labels are documented in all three languages."
+    }
+  ]
+}
