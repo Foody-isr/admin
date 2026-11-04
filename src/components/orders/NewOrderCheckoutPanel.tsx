@@ -142,6 +142,9 @@ export function NewOrderCheckoutPanel({
   // from overwriting it.
   const [deliveryFee, setDeliveryFee] = useState('');
   const [feeTouched, setFeeTouched] = useState(false);
+  const [feeOverrideOpen, setFeeOverrideOpen] = useState(false);
+  const [feeQuote, setFeeQuote] = useState<{ key: string; status: 'loading' | 'ready' | 'error'; fee?: number } | null>(null);
+  const [feeRetry, setFeeRetry] = useState(0);
   const [intent, setIntent] = useState<InternalPaymentIntent | null>(null);
   const [recordedMethod, setRecordedMethod] = useState<'cash' | 'card'>('cash');
   const [received, setReceived] = useState(false);
@@ -207,7 +210,12 @@ export function NewOrderCheckoutPanel({
   const parsedFee = Number(feeInput);
   const feeValid = !feeInput || (/^\d+(?:\.\d{1,2})?$/.test(feeInput) && Number.isFinite(parsedFee));
   const fixedLinkFee = feeTouched && !!feeInput;
-  const feeValue = orderType === 'delivery' && feeValid && (payMethod !== 'link' || fixedLinkFee) ? parsedFee : 0;
+  const feeQuoteKey = JSON.stringify([restaurantId, address.trim(), city.trim()]);
+  const currentFeeQuote = feeQuote?.key === feeQuoteKey ? feeQuote : null;
+  const automaticFeeReady = currentFeeQuote?.status === 'ready';
+  const feeValue = orderType !== 'delivery' || !feeValid ? 0
+    : feeTouched ? parsedFee
+    : payMethod === 'link' ? 0 : currentFeeQuote?.status === 'ready' ? currentFeeQuote.fee ?? 0 : 0;
   const discountContext = JSON.stringify([restaurantId, discountItems, orderType, feeValue, customerPhone]);
   const [coupons, setCoupons] = useState<Discount[]>([]);
   const [couponCode, setCouponCode] = useState('');
@@ -315,30 +323,34 @@ export function NewOrderCheckoutPanel({
     listDiscounts(restaurantId, { active: true }).then(setCoupons).catch(() => {});
   }, [restaurantId]);
 
-  // Prefill the delivery fee from the matched delivery zone once the address
-  // settles (debounced). Only while staff haven't hand-edited the fee, and only
-  // when the address resolves inside a zone with a fee — otherwise the field is
-  // left for staff to fill in. Staff can always override the prefilled value.
+  // Ordinary deliveries follow their current address. A deliberate fixed quote
+  // takes precedence; stale, failed and pending estimates cannot become free delivery.
   useEffect(() => {
     if (!open || payMethod === 'link' || orderType !== 'delivery' || feeTouched) return;
     const addr = address.trim();
-    if (!addr) return;
+    setDeliveryFee('');
+    if (!addr) { setFeeQuote(null); return; }
+    setFeeQuote({ key: feeQuoteKey, status: 'loading' });
     let cancelled = false;
     const timer = setTimeout(() => {
       checkDeliverable(restaurantId, addr, city.trim() || undefined)
         .then((res) => {
-          if (cancelled || feeTouched) return;
-          if (res.deliverable && typeof res.delivery_fee === 'number' && res.delivery_fee > 0) {
-            setDeliveryFee(String(res.delivery_fee));
+          if (cancelled) return;
+          const fee = res.delivery_fee ?? 0;
+          if (!res.deliverable || !Number.isFinite(fee) || fee < 0) {
+            setFeeQuote({ key: feeQuoteKey, status: 'error' });
+            return;
           }
+          setFeeQuote({ key: feeQuoteKey, status: 'ready', fee });
+          setDeliveryFee(String(fee));
         })
-        .catch(() => {});
+        .catch(() => { if (!cancelled) setFeeQuote({ key: feeQuoteKey, status: 'error' }); });
     }, 500);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [open, intent, payMethod, orderType, address, city, feeTouched, restaurantId]);
+  }, [open, payMethod, orderType, address, city, feeTouched, restaurantId, feeQuoteKey, feeRetry]);
 
   // ── Discount helpers ──────────────────────────────────────────────────────
   async function applyDiscountCode() {
@@ -437,6 +449,8 @@ export function NewOrderCheckoutPanel({
     : !fulfillmentReady ? t('orderCheckoutFulfillmentRequired')
     : !contactReady ? t('orderCheckoutContactRequired')
     : !addressReady ? t('orderCheckoutAddressRequired')
+    : orderType === 'delivery' && intent !== 'link' && !feeTouched && !automaticFeeReady
+      ? t(currentFeeQuote?.status === 'error' ? 'orderCheckoutDeliveryFeeUnavailable' : 'orderCheckoutDeliveryFeeCalculating')
     : !manualReady ? t('orderCheckoutDiscountInvalid')
     : hosted && discountedTotal <= 0 ? t('orderCheckoutPositiveTotal')
     : intent === 'record' && !received ? t('orderCheckoutReceivedRequired') : '';
@@ -513,17 +527,28 @@ export function NewOrderCheckoutPanel({
             <ChoiceRow type="radio" name="order-reception" checked={orderType === 'delivery'} onChange={() => setOrderType('delivery')} label={<span className="inline-flex items-center gap-2"><TruckIcon className="size-4" />{t('delivery')}</span>} />
           </div>
           <FulfillmentSection serviceLabels orderType={orderType} batchConfig={isEvent ? null : batchConfig} value={fulfillment} onChange={setFulfillment} allowImmediate={!isEvent} />
-          {orderType === 'delivery' && <Field label={t('deliveryFee')}>
+          {orderType === 'delivery' && <div className="space-y-3">
+            {!isEvent && !feeTouched && payMethod !== 'link' && <p className="text-fs-xs text-[var(--fg-muted)]" role="status">
+              {t(!address.trim() ? 'orderCheckoutDeliveryFeeAutomatic'
+                : currentFeeQuote?.status === 'error' ? 'orderCheckoutDeliveryFeeUnavailable'
+                : automaticFeeReady ? 'orderCheckoutDeliveryFeeCalculated' : 'orderCheckoutDeliveryFeeCalculating')}
+              {automaticFeeReady && <span className="ms-2 tabular-nums">{money(feeValue)}</span>}
+            </p>}
+            {!isEvent && !feeOverrideOpen && !feeTouched && <Button variant="ghost" size="sm" onClick={() => setFeeOverrideOpen(true)}>{t('orderCheckoutDeliveryFeeOverride')}</Button>}
+            {!feeTouched && payMethod !== 'link' && currentFeeQuote?.status === 'error' && <Button variant="secondary" size="sm" onClick={() => setFeeRetry(n => n + 1)}>{t('retry')}</Button>}
+            {(isEvent || feeOverrideOpen || feeTouched) && <Field label={t('deliveryFee')}>
             <Input
               value={payMethod === 'link' && !feeTouched ? '' : deliveryFee}
-              onChange={(e) => { setDeliveryFee(e.target.value); setFeeTouched(true); }}
+              onChange={(e) => { setDeliveryFee(e.target.value); setFeeTouched(!!e.target.value.trim()); }}
               inputMode="decimal"
               placeholder="0.00"
               aria-invalid={!feeValid}
               aria-describedby="delivery-fee-hint"
             />
             <p id="delivery-fee-hint" className="text-fs-xs text-[var(--fg-muted)]">{t(feeValid ? 'orderCheckoutDeliveryFeeHint' : 'orderCheckoutDeliveryFeeInvalid')}</p>
-          </Field>}
+            </Field>}
+            {feeTouched && <Button variant="ghost" size="sm" onClick={() => { setFeeTouched(false); setFeeOverrideOpen(false); setDeliveryFee(''); }}>{t('orderCheckoutDeliveryFeeReset')}</Button>}
+          </div>}
         </section>
         <fieldset className="min-w-0 py-5">
           <legend className="float-start mb-2 w-full text-fs-sm font-semibold">{t('orderCheckoutIntent')}</legend>

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-04",
+  "files": [
+    {
+      "path": "src/components/orders/NewOrderCheckoutPanel.tsx",
+      "baseSha256": "0dfbfbbfb7408e1b806163c9f5170f1b5d0d90e223390b115a3bee939428afb8",
+      "sha256": "cb24ff78f62bb2d4d032d6ee964a516c16d38ea458ec31089f96be33878d9c8e",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Catering retains its existing editable delivery quote, including explicit zero and fixed private-link pricing. Event classification, requirements, scheduling, deposit and authorization policies are unchanged; the ordinary automatic-fee workflow is documented in order-details."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "baseSha256": "c9e8b9c21af9fcebb2c84df58ba3f9570fa0b18bcd843fa89179286889420e63",
+      "sha256": "6fc347c9921adaca8593b650c1db7cd90b75c62abf47d3014da328cf824fba29",
+      "features": [
+        "customers-profiles",
+        "delivery-dispatch",
+        "delivery-zones",
+        "google-account-setup",
+        "menu-menus-and-groups",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "stancer-cash-guarantee",
+        "website-order-design",
+        "website-sections",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Six localized labels describe automatic internal delivery quoting and its explicit fixed-fee exception. Other locale entries, menu configuration, delivery-zone setup, courier dispatch, Google accounts, WhatsApp, website design and cash-guarantee procedures are unchanged."
+    }
+  ]
+}
