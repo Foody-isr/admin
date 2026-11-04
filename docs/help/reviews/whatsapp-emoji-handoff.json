@@ -1,0 +1,17 @@
+{
+  "files": [
+    {
+      "path": "src/lib/receipt-share.ts",
+      "sha256": "9a413f4c138ed68fb8a979f03a98370972800b646c66e7f807b780ec1e65f137",
+      "baseSha256": "170bc84e7cae047d47ac6af275f9cb8e5601220d8c51cfe8a8fac6079b94f771",
+      "disposition": "no-user-impact",
+      "reason": "This transport correction restores the existing editable WhatsApp message without adding a merchant operation, label, permission, setting or sending rule. The current French, Hebrew and English WhatsApp procedures already instruct staff to review the message, open WhatsApp and confirm sending there. Only the intermediate wa.me redirect is bypassed because it replaces emoji with U+FFFD; the original text is encoded once and sent to the same official api.whatsapp.com/send destination. Those procedures and the published support corpus remain accurate without article or translation changes."
+    }
+  ],
+  "validation": {
+    "syntheticMessage": "Test Foody ✅ 📅 📍 🚚 😊 café שלום & + 50%\nDeuxième ligne",
+    "observedBefore": "wa.me HTTP 302 Location replaces emoji with U+FFFD while preserving accents and Hebrew.",
+    "observedAfter": "Direct api.whatsapp.com/send HTML retains the exact synthetic message in its WhatsApp Web handoff links.",
+    "limits": "No real customer, message send, authenticated WhatsApp Web session or installed native WhatsApp app was used."
+  }
+}
