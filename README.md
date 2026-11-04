@@ -1804,3 +1804,7 @@ assertion still expects a carte item without its existing source_menu_id; this
 payload is unchanged by this feature. The FR/HE/EN help and identical API support
 corpus are prepared together. Documentation contracts pin the reviewed immutable Landing commit for CI;
 release promotes the same verified develop artifacts.
+
+## Transaction history workspace
+
+The restaurant Transactions destination requires payments.view or payments.manage and reads the same /api/v1/transactions projection as POS. Search, dates, channel and payment-method filters retain restaurant headers and query scoping. Details is read-only; gross confirmed collection and locally recorded returns remain separate by currency. Stancer, Sumit and Verifone keep their actual origins, without changing POS terminal providers. An unavailable original order never removes an immutable cash tender or grants a refund. Publish the matching FR/HE/EN transactions guide with the compatible API/Admin/POS release.

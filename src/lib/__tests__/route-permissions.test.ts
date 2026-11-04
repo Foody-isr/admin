@@ -2,6 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { requiredPermissionsForPath } from '../route-permissions';
 
+test('transaction history follows payment permissions without broadening order access', () => {
+  assert.deepEqual(requiredPermissionsForPath('/19/transactions'), ['payments.view', 'payments.manage']);
+  assert.equal(requiredPermissionsForPath('/19/orders').includes('payments.view'), false);
+});
+
 test('courier mode requires order management permission', () => {
   assert.deepEqual(
     requiredPermissionsForPath('/5/orders/courier-mode'),

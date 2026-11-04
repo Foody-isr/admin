@@ -18,6 +18,7 @@ import {
   CalendarDays,
   Menu as MenuIcon,
   ClipboardList,
+  ReceiptText,
   Users,
   BarChart3,
   Settings,
@@ -162,6 +163,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         { href: `${base}/orders/production`, labelKey: 'productionTitle' },
       ],
     },
+    { href: `${base}/transactions`, labelKey: 'transactions', icon: ReceiptText, perm: ['payments.view', 'payments.manage'] },
     {
       // Everything aimed at the customer lives here: who they are, and what we
       // offer them. Promotions keep their /marketing/* route, whose permission

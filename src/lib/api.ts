@@ -22,6 +22,7 @@ import {
   platformAuthenticatorIsAvailable,
 } from '@simplewebauthn/browser';
 import { normalizeRichExtraction } from './menu-import/normalize-extraction';
+import { decodeTransactionHistory, type TransactionHistory } from './transactions';
 
 import { RUNTIME_API_URL, RUNTIME_WEB_URL } from './runtime-origins';
 import { boundedSupportHistory } from './help/context';
@@ -49,6 +50,15 @@ export async function askSupportAssistant(message: string, lang: string, history
 }
 
 export const API_URL = RUNTIME_API_URL;
+
+/** Reads the restaurant-wide Foody ledger without contacting a terminal or provider. */
+export async function listTransactions(restaurantId: number, options: {
+  from?: string; to?: string; q?: string; method?: string; source?: string; limit?: number; offset?: number;
+} = {}): Promise<TransactionHistory> {
+  const query = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  for (const [key, value] of Object.entries(options)) if (value !== undefined && value !== '') query.set(key, String(value));
+  return decodeTransactionHistory(await apiFetch<TransactionHistory>(`/api/v1/transactions?${query}`, restaurantId));
+}
 
 /** Detects this browser's IP on the guest host without forwarding staff credentials. */
 export async function getOrderingTestCurrentIP(): Promise<string> {
