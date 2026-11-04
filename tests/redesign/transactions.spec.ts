@@ -72,6 +72,7 @@ test('Hebrew history and detail stay usable on a phone', async ({ page }, info) 
   await page.setViewportSize({ width: 375, height: 812 });
   const state = await setup(page, { locale: 'he' });
   await expect(page.getByRole('heading', { name: 'עסקאות', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('button', { name: 'פרטים cash:synthetic', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect.poll(async () => {
@@ -79,6 +80,7 @@ test('Hebrew history and detail stay usable on a phone', async ({ page }, info) 
     return box != null && box.x >= -1 && box.x + box.width <= 376;
   }).toBe(true);
   expect(await page.getByRole('dialog').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && scrollX === 0)).toBe(true);
   await page.screenshot({ path: info.outputPath('transactions-phone-he.png'), animations: 'disabled' });
   expect(state.fixture.writes).toEqual([]);
 });

@@ -76,7 +76,7 @@ function History({ rid }: { rid: number }) {
         <option value="">{t('transactionHistoryAllSources')}</option><option value="pos">{t('transactionHistoryPos')}</option><option value="online">{t('transactionHistoryOnline')}</option>
       </Select></label>
       <form className="flex min-w-0 flex-1 gap-2" onSubmit={e => { e.preventDefault(); setQuery(search.trim()); setOffset(0); }}>
-        <Input aria-label={t('transactionHistorySearch')} placeholder={t('transactionHistorySearch')} maxLength={100} value={search} onChange={e => setSearch(e.target.value)} />
+        <Input className="min-w-0 flex-1" aria-label={t('transactionHistorySearch')} placeholder={t('transactionHistorySearch')} maxLength={100} value={search} onChange={e => setSearch(e.target.value)} />
         <Button type="submit" variant="secondary">{t('transactionHistoryFind')}</Button>
       </form>
     </div>
@@ -85,10 +85,10 @@ function History({ rid }: { rid: number }) {
         <div><strong>{t('transactionHistoryGross')}</strong>{Object.entries(data.totals_by_currency).map(([currency, minor]) => <div key={currency}>{money(minor, currency)}</div>)}</div>
         <div><strong>{t('transactionHistoryRecordedReturns')}</strong>{Object.entries(data.recorded_returns_by_currency).map(([currency, minor]) => <div key={currency}>{money(minor, currency)}</div>)}</div>
       </div>
-      {data.transactions.length === 0 ? <p className="py-10 text-[var(--fg-muted)]">{t('transactionHistoryEmpty')}</p> : <TableShell><Table><Thead><Tr>
+      {data.transactions.length === 0 ? <p className="py-10 text-[var(--fg-muted)]">{t('transactionHistoryEmpty')}</p> : <TableShell className="responsive-table"><Table><Thead><Tr>
         <Th>{t('transactionHistoryDate')}</Th><Th>{t('transactionHistoryType')}</Th><Th>{t('transactionHistoryMethod')}</Th><Th>{t('transactionHistorySource')}</Th><Th>{t('transactionHistoryProcessor')}</Th><Th>{t('transactionHistoryAmount')}</Th><Th><span className="sr-only">{t('transactionHistoryDetails')}</span></Th>
       </Tr></Thead><Tbody>{data.transactions.map(row => <Tr key={row.id}>
-        <Td className="whitespace-nowrap">{date(row)}</Td><Td>{kind(row)}</Td><Td>{methodLabel(row.method)}</Td><Td>{sourceLabel(row.source)}</Td><Td>{rail(row)}</Td><Td className="whitespace-nowrap tabular-nums">{amount(row)}</Td>
+        <Td data-label={t('transactionHistoryDate')}>{date(row)}</Td><Td data-label={t('transactionHistoryType')}>{kind(row)}</Td><Td data-label={t('transactionHistoryMethod')}>{methodLabel(row.method)}</Td><Td data-label={t('transactionHistorySource')}>{sourceLabel(row.source)}</Td><Td data-label={t('transactionHistoryProcessor')}>{rail(row)}</Td><Td data-label={t('transactionHistoryAmount')} className="tabular-nums">{amount(row)}</Td>
         <Td><Button variant="ghost" onClick={() => setSelected(row)} aria-label={`${t('transactionHistoryDetails')} ${row.id}`}>{t('transactionHistoryDetails')}</Button></Td>
       </Tr>)}</Tbody></Table></TableShell>}
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
