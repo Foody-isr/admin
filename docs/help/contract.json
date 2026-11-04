@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "WORKSPACE",
+  "documentationRef": "9d0437c23eb60849df9863be4d9999728a9c00bc",
   "documentationRevision": "a91ef623f37219c0b9cfcf9efb1862040432e884d3a9a5cd3a844f6e21c1c1a8",
   "articles": {
     "getting-started/first-login": {
