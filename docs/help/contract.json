@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "19b93e9786234a40346a512cba430c3c56b13616",
-  "documentationRevision": "27f5d811503ca17c9de1424093af7632746c112033bebefabcd819d46e2a4a1f",
+  "documentationRef": "8c49a7d75bc29bf5d574240bf41e1c81ad139fee",
+  "documentationRevision": "083613230727c40b83f2b6537cc98ded256d406eb56f854cbc29287220d8b91a",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -88,15 +88,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/staff/devices-and-shifts.mdx",
-          "sha256": "573a91fec678779d96c95b3d75ad46ce8629bae8c64967395f8426974e5899dd"
+          "sha256": "d04cc245b6e498c29e62e512a3be8cc35ade03689ec7e04c95196375e23c4a7b"
         },
         "fr": {
           "path": "src/content/help/fr/staff/devices-and-shifts.mdx",
-          "sha256": "63e38583798b5a763146d6c931316dc4b93ce8c26de59ea8b96738c850f2334a"
+          "sha256": "ed5897954f38850f5bdc977cd980b7e79bed4426f072100b0476e6aedb374802"
         },
         "he": {
           "path": "src/content/help/he/staff/devices-and-shifts.mdx",
-          "sha256": "983a8df0cdb747f1d12c9551eb28791d1951df633c8e149c6c6dfc159fd02714"
+          "sha256": "63c2c69769c101a4fe7bde91183eaa9bbd2d690583337bdf0bd02a883c5d8269"
         }
       }
     },
@@ -1019,15 +1019,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/checkout-and-receipt.mdx",
-          "sha256": "6ed66b0724fac9f8eab70687303b2dcb9c8455229372f2b775df5c99870898c5"
+          "sha256": "5c48e3c0b3c610231b05ca3b9eec2e7d6bc80da83cf5e33836ce26c365008c1c"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/checkout-and-receipt.mdx",
-          "sha256": "81537d2aa9ec9b22324493a691b6d986daecc0b2cb874fa0e17b37417700f9a8"
+          "sha256": "fcbe721fa6623d19c17caa912771e9bda7cd6e942dbdc1e536e8319fad56c3cf"
         },
         "he": {
           "path": "src/content/help/he/website-qr/checkout-and-receipt.mdx",
-          "sha256": "e085e6f3be621ead221e700d6db21562f3131316d34a8b030da18d1353a4a0b2"
+          "sha256": "8e750162bdcc72739cb7752a614c8db54763221275206309f921aba1b3d5c639"
         }
       }
     },
@@ -1285,15 +1285,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/pos-checkout.mdx",
-          "sha256": "da36fb1524cdcf80fa3b8a25eb0c2a07d780b3b4a62ad214d6ef77fdde7f7578"
+          "sha256": "2c2f0315e96ba52482948f36310da674d5b332a1e6e491b2c42f67dfa62cbfba"
         },
         "fr": {
           "path": "src/content/help/fr/payments/pos-checkout.mdx",
-          "sha256": "2a4ecea296da5af28ec36a030d1dcdfcaeba82555dd95a1c185833bf300a140d"
+          "sha256": "b19c1fc9162d208c858de034e8abfd8f4f5f1fe58080a6349d1b5b43d84b99cc"
         },
         "he": {
           "path": "src/content/help/he/payments/pos-checkout.mdx",
-          "sha256": "631c22db97be9bff765fed5b705b5493e089c9653a4e8fb28008b64f9a3d17ac"
+          "sha256": "5524e10392e1a0b2a68efb1cb3374bf9ffb47a961a46f10c236b3b1843dcd6a4"
         }
       }
     },
@@ -1323,15 +1323,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/cash-access.mdx",
-          "sha256": "43c78855e503279061f3897fafd894d0d04cd11a31de353487fda6fd1fb0b257"
+          "sha256": "2d62ee439f985e9a44a0fe0fef1cd6ddf0d9a6460cad75c14b613599b94e673b"
         },
         "fr": {
           "path": "src/content/help/fr/payments/cash-access.mdx",
-          "sha256": "6efee86ce8094dfcd39c04cbec197bd97bb84279510e84466f6bf2452a0ec642"
+          "sha256": "6104bfa27ac10b2369564f2993ae8494b448ecd9e626050b664ac9f9a657e9e1"
         },
         "he": {
           "path": "src/content/help/he/payments/cash-access.mdx",
-          "sha256": "3078a16b5e9e2f0caeb52fd5c67823a4da6089d03d0edb784b4823836ba8b19a"
+          "sha256": "1d55e53c02e8db7e5666dbe0d99c6671bd9162a72ef81a6735694d8cb115c764"
         }
       }
     },
@@ -1342,15 +1342,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/pos-workspace.mdx",
-          "sha256": "f736e9de964225f7788654689a2349e029d4354768523cbf47d9d5e02ddbabab"
+          "sha256": "fd738acd02be9433dd710bef6b3f69c1aed7943b00a16d7b1c4f04d8dd770605"
         },
         "fr": {
           "path": "src/content/help/fr/settings/pos-workspace.mdx",
-          "sha256": "40d6820b9ba56680fc8e6242fabc6a7f04ba93d87a23311b79a51c3413827e66"
+          "sha256": "c54b904b2028e78ae02c38ce752e127165cee4e66b61d684a3d0998a67ae004c"
         },
         "he": {
           "path": "src/content/help/he/settings/pos-workspace.mdx",
-          "sha256": "3fa50d01361bd79e1f8c6ca00102013ef1dbfa23b1066598fdd858979eee58bf"
+          "sha256": "cd418c7f93b99380091a39fa6e2fee133616b52f42d6c7f5ac064a4becc0fd5e"
         }
       }
     },
@@ -1589,15 +1589,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "65fd3bff821294f56bbc2ab101bdcb8c2bbdb05e882c1e2b2208e7c0cbb61b7c"
+          "sha256": "19b2a452479373380158957595bf8cb8ac174b8474b639e2d682865b633e8c47"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "5fd79e438423baa2da12a5401306dac77254a6830307b4332c1841291a6dd969"
+          "sha256": "a7012d45ba7bb53d62634422110174bc0551091e11b172bd828ee1fb5b0c1e87"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "0913e83862f6fdbedd6742d6429bf25dce4bc02856ad6541a79c8dce1a84a064"
+          "sha256": "c95329cc5708dd57d538e01d4853a32fdcaaecbcd677dd52319d2987fddcf1c1"
         }
       }
     },
@@ -1798,15 +1798,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "c9491df299b1c23dd4e6b53bc3aebf034da3a25b5bc08e369a17fe8cb85eefcd"
+          "sha256": "7e8d076976dbf3b9d223c3bb2c1fb4faeed09495f81c4142efdb8d6d83821bdb"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "f61a7e84a5d4c636156f1eca763c0c60161d9bd8440ade3950a446ca10e273b9"
+          "sha256": "6ba13d92ec43a5b4e87dbd8621756e8e3cea348f036ab8bc6923c21a1c4c4685"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "9b43a302f3bec05deee8438642ce20d21c756415b48fb9aa9373f814baf256de"
+          "sha256": "ba3766716e41da72833ef82d1f4cc01f5545ad4583042c915ce081f00a04fbad"
         }
       }
     },
@@ -2026,15 +2026,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/end-of-day.mdx",
-          "sha256": "2e1f984a4370f0bd99e1df32ffe869386ef8037ac145e2bc5262ee5c8b53ab9e"
+          "sha256": "a62bb59ae70cef36a9ce21a37218c4cfecf29e08cdf9eb8ba45242bb7af265c7"
         },
         "fr": {
           "path": "src/content/help/fr/payments/end-of-day.mdx",
-          "sha256": "5e09b701f9f445334a2b95a2435f584c771e6c2765be1005e865ed7765256e05"
+          "sha256": "f67fc138a5f0c27dc4e273cdb304df6e416498c458dafe153d6f6ae5c1b1a393"
         },
         "he": {
           "path": "src/content/help/he/payments/end-of-day.mdx",
-          "sha256": "cd7bdb20baabfdb75a74efb6ea240101995a098ec7dd3a1d0a1dc2214a13c96a"
+          "sha256": "5ba82189986a772b5da35e9b115ddad1f01bd4c4aa207553aa3f5040a9731782"
         }
       }
     },
@@ -6427,9 +6427,10 @@
       ]
     },
     "src/components/website-v3/editor.css": {
-      "sha256": "0a01740e63fd85f7aa7d8b5f3c21b8965e07ddd1f7cb5706af544287d64cf2d5",
+      "sha256": "b8583e076c0f0a1b45d02939d2cd1474fe993035901a168eb61c15c872141c88",
       "features": [
-        "website-qr-customize-your-site"
+        "website-qr-customize-your-site",
+        "website-journey"
       ]
     },
     "src/components/website-v3/field-contracts.ts": {
@@ -6445,7 +6446,7 @@
       ]
     },
     "src/components/website/CheckoutEditor.tsx": {
-      "sha256": "e286da37a1e2cf9ba883e887212cd2066107e006edb7504e0e1905d0c4848a75",
+      "sha256": "9890e30569f488eadbe16520a74ba45280d61d350e71e02ee5d1ac21f2de4923",
       "features": [
         "website-journey"
       ]
@@ -6671,7 +6672,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "b5901420c33bb6865c0e1f5c7d4f1a39168c525b92e1e0fb5558c60e9a19207a",
+      "sha256": "3bc1abff23f94a6e5a15d92db8d1e882e132013f594b60b6a9c9f268df14776c",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -6681,6 +6682,7 @@
         "google-account-setup",
         "website-sections",
         "website-order-design",
+        "website-journey",
         "pos-behavior",
         "whatsapp",
         "shared-runtime",
@@ -7705,8 +7707,9 @@
       ]
     },
     "src/lib/website/checkout-field-conflicts.ts": {
-      "sha256": "d1df70aac99cbf4ec5953bc89a809a1c73d8b33e4d9418ea2531f5932b027cb2",
+      "sha256": "698621331c86aa23d9cf06d820bede5b01dd142eec0cb98be085d82ae3b59ba7",
       "features": [
+        "website-journey",
         "shared-runtime"
       ]
     },
@@ -25080,7 +25083,27 @@
       "labels": [
         "addressAutocompleteDescription",
         "addressAutocompleteTitle",
-        "addressAutocompleteUnavailable"
+        "addressAutocompleteUnavailable",
+        "editorCheckoutAddBuiltin",
+        "editorCheckoutAddCustom",
+        "editorCheckoutAddressRequired",
+        "editorCheckoutCondition",
+        "editorCheckoutConditional",
+        "editorCheckoutFields",
+        "editorCheckoutHidden",
+        "editorCheckoutLabel",
+        "editorCheckoutMoveDown",
+        "editorCheckoutMoveUp",
+        "editorCheckoutNewField",
+        "editorCheckoutOptional",
+        "editorCheckoutOtp",
+        "editorCheckoutOtpHint",
+        "editorCheckoutPhoneRequired",
+        "editorCheckoutPlaceholder",
+        "editorCheckoutRemove",
+        "editorCheckoutRequired",
+        "editorCheckoutRequirement",
+        "editorCheckoutShowField"
       ],
       "actions": [
         "removeField",

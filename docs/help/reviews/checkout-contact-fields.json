@@ -1,0 +1,38 @@
+{
+  "comparisonBase": "be4e03e157ae04dd946b395599201973ad97ff55",
+  "files": [
+    {
+      "path": "src/components/website-v3/editor.css",
+      "sha256": "b8583e076c0f0a1b45d02939d2cd1474fe993035901a168eb61c15c872141c88",
+      "baseSha256": "0a01740e63fd85f7aa7d8b5f3c21b8965e07ddd1f7cb5706af544287d64cf2d5",
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "New CSS is scoped to the checkout field list and its controls. Existing page, section, navigation, and layout rules do not change."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "3bc1abff23f94a6e5a15d92db8d1e882e132013f594b60b6a9c9f268df14776c",
+      "baseSha256": "b5901420c33bb6865c0e1f5c7d4f1a39168c525b92e1e0fb5558c60e9a19207a",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Adds only labels for the checkout field editor in three languages. All existing labels used by the listed features are unchanged."
+    }
+  ]
+}

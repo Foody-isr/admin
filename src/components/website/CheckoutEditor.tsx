@@ -1,8 +1,8 @@
 'use client';
 
 import { useI18n } from '@/lib/i18n';
-import { Switch } from '@/components/ui/switch';
 import { useCallback, useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import {
   BUILTIN_DELIVERY_FIELDS,
   BUILTIN_PICKUP_FIELDS,
@@ -40,11 +40,9 @@ const OPERATOR_OPTIONS: Array<{ value: CheckoutVisibilityOperator; label: string
   { value: 'one_of',    label: 'fait partie de' },
 ];
 
-function fieldDisplayLabel(field: CheckoutFieldConfig): string {
-  if (field.label?.fr) return field.label.fr;
-  if (field.label?.en) return field.label.en;
-  if (field.kind === 'builtin') return builtinLabel(field.id);
-  return field.id;
+function fieldDisplayLabel(field: CheckoutFieldConfig, locale: 'en' | 'fr' | 'he'): string {
+  return field.label?.[locale] || field.label?.en || field.label?.fr || field.label?.he ||
+    (field.kind === 'builtin' ? builtinLabel(field.id, locale) : field.id);
 }
 
 function newCustomFieldId(existing: ReadonlyArray<CheckoutFieldConfig>): string {
@@ -93,13 +91,22 @@ interface CheckoutEditorProps {
  * sync with the sub-tab the owner is editing.
  */
 export default function CheckoutEditor({ value, onChange, placesAvailable, subTab, onSubTabChange, embedded = false }: CheckoutEditorProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [expandedFieldId, setExpandedFieldId] = useState<string | null>(null);
   const orderType: OrderTypeKey = subTab === 'pickup' ? 'pickup' : 'delivery';
 
   const form = useMemo<CheckoutFormConfig>(() => {
     const fromValue = orderType === 'delivery' ? value?.delivery : value?.pickup;
-    return fromValue ?? defaultForm(orderType);
+    const stored = fromValue ?? defaultForm(orderType);
+    // The guest checkout always requires a phone. Older drafts could still
+    // store it as hidden or optional; present the effective policy here too.
+    const phone = { id: 'customer_phone', kind: 'builtin' as const, enabled: true, required: true };
+    const fields = stored.fields.some(field => field.id === phone.id)
+      ? stored.fields.map(field => field.id === phone.id
+        ? { ...field, enabled: true, required: true, visible_when: undefined }
+        : field)
+      : [...stored.fields, phone];
+    return { ...stored, fields };
   }, [orderType, value]);
 
   const updateConfirmation = useCallback((next: ConfirmationConfig) => {
@@ -132,7 +139,15 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
 
   const updateField = useCallback((idx: number, patch: Partial<CheckoutFieldConfig>) => {
     const next = form.fields.slice();
-    next[idx] = { ...next[idx], ...patch };
+    const previous = next[idx];
+    next[idx] = { ...previous, ...patch };
+    if (patch.id !== undefined && patch.id !== previous.id) {
+      setExpandedFieldId(patch.id);
+      for (let i = idx + 1; i < next.length; i++) {
+        const rule = next[i].visible_when;
+        if (rule?.field === previous.id) next[i] = { ...next[i], visible_when: { ...rule, field: patch.id } };
+      }
+    }
     writeForm({ ...form, fields: next });
   }, [form, writeForm]);
 
@@ -161,13 +176,13 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
       type: 'text',
       enabled: true,
       required: false,
-      label: { fr: 'Nouveau champ' },
+      label: { [locale]: t('editorCheckoutNewField') },
     };
     writeForm({ ...form, fields: [...form.fields, next] });
     setExpandedFieldId(id);
-  }, [form, writeForm]);
+  }, [form, writeForm, locale, t]);
 
-  const addBuiltinField = useCallback((builtinId: string, fieldType: CheckoutFieldType) => {
+  const addBuiltinField = useCallback((builtinId: string) => {
     const next: CheckoutFieldConfig = {
       id: builtinId,
       kind: 'builtin',
@@ -176,7 +191,6 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
     };
     writeForm({ ...form, fields: [...form.fields, next] });
     setExpandedFieldId(builtinId);
-    void fieldType;
   }, [form, writeForm]);
 
   // Rewrite a custom field as the built-in it was imitating, in place, so it
@@ -254,10 +268,10 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
         <section className="space-y-3">
           <Row
-            title="Vérification par OTP"
-            description="Demander un code SMS avant de finaliser la commande."
+            title={t('editorCheckoutOtp')}
+            description={t('editorCheckoutOtpHint')}
           >
-            <Toggle title="Vérification par OTP" checked={form.require_auth} onChange={setRequireAuth} />
+            <Toggle title={t('editorCheckoutOtp')} checked={form.require_auth} onChange={setRequireAuth} />
           </Row>
 
           {orderType === 'delivery' && (
@@ -269,6 +283,7 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
               disabled={!placesAvailable && !form.address_autocomplete}
             >
               <Toggle
+                title={t("addressAutocompleteTitle")}
                 checked={!!form.address_autocomplete}
                 onChange={setAutocomplete}
                 disabled={!placesAvailable && !form.address_autocomplete}
@@ -277,95 +292,62 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
           )}
         </section>
 
-        <section>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-[11px] uppercase tracking-[0.12em] text-fg-secondary font-semibold">
-              Champs du formulaire
-            </h3>
-            <button
-              type="button"
-              onClick={addCustomField}
-              className="text-[12px] text-brand-500 hover:text-brand-600 font-medium"
-            >
-              + Champ personnalisé
+        <section className="sqe-checkout-fields">
+          <div className="sqe-checkout-fields-heading">
+            <h3>{t('editorCheckoutFields')}</h3>
+            <button type="button" className="sqe-checkout-add" onClick={addCustomField}>
+              <Plus size={16} aria-hidden="true" />{t('editorCheckoutAddCustom')}
             </button>
           </div>
 
-          <ul className="space-y-1.5">
+          <ul className="sqe-checkout-field-list">
             {form.fields.map((field, idx) => {
               const expanded = expandedFieldId === field.id;
               const conflict = conflicts[idx];
+              const phone = field.id === 'customer_phone';
+              const verifiedAddress = field.id === 'delivery_address' && !!form.address_autocomplete;
+              const locked = phone || verifiedAddress;
+              const label = fieldDisplayLabel(field, locale);
+              const status = !field.enabled ? t('editorCheckoutHidden') : field.required ? t('editorCheckoutRequired') : t('editorCheckoutOptional');
               return (
-                <li
-                  key={`${field.id}-${idx}`}
-                  className="rounded-lg border"
-                  style={{ borderColor: 'var(--divider)', background: 'var(--surface)' }}
-                >
-                  <div className="flex items-center gap-2 px-3 py-2">
-                    <div className="flex flex-col">
-                      <button
-                        type="button"
-                        onClick={() => moveField(idx, -1)}
-                        disabled={idx === 0}
-                        className="w-5 h-3 text-fg-secondary hover:text-fg-primary disabled:opacity-30 leading-none"
-                        title="Monter"
-                      >▲</button>
-                      <button
-                        type="button"
-                        onClick={() => moveField(idx, 1)}
-                        disabled={idx === form.fields.length - 1}
-                        className="w-5 h-3 text-fg-secondary hover:text-fg-primary disabled:opacity-30 leading-none"
-                        title="Descendre"
-                      >▼</button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setExpandedFieldId(expanded ? null : field.id)}
-                      className="flex-1 text-left text-[13px] text-fg-primary truncate"
-                    >
-                      {fieldDisplayLabel(field)}
-                      <span className="ml-2 text-[10px] text-fg-secondary uppercase tracking-wide">
-                        {field.kind === 'builtin' ? 'intégré' : 'personnalisé'}
+                <li key={idx} data-checkout-field={field.id}>
+                  <div className="sqe-checkout-field-row">
+                    <button type="button" className="sqe-checkout-field-details" aria-expanded={expanded}
+                      onClick={() => setExpandedFieldId(expanded ? null : field.id)}>
+                      <ChevronDown size={16} aria-hidden="true" />
+                      <span>
+                        <strong>{label}</strong>
+                        <small>
+                          {status}
+                          {field.visible_when && ` · ${t('editorCheckoutConditional')}`}
+                          {conflict && <span className="text-amber-700"> · {conflictTitle(conflict)}</span>}
+                        </small>
                       </span>
-                      {field.required && (
-                        <span className="ml-2 text-[10px] text-amber-600 font-semibold">*</span>
-                      )}
-                      {field.visible_when && (
-                        <span className="ml-2 text-[10px] text-fg-secondary">conditionnel</span>
-                      )}
-                      {/* Visible without expanding: nobody opens a field to
-                          find out something is wrong with it. */}
-                      {conflict && (
-                        <span className="ml-2 text-[10px] text-amber-600">
-                          <span aria-hidden>⚠</span>
-                          <span className="sr-only"> {conflictTitle(conflict)}</span>
-                        </span>
-                      )}
                     </button>
-                    <Toggle
-                      checked={field.enabled}
-                      onChange={(b) => updateField(idx, { enabled: b })}
-                      title={field.enabled ? 'Désactiver' : 'Activer'}
-                    />
-                    {field.kind === 'custom' && (
-                      <button
-                        type="button"
-                        onClick={() => removeField(idx)}
-                        className="w-6 h-6 text-fg-secondary hover:text-red-500"
-                        title="Supprimer"
-                      >×</button>
-                    )}
+                    {!locked && <Toggle title={`${t('editorCheckoutShowField')} : ${label}`}
+                      checked={field.enabled} onChange={enabled => updateField(idx, { enabled })} />}
                   </div>
 
                   {expanded && (
                     <FieldEditor
                       field={field}
-                      orderType={orderType}
+                      lockedReason={phone ? t('editorCheckoutPhoneRequired') : verifiedAddress ? t('editorCheckoutAddressRequired') : undefined}
                       earlierFieldIds={enabledIdsBefore(idx)}
                       conflict={conflict}
                       onChange={(patch) => updateField(idx, patch)}
                       onUseBuiltin={(builtinId) => replaceWithBuiltin(idx, builtinId)}
                       onRemove={() => removeField(idx)}
+                      fieldActions={<>
+                        <button type="button" aria-label={t('editorCheckoutMoveUp')} disabled={idx === 0} onClick={() => moveField(idx, -1)}>
+                          <ArrowUp size={16} aria-hidden="true" />
+                        </button>
+                        <button type="button" aria-label={t('editorCheckoutMoveDown')} disabled={idx === form.fields.length - 1} onClick={() => moveField(idx, 1)}>
+                          <ArrowDown size={16} aria-hidden="true" />
+                        </button>
+                        {field.kind === 'custom' && <button type="button" aria-label={t('editorCheckoutRemove')} onClick={() => removeField(idx)}>
+                          <Trash2 size={16} aria-hidden="true" />
+                        </button>}
+                      </>}
                     />
                   )}
                 </li>
@@ -374,32 +356,18 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
           </ul>
 
           {missingBuiltins.length > 0 && (
-            <div className="mt-3 p-3 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
-              <p className="text-[11px] uppercase tracking-[0.12em] text-fg-secondary mb-2 font-semibold">
-                Ajouter un champ intégré
-              </p>
-              <div className="flex flex-wrap gap-1.5">
+            <div className="sqe-checkout-builtins">
+              <p>{t('editorCheckoutAddBuiltin')}</p>
+              <div className="flex flex-wrap gap-2">
                 {missingBuiltins.map((b) => (
-                  <button
-                    key={b.id}
-                    type="button"
-                    onClick={() => addBuiltinField(b.id, b.type)}
-                    className="text-[12px] px-2.5 py-1 rounded-md border text-fg-primary hover:bg-surface-subtle"
-                    style={{ borderColor: 'var(--divider)' }}
-                  >
-                    + {builtinLabel(b.id)}
+                  <button key={b.id} type="button" className="sqe-checkout-add" onClick={() => addBuiltinField(b.id)}>
+                    <Plus size={14} aria-hidden="true" />{builtinLabel(b.id, locale)}
                   </button>
                 ))}
               </div>
             </div>
           )}
         </section>
-
-        <p className="text-[11px] text-fg-secondary leading-relaxed">
-          {value ? null : (
-            <>Les valeurs affichées sont celles du flux par défaut. Vos modifications ne seront enregistrées qu&apos;après publication.</>
-          )}
-        </p>
       </div>
       )}
     </div>
@@ -503,18 +471,18 @@ function Toggle({
   checked, onChange, disabled, title,
 }: { checked: boolean; onChange: (b: boolean) => void; disabled?: boolean; title?: string }) {
   return (
-    <Switch onCheckedChange={() => !disabled && onChange(!checked)}
-          disabled={disabled}
-          title={title}
-          aria-label={title} checked={checked} />
+    <input className="sqe-checkout-switch" type="checkbox" role="switch"
+      aria-label={title} checked={checked} disabled={disabled}
+      onChange={event => onChange(event.target.checked)} />
   );
 }
 
 function FieldEditor({
-  field, orderType, earlierFieldIds, conflict, onChange, onUseBuiltin, onRemove,
+  field, lockedReason, earlierFieldIds, conflict, onChange, onUseBuiltin, onRemove, fieldActions,
 }: {
   field: CheckoutFieldConfig;
-  orderType: OrderTypeKey;
+  lockedReason?: string;
+  fieldActions: React.ReactNode;
   earlierFieldIds: string[];
   /** Set when this field duplicates or shadows another. See
    *  lib/website/checkout-field-conflicts.ts for what each kind means. */
@@ -523,14 +491,21 @@ function FieldEditor({
   onUseBuiltin: (builtinId: string) => void;
   onRemove: () => void;
 }) {
-  const labelFr = field.label?.fr ?? '';
-  const placeholderFr = field.placeholder?.fr ?? '';
+  const { t, locale } = useI18n();
   const isCustom = field.kind === 'custom';
 
-  void orderType;
-
   return (
-    <div className="px-3 pb-3 pt-1 space-y-3 border-t" style={{ borderColor: 'var(--divider)' }}>
+    <div className="sqe-checkout-field-properties">
+      <div className="sqe-checkout-field-actions">{fieldActions}</div>
+      <FormRow label={t('editorCheckoutRequirement')}>
+        <select className="sqe-checkout-control" value={field.required ? 'required' : 'optional'}
+          disabled={!!lockedReason || !field.enabled}
+          onChange={event => onChange({ required: event.target.value === 'required' })}>
+          <option value="optional">{t('editorCheckoutOptional')}</option>
+          <option value="required">{t('editorCheckoutRequired')}</option>
+        </select>
+      </FormRow>
+      {lockedReason && <p className="text-xs text-fg-secondary">{lockedReason}</p>}
       {/* First thing in the panel: the owner opened this field, so this is the
           moment they are thinking about it. */}
       {conflict && (
@@ -542,23 +517,22 @@ function FieldEditor({
         />
       )}
 
-      <FormRow label="Libellé">
+      <FormRow label={t('editorCheckoutLabel')}>
         <input
           type="text"
-          value={labelFr}
-          onChange={(e) => onChange({ label: { ...(field.label ?? {}), fr: e.target.value } })}
-          placeholder={field.kind === 'builtin' ? builtinLabel(field.id) : 'Nom du champ'}
-          className="admin-input"
+          value={field.label?.[locale] ?? ''}
+          onChange={(e) => onChange({ label: { ...(field.label ?? {}), [locale]: e.target.value } })}
+          placeholder={fieldDisplayLabel(field, locale)}
+          className="sqe-checkout-control"
         />
       </FormRow>
 
-      <FormRow label="Indication (placeholder)">
+      <FormRow label={t('editorCheckoutPlaceholder')}>
         <input
           type="text"
-          value={placeholderFr}
-          onChange={(e) => onChange({ placeholder: { ...(field.placeholder ?? {}), fr: e.target.value } })}
-          placeholder="Ex. 50-123-4567"
-          className="admin-input"
+          value={field.placeholder?.[locale] ?? ''}
+          onChange={(e) => onChange({ placeholder: { ...(field.placeholder ?? {}), [locale]: e.target.value } })}
+          className="sqe-checkout-control"
         />
       </FormRow>
 
@@ -575,7 +549,7 @@ function FieldEditor({
                   .replace(/^[^a-z]+/, '');
                 onChange({ id: v });
               }}
-              className="admin-input font-mono"
+              className="sqe-checkout-control font-mono"
             />
             <p className="text-[10px] text-fg-secondary mt-1">
               Clef interne, lettres minuscules, chiffres et underscores. Apparaît dans la commande au POS.
@@ -586,7 +560,7 @@ function FieldEditor({
             <select
               value={field.type ?? 'text'}
               onChange={(e) => onChange({ type: e.target.value as CheckoutFieldType })}
-              className="admin-input"
+              className="sqe-checkout-control"
             >
               {FIELD_TYPE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -603,22 +577,18 @@ function FieldEditor({
                   onChange({ options: values.map((v) => ({ value: v })) });
                 }}
                 rows={3}
-                className="admin-input"
+                className="sqe-checkout-control"
               />
             </FormRow>
           )}
         </>
       )}
 
-      <div className="flex items-center justify-between p-2 rounded-md" style={{ background: 'var(--surface-subtle)' }}>
-        <span className="text-[12px] text-fg-primary">Champ obligatoire</span>
-        <Toggle title="Champ obligatoire" checked={field.required} onChange={(b) => onChange({ required: b })} />
-      </div>
-
-      <div className="space-y-2">
+      {!lockedReason && <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-[12px] text-fg-primary">N&apos;afficher que sous condition</span>
+          <span className="text-xs text-fg-primary">{t('editorCheckoutCondition')}</span>
           <Toggle
+            title={t('editorCheckoutCondition')}
             checked={!!field.visible_when}
             onChange={(b) => {
               if (!b) onChange({ visible_when: null });
@@ -638,7 +608,7 @@ function FieldEditor({
               onChange={(e) => onChange({
                 visible_when: { ...(field.visible_when as NonNullable<typeof field.visible_when>), field: e.target.value },
               })}
-              className="admin-input"
+              className="sqe-checkout-control"
             >
               {earlierFieldIds.map((id) => (
                 <option key={id} value={id}>{builtinLabel(id) || id}</option>
@@ -649,7 +619,7 @@ function FieldEditor({
               onChange={(e) => onChange({
                 visible_when: { ...(field.visible_when as NonNullable<typeof field.visible_when>), operator: e.target.value as CheckoutVisibilityOperator },
               })}
-              className="admin-input"
+              className="sqe-checkout-control"
             >
               {OPERATOR_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -663,7 +633,7 @@ function FieldEditor({
                   visible_when: { ...(field.visible_when as NonNullable<typeof field.visible_when>), value: e.target.value },
                 })}
                 placeholder="Valeur"
-                className="admin-input"
+                className="sqe-checkout-control"
               />
             )}
             {field.visible_when.operator === 'one_of' && (
@@ -677,7 +647,7 @@ function FieldEditor({
                   },
                 })}
                 placeholder="Ex. coffret, basique, prestige"
-                className="admin-input"
+                className="sqe-checkout-control"
               />
             )}
           </div>
@@ -687,7 +657,7 @@ function FieldEditor({
             Ajoutez d&apos;autres champs avant celui-ci pour pouvoir le conditionner.
           </p>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -695,7 +665,7 @@ function FieldEditor({
 function FormRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="block text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-1 font-semibold">
+      <span className="mb-1 block text-xs font-medium text-fg-secondary">
         {label}
       </span>
       {children}
