@@ -10,6 +10,7 @@ const SECTION_PERMISSIONS: Record<string, string[]> = {
   menu: ['menu.view', 'menu.edit'],
   kitchen: ['kitchen.view', 'kitchen.manage'],
   orders: ['orders.view', 'orders.manage'],
+  loyalty: ['payments.view', 'payments.manage'],
   'website-v3': ['settings.edit'],
   customers: ['customers.view', 'customers.manage'],
   analytics: ['analytics.view'],
@@ -41,6 +42,7 @@ export function requiredPermissionsForPath(pathname: string): string[] {
   const segments = pathname.split('/').filter(Boolean);
   const section = segments[1]; // segments[0] is the restaurantId
   if (!section) return [];
+  if (section === 'loyalty' && segments[2] === 'program') return ['settings.view', 'settings.edit'];
   if (section === 'kitchen' && segments[2] === 'data') return ['kitchen.data_manage'];
   if (section === 'settings' && segments[2] === 'orders' && segments[3] === 'test-access') return ['settings.view', 'settings.edit'];
   if (section === 'settings' && segments[2] === 'usage') return ['settings.view', 'settings.edit'];

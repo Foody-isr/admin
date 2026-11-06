@@ -68,7 +68,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
     : pathname.startsWith(`/${restaurantId}/orders/courier-mode`)
       ? 'courierMode'
       : segments[2] || 'dashboard';
-  const pageName = (PAGE_SLUGS as readonly string[]).includes(pageSlug)
+  const pageName = pageSlug === 'loyalty' ? t(segments[3] === 'program' ? 'loyaltyProgramTitle' : 'loyaltyCheckoutNav') : (PAGE_SLUGS as readonly string[]).includes(pageSlug)
     ? t(pageSlug)
     : pageSlug.charAt(0).toUpperCase() + pageSlug.slice(1);
 
