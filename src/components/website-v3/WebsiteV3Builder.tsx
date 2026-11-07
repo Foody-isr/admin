@@ -18,6 +18,7 @@ import { websiteOrderChoicesAvailable } from "@/lib/website-v3/fulfillment";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ApiError,
   discardWebsiteDraft,
   getPublicRestaurantNavigationState,
   getChainBranches,
@@ -45,6 +46,7 @@ import {
   AutosaveSuspendedError,
   type AutosaveStatus,
 } from "@/lib/website-v3/autosave";
+import { rebaseWebsiteDraft, WebsiteDraftMergeConflict } from "@/lib/website-v3/draft-rebase";
 import {
   recordPreviewAcknowledgement,
   stalePreviewDevices,
@@ -213,6 +215,7 @@ export function WebsiteV3Builder({ restaurantId }: { restaurantId: number }) {
   }
   return (
     <DesktopWebsiteV3Builder
+      key={restaurantId}
       restaurantId={restaurantId}
       chainOverview={chainOverview}
     />
@@ -278,6 +281,7 @@ function DesktopWebsiteV3Builder({
     useState<InspectorSurface>("page");
   const [saveStatus, setSaveStatus] = useState<AutosaveStatus>("idle");
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [draftChanged, setDraftChanged] = useState(false);
   const [serverErrors, setServerErrors] = useState<FieldError[]>([]);
   const [busy, setBusy] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -314,13 +318,28 @@ function DesktopWebsiteV3Builder({
   const slugManualRef = useRef(new Set<string>());
   const storiesNavigationAvailableRef = useRef<boolean | undefined>(undefined);
 
-  const autosave = useMemo(
-    () =>
-      createSerializedAutosave(async (state) =>
-        normalizeDraftResponse(await saveWebsiteDraft(restaurantId, state)),
-      ),
-    [restaurantId],
-  );
+  const savedDraft = useRef<DraftResponse | null>(null);
+  const saveDraft = useCallback(async (state: DraftStatePayload, base = savedDraft.current) => {
+    const response = normalizeDraftResponse(
+      await saveWebsiteDraft(restaurantId, state, requireDraftRevision(base)),
+    );
+    savedDraft.current = response;
+    return response;
+  }, [restaurantId]);
+  const autosave = useMemo(() => createSerializedAutosave(saveDraft), [saveDraft]);
+
+  const showSaveError = useCallback((error: unknown) => {
+    setSaveStatus("error");
+    setDraftChanged(websiteDraftChanged(error) || error instanceof WebsiteDraftMergeConflict);
+    setGlobalError(
+      websiteDraftChanged(error) ? t("editorDraftChanged")
+        : error instanceof WebsiteDraftMergeConflict ? t("editorDraftMergeConflict")
+        : error instanceof WebsiteDraftRevisionUnavailable ? t("editorDraftRevisionUnavailable")
+        : `${readError(error)} Vos modifications restent dans cet écran.`,
+    );
+  }, [t]);
+  const showSaveErrorRef = useRef(showSaveError);
+  showSaveErrorRef.current = showSaveError;
 
   useEffect(() => {
     let active = true;
@@ -355,6 +374,7 @@ function DesktopWebsiteV3Builder({
         ]) => {
           if (!active) return;
           const normalized = normalizeDraftResponse(draft);
+          savedDraft.current = normalized;
           const reconciled = reconcileLegacyWebsiteDraft(
             normalized.state,
             {
@@ -410,10 +430,7 @@ function DesktopWebsiteV3Builder({
               })
               .catch((error: unknown) => {
                 if (!active) return;
-                setSaveStatus("error");
-                setGlobalError(
-                  `${readError(error)} Vos modifications restent dans cet écran.`,
-                );
+                showSaveErrorRef.current(error);
               });
           }
         },
@@ -641,6 +658,7 @@ function DesktopWebsiteV3Builder({
       );
       setSaveStatus("saving");
       setGlobalError(null);
+      setDraftChanged(false);
       setServerErrors([]);
       setNotice(null);
       bumpPreview();
@@ -669,22 +687,20 @@ function DesktopWebsiteV3Builder({
           if (lifecycle !== lifecycleRef.current) return;
           if (error instanceof AutosaveSuspendedError) return;
           setSaveStatus("error");
-          const mapped = mapWebsiteDraftError(error);
+          const mapped = mapWebsiteDraftError(error, nextState.pages, t("editorDraftSlugTaken"));
           if (mapped) {
             setServerErrors([
               {
                 ...mapped,
-                pageKey: activePage ? pageKey(activePage) : undefined,
+                pageKey: mapped.pageKey ?? (activePage ? pageKey(activePage) : undefined),
               },
             ]);
           } else {
-            setGlobalError(
-              `${readError(error)} Vos modifications restent dans cet écran.`,
-            );
+            showSaveError(error);
           }
         });
     },
-    [activePage, autosave, bumpPreview, loaded],
+    [activePage, autosave, bumpPreview, loaded, showSaveError, t],
   );
 
   const updateConfig = (path: StatePath, value: unknown) => {
@@ -1060,8 +1076,46 @@ function DesktopWebsiteV3Builder({
     }, 80);
   };
 
-  const retrySave = () => {
-    if (!state) return;
+  const recoverDraft = async (local: DraftStatePayload) => {
+    const base = savedDraft.current;
+    if (!base) throw new WebsiteDraftRevisionUnavailable();
+    const latest = normalizeDraftResponse(await getWebsiteDraft(restaurantId));
+    requireDraftRevision(latest);
+    const merged = rebaseWebsiteDraft(base.state, local, latest.state);
+    const response = merged === latest.state ? latest : await saveDraft(merged, latest);
+    savedDraft.current = response;
+    autosave.reset();
+    historyRef.current = recordDraftEdit({ past: [], future: [] }, latest.state, response.state);
+    setLoaded((current) => current ? { ...current, draft: response } : current);
+    setSelection(selectionAfterReload(response.state, activePage));
+    setRequestedSurface("page");
+    setSidebarResetRevision(revision => revision + 1);
+    setSaveStatus("saved");
+    setDraftChanged(false);
+    setGlobalError(null);
+    setServerErrors([]);
+    setNotice(t("editorDraftRecovered"));
+    bumpPreview();
+  };
+
+  const retrySave = async () => {
+    if (!state || busyRef.current) return;
+    if (draftChanged) {
+      lockEditor();
+      lifecycleRef.current += 1;
+      setSaveStatus("saving");
+      try {
+        // Stop stale queued writes while we reapply the local editor state.
+        await autosave.beginLifecycle("discard");
+        await recoverDraft(state);
+      } catch (error: unknown) {
+        showSaveError(error);
+      } finally {
+        autosave.endLifecycle();
+        unlockEditor();
+      }
+      return;
+    }
     setSaveStatus("saving");
     setGlobalError(null);
     setServerErrors([]);
@@ -1090,35 +1144,32 @@ function DesktopWebsiteV3Builder({
       );
       return;
     }
+    lockEditor();
+    lifecycleRef.current += 1;
+    setGlobalError(null);
+    let localToRecover = state;
+    let draftSaved = false;
     try {
       const capabilities = await requireWebsiteV3RuntimeCapabilities(webOrigin);
       const compatibilityErrors = campaignRuntimeErrors(state, capabilities, t);
       if (compatibilityErrors.length) throw new Error(compatibilityErrors[0].message);
-    } catch (error: unknown) {
-      setGlobalError(readError(error));
-      return;
-    }
-    lockEditor();
-    lifecycleRef.current += 1;
-    setGlobalError(null);
-    try {
       await autosave.beginLifecycle("publish");
-      await saveWebsiteDraft(
-        restaurantId,
-        prepareWebsiteV3StateForPublication(state),
-      );
+      const reviewedDraft = await saveDraft(prepareWebsiteV3StateForPublication(state));
+      localToRecover = reviewedDraft.state;
+      draftSaved = true;
       setSaveStatus("saved");
       const activePageBeforePublish = activePage;
       const response = normalizeDraftResponse(
-        await publishWebsiteDraft(restaurantId),
+        await publishWebsiteDraft(restaurantId, requireDraftRevision(reviewedDraft)),
       );
-      const restaurant = await getRestaurant(restaurantId);
+      savedDraft.current = response;
       autosave.reset();
       historyRef.current = { past: [], future: [] };
       setLoaded((current) =>
-        current ? { ...current, draft: response, restaurant } : current,
+        current ? { ...current, draft: response } : current,
       );
       setSaveStatus("saved");
+      setDraftChanged(false);
       setNotice("Le site est publié.");
       setRequestedSurface("page");
       setSidebarResetRevision(revision => revision + 1);
@@ -1126,16 +1177,27 @@ function DesktopWebsiteV3Builder({
         selectionAfterReload(response.state, activePageBeforePublish),
       );
       bumpPreview();
+      const restaurant = await getRestaurant(restaurantId);
+      setLoaded((current) => current ? { ...current, restaurant } : current);
     } catch (error: unknown) {
-      setSaveStatus("saved");
-      const mapped = mapWebsiteDraftError(error);
+      if (websiteDraftChanged(error)) {
+        try {
+          await recoverDraft(localToRecover);
+        } catch (recoveryError: unknown) {
+          showSaveError(recoveryError);
+        }
+        return;
+      }
+      const mapped = mapWebsiteDraftError(error, state.pages, t("editorDraftSlugTaken"));
       if (mapped) {
-        const page = activePage ? pageKey(activePage) : undefined;
+        const page = mapped.pageKey ?? (activePage ? pageKey(activePage) : undefined);
         const fieldError = { ...mapped, pageKey: page };
         setServerErrors([fieldError]);
         focusError(fieldError);
-      } else {
+      } else if (draftSaved) {
         setGlobalError(readError(error));
+      } else {
+        showSaveError(error);
       }
     } finally {
       autosave.endLifecycle();
@@ -1160,14 +1222,16 @@ function DesktopWebsiteV3Builder({
       await autosave.beginLifecycle("discard");
       const activePageBeforeDiscard = activePage;
       const response = normalizeDraftResponse(
-        await discardWebsiteDraft(restaurantId),
+        await discardWebsiteDraft(restaurantId, requireDraftRevision(savedDraft.current)),
       );
+      savedDraft.current = response;
       autosave.reset();
       historyRef.current = { past: [], future: [] };
       setLoaded((current) =>
         current ? { ...current, draft: response } : current,
       );
       setSaveStatus("idle");
+      setDraftChanged(false);
       setSelection(
         selectionAfterReload(response.state, activePageBeforeDiscard),
       );
@@ -1176,8 +1240,7 @@ function DesktopWebsiteV3Builder({
       const revision = bumpPreview();
       setDiscardAwaitRevision(revision);
     } catch (error: unknown) {
-      setSaveStatus("error");
-      setGlobalError(readError(error));
+      showSaveError(error);
     } finally {
       autosave.endLifecycle();
       unlockEditor();
@@ -1397,8 +1460,8 @@ function DesktopWebsiteV3Builder({
                   <div role="alert" className="sqe-error">
                     {globalError}
                     {saveStatus === "error" && (
-                      <button onClick={retrySave}>
-                        Réessayer l’enregistrement
+                      <button onClick={() => void retrySave()} disabled={busy}>
+                        {draftChanged ? t("editorDraftRecover") : "Réessayer l’enregistrement"}
                       </button>
                     )}
                   </div>
@@ -1626,6 +1689,17 @@ function readError(error: unknown): string {
   return error instanceof Error
     ? error.message
     : "Une erreur inattendue a interrompu l’opération.";
+}
+
+function websiteDraftChanged(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 409 && error.message === "website_draft_changed";
+}
+
+class WebsiteDraftRevisionUnavailable extends Error {}
+
+function requireDraftRevision(draft: DraftResponse | null): string {
+  if (!draft?.revision) throw new WebsiteDraftRevisionUnavailable();
+  return draft.revision;
 }
 
 function BuilderLoading() {

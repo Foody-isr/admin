@@ -1,0 +1,67 @@
+{
+  "files": [
+    {
+      "path": "src/components/website-v3/WebsiteV3Builder.tsx",
+      "features": [
+        "website-sections",
+        "website-pages"
+      ],
+      "sha256": "750f0a1626a34430862c387a9891ad7af5cbc0b702808172edf4e69ce23327c7",
+      "baseSha256": "48d59371d52cb31bf97fa04a2788d88987dc7d638c41c817e86115375786293e",
+      "disposition": "no-user-impact",
+      "reason": "Section and page editing still use the existing controls and permissions. The shared recovery action and its publication preview are documented in the central website editor guide."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions"
+      ],
+      "sha256": "ab32420205369dd01d3a126c90dc9685e9f1afea11411eb3dedb41adf972af87",
+      "baseSha256": "e8fec42e71064a315c10267821370a7269f5e616c8a5b04763ee62b7f9db32b5",
+      "disposition": "no-user-impact",
+      "reason": "Only the staff Website V3 draft calls send a revision and bypass the browser cache. The listed features use separate calls and retain their payloads, credentials and permissions."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions"
+      ],
+      "sha256": "b77ddf1b7b06c8d53c38fdeddef325a5b697bb03275e7ecc3ffd6706bbf92398",
+      "baseSha256": "3bc1abff23f94a6e5a15d92db8d1e882e132013f594b60b6a9c9f268df14776c",
+      "disposition": "no-user-impact",
+      "reason": "New copy keys are consumed exclusively by the Website V3 recovery flow. No existing translated label or procedure used by the listed features changes."
+    },
+    {
+      "path": "src/lib/website-v3/state.ts",
+      "features": [
+        "website-sections"
+      ],
+      "sha256": "806114c2c23c20a625defbaa98c7b0325d5d69744634c9d5df761a727948c5ca",
+      "baseSha256": "49cccfa5901f1d8f76c94d3ccbf022c81c22c3403341cc27d376593ba3b02f08",
+      "disposition": "no-user-impact",
+      "reason": "The new mapping focuses the page address after a publication conflict. Section controls and the steps for editing section content and appearance retain their existing behavior."
+    }
+  ]
+}

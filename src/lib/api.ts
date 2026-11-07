@@ -6575,6 +6575,7 @@ export type DraftStatePayload = {
 
 export type DraftResponse = {
   state: DraftStatePayload;
+  revision?: string;
   draft_dirty: boolean;
   draft_saved_at?: string | null;
   published_at?: string | null;
@@ -6582,16 +6583,16 @@ export type DraftResponse = {
 
 export async function getWebsiteDraft(restaurantId: number): Promise<DraftResponse> {
   return apiFetch<DraftResponse>(
-    `/api/v1/restaurants/${restaurantId}/website-draft`, restaurantId
+    `/api/v1/restaurants/${restaurantId}/website-draft`, restaurantId, { cache: "no-store" }
   );
 }
 
 export async function saveWebsiteDraft(
-  restaurantId: number, payload: DraftStatePayload
+  restaurantId: number, payload: DraftStatePayload, revision: string
 ): Promise<DraftResponse> {
   return apiFetch<DraftResponse>(
     `/api/v1/restaurants/${restaurantId}/website-draft`, restaurantId,
-    { method: 'PUT', body: JSON.stringify(payload) }
+    { method: 'PUT', body: JSON.stringify(payload), headers: { 'X-Website-Draft-Revision': revision } }
   );
 }
 
@@ -6621,17 +6622,17 @@ export async function setWebsitePageSettings(
   );
 }
 
-export async function publishWebsiteDraft(restaurantId: number): Promise<DraftResponse> {
+export async function publishWebsiteDraft(restaurantId: number, revision: string): Promise<DraftResponse> {
   return apiFetch<DraftResponse>(
     `/api/v1/restaurants/${restaurantId}/website-publish`, restaurantId,
-    { method: 'POST' }
+    { method: 'POST', headers: { 'X-Website-Draft-Revision': revision } }
   );
 }
 
-export async function discardWebsiteDraft(restaurantId: number): Promise<DraftResponse> {
+export async function discardWebsiteDraft(restaurantId: number, revision: string): Promise<DraftResponse> {
   return apiFetch<DraftResponse>(
     `/api/v1/restaurants/${restaurantId}/website-discard`, restaurantId,
-    { method: 'POST' }
+    { method: 'POST', headers: { 'X-Website-Draft-Revision': revision } }
   );
 }
 
