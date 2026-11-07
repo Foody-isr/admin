@@ -228,6 +228,7 @@ export type DraftStatePayload = {
 
 export type DraftResponse = {
   state: DraftStatePayload;
+  revision?: string;
   draft_dirty: boolean;
   draft_saved_at?: string | null;
   published_at?: string | null;

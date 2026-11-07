@@ -424,6 +424,8 @@ The legacy `/[restaurantId]/website` and `/[restaurantId]/website-v2` implementa
 
 Draft endpoints: `GET`/`PUT /restaurants/:id/website-draft`, `POST /restaurants/:id/website-publish`, and `POST /restaurants/:id/website-discard`. Website configuration endpoints also remain available to their other consumers.
 
+The Website editor sends `X-Website-Draft-Revision` on save, publish and discard. Deploy the matching API before Admin. When another tab changes the draft or publishes it, recovery reapplies edits to different fields and asks the operator to review the new preview. Conflicting local edits stay in the editor.
+
 The **Text** appearance panel exposes section spacing, automatic or
 S/M/L/XL minimum height (240/400/560/720 px), and content width (automatic,
 640/960/1200 px, or full width). Width is independent of stacked/split layout;

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "8c49a7d75bc29bf5d574240bf41e1c81ad139fee",
-  "documentationRevision": "083613230727c40b83f2b6537cc98ded256d406eb56f854cbc29287220d8b91a",
+  "documentationRef": "ca9497b73cabf17abe04057e56799e9455f12a65",
+  "documentationRevision": "b2cf4347eb5482113473136756b145b33f8ed61865e587fd93561b7e31210bc4",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -487,15 +487,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/customize-your-site.mdx",
-          "sha256": "1eda5c018b75ee519a8a23151b2b82aa03466cd6b9c13ac0a563a248069307de"
+          "sha256": "4c4ee1a66dd452b68a6ae397456742924afc99949c1d7d5959a164269ee63699"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/customize-your-site.mdx",
-          "sha256": "36f9d22ce3c700ca3c93cba9986081b0946ef5c8d05b13cd0dec8455f40a9635"
+          "sha256": "aa77f38e6397fbd928fa746e6ebaf05722afd9ba99012f763ec58e09b984c2bd"
         },
         "he": {
           "path": "src/content/help/he/website-qr/customize-your-site.mdx",
-          "sha256": "244548f263065be04f3eac9cfb124ea7474761258b4d4687c2179c37be7b7aa5"
+          "sha256": "8c0546f9ce50de5d799d1d17093dc5a3cd6f741165b69e264414e3c2b4347075"
         }
       }
     },
@@ -1019,15 +1019,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/checkout-and-receipt.mdx",
-          "sha256": "5c48e3c0b3c610231b05ca3b9eec2e7d6bc80da83cf5e33836ce26c365008c1c"
+          "sha256": "9cc85214b17b410e1e4a804013dafbcb7354ac752eaa195905c7bbb1883d1f62"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/checkout-and-receipt.mdx",
-          "sha256": "fcbe721fa6623d19c17caa912771e9bda7cd6e942dbdc1e536e8319fad56c3cf"
+          "sha256": "e1808827bf050de34503a84dc141190d089f51f894878d21ef82980a4d2a6dde"
         },
         "he": {
           "path": "src/content/help/he/website-qr/checkout-and-receipt.mdx",
-          "sha256": "8e750162bdcc72739cb7752a614c8db54763221275206309f921aba1b3d5c639"
+          "sha256": "6c83fe8cfbe1afa30e8bcb8b4543f265e38a07f2f35cb89ce470d206b56e94cf"
         }
       }
     },
@@ -1589,15 +1589,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "19b2a452479373380158957595bf8cb8ac174b8474b639e2d682865b633e8c47"
+          "sha256": "960cf82537b443d200fb4bf572b5d751f7c1af6b0aae349f9caad45a039fbb9a"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "a7012d45ba7bb53d62634422110174bc0551091e11b172bd828ee1fb5b0c1e87"
+          "sha256": "9412e69b518c22b3c790e6948767c6d4bccda66d924100e28e95542fb27b3230"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "c95329cc5708dd57d538e01d4853a32fdcaaecbcd677dd52319d2987fddcf1c1"
+          "sha256": "d630f390b0efad994549a4827765d46ff49cad9480dc9973b6df1579b4dd1c54"
         }
       }
     },
@@ -6413,7 +6413,7 @@
       ]
     },
     "src/components/website-v3/WebsiteV3Builder.tsx": {
-      "sha256": "48d59371d52cb31bf97fa04a2788d88987dc7d638c41c817e86115375786293e",
+      "sha256": "750f0a1626a34430862c387a9891ad7af5cbc0b702808172edf4e69ce23327c7",
       "features": [
         "website-qr-customize-your-site",
         "website-sections",
@@ -6477,7 +6477,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "e8fec42e71064a315c10267821370a7269f5e616c8a5b04763ee62b7f9db32b5",
+      "sha256": "ab32420205369dd01d3a126c90dc9685e9f1afea11411eb3dedb41adf972af87",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6672,7 +6672,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "3bc1abff23f94a6e5a15d92db8d1e882e132013f594b60b6a9c9f268df14776c",
+      "sha256": "b77ddf1b7b06c8d53c38fdeddef325a5b697bb03275e7ecc3ffd6706bbf92398",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -7472,6 +7472,13 @@
         "shared-runtime"
       ]
     },
+    "src/lib/website-v3/draft-rebase.ts": {
+      "sha256": "57dfc013b706951916a4130328ff0c84f86acc65f6d71116547e3ef44ca6a42c",
+      "features": [
+        "website-qr-customize-your-site",
+        "shared-runtime"
+      ]
+    },
     "src/lib/website-v3/editor-elements.ts": {
       "sha256": "c653ace1d93f8b813a1674f5427d2beed121b082b8066c71d37561149c81a4d3",
       "features": [
@@ -7678,7 +7685,7 @@
       ]
     },
     "src/lib/website-v3/state.ts": {
-      "sha256": "49cccfa5901f1d8f76c94d3ccbf022c81c22c3403341cc27d376593ba3b02f08",
+      "sha256": "806114c2c23c20a625defbaa98c7b0325d5d69744634c9d5df761a727948c5ca",
       "features": [
         "website-qr-customize-your-site",
         "website-sections",
@@ -7686,7 +7693,7 @@
       ]
     },
     "src/lib/website-v3/types.ts": {
-      "sha256": "bcd1ebac33305d2bd649fa75dfbd85d0fb5c664021580a22679dbf217e963d91",
+      "sha256": "48f2a918677815a574ca61d50b0ef9b351489f7375a608ea908ffa407dcf016c",
       "features": [
         "website-qr-customize-your-site",
         "shared-runtime"
@@ -22751,6 +22758,12 @@
         "editorDelete",
         "editorDeleteSectionConfirm",
         "editorDeleteSectionUndo",
+        "editorDraftChanged",
+        "editorDraftMergeConflict",
+        "editorDraftRecover",
+        "editorDraftRecovered",
+        "editorDraftRevisionUnavailable",
+        "editorDraftSlugTaken",
         "editorEditConflict",
         "editorPreviewPending",
         "retry"
@@ -22761,11 +22774,14 @@
         "createPage",
         "deleteSelectedPage",
         "discard",
+        "merged",
         "openOrderJourney",
         "publish",
         "publishBlockedReason",
         "removeMainLogo",
+        "saveDraft",
         "saved",
+        "savedDraft",
         "updateConfig",
         "updatePage",
         "updateSection",
@@ -26077,6 +26093,22 @@
       "labels": [],
       "actions": [
         "loadOptionalCateringServices"
+      ]
+    },
+    {
+      "id": "foodyadmin:src/lib/website-v3/draft-rebase.ts:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/lib/website-v3/draft-rebase.ts",
+      "line": 1,
+      "features": [
+        "website-qr-customize-your-site",
+        "shared-runtime"
+      ],
+      "labels": [],
+      "actions": [
+        "mergeFields",
+        "mergeValue",
+        "merged"
       ]
     },
     {
