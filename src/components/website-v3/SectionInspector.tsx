@@ -55,6 +55,12 @@ export function SectionInspector({
   const { t } = useI18n();
   const campaignSupported = useCampaignCapability("campaign_hero");
   const videoCarouselSupported = useCampaignCapability("video_carousel");
+  const responsiveVideoSupported = useCampaignCapability("responsive_video_sections");
+  const responsiveVideoFields = section.section_type === "video" && section.layout === "carousel"
+    ? [["mobile_at_end", "editorReelsMobileAtEnd"], ["reel_preview_autoplay", "editorReelsAutoplayOnScroll"]]
+    : section.section_type === "hero_banner" && section.layout === "split"
+      ? [["mobile_media_first", "editorHeroMediaFirstMobile"], ["hide_video_playback_button", "editorHeroHidePlaybackButton"]]
+      : [];
   const meta = SQUARE_COMPONENTS[section.section_type];
   const configuredPlacementGroupId = stableId(
     section.settings.placement_group_id,
@@ -181,6 +187,17 @@ export function SectionInspector({
           {section.section_type !== "order_discovery" ? (
             <>
               {section.section_type === "video" && section.layout !== "carousel" && <VideoSettingsFields section={section} onChange={onChange} showLayout={false} />}
+              {responsiveVideoFields.map(([key, label]) => (
+                <ToggleField
+                  key={key}
+                  fieldId={`section.settings.${key}`}
+                  label={t(label)}
+                  checked={section.settings[key] === true}
+                  disabled={!responsiveVideoSupported && section.settings[key] !== true}
+                  description={!responsiveVideoSupported ? t("editorResponsiveVideoUnsupported") : undefined}
+                  onChange={(value) => onChange(["settings", key], value)}
+                />
+              ))}
               {section.section_type === "hero_banner" && (
                 <>
                   <div

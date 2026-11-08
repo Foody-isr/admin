@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "df5f8a9b82a93a96100baa31cca4fa78377141d5",
-  "documentationRevision": "d6b39faa2e5722832bae6a1540d6b455917a6dee01ec8a4969819d408608d68b",
+  "documentationRef": "e5fee9ed64684a112509b7c991045e718057385a",
+  "documentationRevision": "4f556851f56a5d4d30f8bfe7e9eb396545236a326147565fe38369cf05020a17",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -487,15 +487,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/customize-your-site.mdx",
-          "sha256": "39f5e4397aaf321f7386ab5dc8b05b31f25cd3c5022c2c218af8077861ac53df"
+          "sha256": "bc2466fcb4c9e923880f549a296fff96236a712175814254e91bf9cb4e58c807"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/customize-your-site.mdx",
-          "sha256": "b3e972c629b4c214309a47ef71d412626695722198fc3498141912806bbd35b7"
+          "sha256": "f6db6d24fb0a58e3c5be1c789c3e949aa9f4ad7c5316a501fa13d38e125b927b"
         },
         "he": {
           "path": "src/content/help/he/website-qr/customize-your-site.mdx",
-          "sha256": "17fa662406ba65dc66e3bff0ab0a35fbf4f021502834284c3a0ff3b71086fd41"
+          "sha256": "0c12582c1b939c15bbd0efe7a8f1d28a758940d6ec02f750e4fdb7e4fec12f74"
         }
       }
     },
@@ -981,15 +981,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/sections-and-media.mdx",
-          "sha256": "d7f5aea1443c409f7422a5b897ac9f57bca3664165a19cf4558379f38b53c1b3"
+          "sha256": "7c262ede55317cdd7a43d0e59cc41b852ac0f2319815a8244b689787437d6f99"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/sections-and-media.mdx",
-          "sha256": "f45add14de825129b6d72cbcae2c4ca29f9ce53537321adf252772c894428210"
+          "sha256": "a704b7a8d7d34bbc800fd9491f81a2547705fef169c62e45e0096ecd42f7944c"
         },
         "he": {
           "path": "src/content/help/he/website-qr/sections-and-media.mdx",
-          "sha256": "3457ea98ba3c75c595ff5e8c60153395d56988688bba57f72f3f349b2ac69c8c"
+          "sha256": "305107fbd80f8a9199c3b8a40495bd2fc0a9fe00dbee7faf8713b317d6aa8439"
         }
       }
     },
@@ -6058,7 +6058,7 @@
       ]
     },
     "src/components/website-v3/CampaignRuntimeContext.tsx": {
-      "sha256": "1ff6b81cf6b8f47d9291812467a5cdfe9e38582cffa5ef4862987602d6c43666",
+      "sha256": "78d3fd80e6edc5fc96ae088b5ebab18eba60ea69c42389d6d03a9e4634065722",
       "features": [
         "website-qr-customize-your-site",
         "website-sections"
@@ -6336,7 +6336,7 @@
       ]
     },
     "src/components/website-v3/SectionInspector.tsx": {
-      "sha256": "b6c437903e2779eab3d82915c5db65ade88d293844143a3317e50283f2c8afb6",
+      "sha256": "d94c7ea26e943d3e135b96e7e94cc2568577cf196d79128a84bfc520709f489b",
       "features": [
         "website-qr-customize-your-site",
         "website-sections"
@@ -6679,7 +6679,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "e07b29e06178d38101bd0143d5cab89216e6fd8c538fa3a42a583362664e5a86",
+      "sha256": "ef09fad6dfdbd79a4476a6abc51da911aa91955ad28da904ff0a9055ba13a9b0",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -7647,7 +7647,7 @@
       ]
     },
     "src/lib/website-v3/runtime-capabilities.ts": {
-      "sha256": "e69efc8df507b5fb707396321e91a0d9520f4994a16a276ff2b663c1e2818ef5",
+      "sha256": "075489df2db7f37f6cd6d2bd828d38ca89b78498da1b64839f6b94ed4556347b",
       "features": [
         "website-qr-customize-your-site",
         "website-sections",
@@ -22474,6 +22474,7 @@
         "editorLayout",
         "editorLayoutColor",
         "editorReelsUnsupported",
+        "editorResponsiveVideoUnsupported",
         "editorSectionHeight"
       ],
       "actions": []
