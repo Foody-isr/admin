@@ -56,6 +56,7 @@ export function SectionInspector({
   const campaignSupported = useCampaignCapability("campaign_hero");
   const videoCarouselSupported = useCampaignCapability("video_carousel");
   const responsiveVideoSupported = useCampaignCapability("responsive_video_sections");
+  const webStoryPlayerSupported = useCampaignCapability("web_story_player");
   const responsiveVideoFields = section.section_type === "video" && section.layout === "carousel"
     ? [["mobile_at_end", "editorReelsMobileAtEnd"], ["reel_preview_autoplay", "editorReelsAutoplayOnScroll"]]
     : section.section_type === "hero_banner" && section.layout === "split"
@@ -198,6 +199,16 @@ export function SectionInspector({
                   onChange={(value) => onChange(["settings", key], value)}
                 />
               ))}
+              {section.section_type === "video" && section.layout === "carousel" && (
+                <ToggleField
+                  fieldId="section.settings.web_story_player"
+                  label={t("editorWebStoryPlayer")}
+                  checked={section.settings.web_story_player === true}
+                  disabled={!webStoryPlayerSupported && section.settings.web_story_player !== true}
+                  description={t(webStoryPlayerSupported ? "editorWebStoryPlayerHint" : "editorWebStoryPlayerUnsupported")}
+                  onChange={(value) => onChange(["settings", "web_story_player"], value)}
+                />
+              )}
               {section.section_type === "hero_banner" && (
                 <>
                   <div

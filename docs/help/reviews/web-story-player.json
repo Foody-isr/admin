@@ -1,0 +1,59 @@
+{
+  "files": [
+    {
+      "path": "src/components/website-v3/CampaignRuntimeContext.tsx",
+      "sha256": "b8b263406334272ae20e7206f35770e6e1aae405949c804e124c54240475df36",
+      "baseSha256": "78d3fd80e6edc5fc96ae088b5ebab18eba60ea69c42389d6d03a9e4634065722",
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Adds the optional renderer capability for the Web Stories player. The website customization guide already routes editors to the section guide for this specific setting."
+    },
+    {
+      "path": "src/components/website-v3/SectionInspector.tsx",
+      "sha256": "95d1bb45a7b62221aafdb47ddbbb5fed566f22e15878d932f1c0a195410633f4",
+      "baseSha256": "d94c7ea26e943d3e135b96e7e94cc2568577cf196d79128a84bfc520709f489b",
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Adds a Web Stories switch to the existing video carousel panel. The general customize-your-site steps are still accurate and the specific video procedure is covered by the sections guide."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "18839daa9986d99e8f879b52aa8dc8473639419193dd216691e52f00ed04d5eb",
+      "baseSha256": "ef09fad6dfdbd79a4476a6abc51da911aa91955ad28da904ff0a9055ba13a9b0",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Adds translated labels and help for the optional Web Stories switch only. Other menu, customer, delivery, payment and support controls keep their reviewed wording and procedures."
+    },
+    {
+      "path": "src/lib/website-v3/runtime-capabilities.ts",
+      "sha256": "5b829ccf86b9dc46f3b4ea507f42790ebef14523889dfa907e052673cef47c45",
+      "baseSha256": "075489df2db7f37f6cd6d2bd828d38ca89b78498da1b64839f6b94ed4556347b",
+      "features": [
+        "website-qr-customize-your-site",
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Checks the optional Web Stories capability when this carousel setting is used. The general website customization workflow is still accurate and the new prerequisite is explained in the sections guide."
+    }
+  ]
+}

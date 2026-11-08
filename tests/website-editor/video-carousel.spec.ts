@@ -42,6 +42,10 @@ test("responsive reel previews save in the editor and preserve the direct item l
   await panel.getByRole("button", { name: "Carrousel", exact: true }).click();
   await panel.locator('input[data-field-id="section.settings.mobile_at_end"]').check();
   await panel.locator('input[data-field-id="section.settings.reel_preview_autoplay"]').check();
+  const webStories = panel.getByRole("switch", { name: "Utiliser le lecteur Web Stories" });
+  await webStories.check();
+  await expect.poll(async () => (await draft()).sections.find(section => section.id === 8001)?.settings.web_story_player).toBe(true);
+  await webStories.uncheck();
   await panel.getByRole("button", { name: "Cliquez ici pour modifier", exact: true }).click();
   const cards = panel.getByRole("group", { name: "Vidéos du carrousel" });
   await cards.getByRole("button", { name: "Ajouter une vidéo", exact: true }).click();
@@ -57,7 +61,7 @@ test("responsive reel previews save in the editor and preserve the direct item l
   await expect(preview.getByRole("button", { name: "La salade", exact: true })).toBeVisible();
   await expect.poll(async () => (await draft()).sections.find(section => section.id === 8001)).toMatchObject({
     layout: "carousel",
-    settings: { mobile_at_end: true, reel_preview_autoplay: true },
+    settings: { mobile_at_end: true, reel_preview_autoplay: true, web_story_player: false },
     content: { reels: [
       { title: "La salade", video_url: videoUrl, cta_text: "Commander la salade", cta_link: "/order?item=1" },
       { title: "Les pâtisseries", video_url: videoUrl },
@@ -99,11 +103,12 @@ test("responsive reel previews save in the editor and preserve the direct item l
 
   const card = guest.getByRole("button", { name: "La salade", exact: true });
   const nextCard = guest.getByRole("button", { name: "Les pâtisseries", exact: true });
-  const isPlaying = (locator: typeof hero) => locator.evaluate((element: HTMLVideoElement) => element.muted && !element.paused && element.currentTime > 0);
+  // The synthetic clip can finish before the next poll, especially on WebKit.
+  const hasStartedMuted = (locator: typeof hero) => locator.evaluate((element: HTMLVideoElement) => element.muted && element.currentTime > 0);
   await card.scrollIntoViewIfNeeded();
-  await expect.poll(() => isPlaying(card.locator("video[data-reel-preview]"))).toBe(true);
+  await expect.poll(() => hasStartedMuted(card.locator("video[data-reel-preview]"))).toBe(true);
   await carousel.getByRole("button", { name: "Diapositive suivante" }).click();
-  await expect.poll(() => isPlaying(nextCard.locator("video[data-reel-preview]"))).toBe(true);
+  await expect.poll(() => hasStartedMuted(nextCard.locator("video[data-reel-preview]"))).toBe(true);
   await expect(activePreview).toHaveCount(1);
   await guest.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
   await expect(activePreview).toHaveCount(0);
@@ -126,7 +131,7 @@ test("responsive reel previews save in the editor and preserve the direct item l
   await expect.poll(async () => (await y(carousel)) < (await y(later))).toBe(true);
   await expect.poll(async () => Math.abs((await y(heroMedia)) - (await y(heroText)))).toBeLessThan(2);
   await card.scrollIntoViewIfNeeded();
-  await expect.poll(() => isPlaying(card.locator("video[data-reel-preview]"))).toBe(true);
+  await expect.poll(() => hasStartedMuted(card.locator("video[data-reel-preview]"))).toBe(true);
   await expect(nextCard.locator("video[data-reel-preview]")).toHaveCount(0);
   await expect(carousel.getByRole("button", { name: "Mettre le carrousel en pause" })).toHaveCount(0);
   await expect(activePreview).toHaveJSProperty("paused", true);
