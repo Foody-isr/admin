@@ -77,7 +77,7 @@ test('the general customer note is optional on an existing item', async ({ page 
   await notes.check();
   expect(fixture.writes).toEqual([]);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect.poll(() => fixture.items[0].allow_notes).toBe(true);
+  await expect.poll(() => fixture.items[0]).toMatchObject({ allow_notes: true });
 });
 
 test('cancel discards an existing item checkout change', async ({ page }) => {
