@@ -1,7 +1,7 @@
 "use client";
 import { ItemImageFramingEditor } from "./ItemImageFramingEditor";
 import type { MenuItem } from "@/lib/api";
-import { BooleanInput } from '@/components/ds/Selection';
+import { BooleanInput, ChoiceRow } from "@/components/ds/Selection";
 import { ColorStylePicker, openSiteColors, type SiteColorEditTarget } from "./ColorStylePicker";
 import {
   selectOrderColorStyle,
@@ -13,12 +13,13 @@ import {
 import { NumberInput } from "@/components/ui/NumberInput";
 import { OrderTypographyFields } from "./OrderTypographyFields";
 import type { TypographyOverrides, TypographyRoleKey } from "@/lib/api";
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { useI18n } from "@/lib/i18n";
 import type { DraftPagePayload, StatePath } from "@/lib/website-v3/types";
 import type { OrderEditorRegion, OrderModePreview } from "@/lib/website-v3/editor-selection";
 import { record } from "@/lib/website-v3/restaurant-themes";
 import { ImageUploadField } from "./SectionContentEditors";
+import { InspectorField, ToggleField, controlClass } from "./controls";
 
 /** Edits the same page-local order blocks rendered by the public order page. */
 export function OrderPageEditor({
@@ -31,6 +32,7 @@ export function OrderPageEditor({
   onPreviewItem,
   previewMode = "fulfillment",
   onPreviewMode,
+  onOfferSignInChange,
   sharedHeader = false,
   restaurantHeader = false,
   orderChoicesAvailable = true,
@@ -47,6 +49,7 @@ export function OrderPageEditor({
   onPreviewItem: (open: boolean) => void;
   previewMode?: OrderModePreview;
   onPreviewMode?: (surface: OrderModePreview) => void;
+  onOfferSignInChange?: (checked: boolean) => void;
   sharedHeader?: boolean;
   restaurantHeader?: boolean;
   orderChoicesAvailable?: boolean;
@@ -55,14 +58,11 @@ export function OrderPageEditor({
   onEditHeader?: () => void;
 }) {
   const { t } = useI18n();
+  const formatGroup = useId();
   useEffect(() => () => onPreviewItem(false), [onPreviewItem]);
   useEffect(() => () => onPreviewMode?.("entry"), [onPreviewMode]);
   const value = record(page.appearance_overrides.website_order);
   const serviceFirst = value.choose_before_menu === true;
-  const previewButton = (mode: OrderModePreview, label: string) => (
-    <button type="button" className={`sqe-button${previewMode === mode ? " sqe-button--primary" : ""}`}
-      aria-pressed={previewMode === mode} onClick={() => onPreviewMode?.(mode)}>{t(label)}</button>
-  );
   const itemLayout = value.layout ?? (serviceFirst ? "gallery" : "list");
   const defaultMobileLayout = serviceFirst && itemLayout === "gallery" ? "carousel" : "inherit";
   const mobileCarousel = (value.mobile_item_layout ?? defaultMobileLayout) === "carousel";
@@ -192,47 +192,79 @@ export function OrderPageEditor({
         {toggle("show_title", "editorRestaurantName", false)}
       </div>
     );
-  if (region === "order-fulfillment")
+  if (region === "order-fulfillment") {
+    const step = previewMode === "pickup" || previewMode === "delivery" ? previewMode : null;
+    const screenStyleKey = step ? `${step}_step_color_style` : "entry_color_style";
+    const menuStyle = String(value.color_style ?? "default");
+    const fulfillmentStyle = String(value.fulfillment_color_style ?? "default");
+    const inheritedStepStyle = fulfillmentStyle === "default" ? menuStyle : fulfillmentStyle;
+    const changeFormat = (beforeMenu: boolean) => {
+      set("choose_before_menu", beforeMenu);
+      onPreviewMode?.("entry");
+    };
     return (
       <div className="sqe-panel-body sqe-order-settings">
-        <ColorStylePicker
-          value={String(value.fulfillment_color_style ?? "default")}
-          inheritedStyle={String(value.color_style ?? "default")}
-          defaultLabel={t("editorJourneyInheritMenu")}
-          onChange={id => set("fulfillment_color_style", id)} />
-        <p>{t("editorOrderModalColorsHint")}</p>
-        {sharedHeader ? (
-          <button className="sqe-button" onClick={onEditHeader}>
-            {t("editorHeader")}
-          </button>
-        ) : (
-          toggle("show_fulfillment", "editorOrderShowService")
-        )}
-        {orderChoicesAvailable && value.choose_before_menu !== true && toggle("prompt_on_entry", "editorOrderPrompt")}
-        {orderChoicesAvailable && toggle("choose_before_menu", "editorOrderBeforeMenu", false)}
-        {orderChoicesAvailable && <p>{t("editorOrderBeforeMenuHint")}</p>}
-        {onPreviewMode && orderChoicesAvailable && <div className="space-y-2">
-          <p className="font-semibold">{t("editorOrderPreviewScreens")}</p>
-          <div className="flex flex-wrap gap-2" role="group" aria-label={t("editorOrderPreviewScreens")}>
-            {serviceFirst && serviceChoicePreviewAvailable && <>
-              {previewButton("entry", "editorOrderEntryPreview")}
-              {previewButton("delivery", "editorJourneyDelivery")}
-              {previewButton("pickup", "editorJourneyPickup")}
+        {orderChoicesAvailable && <fieldset className="mb-5 min-w-0">
+          <legend className="font-semibold">{t("editorOrderPresentation")}</legend>
+          <ChoiceRow type="radio" name={formatGroup} checked={serviceFirst} onChange={() => changeFormat(true)}
+            aria-label={t("editorOrderEntryFormat")} label={t("editorOrderEntryFormat")} description={t("editorOrderEntryFormatHint")} />
+          <ChoiceRow type="radio" name={formatGroup} checked={!serviceFirst} onChange={() => changeFormat(false)}
+            aria-label={t("editorOrderClassicFormat")} label={t("editorOrderClassicFormat")} description={t("editorOrderClassicFormatHint")} />
+        </fieldset>}
+        {onOfferSignInChange && <ToggleField fieldId="checkout.offer_sign_in" label={t("editorOfferSignIn")}
+          description={t("editorOfferSignInHint")} checked={record(config.checkout_config).offer_sign_in !== false}
+          onChange={onOfferSignInChange} />}
+        {orderChoicesAvailable && serviceFirst && <details open className="my-5">
+          <summary className="cursor-pointer font-semibold">{t("editorOrderScreenAppearance")}</summary>
+          {onPreviewMode && serviceChoicePreviewAvailable && <div className="mt-4">
+            <InspectorField label={t("editorOrderScreenToEdit")}>
+              <select className={controlClass} value={previewMode === "header" ? "" : step ?? "entry"}
+                onChange={event => onPreviewMode(event.target.value as "entry" | "pickup" | "delivery")}>
+                {previewMode === "header" && <option value="" disabled>{t("editorOrderMobileHeader")}</option>}
+                <option value="entry">{t("editorOrderEntryScreen")}</option>
+                <option value="delivery">{t("editorJourneyDelivery")}</option>
+                <option value="pickup">{t("editorJourneyPickup")}</option>
+              </select>
+            </InspectorField>
+          </div>}
+          {previewMode !== "header" && <div className="mt-4">
+            <ColorStylePicker value={String(value[screenStyleKey] ?? "default")} inheritedStyle={step ? inheritedStepStyle : undefined}
+              onChange={id => set(screenStyleKey, id)} />
+            <h4>{t("editorOrderEntryTitle")}</h4>
+            {roleFields(step === "pickup" ? "orderPickupTitle" : step === "delivery" ? "orderDeliveryTitle" : "orderEntryTitle")}
+            {!step && <>
+              <h4>{t("editorOrderEntryOption")}</h4>
+              {roleFields("orderEntryOption")}
             </>}
-            {previewButton("fulfillment", "editorOrderClassicPreview")}
-          </div>
-          {serviceFirst && serviceChoicePreviewAvailable && <p>{t("editorOrderDeliveryAccountHint")}</p>}
-        </div>}
-        {orderChoicesAvailable && serviceFirst && <details>
-          <summary>{t("editorOrderEntryAppearance")}</summary>
-          <p>{t("editorOrderEntryAppearanceHint")}</p>
-          <ColorStylePicker value={String(value.entry_color_style ?? "default")}
-            onChange={id => set("entry_color_style", id)} />
-          <h4>{t("editorOrderEntryTitle")}</h4>
-          {roleFields("orderEntryTitle")}
-          <h4>{t("editorOrderEntryOption")}</h4>
-          {roleFields("orderEntryOption")}
+          </div>}
         </details>}
+        <details open={!serviceFirst} className="my-5">
+          <summary className="cursor-pointer font-semibold">{t(serviceFirst ? "editorOrderPanelAppearance" : "editorOrderClassicAppearance")}</summary>
+          <div className="mt-4">
+            <ColorStylePicker value={fulfillmentStyle} inheritedStyle={menuStyle}
+              defaultLabel={t("editorJourneyInheritMenu")} onChange={id => set("fulfillment_color_style", id)} />
+            <p>{t("editorOrderModalColorsHint")}</p>
+            {!serviceFirst && <>
+              {orderChoicesAvailable && toggle("prompt_on_entry", "editorOrderPrompt")}
+              {toggle("modal_cover", "editorOrderModalCover")}
+              {value.modal_cover !== false && <ImageUploadField
+                restaurantId={restaurantId}
+                label={t("editorOrderModalImage")}
+                fieldId="page.appearance_overrides.website_order.modal_cover_url"
+                currentUrl={String(value.modal_cover_url || restaurantCoverUrl)}
+                framing={value.modal_cover_framing}
+                onFramingChange={value => set("modal_cover_framing", value)}
+                onUploaded={url => set("modal_cover_url", url)}
+                onRemove={() => set("modal_cover_url", "")}
+              />}
+              <p>{t("editorOrderModalImageHint")}</p>
+              {toggle("modal_logo", "editorLogo")}
+            </>}
+          </div>
+        </details>
+        {sharedHeader ? (
+          <button className="sqe-button" onClick={onEditHeader}>{t("editorHeader")}</button>
+        ) : toggle("show_fulfillment", "editorOrderShowService")}
         {orderChoicesAvailable && serviceFirst && <details>
           <summary>{t("editorOrderMobileHeader")}</summary>
           {onPreviewMode && serviceChoicePreviewAvailable && <button type="button" className="sqe-button" aria-pressed={previewMode === "header"}
@@ -263,27 +295,13 @@ export function OrderPageEditor({
           {toggle("info_in_menu", "editorOrderInfoInMenu", serviceFirst)}
           {toggle("language_in_menu", "editorOrderLanguageInMenu", serviceFirst)}
         </details>}
-        {!serviceFirst && <>
-        {toggle("modal_cover", "editorOrderModalCover")}
-        {value.modal_cover !== false && <ImageUploadField
-          restaurantId={restaurantId}
-          label={t("editorOrderModalImage")}
-          fieldId="page.appearance_overrides.website_order.modal_cover_url"
-          currentUrl={String(value.modal_cover_url || restaurantCoverUrl)}
-          framing={value.modal_cover_framing}
-          onFramingChange={value => set("modal_cover_framing", value)}
-          onUploaded={url => set("modal_cover_url", url)}
-          onRemove={() => set("modal_cover_url", "")}
-        />}
-        <p>{t("editorOrderModalImageHint")}</p>
-        {toggle("modal_logo", "editorLogo")}
-        </>}
         <p>{t("editorOrderServicesHint")}</p>
         <a className="sqe-button" href={`/${restaurantId}/settings`}>
           {t("editorSettings")}
         </a>
       </div>
     );
+  }
   return (
     <div className="sqe-order-settings">
       <div className="sqe-panel-body">

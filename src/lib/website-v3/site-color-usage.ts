@@ -36,6 +36,9 @@ export function siteColorUsage(
       if (matches(itemStyle)) parts.add("item");
       const fulfillmentStyle = /^style-[1-6]$/.test(String(order?.fulfillment_color_style)) ? order?.fulfillment_color_style : order?.color_style;
       if (matches(fulfillmentStyle)) parts.add("fulfillment");
+      if (order?.choose_before_menu === true &&
+        (matches(order.entry_color_style) || [order.pickup_step_color_style, order.delivery_step_color_style]
+          .some(style => /^style-[1-6]$/.test(String(style)) && matches(style)))) parts.add("fulfillment");
       for (const screen of ["cart", "checkout", "confirmation"] as const) {
         if (matches(orderJourneyColorStyle(page.appearance_overrides.order_journey, screen,
           String(page.appearance_overrides.website_order?.color_style ?? "default")))) parts.add(screen);

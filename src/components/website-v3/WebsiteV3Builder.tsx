@@ -1517,7 +1517,9 @@ function DesktopWebsiteV3Builder({
               const header = resolvePageHeader(headerFromLegacy(state.config, state.pages), activePage.type, activePage.appearance_overrides);
               setSelection({kind: "site", pageKey: pageKey(activePage), region: "header", headerElement: region === "order-banner" ? "logo" : header.layout === "restaurant" ? "restaurant" : "fulfillment"});
               setSectionPanel("content");
-            }} restaurantId={restaurantId} page={activePage} region={region} onPreviewItem={setPreviewOrderItem} previewMode={orderModePreview} onPreviewMode={setOrderModePreview} onChange={(path, value) => updatePage(pageKey(activePage), path, value)} />}
+            }} restaurantId={restaurantId} page={activePage} region={region} onPreviewItem={setPreviewOrderItem} previewMode={orderModePreview} onPreviewMode={setOrderModePreview}
+              onOfferSignInChange={checked => updateConfig(["checkout_config", "offer_sign_in"], checked)}
+              onChange={(path, value) => updatePage(pageKey(activePage), path, value)} />}
             onSelectOrderRegion={region => { setRequestedSurface(region === "order-journey" ? "checkout" : "page"); setSelection({kind: "page", key: pageKey(activePage), region}); }}
             onOpenOrderJourney={openOrderJourney}
             inspector={
