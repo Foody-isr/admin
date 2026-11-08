@@ -34,6 +34,7 @@ export function OrderPageEditor({
   sharedHeader = false,
   restaurantHeader = false,
   orderChoicesAvailable = true,
+  serviceChoicePreviewAvailable = orderChoicesAvailable,
   restaurantCoverUrl = "",
   onEditHeader,
 }: {
@@ -49,14 +50,19 @@ export function OrderPageEditor({
   sharedHeader?: boolean;
   restaurantHeader?: boolean;
   orderChoicesAvailable?: boolean;
+  serviceChoicePreviewAvailable?: boolean;
   restaurantCoverUrl?: string;
   onEditHeader?: () => void;
 }) {
   const { t } = useI18n();
   useEffect(() => () => onPreviewItem(false), [onPreviewItem]);
-  useEffect(() => () => onPreviewMode?.("fulfillment"), [onPreviewMode]);
+  useEffect(() => () => onPreviewMode?.("entry"), [onPreviewMode]);
   const value = record(page.appearance_overrides.website_order);
   const serviceFirst = value.choose_before_menu === true;
+  const previewButton = (mode: OrderModePreview, label: string) => (
+    <button type="button" className={`sqe-button${previewMode === mode ? " sqe-button--primary" : ""}`}
+      aria-pressed={previewMode === mode} onClick={() => onPreviewMode?.(mode)}>{t(label)}</button>
+  );
   const itemLayout = value.layout ?? (serviceFirst ? "gallery" : "list");
   const defaultMobileLayout = serviceFirst && itemLayout === "gallery" ? "carousel" : "inherit";
   const mobileCarousel = (value.mobile_item_layout ?? defaultMobileLayout) === "carousel";
@@ -205,11 +211,21 @@ export function OrderPageEditor({
         {orderChoicesAvailable && value.choose_before_menu !== true && toggle("prompt_on_entry", "editorOrderPrompt")}
         {orderChoicesAvailable && toggle("choose_before_menu", "editorOrderBeforeMenu", false)}
         {orderChoicesAvailable && <p>{t("editorOrderBeforeMenuHint")}</p>}
+        {onPreviewMode && orderChoicesAvailable && <div className="space-y-2">
+          <p className="font-semibold">{t("editorOrderPreviewScreens")}</p>
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t("editorOrderPreviewScreens")}>
+            {serviceFirst && serviceChoicePreviewAvailable && <>
+              {previewButton("entry", "editorOrderEntryPreview")}
+              {previewButton("delivery", "editorJourneyDelivery")}
+              {previewButton("pickup", "editorJourneyPickup")}
+            </>}
+            {previewButton("fulfillment", "editorOrderClassicPreview")}
+          </div>
+          {serviceFirst && serviceChoicePreviewAvailable && <p>{t("editorOrderDeliveryAccountHint")}</p>}
+        </div>}
         {orderChoicesAvailable && serviceFirst && <details>
           <summary>{t("editorOrderEntryAppearance")}</summary>
           <p>{t("editorOrderEntryAppearanceHint")}</p>
-          {onPreviewMode && <button type="button" className="sqe-button" aria-pressed={previewMode === "entry"}
-            onClick={() => onPreviewMode(previewMode === "entry" ? "fulfillment" : "entry")}>{t("editorOrderEntryPreview")}</button>}
           <ColorStylePicker value={String(value.entry_color_style ?? "default")}
             onChange={id => set("entry_color_style", id)} />
           <h4>{t("editorOrderEntryTitle")}</h4>
@@ -219,8 +235,8 @@ export function OrderPageEditor({
         </details>}
         {orderChoicesAvailable && serviceFirst && <details>
           <summary>{t("editorOrderMobileHeader")}</summary>
-          {onPreviewMode && <button type="button" className="sqe-button" aria-pressed={previewMode === "header"}
-            onClick={() => onPreviewMode(previewMode === "header" ? "fulfillment" : "header")}>{t("editorOrderMobileHeaderPreview")}</button>}
+          {onPreviewMode && serviceChoicePreviewAvailable && <button type="button" className="sqe-button" aria-pressed={previewMode === "header"}
+            onClick={() => onPreviewMode(previewMode === "header" ? "entry" : "header")}>{t("editorOrderMobileHeaderPreview")}</button>}
           {select("mobile_header_layout", "editorLayout", "compact", [
             ["compact", "editorOrderMobileHeaderCompact"],
             ["standard", "editorOrderMobileHeaderStandard"],

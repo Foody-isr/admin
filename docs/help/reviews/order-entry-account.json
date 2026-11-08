@@ -1,0 +1,35 @@
+{
+  "files": [
+    {
+      "path": "src/components/website-v3/WebsiteV3Builder.tsx",
+      "sha256": "b764d95de681db1c4050e2211bcce85bb49afb2095798d937e928b0af7d69d76",
+      "baseSha256": "142f0ca04e5241d35a5620086384faeee7b1aac923115e93317284bccdd3f436",
+      "features": [
+        "website-pages"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The added controls only select the active order screen in the preview. Page creation, routing, draft and publication procedures have the same behavior."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "1237143fc2dee74dd3779955d49bc38304b5f0ff6978f18a122708748bed92a6",
+      "baseSha256": "7f21e500241583e916794665ca05ec5fdb2015212c0d6f30a597ac6b0c53ba6b",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The changed strings describe entry sign-in and label the order previews. The labels, errors and procedures for the listed features have the same wording and behavior."
+    }
+  ]
+}

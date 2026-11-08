@@ -263,7 +263,7 @@ function DesktopWebsiteV3Builder({
   );
   const [themePreviewPageKey, setThemePreviewPageKey] = useState<string | null>(null);
   const [previewOrderItem, setPreviewOrderItem] = useState(false);
-  const [orderModePreview, setOrderModePreview] = useState<OrderModePreview>("fulfillment");
+  const [requestedOrderModePreview, setOrderModePreview] = useState<OrderModePreview>("entry");
   const [loaded, setLoaded] = useState<LoadedBuilder | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -1346,6 +1346,10 @@ function DesktopWebsiteV3Builder({
     restaurantSlug: loaded.restaurant.slug || String(restaurantId),
     page: activePage,
   });
+  const orderChoicesAvailable = websiteOrderChoicesAvailable(loaded.restaurant, state.config.checkout_config);
+  const serviceChoicePreviewAvailable = orderChoicesAvailable && Boolean(loaded.restaurant.pickup_enabled && loaded.restaurant.delivery_enabled);
+  const orderModePreview = serviceChoicePreviewAvailable && activePage.appearance_overrides.website_order?.choose_before_menu === true
+    ? requestedOrderModePreview : "fulfillment";
   const previewStatus =
     currentAcknowledgement &&
     currentAcknowledgement.revision >= previewRevision &&
@@ -1509,7 +1513,7 @@ function DesktopWebsiteV3Builder({
               placesAvailable={addressAutocompleteAvailable}
               onChange={value => updateConfig(["checkout_config"], value)}
               onEditCartButton={() => window.dispatchEvent(new Event("foody-edit-site-buttons"))}
-            /> : <OrderPageEditor items={featuredPickerItems(loaded.menus)} restaurantCoverUrl={loaded.restaurant.cover_url || ""} config={state.config} restaurantHeader={resolvePageHeader(headerFromLegacy(state.config, state.pages), activePage.type, activePage.appearance_overrides).layout === "restaurant"} orderChoicesAvailable={websiteOrderChoicesAvailable(loaded.restaurant, state.config.checkout_config)} sharedHeader={Boolean((state.config.nav_layout as {header?: unknown} | undefined)?.header)} onEditHeader={() => {
+            /> : <OrderPageEditor items={featuredPickerItems(loaded.menus)} restaurantCoverUrl={loaded.restaurant.cover_url || ""} config={state.config} restaurantHeader={resolvePageHeader(headerFromLegacy(state.config, state.pages), activePage.type, activePage.appearance_overrides).layout === "restaurant"} orderChoicesAvailable={orderChoicesAvailable} serviceChoicePreviewAvailable={serviceChoicePreviewAvailable} sharedHeader={Boolean((state.config.nav_layout as {header?: unknown} | undefined)?.header)} onEditHeader={() => {
               const header = resolvePageHeader(headerFromLegacy(state.config, state.pages), activePage.type, activePage.appearance_overrides);
               setSelection({kind: "site", pageKey: pageKey(activePage), region: "header", headerElement: region === "order-banner" ? "logo" : header.layout === "restaurant" ? "restaurant" : "fulfillment"});
               setSectionPanel("content");
@@ -1566,8 +1570,7 @@ function DesktopWebsiteV3Builder({
               selection.kind === "site" ? selection.region : selection.kind === "page" && (selection.region === "order-banner" || selection.region === "order-items" || selection.region === "order-fulfillment") ? selection.region : undefined
             }
             orderDialog={selection.kind === "page" && selection.region === "order-fulfillment"
-              ? orderModePreview === "header" ? undefined
-                : orderModePreview === "entry" && activePage.appearance_overrides.website_order?.choose_before_menu === true ? "entry" : "fulfillment"
+              ? orderModePreview === "header" ? undefined : orderModePreview
               : selection.kind === "page" && selection.region === "order-items" && previewOrderItem ? "item" : undefined}
             onSelectRegion={(region, headerElement) => {
               if (region === "order-items" || region === "order-banner" || region === "order-fulfillment") {
