@@ -1,0 +1,55 @@
+{
+  "files": [
+    {
+      "path": "src/components/website-v3/WebsiteV3Builder.tsx",
+      "sha256": "12114c20932220cb044aa6307281394d5e9276becac1ce338638f5323f6cd711",
+      "baseSha256": "750f0a1626a34430862c387a9891ad7af5cbc0b702808172edf4e69ce23327c7",
+      "features": [
+        "website-pages",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff routes one new presentation mode to the current order-page iframe. Page creation, homepage selection, sections and media procedures retain their current behavior."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "b5bffc5d6fe6382326f33246e0cc98b16742bfad243b7467c009276884d8d66d",
+      "baseSha256": "ab32420205369dd01d3a126c90dc9685e9f1afea11411eb3dedb41adf972af87",
+      "features": [
+        "customers-profiles",
+        "delivery-zones",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-events",
+        "orders-internal-sumit-checkout",
+        "payments-how-payments-work",
+        "payments-transactions",
+        "pos-payments",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the TypeScript union of allowed Website typography role names changed. It does not change API requests, response handling, permissions or any linked operational workflow."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "56c26d4cafb43a74b55b4d8f57c33598a8a929e3d2b49d4afe3ab661fa460374",
+      "baseSha256": "2371c3f1f491119eb959e43f49d42b2cd35e545b5507db988bea3bd35fc737a0",
+      "features": [
+        "customers-profiles",
+        "delivery-dispatch",
+        "delivery-zones",
+        "google-account-setup",
+        "menu-menus-and-groups",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-internal-sumit-checkout",
+        "payments-transactions",
+        "pos-behavior",
+        "stancer-cash-guarantee",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The edited FR, HE and EN strings describe the ordering page chooser, menu appearance and drawer. Existing translations and procedures for these other workflows are unchanged."
+    }
+  ]
+}

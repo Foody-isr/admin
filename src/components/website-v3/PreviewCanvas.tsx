@@ -63,7 +63,7 @@ export function PreviewCanvas({
   activeSectionKey?: string;
   activeField?: string;
   activeRegion?: "header" | "footer" | "footer-branding" | "order-banner" | "order-items" | "order-fulfillment";
-  orderDialog?: "fulfillment" | "item";
+  orderDialog?: "fulfillment" | "item" | "entry";
   onOpenOrderJourney?: () => void;
   onSelectRegion?: (region: "header" | "footer" | "footer-branding" | "order-banner" | "order-items" | "order-fulfillment", element?: HeaderElement) => void;
   hoveredSectionKey?: string | null;

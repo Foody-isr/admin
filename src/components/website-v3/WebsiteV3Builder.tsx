@@ -263,6 +263,7 @@ function DesktopWebsiteV3Builder({
   );
   const [themePreviewPageKey, setThemePreviewPageKey] = useState<string | null>(null);
   const [previewOrderItem, setPreviewOrderItem] = useState(false);
+  const [previewOrderEntry, setPreviewOrderEntry] = useState(false);
   const [loaded, setLoaded] = useState<LoadedBuilder | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -1512,7 +1513,7 @@ function DesktopWebsiteV3Builder({
               const header = resolvePageHeader(headerFromLegacy(state.config, state.pages), activePage.type, activePage.appearance_overrides);
               setSelection({kind: "site", pageKey: pageKey(activePage), region: "header", headerElement: region === "order-banner" ? "logo" : header.layout === "restaurant" ? "restaurant" : "fulfillment"});
               setSectionPanel("content");
-            }} restaurantId={restaurantId} page={activePage} region={region} onPreviewItem={setPreviewOrderItem} onChange={(path, value) => updatePage(pageKey(activePage), path, value)} />}
+            }} restaurantId={restaurantId} page={activePage} region={region} onPreviewItem={setPreviewOrderItem} previewEntry={previewOrderEntry} onPreviewEntry={setPreviewOrderEntry} onChange={(path, value) => updatePage(pageKey(activePage), path, value)} />}
             onSelectOrderRegion={region => { setRequestedSurface(region === "order-journey" ? "checkout" : "page"); setSelection({kind: "page", key: pageKey(activePage), region}); }}
             onOpenOrderJourney={openOrderJourney}
             inspector={
@@ -1564,7 +1565,7 @@ function DesktopWebsiteV3Builder({
             activeRegion={
               selection.kind === "site" ? selection.region : selection.kind === "page" && (selection.region === "order-banner" || selection.region === "order-items" || selection.region === "order-fulfillment") ? selection.region : undefined
             }
-            orderDialog={selection.kind === "page" && selection.region === "order-fulfillment" ? "fulfillment" : selection.kind === "page" && selection.region === "order-items" && previewOrderItem ? "item" : undefined}
+            orderDialog={selection.kind === "page" && selection.region === "order-fulfillment" ? (previewOrderEntry && activePage.appearance_overrides.website_order?.choose_before_menu === true ? "entry" : "fulfillment") : selection.kind === "page" && selection.region === "order-items" && previewOrderItem ? "item" : undefined}
             onSelectRegion={(region, headerElement) => {
               if (region === "order-items" || region === "order-banner" || region === "order-fulfillment") {
                 setSelection({kind: "page", key: pageKey(activePage), region});
