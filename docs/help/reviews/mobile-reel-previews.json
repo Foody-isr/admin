@@ -1,0 +1,28 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "ef09fad6dfdbd79a4476a6abc51da911aa91955ad28da904ff0a9055ba13a9b0",
+      "baseSha256": "e07b29e06178d38101bd0143d5cab89216e6fd8c538fa3a42a583362664e5a86",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The added translations label the three new website video settings and their renderer requirement. The wording and behavior of the other classified screens are identical."
+    }
+  ]
+}
