@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "4c404198d0cbd968d93aa3d6b9545423d341324b",
+  "documentationRef": "6204f5edae771fd0b23688cedb6a103f1a02501d",
   "documentationRevision": "a85a453832bc60fa239f7e932fd9f9537d2e9fa4a90d274163f7779b7732ebfd",
   "articles": {
     "getting-started/first-login": {
@@ -6178,7 +6178,7 @@
       ]
     },
     "src/components/website-v3/HeaderInspector.tsx": {
-      "sha256": "77a8ae57484907a476ab297e30004f6745a2e71b48c624cf7c59d5b48ab7c1c0",
+      "sha256": "32f1b44e7f85be288f0042c7dade9e9bf6590be8ca3997726ce55c7ad2278b99",
       "features": [
         "website-qr-customize-your-site",
         "website-navigation"
@@ -6274,7 +6274,7 @@
       ]
     },
     "src/components/website-v3/OrderPageEditor.tsx": {
-      "sha256": "97464536cab228628af3621b21a31606c15bfbba75dbd295d1ab078bf852f554",
+      "sha256": "5581bd67b9932d70b03ead40da3e3e3e0e5885ae173ae969cad3b3e541a93c1b",
       "features": [
         "website-qr-customize-your-site",
         "website-order-design"
@@ -6316,7 +6316,7 @@
       ]
     },
     "src/components/website-v3/PreviewCanvas.tsx": {
-      "sha256": "d8431732918a36464905a86312b5cfce603a8b40619fa0068b081498f9cfdd90",
+      "sha256": "2e9f75d0db1b67b5d30a24c8378224ed2a87b644200c11b67a50933370b0762d",
       "features": [
         "website-qr-customize-your-site"
       ]
@@ -6420,7 +6420,7 @@
       ]
     },
     "src/components/website-v3/WebsiteV3Builder.tsx": {
-      "sha256": "750f0a1626a34430862c387a9891ad7af5cbc0b702808172edf4e69ce23327c7",
+      "sha256": "12114c20932220cb044aa6307281394d5e9276becac1ce338638f5323f6cd711",
       "features": [
         "website-qr-customize-your-site",
         "website-sections",
@@ -6484,7 +6484,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "ab32420205369dd01d3a126c90dc9685e9f1afea11411eb3dedb41adf972af87",
+      "sha256": "b5bffc5d6fe6382326f33246e0cc98b16742bfad243b7467c009276884d8d66d",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6679,7 +6679,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "2371c3f1f491119eb959e43f49d42b2cd35e545b5507db988bea3bd35fc737a0",
+      "sha256": "56c26d4cafb43a74b55b4d8f57c33598a8a929e3d2b49d4afe3ab661fa460374",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -22085,6 +22085,7 @@
       ],
       "labels": [
         "campaignRuntimeUnavailable",
+        "editorHeaderMenuTypography",
         "editorOrderJourney",
         "headerHamburgerSize",
         "headerHamburgerStaggered",
@@ -22303,6 +22304,11 @@
         "editorOrderCategoryColorsHint",
         "editorOrderCategoryStyleHint",
         "editorOrderCompactHint",
+        "editorOrderEntryAppearance",
+        "editorOrderEntryAppearanceHint",
+        "editorOrderEntryOption",
+        "editorOrderEntryPreview",
+        "editorOrderEntryTitle",
         "editorOrderHeaderActions",
         "editorOrderInherited",
         "editorOrderItemsHint",

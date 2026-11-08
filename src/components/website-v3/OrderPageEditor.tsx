@@ -29,6 +29,8 @@ export function OrderPageEditor({
   region,
   onChange,
   onPreviewItem,
+  previewEntry = false,
+  onPreviewEntry,
   sharedHeader = false,
   restaurantHeader = false,
   orderChoicesAvailable = true,
@@ -42,6 +44,8 @@ export function OrderPageEditor({
   region: OrderEditorRegion;
   onChange: (path: StatePath, value: unknown) => void;
   onPreviewItem: (open: boolean) => void;
+  previewEntry?: boolean;
+  onPreviewEntry?: (open: boolean) => void;
   sharedHeader?: boolean;
   restaurantHeader?: boolean;
   orderChoicesAvailable?: boolean;
@@ -50,6 +54,7 @@ export function OrderPageEditor({
 }) {
   const { t } = useI18n();
   useEffect(() => () => onPreviewItem(false), [onPreviewItem]);
+  useEffect(() => () => onPreviewEntry?.(false), [onPreviewEntry]);
   const value = record(page.appearance_overrides.website_order);
   const serviceFirst = value.choose_before_menu === true;
   const itemLayout = value.layout ?? (serviceFirst ? "gallery" : "list");
@@ -100,6 +105,11 @@ export function OrderPageEditor({
         onChange={next => set(key, next)} />
     </label>
   );
+  const roleFields = (role: TypographyRoleKey) => (
+    <OrderTypographyFields restaurantId={restaurantId} role={role} base={record(config.typography) as TypographyOverrides}
+      value={record(page.appearance_overrides.typography) as TypographyOverrides}
+      onChange={next => onChange(["appearance_overrides", "typography"], next)} />
+  );
   const typography = (prefix: string, role: TypographyRoleKey) => (
     <>
       <label className="sqe-field">
@@ -133,10 +143,7 @@ export function OrderPageEditor({
           {toggle(`${prefix}_caps`, "editorOrderAllCaps", false)}
         </>
       )}
-      {(value[`${prefix}_style`] ?? "inherit") === "inherit" && <OrderTypographyFields
-        restaurantId={restaurantId} role={role} base={record(config.typography) as TypographyOverrides}
-        value={record(page.appearance_overrides.typography) as TypographyOverrides}
-        onChange={next => onChange(["appearance_overrides", "typography"], next)} />}
+      {(value[`${prefix}_style`] ?? "inherit") === "inherit" && roleFields(role)}
       {(value[`${prefix}_style`] ?? "inherit") !== "inherit" &&
         select(
           `${prefix}_weight`,
@@ -195,6 +202,18 @@ export function OrderPageEditor({
         {orderChoicesAvailable && value.choose_before_menu !== true && toggle("prompt_on_entry", "editorOrderPrompt")}
         {orderChoicesAvailable && toggle("choose_before_menu", "editorOrderBeforeMenu", false)}
         {orderChoicesAvailable && <p>{t("editorOrderBeforeMenuHint")}</p>}
+        {orderChoicesAvailable && serviceFirst && <details>
+          <summary>{t("editorOrderEntryAppearance")}</summary>
+          <p>{t("editorOrderEntryAppearanceHint")}</p>
+          {onPreviewEntry && <button type="button" className="sqe-button" aria-pressed={previewEntry}
+            onClick={() => onPreviewEntry(!previewEntry)}>{t("editorOrderEntryPreview")}</button>}
+          <ColorStylePicker value={String(value.entry_color_style ?? "default")}
+            onChange={id => set("entry_color_style", id)} />
+          <h4>{t("editorOrderEntryTitle")}</h4>
+          {roleFields("orderEntryTitle")}
+          <h4>{t("editorOrderEntryOption")}</h4>
+          {roleFields("orderEntryOption")}
+        </details>}
         {toggle("fulfillment_panels", "editorOrderFulfillmentPanels", serviceFirst)}
         {toggle("preorder_reminder", "editorOrderPreorderReminder", serviceFirst)}
         {sharedHeader && <details>
