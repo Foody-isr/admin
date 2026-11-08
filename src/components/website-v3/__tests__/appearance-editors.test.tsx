@@ -439,7 +439,7 @@ test("the order mode screen can be styled and previewed independently", () => {
   const markup = render(<OrderPageEditor restaurantId={24}
     page={{type:"order", slug:"order", title:"Order", sort_order:0, nav_visible:true, is_homepage:false, is_default:true, seo:{}, settings:{menu_ids:[1]},
       appearance_overrides:{website_order:{choose_before_menu:true, entry_color_style:"style-3", fulfillment_color_style:"style-4"}}}}
-    region="order-fulfillment" previewEntry onPreviewEntry={() => undefined}
+    region="order-fulfillment" previewMode="entry" onPreviewMode={() => undefined}
     onChange={() => undefined} onPreviewItem={() => undefined} />);
   assert.match(markup, /Order mode screen appearance/);
   assert.match(markup, /aria-pressed="true">Preview the order mode screen/);

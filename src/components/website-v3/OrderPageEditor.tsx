@@ -5,8 +5,8 @@ import { BooleanInput } from '@/components/ds/Selection';
 import { ColorStylePicker, openSiteColors, type SiteColorEditTarget } from "./ColorStylePicker";
 import {
   selectOrderColorStyle,
+  selectOrderLayout,
   compactItemPresentation,
-  compactOrderPresentation,
   woltOrderPresentation,
 } from "@/lib/website-v3/order-design";
 
@@ -16,7 +16,7 @@ import type { TypographyOverrides, TypographyRoleKey } from "@/lib/api";
 import { useEffect } from "react";
 import { useI18n } from "@/lib/i18n";
 import type { DraftPagePayload, StatePath } from "@/lib/website-v3/types";
-import type { OrderEditorRegion } from "@/lib/website-v3/editor-selection";
+import type { OrderEditorRegion, OrderModePreview } from "@/lib/website-v3/editor-selection";
 import { record } from "@/lib/website-v3/restaurant-themes";
 import { ImageUploadField } from "./SectionContentEditors";
 
@@ -29,8 +29,8 @@ export function OrderPageEditor({
   region,
   onChange,
   onPreviewItem,
-  previewEntry = false,
-  onPreviewEntry,
+  previewMode = "fulfillment",
+  onPreviewMode,
   sharedHeader = false,
   restaurantHeader = false,
   orderChoicesAvailable = true,
@@ -44,8 +44,8 @@ export function OrderPageEditor({
   region: OrderEditorRegion;
   onChange: (path: StatePath, value: unknown) => void;
   onPreviewItem: (open: boolean) => void;
-  previewEntry?: boolean;
-  onPreviewEntry?: (open: boolean) => void;
+  previewMode?: OrderModePreview;
+  onPreviewMode?: (surface: OrderModePreview) => void;
   sharedHeader?: boolean;
   restaurantHeader?: boolean;
   orderChoicesAvailable?: boolean;
@@ -54,10 +54,13 @@ export function OrderPageEditor({
 }) {
   const { t } = useI18n();
   useEffect(() => () => onPreviewItem(false), [onPreviewItem]);
-  useEffect(() => () => onPreviewEntry?.(false), [onPreviewEntry]);
+  useEffect(() => () => onPreviewMode?.("fulfillment"), [onPreviewMode]);
   const value = record(page.appearance_overrides.website_order);
   const serviceFirst = value.choose_before_menu === true;
   const itemLayout = value.layout ?? (serviceFirst ? "gallery" : "list");
+  const defaultMobileLayout = serviceFirst && itemLayout === "gallery" ? "carousel" : "inherit";
+  const mobileCarousel = (value.mobile_item_layout ?? defaultMobileLayout) === "carousel";
+  const defaultItemAction = serviceFirst && (itemLayout === "gallery" || mobileCarousel) ? "button" : "none";
   const set = (key: string, next: unknown) =>
     onChange(["appearance_overrides", "website_order", key], next);
   const editMenuColors = (menuGroup: SiteColorEditTarget["menuGroup"]) => value.color_preset === "wolt" ? (
@@ -205,14 +208,31 @@ export function OrderPageEditor({
         {orderChoicesAvailable && serviceFirst && <details>
           <summary>{t("editorOrderEntryAppearance")}</summary>
           <p>{t("editorOrderEntryAppearanceHint")}</p>
-          {onPreviewEntry && <button type="button" className="sqe-button" aria-pressed={previewEntry}
-            onClick={() => onPreviewEntry(!previewEntry)}>{t("editorOrderEntryPreview")}</button>}
+          {onPreviewMode && <button type="button" className="sqe-button" aria-pressed={previewMode === "entry"}
+            onClick={() => onPreviewMode(previewMode === "entry" ? "fulfillment" : "entry")}>{t("editorOrderEntryPreview")}</button>}
           <ColorStylePicker value={String(value.entry_color_style ?? "default")}
             onChange={id => set("entry_color_style", id)} />
           <h4>{t("editorOrderEntryTitle")}</h4>
           {roleFields("orderEntryTitle")}
           <h4>{t("editorOrderEntryOption")}</h4>
           {roleFields("orderEntryOption")}
+        </details>}
+        {orderChoicesAvailable && serviceFirst && <details>
+          <summary>{t("editorOrderMobileHeader")}</summary>
+          {onPreviewMode && <button type="button" className="sqe-button" aria-pressed={previewMode === "header"}
+            onClick={() => onPreviewMode(previewMode === "header" ? "fulfillment" : "header")}>{t("editorOrderMobileHeaderPreview")}</button>}
+          {select("mobile_header_layout", "editorLayout", "compact", [
+            ["compact", "editorOrderMobileHeaderCompact"],
+            ["standard", "editorOrderMobileHeaderStandard"],
+          ])}
+          {value.mobile_header_layout !== "standard" && <>
+            <p>{t("editorOrderMobileHeaderHint")}</p>
+            <ColorStylePicker value={String(value.mobile_header_color_style ?? "default")}
+              defaultLabel={t("editorHeader")}
+              onChange={id => set("mobile_header_color_style", id)} />
+            <h4>{t("editorOrderCatalogueTitle")}</h4>
+            {roleFields("orderCatalogueTitle")}
+          </>}
         </details>}
         {toggle("fulfillment_panels", "editorOrderFulfillmentPanels", serviceFirst)}
         {toggle("preorder_reminder", "editorOrderPreorderReminder", serviceFirst)}
@@ -277,9 +297,7 @@ export function OrderPageEditor({
                 key={layout}
                 aria-label={t(`editorOrderLayout_${layout}`)}
                 aria-pressed={itemLayout === layout}
-                onClick={() => layout === "rows" && itemLayout !== "rows"
-                  ? onChange(["appearance_overrides", "website_order"], compactOrderPresentation(value))
-                  : set("layout", layout)}
+                onClick={() => onChange(["appearance_overrides", "website_order"], selectOrderLayout(value, layout, itemLayout))}
               >
                 <span data-layout={layout}>
                   {Array.from({ length: 6 }, (_, i) => (
@@ -291,10 +309,11 @@ export function OrderPageEditor({
             ))}
           </div>
           <p>{t("editorOrderCompactHint")}</p>
-          {select("mobile_item_layout", "editorOrderMobileLayout", serviceFirst ? "carousel" : "inherit", [
-            ["inherit", "editorOrderInherited"],
+          {select("mobile_item_layout", "editorOrderMobileLayout", defaultMobileLayout, [
+            ["inherit", "editorOrderFollowLayout"],
             ["carousel", "editorOrderMobileCarousel"],
           ])}
+          {mobileCarousel && <p>{t("editorOrderMobileCarouselHint")}</p>}
           {select("columns", "editorDesktopColumns", serviceFirst ? "3" : "2", [
             ["1", "1"],
             ["2", "2"],
@@ -424,7 +443,7 @@ export function OrderPageEditor({
             ["soft", "editorOrderShapeSoft"],
             ["rounded", "editorShapeRound"],
           ])}
-          {select("item_action", "editorOrderAddButton", serviceFirst ? "button" : "none", [
+          {select("item_action", "editorOrderAddButton", defaultItemAction, [
             ["none", "editorOrderWholeCard"],
             ["cutout", "editorOrderCutout"],
             ["button", "editorOrderImagePlus"],
