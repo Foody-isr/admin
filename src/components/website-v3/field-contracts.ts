@@ -481,7 +481,7 @@ function editorFor(
   isAction: boolean,
   pageTypes: FieldContract["pageTypes"] = ALL_PAGES,
 ): FieldEditorContract {
-  if (id === "checkout.offer_sign_in") return { kind: "field", scope: "page", pageTitle: "Brunch Order", sectionLabel: "Parcours de commande", publicSlug: "brunch-order", surface: "checkout", commit: "change" };
+  if (id === "checkout.offer_sign_in") return { kind: "field", scope: "page", pageTitle: "Brunch Order", sectionLabel: "Mode de commande", publicSlug: "brunch-order", commit: "change" };
   if (id === "section.settings.web_story_player") return { kind: "field", scope: "section", sectionPanel: "appearance", pageTitle: "About", sectionLabel: "Video", publicSlug: "about", commit: "change", prerequisite: { id: "section.layout", value: "carousel" } };
   if ([
     "section.settings.controls_alignment",

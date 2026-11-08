@@ -441,11 +441,12 @@ test("the order mode screen can be styled and previewed independently", () => {
       appearance_overrides:{website_order:{choose_before_menu:true, entry_color_style:"style-3", fulfillment_color_style:"style-4"}}}}
     region="order-fulfillment" previewMode="entry" onPreviewMode={() => undefined}
     onChange={() => undefined} onPreviewItem={() => undefined} />);
-  assert.match(markup, /Order mode screen appearance/);
-  assert.match(markup, /aria-pressed="true">Order method/);
-  assert.match(markup, /aria-pressed="false">Delivery/);
-  assert.match(markup, /aria-pressed="false">Pickup/);
-  assert.match(markup, /aria-pressed="false">Classic window/);
+  assert.match(markup, /How customers choose/);
+  assert.equal((markup.match(/type="radio"/g) ?? []).length, 2);
+  assert.match(markup, /Screen to edit/);
+  assert.match(markup, /<option value="entry" selected="">Order method screen/);
+  assert.match(markup, /<option value="delivery">Delivery/);
+  assert.match(markup, /<option value="pickup">Pickup/);
   assert.match(markup, /aria-label="Color style 3" aria-pressed="true"/);
   assert.match(markup, /aria-label="Color style 4" aria-pressed="true"/);
   assert.match(markup, /Screen title/);

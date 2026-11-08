@@ -33,7 +33,7 @@ dialog, the rule is also immediate while other stock/preparation drafts retain
 product Save. Unrelated product drafts remain untouched. Deploy the API's optional
 availability_rule_id extension before this Admin. Stock preparation and carte
 publication remain separate workflows.
-Website V3 → Order journey can draft and publish the optional entry sign-in
+Website V3 → Order page → Fulfillment can draft and publish the optional entry sign-in
 invitation. Settings → Usage and quotas is read-only restaurant-scoped Google and
 Geoapify consumption, including independent units, 80% warnings and UTC renewal.
 Deploy API migration 268 and the remaining-stock route before this Admin version.

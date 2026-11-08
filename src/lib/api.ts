@@ -1373,7 +1373,8 @@ export interface OrderTypeSelectorConfig {
 // Stored as an opaque JSON blob on WebsiteConfig.typography (the server never
 // inspects its internals). foodyweb reads the SAME camelCase shape verbatim in
 // lib/themes/typography.ts — keep the two in sync.
-export type TypographyRoleKey = 'categoryBar' | 'categoryTitle' | 'itemName' | 'itemPrice' | 'itemDescription' | 'navigation' | 'orderEntryTitle' | 'orderEntryOption' | 'orderCatalogueTitle';
+export type TypographyRoleKey = 'categoryBar' | 'categoryTitle' | 'itemName' | 'itemPrice' | 'itemDescription' | 'navigation'
+  | 'orderEntryTitle' | 'orderEntryOption' | 'orderCatalogueTitle' | 'orderPickupTitle' | 'orderDeliveryTitle';
 
 export interface TypographyRoleOverride {
   /** Curated font family. Empty/absent = inherit the pairing's font. */
