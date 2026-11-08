@@ -1,0 +1,57 @@
+{
+  "feature": "Item note default and placeholder",
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/menu/items/[itemId]/page.tsx",
+      "sha256": "a28a96590409b42de6e68b191357bad17199d321dfff4d854cdefc1c74652d83",
+      "baseSha256": "8aee2e20f82f4f053458a91bf8741b9eee46f680cc324240d2b6e63e7ba49a92",
+      "features": [
+        "menu-categories-and-items",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The item editor only changes how an unset customer note switch is initialized. Category, group, variant, recipe and photo editing follow the same controls and save paths."
+    },
+    {
+      "path": "src/app/[restaurantId]/menu/items/new/page.tsx",
+      "sha256": "183d6c4c4d80a356487cfdbf0ae791f37685c9f8dc2e131f56bea631e84f4ff8",
+      "baseSha256": "3548aa76512b0d487f1b5a32700c7832f0208c24f662ad7534727213f567a3ae",
+      "features": [
+        "menu-categories-and-items",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the customer note switch default, draft recovery value and draft detection change. Category, group, variant, recipe and photo creation paths are unaffected."
+    },
+    {
+      "path": "src/components/menu-item/MenuItemEditorForm.tsx",
+      "sha256": "9697dbd95a99c633e2dce39c59d9a182a866b86a71df9aa61786abc1dcefb8a2",
+      "baseSha256": "686eac92eb6b5d1f09c6045bee1b635c7c019ab49ad26442120e35ccd114c9ff",
+      "features": [
+        "menu-categories-and-items",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Changes the default value of the existing customer note switch. Other form sections, variant controls and catalogue fields use the existing behavior."
+    },
+    {
+      "path": "src/lib/itemDraft.ts",
+      "sha256": "75c797b4beeeb9469490358521d80cc4943e8cc1e934707c5ce1a70af5b686e1",
+      "baseSha256": "1af9fe20a352bdab83dfe6e6cd3d355e41347e2b31434cba850494facc40c4cb",
+      "features": [
+        "menu-categories-and-items",
+        "menu-menus-and-groups"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Updates what counts as an edited note switch in the local article draft. Category and menu membership draft fields use the existing behavior."
+    }
+  ]
+}

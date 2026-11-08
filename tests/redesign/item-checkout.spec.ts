@@ -4,6 +4,7 @@ import { createFixture } from './fixtures.mjs';
 
 const firstLabel = 'Automatically select the first variant';
 const skipLabel = 'Skip customization when possible';
+const notesLabel = 'Allow a customer note';
 
 async function install(page: Page, options: { locale?: string; theme?: string; permissions?: string[] } = {}) {
   const fixtureOptions = { library: true, permissions: options.permissions };
@@ -68,6 +69,17 @@ test('legacy item defaults are preserved, and checkout changes wait for Save', a
   await expect(skip).toBeChecked();
 });
 
+test('the general customer note is optional on an existing item', async ({ page }) => {
+  const { fixture } = await install(page);
+  await page.goto('/1/menu/items/1');
+  const notes = page.getByRole('switch', { name: notesLabel, exact: true });
+  await expect(notes).not.toBeChecked();
+  await notes.check();
+  expect(fixture.writes).toEqual([]);
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect.poll(() => fixture.items[0]).toMatchObject({ allow_notes: true });
+});
+
 test('cancel discards an existing item checkout change', async ({ page }) => {
   const { fixture } = await install(page);
   await page.goto('/1/menu/items/1');
@@ -83,6 +95,7 @@ test('cancel discards an existing item checkout change', async ({ page }) => {
 test('new checkout preferences survive draft recovery and are saved on creation', async ({ page }) => {
   const { fixture } = await install(page);
   await page.goto('/1/menu/items/new');
+  await expect(page.getByRole('switch', { name: notesLabel, exact: true })).not.toBeChecked();
   await page.locator('#menu-item-name').fill('New checkout item');
   await page.getByRole('textbox', { name: 'Selling price', exact: true }).fill('25');
   await page.getByRole('switch', { name: firstLabel, exact: true }).focus(); await page.keyboard.press('Space');
@@ -93,9 +106,10 @@ test('new checkout preferences survive draft recovery and are saved on creation'
   await page.getByRole('button', { name: 'Resume', exact: true }).click();
   await expect(page.getByRole('switch', { name: firstLabel, exact: true })).not.toBeChecked();
   await expect(page.getByRole('switch', { name: skipLabel, exact: true })).toBeChecked();
+  await expect(page.getByRole('switch', { name: notesLabel, exact: true })).not.toBeChecked();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page).toHaveURL('/1/menu/items');
-  expect(fixture.items.at(-1)).toMatchObject({ name: 'New checkout item', pos_auto_select_first_variant: false, pos_skip_customization: true });
+  expect(fixture.items.at(-1)).toMatchObject({ name: 'New checkout item', allow_notes: false, pos_auto_select_first_variant: false, pos_skip_customization: true });
 });
 
 test('automatic progression saves independently with the restaurant service policy', async ({ page }) => {

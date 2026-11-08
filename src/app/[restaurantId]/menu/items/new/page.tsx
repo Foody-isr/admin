@@ -92,7 +92,7 @@ function NewItemEditor() {
   const [portion, setPortion] = useState('');
   const [categoryId, setCategoryId] = useState(defaultCatId);
   const [isActive, setIsActive] = useState(true);
-  const [allowNotes, setAllowNotes] = useState(true);
+  const [allowNotes, setAllowNotes] = useState(false);
   const [posAutoSelectFirstVariant, setPosAutoSelectFirstVariant] = useState(true);
   const [posSkipCustomization, setPosSkipCustomization] = useState(false);
   const [comboAllowQuantity, setComboAllowQuantity] = useState(true);
@@ -181,7 +181,7 @@ function NewItemEditor() {
     setEstimatedWeightGrams(bannerDraft.estimatedWeightGrams ?? 0);
     setAiContext(bannerDraft.aiContext ?? '');
     setCustomerFacts(normalizeMenuItemCustomerFacts(bannerDraft.customerFacts));
-    setAllowNotes(bannerDraft.allowNotes ?? true);
+    setAllowNotes(bannerDraft.allowNotes ?? false);
     setPosAutoSelectFirstVariant(bannerDraft.posAutoSelectFirstVariant ?? true);
     setPosSkipCustomization(bannerDraft.posSkipCustomization ?? false);
     setComboAllowQuantity(bannerDraft.comboAllowQuantity ?? true);
@@ -372,7 +372,7 @@ function NewItemEditor() {
 
   const initialCategory = useRef<number | null>(null);
   useEffect(() => { if (!loading && !loadError && initialCategory.current === null) initialCategory.current = categoryId; }, [loading, loadError, categoryId]);
-  const hasDraft = (initialCategory.current !== null && initialCategory.current !== categoryId) || isMeaningfulDraft(draftSnapshot) || pendingImages.length > 0 || !!aiContext || pricingMode !== 'standard' || !allowNotes || !comboAllowQuantity || JSON.stringify(customerFacts) !== JSON.stringify(normalizeMenuItemCustomerFacts());
+  const hasDraft = (initialCategory.current !== null && initialCategory.current !== categoryId) || isMeaningfulDraft(draftSnapshot) || pendingImages.length > 0 || !!aiContext || pricingMode !== 'standard' || !comboAllowQuantity || JSON.stringify(customerFacts) !== JSON.stringify(normalizeMenuItemCustomerFacts());
   const leaveGuard = useItemLeaveGuard(() => hasDraft, () => busy.current);
   const goBack = () => leaveGuard.request(`/${rid}/menu/items`);
 

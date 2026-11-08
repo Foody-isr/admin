@@ -129,7 +129,7 @@ export default function MenuItemEditorForm({
   setAiContext,
   portion,
   setPortion,
-  allowNotes = true,
+  allowNotes = false,
   setAllowNotes,
   posAutoSelectFirstVariant,
   setPosAutoSelectFirstVariant,
@@ -738,8 +738,6 @@ export default function MenuItemEditorForm({
           id="personalizations"
           title={t('itemSectionPersonalizations')}
         >
-          {/* Per-item "special instructions" (notes) toggle — guest web only.
-            Default is on; turn off to hide the note field for this item. */}
           {setAllowNotes && (
             <label className="item-notes-setting">
               <span>{t('itemNotesFieldLabel')}</span>
