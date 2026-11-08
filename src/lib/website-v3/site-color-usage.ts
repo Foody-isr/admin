@@ -30,6 +30,8 @@ export function siteColorUsage(
     if (page.type === "order" && page.appearance_overrides.website_order?.color_preset !== "wolt" && matches(page.appearance_overrides.website_order?.color_style)) parts.add("menu");
     if (page.type === "order") {
       const order = page.appearance_overrides.website_order;
+      if (order?.choose_before_menu === true && order.mobile_header_layout !== "standard" &&
+        /^style-[1-6]$/.test(String(order.mobile_header_color_style)) && matches(order.mobile_header_color_style)) parts.add("header");
       const itemStyle = /^style-[1-6]$/.test(String(order?.item_color_style)) ? order?.item_color_style : order?.color_style;
       if (matches(itemStyle)) parts.add("item");
       const fulfillmentStyle = /^style-[1-6]$/.test(String(order?.fulfillment_color_style)) ? order?.fulfillment_color_style : order?.color_style;
