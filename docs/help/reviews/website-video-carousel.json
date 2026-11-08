@@ -1,0 +1,28 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "e07b29e06178d38101bd0143d5cab89216e6fd8c538fa3a42a583362664e5a86",
+      "baseSha256": "b77ddf1b7b06c8d53c38fdeddef325a5b697bb03275e7ecc3ffd6706bbf92398",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This diff adds only strings for the website video carousel editor. Labels and procedures for the other classified screens and flows are untouched."
+    }
+  ]
+}

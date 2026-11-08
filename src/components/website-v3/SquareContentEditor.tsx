@@ -9,6 +9,7 @@ import { InspectorField, ToggleField, controlClass } from "./controls";
 import { ElementInspector } from "./ElementInspector";
 import { VideoUploadField } from "./VideoUploadField";
 import { VideoSettingsFields } from "./VideoSettingsFields";
+import { VideoCarouselEditor } from "./VideoCarouselEditor";
 
 export const SQUARE_CONTENT_TYPES = new Set([
   "text",
@@ -37,6 +38,7 @@ export function SquareContentEditor({
   const { t } = useI18n();
   const c = section.content;
   const type = section.section_type;
+  const carousel = type === "video" && section.layout === "carousel";
   const [responses, setResponses] = useState<Awaited<
     ReturnType<typeof listWebsiteFormResponses>
   > | null>(null);
@@ -49,7 +51,7 @@ export function SquareContentEditor({
     type === "button"
       ? ["cta_text", "cta_link"]
       : type === "video"
-        ? ["title"]
+        ? carousel ? ["title", "body"] : ["title"]
         : type === "pdf"
           ? ["title", "file_url"]
           : type === "embed"
@@ -89,7 +91,8 @@ export function SquareContentEditor({
           )}
         </InspectorField>
       ))}
-      {type === "video" && (
+      {carousel && <VideoCarouselEditor key={section.id ?? section.tmp_id} section={section} restaurantId={restaurantId} onChange={onChange} />}
+      {type === "video" && !carousel && (
         <>
           <VideoUploadField
             restaurantId={restaurantId}

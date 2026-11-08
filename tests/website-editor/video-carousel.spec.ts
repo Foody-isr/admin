@@ -1,0 +1,93 @@
+import { expect, test } from "@playwright/test";
+import type { DraftStatePayload } from "../../src/lib/website-v3/types";
+
+const api = "http://127.0.0.1:18081/api/v1/restaurants/1";
+const storefront = "http://localhost:3000/r/atelier-foody";
+const videoUrl = "http://127.0.0.1:18081/__reel-fixture/clip.mp4";
+
+test("video carousel saves in the editor and opens a playable modal with its own item link", async ({ page, context, request }, testInfo) => {
+  test.setTimeout(180_000);
+  await page.addInitScript(() => {
+    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_user", JSON.stringify({ id: 1, full_name: "Demo", role: "manager", email: "demo@foody.test" }));
+    localStorage.setItem("foody_restaurant_ids", "[1]");
+    localStorage.setItem("foody-admin-locale", "fr");
+  });
+  await context.route("**/*", route => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
+
+  const draft = async (): Promise<DraftStatePayload> => (await (await request.get(api + "/website-draft")).json()).state;
+  const seed = await draft();
+  seed.sections = [{
+    id: 8000, section_type: "hero_banner", page: "home", page_id: 1, sort_order: 0, is_visible: true, layout: "split",
+    content: { headline: "Notre café", video_url: videoUrl }, settings: { height: "tall" },
+  }, {
+    id: 8001, section_type: "video", page: "home", page_id: 1, sort_order: 1, is_visible: true, layout: "contained",
+    content: { title: "Notre café en images" }, settings: { padding: "compact" },
+  }];
+  expect((await request.put(api + "/website-draft", { data: seed })).ok()).toBe(true);
+  expect((await request.post(api + "/website-publish")).ok()).toBe(true);
+
+  await page.goto("/1/website-v3");
+  const preview = page.frameLocator('iframe[title^="Aperçu de"]');
+  await expect(preview.getByRole("heading", { name: "Notre café en images" })).toBeVisible({ timeout: 120_000 });
+  await page.getByRole("button", { name: "Vidéo", exact: true }).click();
+  const panel = page.locator("[data-section-panel]");
+  await panel.getByRole("button", { name: "Carrousel", exact: true }).click();
+  await panel.getByRole("button", { name: "Cliquez ici pour modifier", exact: true }).click();
+  const cards = panel.getByRole("group", { name: "Vidéos du carrousel" });
+  await cards.getByRole("button", { name: "Ajouter une vidéo", exact: true }).click();
+  const field = (name: string) => cards.locator(`[data-field-id="section.content.reels.0.${name}"]`);
+  await field("title").fill("La salade");
+  await field("video_url").fill(videoUrl);
+  await field("cta_text").fill("Commander la salade");
+  await field("cta_link").fill("/order?item=1");
+  await expect(preview.getByRole("button", { name: "La salade", exact: true })).toBeVisible();
+  await expect.poll(async () => (await draft()).sections.find(section => section.id === 8001)).toMatchObject({
+    layout: "carousel",
+    content: { reels: [{ title: "La salade", video_url: videoUrl, cta_text: "Commander la salade", cta_link: "/order?item=1" }] },
+  });
+
+  await page.reload();
+  await expect(preview.getByRole("button", { name: "La salade", exact: true })).toBeVisible({ timeout: 120_000 });
+  const published = page.waitForResponse(response => response.url().endsWith("/website-publish") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Publier", exact: true }).click();
+  expect((await published).ok()).toBe(true);
+
+  const guest = await context.newPage();
+  await guest.addInitScript(() => localStorage.setItem("foody-locale", "fr"));
+  await guest.setViewportSize({ width: 390, height: 720 });
+  await guest.emulateMedia({ reducedMotion: "reduce" });
+  await guest.goto(storefront);
+  const hero = guest.locator('[data-section-type="hero_banner"] video');
+  await hero.scrollIntoViewIfNeeded();
+  await expect(hero).toHaveJSProperty("paused", true);
+  await guest.emulateMedia({ reducedMotion: "no-preference" });
+  await expect.poll(() => hero.evaluate(video => (video as HTMLVideoElement).currentTime)).toBeGreaterThan(0);
+
+  const card = guest.getByRole("button", { name: "La salade", exact: true });
+  const dialog = guest.getByRole("dialog", { name: "La salade" });
+  const action = dialog.getByRole("link", { name: "Commander la salade" });
+  await card.click();
+  await expect(dialog).toBeVisible();
+  await expect(action).toBeInViewport({ ratio: 1 });
+  await expect.poll(() => dialog.locator("video").evaluate(video => (video as HTMLVideoElement).currentTime)).toBeGreaterThan(0);
+  const bounds = await dialog.boundingBox();
+  expect(bounds?.width).toBe(390);
+  expect(bounds?.height).toBe(720);
+  await guest.screenshot({ path: testInfo.outputPath("reel-mobile.png") });
+  await dialog.getByRole("button", { name: "Fermer", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(card).toBeFocused();
+
+  await guest.setViewportSize({ width: 1280, height: 800 });
+  await card.click();
+  await expect(action).toBeInViewport({ ratio: 1 });
+  expect((await dialog.boundingBox())?.width).toBeLessThan(600);
+  await guest.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await card.click();
+  await expect(action).toHaveAttribute("href", "/r/atelier-foody/order?item=1");
+  await action.click();
+  await expect(guest).toHaveURL(/\/order\?item=1$/);
+  await expect(guest.getByRole("dialog", { name: "Salade méditerranéenne" })).toBeVisible();
+});
