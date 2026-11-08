@@ -101,7 +101,7 @@ export const SQUARE_COMPONENT_GROUPS = [
         cta_text: "Learn more",
         cta_link: "",
       }),
-      component("video", "editorVideo", ["contained", "full_width"], {
+      component("video", "editorVideo", ["contained", "full_width", "carousel"], {
         title: "",
         video_url: "",
         poster_url: "",

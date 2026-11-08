@@ -26,6 +26,7 @@ export type WebsiteV3RuntimeCapabilities = {
   text_section_dimensions: 1;
   video_playback: 1;
   video_height: 1;
+  video_carousel?: 1;
   receipt_editor: 1;
   order_list_styles: 1;
   order_wolt_preset: 1;
@@ -37,7 +38,7 @@ export type WebsiteV3RuntimeCapabilities = {
   };
 };
 
-/** Rejects only drafts using a campaign feature absent from the selected renderer. */
+/** Rejects drafts using an optional section feature absent from the selected renderer. */
 export function campaignRuntimeErrors(state: DraftStatePayload, capabilities: WebsiteV3RuntimeCapabilities | null, translate?: (key: string) => string): FieldError[] {
   const errors: FieldError[] = state.sections.flatMap(section => {
     if (!section.is_visible) return [];
@@ -51,7 +52,9 @@ export function campaignRuntimeErrors(state: DraftStatePayload, capabilities: We
         && ((section.settings.item_image_backgrounds && typeof section.settings.item_image_backgrounds === "object" && Object.keys(section.settings.item_image_backgrounds).length > 0)
           || (section.settings.content_max_width !== undefined && section.settings.content_max_width !== 1440)
           || (section.settings.row_spacing !== undefined && section.settings.row_spacing !== Number(section.settings.column_spacing ?? 2) * 10));
-    const missing = layoutControls && capabilities?.campaign_layout_controls !== 1 ? "campaign_layout_controls"
+    const missing = section.section_type === "video" && section.layout === "carousel" && capabilities?.video_carousel !== 1
+      ? "video_carousel"
+      : layoutControls && capabilities?.campaign_layout_controls !== 1 ? "campaign_layout_controls"
       : section.section_type === "hero_banner" && section.layout === "campaign" && capabilities?.campaign_hero !== 1
       ? "campaign_hero"
       : section.section_type === "menu_highlights" && section.settings.card_presentation === "campaign" && capabilities?.campaign_products !== 1
@@ -59,6 +62,7 @@ export function campaignRuntimeErrors(state: DraftStatePayload, capabilities: We
         : Object.entries(section.settings).some(([key,value]) => key.endsWith("_size") && value === "display") && capabilities?.display_typography !== 1
           ? "display_typography" : null;
     const messages = {
+      video_carousel: ["editorReelsUnsupported", "Mettez à jour le site public pour utiliser le carrousel vidéo."],
       campaign_layout_controls:["campaignUnsupportedLayoutControls","Mettez à jour le rendu public avant de publier ces réglages de présentation."],
       campaign_hero:["campaignUnsupportedHero","Le rendu public doit être mis à jour avant de publier ce diaporama."],
       campaign_products:["campaignUnsupportedProducts","Le rendu public doit être mis à jour avant de publier ces cartes."],

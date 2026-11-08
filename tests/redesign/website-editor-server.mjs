@@ -281,6 +281,27 @@ http
       return;
     }
     const path = new URL(req.url, "http://localhost").pathname;
+    if (path === "/__reel-fixture/clip.mp4" && req.method === "GET") {
+      const clip = readFileSync(new URL("../website-editor/fixtures/video.mp4", import.meta.url));
+      res.setHeader("Content-Type", "video/mp4");
+      res.setHeader("Accept-Ranges", "bytes");
+      const range = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range || "");
+      if (range) {
+        const start = Number(range[1]);
+        const end = range[2] ? Math.min(Number(range[2]), clip.length - 1) : clip.length - 1;
+        if (start > end) {
+          res.writeHead(416, { "Content-Range": `bytes */${clip.length}` }).end();
+          return;
+        }
+        res.writeHead(206, {
+          "Content-Range": `bytes ${start}-${end}/${clip.length}`,
+          "Content-Length": end - start + 1,
+        }).end(clip.subarray(start, end + 1));
+        return;
+      }
+      res.writeHead(200, { "Content-Length": clip.length }).end(clip);
+      return;
+    }
     let raw = "";
     for await (const chunk of req) raw += chunk;
     let body = {};
