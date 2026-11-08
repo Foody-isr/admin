@@ -28,6 +28,7 @@ export type WebsiteV3RuntimeCapabilities = {
   video_height: 1;
   video_carousel?: 1;
   responsive_video_sections?: 1;
+  web_story_player?: 1;
   receipt_editor: 1;
   order_list_styles: 1;
   order_wolt_preset: 1;
@@ -59,6 +60,8 @@ export function campaignRuntimeErrors(state: DraftStatePayload, capabilities: We
         && (section.settings.mobile_media_first === true || section.settings.hide_video_playback_button === true);
     const missing = section.section_type === "video" && section.layout === "carousel" && capabilities?.video_carousel !== 1
       ? "video_carousel"
+      : section.section_type === "video" && section.layout === "carousel" && section.settings.web_story_player === true && capabilities?.web_story_player !== 1
+        ? "web_story_player"
       : responsiveVideoSettings && capabilities?.responsive_video_sections !== 1 ? "responsive_video_sections"
       : layoutControls && capabilities?.campaign_layout_controls !== 1 ? "campaign_layout_controls"
       : section.section_type === "hero_banner" && section.layout === "campaign" && capabilities?.campaign_hero !== 1
@@ -70,6 +73,7 @@ export function campaignRuntimeErrors(state: DraftStatePayload, capabilities: We
     const messages = {
       responsive_video_sections: ["editorResponsiveVideoUnsupported", "Mettez à jour le site public pour utiliser ces réglages vidéo."],
       video_carousel: ["editorReelsUnsupported", "Mettez à jour le site public pour utiliser le carrousel vidéo."],
+      web_story_player: ["editorWebStoryPlayerUnsupported", "Mettez à jour le site public pour utiliser le lecteur Web Stories."],
       campaign_layout_controls:["campaignUnsupportedLayoutControls","Mettez à jour le rendu public avant de publier ces réglages de présentation."],
       campaign_hero:["campaignUnsupportedHero","Le rendu public doit être mis à jour avant de publier ce diaporama."],
       campaign_products:["campaignUnsupportedProducts","Le rendu public doit être mis à jour avant de publier ces cartes."],

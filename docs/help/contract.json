@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "e5fee9ed64684a112509b7c991045e718057385a",
-  "documentationRevision": "4f556851f56a5d4d30f8bfe7e9eb396545236a326147565fe38369cf05020a17",
+  "documentationRef": "9a744a0cbabb3ae901ea48a8abadb83d06f16f9e",
+  "documentationRevision": "99f9fb706f37d92890b8ef2b327534b56879dda703f6f0347e2b02901d69fb7f",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -981,15 +981,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/sections-and-media.mdx",
-          "sha256": "7c262ede55317cdd7a43d0e59cc41b852ac0f2319815a8244b689787437d6f99"
+          "sha256": "1592cdd95a2ade50d89c2e6712be485948c499cc24596ef3461cb4e8513e598b"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/sections-and-media.mdx",
-          "sha256": "a704b7a8d7d34bbc800fd9491f81a2547705fef169c62e45e0096ecd42f7944c"
+          "sha256": "cce33a15effbd0a6a821b1a7737f235716a18281a65b9248bd6735cd77be6718"
         },
         "he": {
           "path": "src/content/help/he/website-qr/sections-and-media.mdx",
-          "sha256": "305107fbd80f8a9199c3b8a40495bd2fc0a9fe00dbee7faf8713b317d6aa8439"
+          "sha256": "785a76107b7387c5f3c0bbe31610e375377fe99e21d5d80a9833e332050cbd76"
         }
       }
     },
@@ -6058,7 +6058,7 @@
       ]
     },
     "src/components/website-v3/CampaignRuntimeContext.tsx": {
-      "sha256": "78d3fd80e6edc5fc96ae088b5ebab18eba60ea69c42389d6d03a9e4634065722",
+      "sha256": "b8b263406334272ae20e7206f35770e6e1aae405949c804e124c54240475df36",
       "features": [
         "website-qr-customize-your-site",
         "website-sections"
@@ -6336,7 +6336,7 @@
       ]
     },
     "src/components/website-v3/SectionInspector.tsx": {
-      "sha256": "d94c7ea26e943d3e135b96e7e94cc2568577cf196d79128a84bfc520709f489b",
+      "sha256": "95d1bb45a7b62221aafdb47ddbbb5fed566f22e15878d932f1c0a195410633f4",
       "features": [
         "website-qr-customize-your-site",
         "website-sections"
@@ -6441,7 +6441,7 @@
       ]
     },
     "src/components/website-v3/field-contracts.ts": {
-      "sha256": "226d6ea1bb631252a2bccb9ca200fd71658175b7af336fcffbbe98628e3c5af0",
+      "sha256": "c7e11f190854bff92b168adc6f0c8c222e95c6884a0b93b0b35c85c0abf79980",
       "features": [
         "website-qr-customize-your-site"
       ]
@@ -6679,7 +6679,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "ef09fad6dfdbd79a4476a6abc51da911aa91955ad28da904ff0a9055ba13a9b0",
+      "sha256": "18839daa9986d99e8f879b52aa8dc8473639419193dd216691e52f00ed04d5eb",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -7647,7 +7647,7 @@
       ]
     },
     "src/lib/website-v3/runtime-capabilities.ts": {
-      "sha256": "075489df2db7f37f6cd6d2bd828d38ca89b78498da1b64839f6b94ed4556347b",
+      "sha256": "5b829ccf86b9dc46f3b4ea507f42790ebef14523889dfa907e052673cef47c45",
       "features": [
         "website-qr-customize-your-site",
         "website-sections",
@@ -22475,7 +22475,8 @@
         "editorLayoutColor",
         "editorReelsUnsupported",
         "editorResponsiveVideoUnsupported",
-        "editorSectionHeight"
+        "editorSectionHeight",
+        "editorWebStoryPlayer"
       ],
       "actions": []
     },
