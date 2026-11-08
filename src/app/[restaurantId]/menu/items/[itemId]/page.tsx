@@ -141,7 +141,7 @@ function EditItemEditor() {
   const [sourceLocale, setSourceLocale] = useState<Locale>('en');
   const [categoryId, setCategoryId] = useState(() => item?.category_id ?? 0);
   const [isActive, setIsActive] = useState(() => item?.is_active ?? true);
-  const [allowNotes, setAllowNotes] = useState<boolean>(() => item?.allow_notes ?? true);
+  const [allowNotes, setAllowNotes] = useState<boolean>(() => item?.allow_notes ?? false);
   const [posAutoSelectFirstVariant, setPosAutoSelectFirstVariant] = useState(() => item?.pos_auto_select_first_variant ?? true);
   const [posSkipCustomization, setPosSkipCustomization] = useState(() => item?.pos_skip_customization ?? false);
   const [comboAllowQuantity, setComboAllowQuantity] = useState<boolean>(() => item?.combo_allow_quantity ?? true);
@@ -314,7 +314,7 @@ function EditItemEditor() {
           setTranslations(found.translations ?? {});
           setCategoryId(found.category_id);
           setIsActive(found.is_active);
-          setAllowNotes(found.allow_notes ?? true);
+          setAllowNotes(found.allow_notes ?? false);
           setPosAutoSelectFirstVariant(found.pos_auto_select_first_variant ?? true);
           setPosSkipCustomization(found.pos_skip_customization ?? false);
           setComboAllowQuantity(found.combo_allow_quantity ?? true);

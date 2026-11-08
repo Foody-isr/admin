@@ -45,7 +45,7 @@ function keyFor(rid: number): string {
 export function isMeaningfulDraft(input: ItemDraftInput): boolean {
   return (
     input.pricingMode === 'by_weight' || (input.pricePerKg ?? 0) > 0 || !!input.aiContext?.trim() ||
-    input.allowNotes === false || input.comboAllowQuantity === false ||
+    input.allowNotes === true || input.comboAllowQuantity === false ||
     input.posAutoSelectFirstVariant === false || input.posSkipCustomization === true ||
     !!input.customerFacts?.ingredients?.some(ingredient => ingredient.name.trim()) ||
     !!input.customerFacts?.allergens?.length || !!input.customerFacts?.may_contain?.length ||
