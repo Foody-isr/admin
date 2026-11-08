@@ -54,6 +54,16 @@
       ],
       "disposition": "no-user-impact",
       "reason": "Checks the optional Web Stories capability when this carousel setting is used. The general website customization workflow is still accurate and the new prerequisite is explained in the sections guide."
+    },
+    {
+      "path": "src/components/website-v3/field-contracts.ts",
+      "sha256": "c7e11f190854bff92b168adc6f0c8c222e95c6884a0b93b0b35c85c0abf79980",
+      "baseSha256": "226d6ea1bb631252a2bccb9ca200fd71658175b7af336fcffbbe98628e3c5af0",
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Registers the Web Stories switch with the editor's field verification registry. The linked video sections guide covers the setting and the general website customization procedure is still accurate."
     }
   ]
 }
