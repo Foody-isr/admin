@@ -1,0 +1,36 @@
+{
+  "files": [
+    {
+      "path": "src/components/website-v3/OrderPageEditor.tsx",
+      "baseSha256": "060f59563e6e09e34295a6ebea81d2db27d073bf8bc273db1cfa7f997e8dc9c3",
+      "sha256": "269cb2dc7653bf52cd4465201ffe247c23d60fb8c2c11676d540539fc70701f1",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "reason": "The controls are local to the selected order page and covered in its help guide. The general steps for editing and publishing a website remain applicable."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "baseSha256": "18839daa9986d99e8f879b52aa8dc8473639419193dd216691e52f00ed04d5eb",
+      "sha256": "2371c3f1f491119eb959e43f49d42b2cd35e545b5507db988bea3bd35fc737a0",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions"
+      ],
+      "reason": "Only new translations for the order-page mode, panels, actions, and layouts were added. The other feature labels and workflows in this shared dictionary are unchanged."
+    }
+  ]
+}
