@@ -1,6 +1,20 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { compactOrderPresentation, selectOrderColorStyle, woltOrderPresentation } from "../order-design";
+import { normalizeDraftState, updateWebsitePageAtPath } from "../state";
+import { pageKey } from "../types";
+
+test("the order mode step is saved for just the edited order page", () => {
+  const draft = normalizeDraftState({ pages: [
+    { id: 1, slug: "order", title: "Order", type: "order", is_default: true, appearance_overrides: { website_order: { prompt_on_entry: false, layout: "list" } } },
+    { id: 2, slug: "weekend", title: "Weekend", type: "order", appearance_overrides: { website_order: { layout: "grid" } } },
+  ] });
+  const path = ["appearance_overrides", "website_order", "choose_before_menu"];
+  const saved = updateWebsitePageAtPath(draft, pageKey(draft.pages[0]), path, true);
+  const reloaded = normalizeDraftState(JSON.parse(JSON.stringify(saved)));
+  assert.deepEqual(reloaded.pages[0].appearance_overrides.website_order, { prompt_on_entry: false, layout: "list", choose_before_menu: true });
+  assert.deepEqual(reloaded.pages[1].appearance_overrides.website_order, { layout: "grid" });
+});
 
 test("selecting a shared style removes the competing background without changing layout or child references", () => {
   const value = {

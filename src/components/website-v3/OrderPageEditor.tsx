@@ -190,7 +190,22 @@ export function OrderPageEditor({
         ) : (
           toggle("show_fulfillment", "editorOrderShowService")
         )}
-        {orderChoicesAvailable && toggle("prompt_on_entry", "editorOrderPrompt")}
+        {orderChoicesAvailable && value.choose_before_menu !== true && toggle("prompt_on_entry", "editorOrderPrompt")}
+        {orderChoicesAvailable && toggle("choose_before_menu", "editorOrderBeforeMenu", false)}
+        {orderChoicesAvailable && <p>{t("editorOrderBeforeMenuHint")}</p>}
+        {toggle("fulfillment_panels", "editorOrderFulfillmentPanels", false)}
+        {toggle("preorder_reminder", "editorOrderPreorderReminder", false)}
+        {sharedHeader && <details>
+          <summary>{t("editorOrderHeaderActions")}</summary>
+          {select("header_search_placement", "editorOrderSearchPlacement", "inherit", [
+            ["inherit", "editorOrderInherited"],
+            ["menu", "editorOrderActionInMenu"],
+            ["hidden", "editorNone"],
+          ])}
+          {toggle("hide_header_cart", "editorOrderHideHeaderCart", false)}
+          {toggle("info_in_menu", "editorOrderInfoInMenu", false)}
+          {toggle("language_in_menu", "editorOrderLanguageInMenu", false)}
+        </details>}
         {toggle("modal_cover", "editorOrderModalCover")}
         {value.modal_cover !== false && <ImageUploadField
           restaurantId={restaurantId}
@@ -233,7 +248,7 @@ export function OrderPageEditor({
           <p>{t("editorOrderWoltHint")}</p>
           <label>{t("editorLayout")}</label>
           <div className="sqe-order-layouts">
-            {["list", "grid", "cards", "text", "single", "rows"].map((layout) => (
+            {["list", "grid", "cards", "text", "single", "rows", "gallery"].map((layout) => (
               <button
                 type="button"
                 key={layout}
@@ -253,6 +268,10 @@ export function OrderPageEditor({
             ))}
           </div>
           <p>{t("editorOrderCompactHint")}</p>
+          {select("mobile_item_layout", "editorOrderMobileLayout", "inherit", [
+            ["inherit", "editorOrderInherited"],
+            ["carousel", "editorOrderMobileCarousel"],
+          ])}
           {select("columns", "editorDesktopColumns", "2", [
             ["1", "1"],
             ["2", "2"],
@@ -354,7 +373,7 @@ export function OrderPageEditor({
         <details>
           <summary>{t("editorItemImages")}</summary>
           {toggle("show_images", "editorItemImages")}
-          {(value.layout ?? "list") !== "grid" && value.layout !== "cards" && <>
+          {(value.layout ?? "list") !== "grid" && value.layout !== "cards" && value.layout !== "gallery" && <>
             {select("image_position", "editorOrderImagePosition", "auto", [
               ["auto", "editorOrderInherited"],
               ["left", "editorAlign_left"],
@@ -385,6 +404,7 @@ export function OrderPageEditor({
           {select("item_action", "editorOrderAddButton", "none", [
             ["none", "editorOrderWholeCard"],
             ["cutout", "editorOrderCutout"],
+            ["button", "editorOrderImagePlus"],
           ])}
         </details>
         <details>
