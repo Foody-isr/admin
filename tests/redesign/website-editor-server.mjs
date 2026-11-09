@@ -14,6 +14,7 @@ if (process.env.FOODY_ITEM_MODAL === "1") {
 const headerChoices = ["1", "batch", "scheduled-pickup"].includes(process.env.FOODY_HEADER_CHOICES);
 const restaurantHeader = process.env.FOODY_RESTAURANT_HEADER === "1" || headerChoices;
 const crispyMenu = process.env.FOODY_CRISPY_MENU === "1";
+const mobileDemo = process.env.FOODY_MOBILE_EXPERIENCE_DEMO === "1";
 const menuTabs = process.env.FOODY_MENU_TABS === "1" ? [
   { id: 1, name: "BASSARI", groups: [
     { id: 11, name: "Sandwichs", translations: { name: { he: "כריכים" } }, items: [{ id: 101, name: "Burger démo", price: 38, is_active: true, is_available: true }] },
@@ -207,6 +208,53 @@ if (headerChoices) {
   draft.sections = [section(1, "hero_banner", {headline: "Bienvenue", image_url: image}, "centered")];
   draft.pages[1].appearance_overrides.website_order.prompt_on_entry = false;
 }
+if (mobileDemo) {
+  draft.config.nav_layout = {
+    ...draft.config.nav_layout,
+    mobile_experience: {
+      version: 1,
+      installation: { home: true, confirmation: true, menu: true, benefit: "menu", copy: {} },
+      navigation: {
+        enabled: true, style: "floating", visibility: "standalone",
+        colors: { background: "#fff8f1", foreground: "#351f18", active_background: "#f8d7bf", active_foreground: "#351f18" },
+        items: [
+          { id: "home", target: "home", placement: "bar" },
+          { id: "order", target: "order", placement: "bar" },
+          { id: "loyalty", target: "loyalty", placement: "bar" },
+          { id: "more", target: "more", placement: "bar" },
+          { id: "about", target: "page", value: "about", placement: "more", group: "restaurant" },
+          { id: "orders", target: "orders", placement: "more", group: "account" },
+        ],
+      },
+      more: {
+        groups: [
+          { id: "restaurant", title: { fr: "Le restaurant", en: "Restaurant", he: "המסעדה" } },
+          { id: "account", title: { fr: "Mon compte", en: "My account", he: "החשבון שלי" } },
+        ],
+        banner: {
+          enabled: true,
+          title: { fr: "Maison Sésame", en: "Maison Sésame", he: "מזון שומשום" },
+          subtitle: { fr: "Le goût des choses faites maison.", en: "Made from scratch, every day.", he: "טעם של אוכל ביתי." },
+        },
+      },
+    },
+  };
+  for (const page of draft.pages) {
+    page.title = { home: "Accueil", order: "Commander", about: "Notre histoire" }[page.slug] ?? page.title;
+    page.appearance_overrides = {
+      ...page.appearance_overrides,
+      foody_renderer_version: 1,
+      ...(page.type === "order" ? { website_order: { prompt_on_entry: false } } : {}),
+    };
+  }
+  draft.sections[0].content.headline = "Maison Sésame";
+  draft.sections[0].content.subheadline = "Cuisine maison et petites gourmandises.";
+  draft.sections[0].content.cta_text = "Commander";
+  draft.sections[0].content.cta_link = "/order";
+  draft.sections[0].settings = { ...draft.sections[0].settings, headline_color: "#ffffff", subheadline_color: "#ffffff" };
+  draft.sections[1].content.text = "CUISINE MAISON · À EMPORTER OU EN LIVRAISON";
+}
+
 let published = structuredClone(draft),
   dirty = false,
   revision = 0;
@@ -226,6 +274,7 @@ const restaurant = () => ({
   logo_url: "",
   cover_url: crispyMenu || process.env.FOODY_THEME_REGRESSION === "1" ? "" : image,
   default_locale: "en",
+  ...(mobileDemo ? { name: "Maison Sésame", default_locale: "fr", description: "Cuisine maison et petites gourmandises." } : {}),
   catering_enabled: false,
   ...(menuAppearance ? {name: crispyMenu ? "Crispy Delivery" : "MAMIE — aperçu local", ...(crispyMenu ? {default_locale: "fr"} : {})} : {}),
   ...(restaurantHeader ? {
@@ -240,7 +289,10 @@ const restaurant = () => ({
       ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map((day) => [day, {closed: false, open: "00:00", close: "00:00"}]),
     )]),
   ) } : {}),
-  website_config: published.config,
+  website_config: mobileDemo ? {
+    ...published.config,
+    pages: published.pages.map(page => ({ ...page, label: page.title })),
+  } : published.config,
   website_sections: published.sections,
 });
 const publicPages = () =>
