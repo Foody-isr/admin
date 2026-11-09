@@ -1,6 +1,7 @@
 /** Maps a workspace route to a public topic without sending restaurant IDs or account data. */
 export function supportTopicForPath(pathname: string): string {
   const [, , area, section] = pathname.split('/');
+  if (area === 'loyalty' && section === 'program') return 'customers';
   if (area === 'delivery' || area === 'settings' && section === 'delivery') return 'delivery';
   return ({ menu: 'menu', kitchen: 'kitchen', orders: 'orders', website: 'website-qr', 'website-v3': 'website-qr',
     staff: 'staff', team: 'staff', analytics: 'analytics', reports: 'analytics', settings: 'settings',

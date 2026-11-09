@@ -7,10 +7,7 @@ import { ApiError, getLoyaltyProgram, getStoredUser, listAllItems, saveLoyaltyPr
 import { useAuth } from '@/lib/auth-context';
 import { useI18n } from '@/lib/i18n';
 import { clearProgramIntent, loyaltyLanguages, loyaltyProgramDraft, loyaltyProgramPayload, readProgramIntent, storeProgramIntent, type LoyaltyProgramDraft, type PendingLoyaltyProgram } from '@/lib/loyalty-program';
-import { Badge, BooleanInput, Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, EmptyState, Field, Input, PageHead, Select, Textarea } from '@/components/ds';
-
-/** A disabled build has no configuration fetch or mutation. */
-export function LoyaltyProgramUnavailable() { const { t } = useI18n(); return <EmptyState title={t('loyaltyProgramUnavailable')} />; }
+import { Badge, BooleanInput, Button, Card, CardBody, CardHeader, CardTitle, ConfirmDialog, Field, Input, PageHead, Select, Textarea } from '@/components/ds';
 
 /** Remount the form on restaurant/actor changes and remove data after cross-tab sign-out. */
 export default function LoyaltyProgramWorkspace() {
@@ -82,6 +79,7 @@ function ProgramForm({ rid, actor }: { rid: number; actor: number }) {
     {blocked && <p role="alert" className="text-sm text-[var(--danger-500)]">{t('loyaltyProgramStorage')}</p>}
     {loading && !state && <p role="status">{t('loading')}</p>}
     {state && draft && <>
+      {!state.program && <p className="text-sm text-[var(--fg-muted)]">{t('loyaltyProgramNotConfigured')}</p>}
       {!state.can_manage_program && <p className="text-sm text-[var(--fg-muted)]">{t('loyaltyProgramReadOnly')}</p>}
       {state.identity_locked && <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('loyaltyProgramIdentityLocked')}</p>}
       {!!pending && <p className="text-sm leading-6 text-[var(--fg-muted)]">{t('loyaltyProgramPending')}</p>}

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "90c39385ddd3d4289170962217346d3349279ee1",
-  "documentationRevision": "3a03ffe93ab167bb81e2de161cc47c01d1bef23097f8d60e9d0fa90bc52b580a",
+  "documentationRef": "3c2058371451948d6008f9b2c87bda978a909f29",
+  "documentationRevision": "6b0b1f047505a5a9682951682f0566be730b61c612c41d1a3f9097c1f728ffed",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -2113,6 +2113,25 @@
           "sha256": "eccc3c4b259ade88df58555087b78d40c9e625f04004e3be5052781c812cb5ec"
         }
       }
+    },
+    "customers/loyalty-program": {
+      "feature": "customers-loyalty-program",
+      "audience": "public",
+      "status": "available",
+      "translations": {
+        "en": {
+          "path": "src/content/help/en/customers/loyalty-program.mdx",
+          "sha256": "956ca19bba13bca9fc62d8c7cbbbc4df00ccf0dc13c96a29694bf2f2536e8cb9"
+        },
+        "fr": {
+          "path": "src/content/help/fr/customers/loyalty-program.mdx",
+          "sha256": "0220a0eeef7ea5b690f51826add6188de9408e7e8bea4a2bb9092efe1e7acc4e"
+        },
+        "he": {
+          "path": "src/content/help/he/customers/loyalty-program.mdx",
+          "sha256": "27e313b3ffdbc8956d51c0df150d6b57c7e11fc1faef106cd9f4a86a632a3298"
+        }
+      }
     }
   },
   "sources": {
@@ -2776,9 +2795,9 @@
       ]
     },
     "src/app/[restaurantId]/loyalty/program/page.tsx": {
-      "sha256": "53bab5bdb0fb329aeabb830994ef3a95af3a5f4c02b78dd3ca17f1aabf38c8c6",
+      "sha256": "1462c9d92798062b148471b2ce7ce5df5ca997baa4f044f6450242b5ad6e0e1c",
       "features": [
-        "shared-runtime"
+        "customers-loyalty-program"
       ]
     },
     "src/app/[restaurantId]/marketing/discounts/page.tsx": {
@@ -3795,11 +3814,12 @@
       ]
     },
     "src/components/Sidebar.tsx": {
-      "sha256": "45d72c855571449e61aacbe0657a852aba2264b57992d726a78bca6e0d304c45",
+      "sha256": "c51eed3f80bfa5fd30c942a58f00a67d64056155b93c49556429de3f5527fea7",
       "features": [
         "pos-payments",
         "global-search",
-        "payments-transactions"
+        "payments-transactions",
+        "customers-loyalty-program"
       ]
     },
     "src/components/StatusPill.tsx": {
@@ -4455,9 +4475,9 @@
       ]
     },
     "src/components/loyalty/LoyaltyProgramWorkspace.tsx": {
-      "sha256": "95398f6646e768955fc46905664af7a801233b3731b9dc1206e45a171f3752b5",
+      "sha256": "ed4ab949cc204782877bf359da544b643ce3a9c5045a542e4f7e6cdf480b1aa1",
       "features": [
-        "shared-runtime"
+        "customers-loyalty-program"
       ]
     },
     "src/components/loyalty/display.ts": {
@@ -6726,10 +6746,11 @@
       ]
     },
     "src/lib/help/context.ts": {
-      "sha256": "0fe6d70615b95a87ac0f927f9430cdd0b71130af5b9797958385e01fbb71537a",
+      "sha256": "817f96edca821cd0042977e692665f3d2c4ce6072411c0e96b0e4653eb816bee",
       "features": [
         "google-account-setup",
-        "shared-runtime"
+        "shared-runtime",
+        "customers-loyalty-program"
       ]
     },
     "src/lib/help/registry.ts": {
@@ -6740,7 +6761,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "084aedd8be62e4bb16dae57ea3bbb2dc2793777bb9dd0b05b45cff7962c570a4",
+      "sha256": "824ea21050afea9eaf9ad3fa5e90cff556c97c2eb64238f53a904fcef6154412",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -6757,7 +6778,8 @@
         "menu-product-photos",
         "orders-internal-sumit-checkout",
         "stancer-cash-guarantee",
-        "payments-transactions"
+        "payments-transactions",
+        "customers-loyalty-program"
       ]
     },
     "src/lib/israel-cities.ts": {
@@ -6827,9 +6849,10 @@
       ]
     },
     "src/lib/loyalty-program.ts": {
-      "sha256": "d08c5e2929237270e4abbe3af690bf0fbf330a99c8808dce286fc8d4b0d7e55a",
+      "sha256": "c82596cad91917c78f858d5c06d7fb05f8f7b9ec7a01565e3dae8178744aca2b",
       "features": [
-        "shared-runtime"
+        "shared-runtime",
+        "customers-loyalty-program"
       ]
     },
     "src/lib/membership.ts": {
@@ -10820,7 +10843,7 @@
       "source": "src/app/[restaurantId]/loyalty/program/page.tsx",
       "line": 1,
       "features": [
-        "shared-runtime"
+        "customers-loyalty-program"
       ],
       "route": "/[restaurantId]/loyalty/program"
     },
@@ -15239,7 +15262,8 @@
       "features": [
         "pos-payments",
         "global-search",
-        "payments-transactions"
+        "payments-transactions",
+        "customers-loyalty-program"
       ],
       "labels": [
         "close",
@@ -17187,7 +17211,7 @@
       "source": "src/components/loyalty/LoyaltyProgramWorkspace.tsx",
       "line": 1,
       "features": [
-        "shared-runtime"
+        "customers-loyalty-program"
       ],
       "labels": [
         "cancel",
@@ -17212,6 +17236,7 @@
         "loyaltyProgramMinimumHint",
         "loyaltyProgramMode",
         "loyaltyProgramName",
+        "loyaltyProgramNotConfigured",
         "loyaltyProgramPending",
         "loyaltyProgramPoints",
         "loyaltyProgramProduct",
@@ -17225,7 +17250,6 @@
         "loyaltyProgramTermsVersion",
         "loyaltyProgramThreshold",
         "loyaltyProgramTitle",
-        "loyaltyProgramUnavailable",
         "loyaltyProgramUnavailableItem",
         "loyaltyProgramUnits",
         "loyaltyProgramValidity",

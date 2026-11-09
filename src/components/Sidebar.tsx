@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { loyaltyProgramEnabled } from '@/lib/loyalty-program';
 import { loyaltyCheckoutEnabled } from '@/lib/loyalty-checkout';
 import SupportLauncher from './help/SupportLauncher';
 import { isSettingsDestinationActive, visibleSettingsNavigation } from '@/lib/settings-navigation';
@@ -166,7 +165,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       ],
     },
     { href: `${base}/transactions`, labelKey: 'transactions', icon: ReceiptText, perm: ['payments.view', 'payments.manage'] },
-    ...(loyaltyProgramEnabled ? [{ href: `${base}/loyalty/program`, labelKey: 'loyaltyProgramTitle', icon: ClipboardList, perm: ['settings.view', 'settings.edit'] }] : []),
+    { href: `${base}/loyalty/program`, labelKey: 'loyaltyProgramTitle', icon: ClipboardList, perm: ['settings.view', 'settings.edit'] },
     ...(loyaltyCheckoutEnabled ? [{ href: `${base}/loyalty/checkouts`, labelKey: 'loyaltyCheckoutNav', icon: ClipboardList, perm: ['payments.view', 'payments.manage'] }] : []),
     {
       // Everything aimed at the customer lives here: who they are, and what we

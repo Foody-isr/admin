@@ -6,7 +6,7 @@ Tranche locale du 1er novembre 2026, suite du suivi de paiements. Rapport consol
 
 L’écran `/[restaurantId]/loyalty/program` reprend le plan visuel du suivi précédent : composants Foody `PageHead`, `Card`, `Field`, `Input`, `Select`, `Textarea`, `BooleanInput`, `Badge` et `ConfirmDialog`, palette existante jour/sombre, Arial/Heebo et direction RTL. Les deux cartes Acquisition/Récompense sont côte à côte sur desktop et empilées sur mobile. Les conditions des trois langues occupent des colonnes larges ou une pile mobile, chacune avec sa direction propre. Les champs numériques montrent la devise réelle et des montants décimaux. Aucun identifiant de requête ou secret technique n’entre dans le parcours opérateur. Les captures synthétiques desktop et mobile HE sombre ont été inspectées ; le défilement vertical conserve l’accès aux actions et il n’y a pas de débordement horizontal.
 
-Le flag de build `NEXT_PUBLIC_LOYALTY_PROGRAM_ENABLED=false` masque le lien et rend un état local indisponible sans requête fidélité. Le suivi financier garde son propre flag et ses permissions financières ; cette page utilise les droits de paramètres. Le serveur fournit la capacité actuelle `can_manage_program`, le verrou d’identité et la devise. Un champ de capacité absent signifie lecture seule. Les retraits de droits ou changements d’acteur ne sont pas contournés par le rôle mémorisé dans le navigateur.
+Le menu Programme de fidélité est visible par défaut avec les droits de paramètres. Un restaurant sans programme voit « Aucun programme configuré » et peut préparer les règles avant d’activer le programme. Le suivi financier garde son propre flag et ses permissions financières ; cette page utilise les droits de paramètres. Le serveur fournit la capacité actuelle `can_manage_program`, le verrou d’identité et la devise. Un champ de capacité absent signifie lecture seule. Les retraits de droits ou changements d’acteur ne sont pas contournés par le rôle mémorisé dans le navigateur.
 
 ## Contrat et reprise
 
@@ -24,7 +24,7 @@ Les réponses et erreurs sont présentées avec des textes locaux fixes ; aucun 
 
 ## Aide et pilote interne
 
-La fonctionnalité est nouvelle et masquée par défaut ; aucun parcours public déjà annoncé ne change. Les libellés FR/HE/EN sont complets et les procédures ci-dessous restent hors recherche et corpus public. Les articles publiés, leurs dates et le corpus restent inchangés. Inventaire et revue d’impact portent sur les octets exacts des sources modifiées. Publication des guides et activation doivent accompagner la livraison complète du module, avec les API avant l’Admin. La référence documentaire actuelle propre à l’Admin reste conservée ; elle n’est pas rétrogradée au pin serveur plus ancien.
+Les procédures d’activation et de mise en pause sont disponibles en FR/HE/EN dans le centre d’aide préparé pour cette version. Publier l’aide avec l’API, l’Admin et le Web compatibles. L’émission Apple Wallet et Google Wallet reste indépendante.
 
 ### Pilote FR
 
@@ -40,6 +40,6 @@ Open Loyalty program with the required settings access. Choose Points or Visits,
 
 ## Validation et limites
 
-Tests purs : décimales exactes, règles et traductions obligatoires, capacités absentes, accusé correspondant, séparation des intentions et droits de route distincts. Essais navigateur : visites/remise, points/produit avec option et activation explicite, lecture seule, verrouillage après adhésion, réponse perdue/rechargement/reprise identique, ancienne activation face à une suspension récente, refus périmé, stockage indisponible, changement d’acteur, erreurs masquées, FR/EN et mobile HE sombre, plus flag désactivé sans appel fidélité. Le suivi financier précédent est rejoué en régression après les modifications communes.
+Tests purs : décimales exactes, règles et traductions obligatoires, capacités absentes, accusé correspondant, séparation des intentions et droits de route distincts. Essais navigateur : visites/remise, points/produit avec option et activation explicite, lecture seule, verrouillage après adhésion, réponse perdue/rechargement/reprise identique, ancienne activation face à une suspension récente, refus périmé, stockage indisponible, changement d’acteur, erreurs masquées, FR/EN et mobile HE sombre, plus navigation visible par défaut sans écriture à l’ouverture. Le suivi financier précédent est rejoué en régression après les modifications communes.
 
 Les cinq API permettent configuration, consultation et adhésion sous session client existante ; leur écran client Web reste à raccorder. Les cartes Apple/Google, scanner et contrôles POS, transitions et reprise depuis une autre session sans intention originale restent à livrer. Les validations locales et simulations ne constituent ni déploiement, ni acceptation sur téléphone/terminal réel. Aucun commit, push, déploiement, changement de `.env` réel, paiement ou message client n’est effectué.

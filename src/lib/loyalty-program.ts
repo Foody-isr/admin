@@ -1,7 +1,5 @@
 import type { LoyaltyProgram, LoyaltyProgramInput, LoyaltyProgramState, LoyaltyRules } from './api';
 
-/** Independent controlled rollout; this public build value contains no credential. */
-export const loyaltyProgramEnabled = process.env.NEXT_PUBLIC_LOYALTY_PROGRAM_ENABLED === 'true';
 export const loyaltyLanguages = ['en', 'fr', 'he'] as const;
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const object = (value: unknown): value is Record<string, any> => !!value && typeof value === 'object' && !Array.isArray(value);

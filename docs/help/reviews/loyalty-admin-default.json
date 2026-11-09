@@ -1,0 +1,51 @@
+{
+  "reason": "Three-language loyalty procedures cover the actual feature. This review scopes the unaffected features that share the changed source files.",
+  "files": [
+    {
+      "path": "src/components/Sidebar.tsx",
+      "sha256": "c51eed3f80bfa5fd30c942a58f00a67d64056155b93c49556429de3f5527fea7",
+      "baseSha256": "45d72c855571449e61aacbe0657a852aba2264b57992d726a78bca6e0d304c45",
+      "features": [
+        "global-search",
+        "payments-transactions",
+        "pos-payments"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The change makes only the new loyalty configuration destination visible under settings permissions. Other links, destinations and permission lists are identical."
+    },
+    {
+      "path": "src/lib/help/context.ts",
+      "sha256": "817f96edca821cd0042977e692665f3d2c4ce6072411c0e96b0e4653eb816bee",
+      "baseSha256": "0fe6d70615b95a87ac0f927f9430cdd0b71130af5b9797958385e01fbb71537a",
+      "features": [
+        "google-account-setup"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the loyalty program route now resolves to the customers help topic. All other help topics, entry points and support requests are unchanged."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "824ea21050afea9eaf9ad3fa5e90cff556c97c2eb64238f53a904fcef6154412",
+      "baseSha256": "084aedd8be62e4bb16dae57ea3bbb2dc2793777bb9dd0b05b45cff7962c570a4",
+      "features": [
+        "customers-profiles",
+        "delivery-dispatch",
+        "delivery-zones",
+        "google-account-setup",
+        "menu-menus-and-groups",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-internal-sumit-checkout",
+        "payments-transactions",
+        "pos-behavior",
+        "stancer-cash-guarantee",
+        "website-journey",
+        "website-order-design",
+        "website-sections",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The three added translations describe an unconfigured loyalty program. Every existing translated label for the overlapping features is unchanged."
+    }
+  ]
+}

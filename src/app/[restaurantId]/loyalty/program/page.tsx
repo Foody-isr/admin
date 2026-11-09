@@ -1,7 +1,6 @@
-import LoyaltyProgramWorkspace, { LoyaltyProgramUnavailable } from '@/components/loyalty/LoyaltyProgramWorkspace';
-import { loyaltyProgramEnabled } from '@/lib/loyalty-program';
+import LoyaltyProgramWorkspace from '@/components/loyalty/LoyaltyProgramWorkspace';
 
-/** Independent opt-in leaves default navigation and API traffic unchanged. */
+/** Opens the selected restaurant's loyalty configuration. */
 export default function LoyaltyProgramPage() {
-  return loyaltyProgramEnabled ? <LoyaltyProgramWorkspace /> : <LoyaltyProgramUnavailable />;
+  return <LoyaltyProgramWorkspace />;
 }

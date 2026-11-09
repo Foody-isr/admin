@@ -85,9 +85,14 @@ Self-service web portal for restaurant owners and managers. Used to manage day-t
 
 The `/[restaurantId]/loyalty/checkouts` workspace is hidden unless the Admin build explicitly sets `NEXT_PUBLIC_LOYALTY_CHECKOUT_RESOLUTION_ENABLED=true`. It requires the matching opt-in staff API and its current `can_request_close` detail capability; missing authority stays read-only. This flag activates no program, enrollment or Wallet. The queue, localized detail, confirmation and session-bound recovery use the existing API client and financial permissions. See [review and internal pilot](docs/reviews/loyalty-checkout-workspace.md). Keep public FR/HE/EN guides and activation coordinated before a user rollout. No real environment is changed by this implementation.
 
-## Controlled loyalty program configuration
+## Restaurant loyalty program
 
-The `/[restaurantId]/loyalty/program` form is independently hidden by `NEXT_PUBLIC_LOYALTY_PROGRAM_ENABLED=false`. It requires API migration 292, `LOYALTY_PROGRAM_API_ENABLED` and the current configuration authority fields. The form supports points/visits, fixed/product rewards, mandatory EN/FR/HE content, explicit enable/pause confirmation and scoped original-request recovery. Existing settings rights remain unchanged. See [review and internal pilot](docs/reviews/loyalty-program-configuration.md). Customer enrollment APIs are implemented server-side; the customer UI and Wallets remain pending. Coordinate public procedures with activation; no real environment is changed here.
+**Loyalty program** is available to users with the restaurant's settings permissions.
+An authorized manager configures points or visits and a discount or free item.
+Saving with **Program active** enables that restaurant's program and customer
+enrollment. An unconfigured restaurant has no active program. Deploy the
+compatible API before Admin and Web. Apple and Google Wallet keep independent
+provider controls. See the [configuration review](docs/reviews/loyalty-program-configuration.md).
 
 ## Environments
 
