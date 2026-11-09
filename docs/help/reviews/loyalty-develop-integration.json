@@ -1,0 +1,78 @@
+{
+  "reason": "The Admin pilot options remain off by default. The billing sandbox, transaction navigation and scoped payment permissions from develop stay active under their existing contracts. Loyalty configuration and recovery only become visible with the appropriate pilot options and matching API authority.",
+  "documentationRef": "90c39385ddd3d4289170962217346d3349279ee1",
+  "inventorySha256": "3f76c0bacb0e8b484a3f2df259e98595bec3551dfbcb00057693f640ed1041c1",
+  "base": "0f55e27a3c473711c9c89a8e6b4b94e954a9bd9a",
+  "files": [
+    {
+      "path": ".env.example",
+      "sha256": "e162c324699e3afbe3c073e0d5063ca5ecdf8014108c73a5749a31e39979ce5a",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "src/app/[restaurantId]/layout.tsx",
+      "sha256": "9ad09b9050cfb20330bce10c002f6c053d167b5048aca2408ba653e5f2bbc394",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "src/app/[restaurantId]/loyalty/checkouts/page.tsx",
+      "sha256": "3b15bfc5836031685ad49b8972de950bd2038ecf9bfbe7cc9a24eee3328b7e62",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "src/app/[restaurantId]/loyalty/program/page.tsx",
+      "sha256": "53bab5bdb0fb329aeabb830994ef3a95af3a5f4c02b78dd3ca17f1aabf38c8c6",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "src/components/Sidebar.tsx",
+      "sha256": "45d72c855571449e61aacbe0657a852aba2264b57992d726a78bca6e0d304c45",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "src/components/loyalty/LoyaltyCheckoutDetailDrawer.tsx",
+      "sha256": "1be04a8a029974b7d2c4030cab493d9e7184ae4eac7c28af58eee389afb33c96",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "src/components/loyalty/LoyaltyCheckoutWorkspace.tsx",
+      "sha256": "8f67b6f21077c5e7f374b89ad439dadbdf370b2bccb35f718fc27ffd9f57571b",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "src/components/loyalty/LoyaltyProgramWorkspace.tsx",
+      "sha256": "95398f6646e768955fc46905664af7a801233b3731b9dc1206e45a171f3752b5",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "src/components/loyalty/display.ts",
+      "sha256": "cfd691ac4fe38dc27a6a1d624e4476e7f3901371c5633b2d3c8f3ef5a7826316",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "ecf46093e9eef8fdad6f563c3d8a589cff27a3bcb587aa9f526f9cbc932d3a9e",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "084aedd8be62e4bb16dae57ea3bbb2dc2793777bb9dd0b05b45cff7962c570a4",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "src/lib/loyalty-checkout.ts",
+      "sha256": "61109f5dac68a9624a22edde313b58729b0bbad3ea2f4916f75e610b30b2d71e",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "src/lib/loyalty-program.ts",
+      "sha256": "d08c5e2929237270e4abbe3af690bf0fbf330a99c8808dce286fc8d4b0d7e55a",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "src/lib/route-permissions.ts",
+      "sha256": "4225af7234a6282d9d733eb53b8511a2517862fbac4b6d267131696d9244b05f",
+      "disposition": "no-user-impact"
+    }
+  ]
+}

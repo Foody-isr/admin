@@ -1,5 +1,8 @@
+import { checkedLoyaltyProgramState, checkedProgramAck, type PendingLoyaltyProgram } from './loyalty-program';
 // Foody Admin API client — restaurant owner/manager portal
 // Calls foodyserver at /api/v1/* using JWT auth.
+
+import { parseLoyaltyCheckoutDetail, parseLoyaltyCheckoutPage, parseLoyaltyCloseResult } from './loyalty-checkout';
 
 import type {
   Draft,
@@ -2466,6 +2469,54 @@ export function createOrderPaymentAdjustment(rid: number, oid: number, input: {
 /** Reconciliation only: this endpoint never resends a provider money request. */
 export function refreshOrderPaymentAdjustment(rid: number, oid: number, id: string): Promise<PaymentAdjustment> {
   return apiFetch(`/api/v1/orders/${oid}/payment/adjustments/${encodeURIComponent(id)}/refresh`, rid, { method: 'POST' });
+}
+
+/** Immutable restaurant loyalty contract; amounts are integer minor units. */
+export interface LoyaltyRules { mode: 'points' | 'visits'; currency: string; spend_step_minor: number; units_per_step: number; minimum_purchase_minor: number; reward_threshold: number; reward_type: 'fixed' | 'item'; reward_amount_minor: number; reward_item_id?: number; reward_variant_id?: number; reward_validity_days: number; terms_version: string }
+export interface LoyaltyProgram { id: string; version_id: string; revision: number; enabled: boolean; rules: LoyaltyRules; content: Record<'en' | 'fr' | 'he', { name: string; terms: string }>; updated_at: string }
+export interface LoyaltyProgramState { program: LoyaltyProgram | null; restaurant_currency: string; identity_locked: boolean; can_manage_program: boolean }
+export interface LoyaltyProgramInput { program_id: string | null; request_id: string; expected_revision: number; enabled: boolean; rules: LoyaltyRules; content: LoyaltyProgram['content'] }
+/** Read current server authority and the exact program revision with no cache. */
+export async function getLoyaltyProgram(rid: number, signal?: AbortSignal): Promise<LoyaltyProgramState> {
+  return checkedLoyaltyProgramState(await apiFetch<unknown>('/api/v1/loyalty/program', rid, { cache: 'no-store', signal }));
+}
+/** Retain the same scoped request body until its exact acknowledgement is known. */
+export async function saveLoyaltyProgram(saved: PendingLoyaltyProgram): Promise<LoyaltyProgram> {
+  return checkedProgramAck(await apiFetch<unknown>('/api/v1/loyalty/program', saved.restaurant, { method: 'PUT', cache: 'no-store', body: JSON.stringify(saved.input) }), saved);
+}
+
+export interface LoyaltyCheckoutView {
+  order_id: number;
+  checkout_state: string;
+  reward_state: string;
+  payment_state: string;
+  fulfillment_state: string;
+  provider?: string;
+  expected_amount_minor?: number | null;
+  currency?: string;
+  next_step: string;
+  reason_code?: string;
+  revision: string;
+  latest_request?: { request_id: string; status: 'pending' | 'completed'; last_error_code?: string; updated_at: string } | null;
+}
+export interface LoyaltyCheckoutDetail extends LoyaltyCheckoutView { can_request_close: boolean }
+export interface LoyaltyCheckoutPage { items: LoyaltyCheckoutView[]; next_after?: number }
+export interface LoyaltyCloseInput { request_id: string; expected_revision: string; reason: string }
+export type LoyaltyCloseResult = { request_id: string; order_id: number; state: 'closed' | 'settled'; status?: never } | { request_id: string; order_id: number; status: 'pending'; state?: never };
+
+/** Read a bounded local projection; it does not ask a provider to change a payment. */
+export async function listLoyaltyCheckouts(rid: number, after = 0, signal?: AbortSignal): Promise<LoyaltyCheckoutPage> {
+  return parseLoyaltyCheckoutPage(await apiFetch<unknown>(`/api/v1/loyalty/checkout-resolutions?after=${after}&limit=50`, rid, { cache: 'no-store', signal }), after);
+}
+
+/** The API supplies current close authority; role names in the browser are insufficient. */
+export async function getLoyaltyCheckout(rid: number, oid: number, signal?: AbortSignal): Promise<LoyaltyCheckoutDetail> {
+  return parseLoyaltyCheckoutDetail(await apiFetch<unknown>(`/api/v1/loyalty/checkout-resolutions/${oid}`, rid, { cache: 'no-store', signal }), oid);
+}
+
+/** Send the original stored body on every retry, including after a lost response. */
+export async function closeLoyaltyCheckout(rid: number, oid: number, input: LoyaltyCloseInput): Promise<LoyaltyCloseResult> {
+  return parseLoyaltyCloseResult(await apiFetch<unknown>(`/api/v1/loyalty/checkout-resolutions/${oid}/close`, rid, { method: 'POST', cache: 'no-store', body: JSON.stringify(input) }), oid, input.request_id);
 }
 
 export async function apiFetch<T>(
