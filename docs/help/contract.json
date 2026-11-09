@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "3c2058371451948d6008f9b2c87bda978a909f29",
-  "documentationRevision": "6b0b1f047505a5a9682951682f0566be730b61c612c41d1a3f9097c1f728ffed",
+  "documentationRef": "3a044787a0bfd674fe094752b1ee43bb81338d18",
+  "documentationRevision": "fb0425274cd76bceba225d52d93717f2f35915a1d4474871212d190686cb8900",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -1684,15 +1684,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/offers-and-contact.mdx",
-          "sha256": "170e738ac6589bc513c9025bcc461cc92ab906ad7d82f9d9d56c984b5501861f"
+          "sha256": "1083e06293bb4888ed4925455e0550798fb51adb6fdb4af589da2251a5f6f7bd"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/offers-and-contact.mdx",
-          "sha256": "b6141831524a4568bc5ce998b37d097aaa962e8b8bd380be6c05644c2fcf6c29"
+          "sha256": "05c4a971cfb368c811a9a4b40b099c8b6655a2ce31f1f3bfa177b34d7817dec3"
         },
         "he": {
           "path": "src/content/help/he/getting-started/offers-and-contact.mdx",
-          "sha256": "e39176445b77f8b2144249b9d6a344509702e0eaedc34959260aacf920e54e0f"
+          "sha256": "740ab5878bda142a10f2a825a80dd57018a335523d4c2f10d46be7ddfd7e8de4"
         }
       }
     },
