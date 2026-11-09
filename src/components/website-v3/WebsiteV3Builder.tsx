@@ -55,6 +55,8 @@ import {
   type PreviewExpectedRevisions,
 } from "@/lib/website-v3/preview-state";
 import { withWebsiteV3PreviewNavigationState } from "@/lib/website-v3/preview-protocol";
+import { mobilePublicationIssue, readMobileExperience, type MobilePreview } from "@/lib/website-v3/mobile-experience";
+import { MobileExperienceEditor } from "./MobileExperienceEditor";
 import { loadOptionalCateringServices } from "@/lib/website-v3/catering-catalog";
 import {
   canDeletePage,
@@ -271,6 +273,7 @@ function DesktopWebsiteV3Builder({
   const [selection, setSelection] = useState<RailSelection>({ kind: "site" });
   const [sectionPanel, setSectionPanel] = useState<SectionPanel>("content");
   const [device, setDevice] = useState<PreviewDevice>("desktop");
+  const [mobilePreview, setMobilePreview] = useState<MobilePreview | null>(null);
   const [receiptLocale, setReceiptLocale] = useState<"en" | "fr" | "he" | null>(null);
   const [journeyScreen, setJourneyScreen] = useState<OrderJourneyScreen>("cart");
   const [journeyOrderType, setJourneyOrderType] = useState<"delivery" | "pickup">("delivery");
@@ -449,6 +452,7 @@ function DesktopWebsiteV3Builder({
   }, [autosave, restaurantId, retryToken, webOrigin]);
 
   const state = loaded?.draft.state ?? null;
+  const supportsMobileExperience = loaded?.runtimeCapabilities.mobile_experience === 1;
   const availableReferences = useMemo(
     () => ({
       menuIds: new Set(
@@ -468,7 +472,12 @@ function DesktopWebsiteV3Builder({
     () => (state ? validateDraftForPublish(state, availableReferences) : []),
     [availableReferences, state],
   );
-  const allErrors = [...validationErrors, ...(state ? campaignRuntimeErrors(state, loaded?.runtimeCapabilities ?? null, t) : []), ...serverErrors];
+  const mobileIssue = state ? mobilePublicationIssue(state) : undefined;
+  const allErrors = [...validationErrors,
+    ...(mobileIssue ? [{ fieldId: "site.mobile_experience", message: t(mobileIssue) }] : []),
+    ...(state ? campaignRuntimeErrors(state, loaded?.runtimeCapabilities ?? null, t) : []),
+    ...serverErrors,
+  ];
   const activePage = useMemo(
     () => (state ? resolveSelectedPage(state, selection) : null),
     [selection, state],
@@ -531,10 +540,17 @@ function DesktopWebsiteV3Builder({
         : sectionCandidate
           ? insertSection(state, activePage, sectionCandidate)
           : state);
-    return withWebsiteV3PreviewNavigationState(
+    const preview = withWebsiteV3PreviewNavigationState(
       candidate,
       storiesNavigationAvailable,
     );
+    return supportsMobileExperience ? {
+      ...preview,
+      config: {
+        ...preview.config,
+        preview_mobile_experience: mobilePreview ?? { mode: "browser", screen: "page", locale },
+      },
+    } : preview;
   }, [
     state,
     activePage,
@@ -542,6 +558,9 @@ function DesktopWebsiteV3Builder({
     pageCandidate,
     sectionCandidate,
     storiesNavigationAvailable,
+    mobilePreview,
+    supportsMobileExperience,
+    locale,
   ]);
   const activePageType = previewPage?.type;
   const surface = effectiveSurface(
@@ -1090,6 +1109,7 @@ function DesktopWebsiteV3Builder({
     setLoaded((current) => current ? { ...current, draft: response } : current);
     setSelection(selectionAfterReload(response.state, activePage));
     setRequestedSurface("page");
+    setMobilePreview(null);
     setSidebarResetRevision(revision => revision + 1);
     setSaveStatus("saved");
     setDraftChanged(false);
@@ -1126,6 +1146,8 @@ function DesktopWebsiteV3Builder({
   const publish = async () => {
     if (!loaded || !state || busyRef.current) return;
     const errors = validateDraftForPublish(state, availableReferences);
+    const mobileError = mobilePublicationIssue(state);
+    if (mobileError) errors.push({ fieldId: "site.mobile_experience", message: t(mobileError) });
     if (errors.length > 0) {
       focusError(errors[0]);
       setGlobalError(
@@ -1173,6 +1195,7 @@ function DesktopWebsiteV3Builder({
       setDraftChanged(false);
       setNotice("Le site est publié.");
       setRequestedSurface("page");
+      setMobilePreview(null);
       setSidebarResetRevision(revision => revision + 1);
       setSelection(
         selectionAfterReload(response.state, activePageBeforePublish),
@@ -1237,6 +1260,7 @@ function DesktopWebsiteV3Builder({
         selectionAfterReload(response.state, activePageBeforeDiscard),
       );
       setRequestedSurface("page");
+      setMobilePreview(null);
       setSidebarResetRevision(revision => revision + 1);
       const revision = bumpPreview();
       setDiscardAwaitRevision(revision);
@@ -1289,6 +1313,7 @@ function DesktopWebsiteV3Builder({
     setHoveredSectionKey(null);
     setRequestedSurface("page");
     setSelection({ kind: "page", key });
+    setMobilePreview(current => current && current.screen !== "page" ? { ...current, screen: "page" } : current);
     setSectionPanel("content");
     bumpPreview(false);
   };
@@ -1402,6 +1427,35 @@ function DesktopWebsiteV3Builder({
         onPreviewChange={setPreviewOnly}
         sidebar={
           <EditorSidebar
+            mobileEditor={supportsMobileExperience ? onClose => (
+              <MobileExperienceEditor
+                experience={readMobileExperience((state.config.nav_layout as { mobile_experience?: unknown } | undefined)?.mobile_experience)}
+                pages={state.pages}
+                activePage={activePage}
+                restaurantName={loaded.restaurant.name}
+                preview={mobilePreview ?? { mode: "browser", screen: "page", locale }}
+                onPreview={(next, key) => {
+                  const pageChanged = key !== undefined && key !== pageKey(activePage);
+                  if (pageChanged) selectPage(key);
+                  setMobilePreview(next);
+                  if (device !== "mobile") changeDevice("mobile");
+                  else if (!pageChanged) bumpPreview(false);
+                }}
+                onChange={next => updateConfig(["nav_layout", "mobile_experience"], next)}
+                onClose={onClose}
+              />
+            ) : undefined}
+            onOpenMobile={() => {
+              setSelection({ kind: "page", key: pageKey(activePage) });
+              setRequestedSurface("page");
+              setMobilePreview({ mode: "browser", screen: "page", locale });
+              if (device === "mobile") bumpPreview(false);
+              else changeDevice("mobile");
+            }}
+            onCloseMobile={() => {
+              setMobilePreview(null);
+              bumpPreview(false);
+            }}
             restaurantId={restaurantId}
             state={state}
             resetRevision={sidebarResetRevision}
@@ -1605,7 +1659,7 @@ function DesktopWebsiteV3Builder({
             }}
             previewOnly={
               previewOnly ||
-              Boolean(themePreview || sectionCandidate || pageCandidate)
+              Boolean(themePreview || sectionCandidate || pageCandidate || mobilePreview)
             }
             device={device}
             surface={surface}

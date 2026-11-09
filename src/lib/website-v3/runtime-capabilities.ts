@@ -13,6 +13,7 @@ const REQUIRED_PAGE_TYPES = [
 const REQUIRED_SURFACES = ["page", "checkout"] as const;
 
 export type WebsiteV3RuntimeCapabilities = {
+  mobile_experience?: 1;
   campaign_layout_controls?: 1;
   campaign_hero?: 1;
   campaign_products?: 1;
@@ -82,6 +83,12 @@ export function campaignRuntimeErrors(state: DraftStatePayload, capabilities: We
     return missing ? [{fieldId: "section.layout", message: translate ? translate(messages[missing][0]) : messages[missing][1],sectionKey:sectionKey(section),sectionPanel:"appearance" as const}] : [];
   });
   const config = state.config.nav_layout as Record<string, unknown> | undefined;
+  if (config?.mobile_experience && capabilities?.mobile_experience !== 1) {
+    errors.push({
+      fieldId: "site.mobile_experience",
+      message: translate ? translate("editorMobileUnavailable") : "Mettez à jour Foody Web avant de publier l’expérience mobile.",
+    });
+  }
   const header = config?.header as Record<string, unknown> | undefined;
   const navigation = header?.navigation as Record<string, unknown> | undefined;
   if (navigation && capabilities?.campaign_layout_controls !== 1 && (

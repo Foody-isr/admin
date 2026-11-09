@@ -1,0 +1,27 @@
+{
+  "base": "a91dfd38a834e7ea2845eaaadc8155180d7f3699",
+  "documentationRef": "ed206cd6cac76ea3cc5842446f5aeb74987f1684",
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "b8237ce300a0c8455ab2f745ede96e4c716e49e358436e2ee7439fd078c0a0b1",
+      "baseSha256": "084aedd8be62e4bb16dae57ea3bbb2dc2793777bb9dd0b05b45cff7962c570a4",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions"
+      ],
+      "reason": "Les ajouts concernent uniquement les libellés du panneau Expérience mobile. Les clés et les textes des parcours énumérés sont identiques à la base."
+    }
+  ]
+}

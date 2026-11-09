@@ -4,6 +4,7 @@ import {
   type HeaderTarget,
 } from "./header";
 import type { DraftStatePayload } from "./types";
+import { readMobileExperience } from "./mobile-experience";
 /** Keeps navigation, section actions and footer links attached when a page slug is edited. */
 export function retargetNavigationPage(
   state: DraftStatePayload,
@@ -16,6 +17,7 @@ export function retargetNavigationPage(
     layout && typeof layout === "object"
       ? (layout as Record<string, unknown>)
       : {};
+  const mobile = readMobileExperience(record.mobile_experience);
   const retargetHref = (value: unknown) => {
     if (typeof value !== "string") return value;
     const [path] = value.split(/[?#]/);
@@ -48,6 +50,13 @@ export function retargetNavigationPage(
         : {}),
       nav_layout: {
         ...record,
+        ...(mobile ? { mobile_experience: {
+          ...mobile,
+          navigation: {
+            ...mobile.navigation,
+            items: mobile.navigation.items.map(item => item.target === "page" && item.value === previous ? { ...item, value: next } : item),
+          },
+        } } : {}),
         ...(record.header
           ? {
               header: retargetHeader(

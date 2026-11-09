@@ -1,10 +1,40 @@
 "use client";
 
 import { BooleanInput } from '@/components/ds/Selection';
+import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 
 export const controlClass =
   "min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-black focus:ring-2 focus:ring-black/10 disabled:bg-slate-50 disabled:text-slate-400";
+
+/** Opens the page list from the current page's title. */
+export function PagePickerButton({ title, expanded, onClick }: {
+  title: string;
+  expanded: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" className="sqe-button" aria-expanded={expanded} onClick={onClick}>
+      <span>{title}</span>
+      <ChevronDown size={18} aria-hidden="true" />
+    </button>
+  );
+}
+
+/** Selects a page in the editor outline, with room for page actions. */
+export function PagePickerRow({ title, selected, onClick, children }: {
+  title: string;
+  selected: boolean;
+  onClick: () => void;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="sqe-page-item relative" aria-current={selected}>
+      <button type="button" onClick={onClick}>{title}</button>
+      {children}
+    </div>
+  );
+}
 
 export function InspectorGroup({
   groupId,
