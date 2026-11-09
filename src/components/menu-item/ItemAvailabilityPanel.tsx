@@ -29,6 +29,7 @@ import { ProductSalesStock } from "@/components/menu/publication/ProductSalesSto
 import { AvailabilityCapacityCard } from "./AvailabilityCapacityCard";
 import { ItemSettingsDialog } from "./ItemSettingsDialog";
 import { ItemPreparationDialog } from "./ItemPreparationDialog";
+import { PreparedStockEditor } from "./PreparedStockEditor";
 
 /** Persists only the independent preparation draft with the product Save action. */
 export interface ItemAvailabilityPanelHandle {
@@ -243,6 +244,7 @@ const ItemAvailabilityPanel = forwardRef<ItemAvailabilityPanelHandle, Props>(
             </button>
           </div>
         </section>
+        <PreparedStockEditor rid={rid} itemId={itemId} />
         {prepOpen && (
           <ItemPreparationDialog
             value={preparation}

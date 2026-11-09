@@ -6,6 +6,7 @@ import { usePermissions } from '@/lib/permissions-context';
 import { Switch } from '@/components/ui/switch';
 import MenuGroupPicker from '@/components/MenuGroupPicker';
 import type { Menu, MenuCategory } from '@/lib/api';
+import type { ItemMenuAssignment } from '@/lib/item-menu-assignments';
 
 /** Separate status, internal classification and customer-facing menu cards. */
 export default function MenuItemDistribution({
@@ -13,21 +14,29 @@ export default function MenuItemDistribution({
   categoryId,
   setCategoryId,
   menus,
-  selectedGroupIds,
-  setSelectedGroupIds,
+  restaurantId,
+  itemId,
+  menuAssignments,
+  setMenuAssignments,
   isActive,
   setIsActive,
   disabled = false,
+  itemLocked = false,
+  preserveRemovals = false,
 }: {
   categories: MenuCategory[];
   categoryId: number;
   setCategoryId: (id: number) => void;
   menus: Menu[];
-  selectedGroupIds: Set<number>;
-  setSelectedGroupIds: (ids: Set<number>) => void;
+  restaurantId: number;
+  itemId?: number;
+  menuAssignments: ItemMenuAssignment[];
+  setMenuAssignments: (edits: ItemMenuAssignment[]) => void;
   isActive: boolean;
   setIsActive: (value: boolean) => void;
   disabled?: boolean;
+  itemLocked?: boolean;
+  preserveRemovals?: boolean;
 }) {
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
@@ -44,7 +53,7 @@ export default function MenuItemDistribution({
           <Switch
             checked={isActive}
             onCheckedChange={setIsActive}
-            disabled={readOnly}
+            disabled={readOnly || itemLocked}
             aria-label={t('active')}
           />
         </label>
@@ -57,7 +66,7 @@ export default function MenuItemDistribution({
           <select
             id="menu-item-category"
             aria-label={t('category')}
-            disabled={readOnly}
+            disabled={readOnly || itemLocked}
             value={categoryId}
             onChange={(event) => setCategoryId(Number(event.target.value))}
           >
@@ -76,18 +85,14 @@ export default function MenuItemDistribution({
         <h2 id="item-menus-title">{t('menus')}</h2>
         <p>{t('itemMenusPurpose')}</p>
         <MenuGroupPicker
-          appearance="item-editor"
+          restaurantId={restaurantId}
+          itemId={itemId}
           disabled={readOnly}
           menus={menus}
-          selectedGroupIds={selectedGroupIds}
-          onChange={setSelectedGroupIds}
-          placeholder={t('addToMenus')}
-          emptyLabel={t('noMenusAvailable')}
-          noGroupsHint={t('noGroupsInMenu')}
+          assignments={menuAssignments}
+          preserveRemovals={preserveRemovals}
+          onChange={setMenuAssignments}
         />
-        {selectedGroupIds.size === 0 && (
-          <p className="item-menu-empty-hint">{t('itemMenuRequiredHint')}</p>
-        )}
       </section>
     </fieldset>
   );

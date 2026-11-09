@@ -382,6 +382,26 @@ test('older API leaves the new opening choice unavailable without mutating setti
  });
 
 
+test('simulation explains legacy ready stock and recalculates when basket quantity exceeds it',async({page})=>{
+ const state=await install(page);state.control.settings.scheduling_available_hours=[];
+ await page.route('**/api/v1/menu/items?*',route=>route.fulfill({json:{items:[{id:10,name:'Fraisier prêt',preparation_lead_time_minutes:180,immediate_sale_mode:'surplus',stock_mode:'count',stock_quantity:1}]}}));
+ await page.route('**/api/v1/delivery/zones?*',route=>route.fulfill({json:{zones:[]}}));
+ const calls:any[]=[];
+ await page.route('**/api/v1/delivery/ordering-simulation',route=>{
+  if(route.request().method()==='GET')return route.fallback();
+  const body=route.request().postDataJSON();calls.push(body);const ready=body.items[0].quantity===1;
+  return route.fulfill({json:{deliverable:true,resolved:true,schedule:{enabled:true,evaluated_at:'2026-10-30T07:43:00+01:00',timezone:'Europe/Paris',lead_time_minutes:ready?0:180,prepared_stock_applied:ready,slots_by_date:{'2026-10-30':[{start:ready?'09:30':'11:30',end:ready?'10:30':'12:30'}]}}}});
+ });
+ await page.goto('/1/settings/orders');const panel=page.locator('#ordering-simulation');await panel.locator('summary').click();
+ await panel.getByRole('combobox',{name:'Mode de réception',exact:true}).selectOption('pickup');
+ await panel.getByRole('button',{name:'Ajouter un article',exact:true}).click();
+ const run=panel.getByRole('button',{name:'Vérifier les disponibilités',exact:true}),result=panel.locator('[data-ordering-simulation-result]');
+ await run.click();await expect(result).toContainText('stock déjà disponible');await expect(result).toContainText('09:30–10:30');
+ await panel.getByRole('spinbutton',{name:'Quantité',exact:true}).fill('2');await expect(result).toHaveCount(0);
+ await run.click();await expect(result).toContainText('11:30–12:30');await expect(result).not.toContainText('stock déjà disponible');
+ expect(calls.map(value=>value.items[0].quantity)).toEqual([1,2]);expect(state.writes).toHaveLength(0);
+});
+
 test('editing settings during simulation catalogue loading cannot strand the preview',async({page})=>{
  const state=await install(page);let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});let requested=false;
  await page.route('**/api/v1/menu/items?*',async route=>{requested=true;await gate;return route.fulfill({json:{items:[{id:10,name:'Roulé de démonstration'}]}});});

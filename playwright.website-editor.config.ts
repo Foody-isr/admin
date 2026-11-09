@@ -5,11 +5,13 @@ const nodeOptions = [
   process.env.NODE_OPTIONS,
   Number(process.versions.node.split(".")[0]) >= 23 ? "--no-experimental-strip-types" : "",
 ].filter(Boolean).join(" ");
+const apiPort = Number(process.env.FOODY_WEBSITE_EDITOR_API_PORT || 18081);
+const apiOrigin = `http://127.0.0.1:${apiPort}`;
 
 // The fixture holds all draft/publication writes in memory.
 export default defineConfig({
   testDir: "./tests/website-editor",
-  testMatch: ["campaign-editor.spec.ts", "item-modal.spec.ts", "receipt-editor.spec.ts", "footer-recovery.spec.ts", "order-service-colors.spec.ts", "order-typography.spec.ts", "order-list-styles.spec.ts", "category-menu.spec.ts", "menu-tabs.spec.ts", "mobile-menu-layout.spec.ts", "video-upload.spec.ts", "text-image-backgrounds.spec.ts", "text-section-dimensions.spec.ts"],
+  testMatch: ["checkout-fields.spec.ts", "campaign-editor.spec.ts", "item-modal.spec.ts", "receipt-editor.spec.ts", "footer-recovery.spec.ts", "order-service-colors.spec.ts", "order-typography.spec.ts", "order-list-styles.spec.ts", "category-menu.spec.ts", "menu-tabs.spec.ts", "mobile-menu-layout.spec.ts", "video-upload.spec.ts", "video-carousel.spec.ts", "text-image-backgrounds.spec.ts", "text-section-dimensions.spec.ts", "draft-concurrency.spec.ts"],
   outputDir: "test-results/website-editor",
   workers: 1,
   projects: process.env.FOODY_MENU_LAYOUT === "1" ? [
@@ -29,7 +31,7 @@ export default defineConfig({
   webServer: [
     {
       command: "node tests/redesign/website-editor-server.mjs",
-      port: 18081,
+      port: apiPort,
       reuseExistingServer: !process.env.CI,
     },
     {
@@ -41,7 +43,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       env: {
         NODE_OPTIONS: nodeOptions,
-        NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:18081",
+        NEXT_PUBLIC_API_BASE_URL: apiOrigin,
         NEXT_PUBLIC_ADMIN_ORIGIN: "http://localhost:3003",
       },
     },
@@ -53,7 +55,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       env: {
         NODE_OPTIONS: nodeOptions,
-        NEXT_PUBLIC_API_URL: "http://127.0.0.1:18081",
+        NEXT_PUBLIC_API_URL: apiOrigin,
         NEXT_PUBLIC_WEB_URL: "http://localhost:3000",
       },
     },

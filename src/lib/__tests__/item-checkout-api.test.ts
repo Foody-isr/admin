@@ -36,6 +36,8 @@ test('checkout-only edits create a recoverable draft without changing legacy def
     selectedModifierSetIds: [], variantGroups: [], activeTab: 'details',
   };
   assert.equal(isMeaningfulDraft(empty), false);
+  assert.equal(isMeaningfulDraft({ ...empty, allowNotes: false }), false);
+  assert.equal(isMeaningfulDraft({ ...empty, allowNotes: true }), true);
   assert.equal(isMeaningfulDraft({ ...empty, posAutoSelectFirstVariant: true, posSkipCustomization: false }), false);
   assert.equal(isMeaningfulDraft({ ...empty, posAutoSelectFirstVariant: false }), true);
   assert.equal(isMeaningfulDraft({ ...empty, posSkipCustomization: true }), true);

@@ -29,6 +29,7 @@ interface CustomerPickerProps {
   onPick: (customer: CustomerSearchResult) => void;
   placeholder?: string;
   autoFocus?: boolean;
+  inputProps?: Pick<React.InputHTMLAttributes<HTMLInputElement>, 'id' | 'aria-invalid' | 'aria-describedby' | 'aria-label'>;
   /**
    * Owned by the parent, not this component. A pick on either the name or the
    * phone picker rewrites BOTH fields, so a purely-local "did I just write
@@ -41,8 +42,9 @@ interface CustomerPickerProps {
   skipNextSearchRef: React.MutableRefObject<boolean>;
 }
 
+/** Searches restaurant customers while retaining caller-owned contact and validation state. */
 export function CustomerPicker({
-  restaurantId, field, value, onChange, onPick, placeholder, autoFocus, skipNextSearchRef,
+  restaurantId, field, value, onChange, onPick, placeholder, autoFocus, skipNextSearchRef, inputProps,
 }: CustomerPickerProps) {
   const { t } = useI18n();
   const [results, setResults] = useState<CustomerSearchResult[]>([]);
@@ -141,6 +143,7 @@ export function CustomerPicker({
   return (
     <div className="relative" ref={boxRef}>
       <Input
+        {...inputProps}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}

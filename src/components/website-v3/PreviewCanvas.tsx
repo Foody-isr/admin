@@ -13,6 +13,7 @@ import {
   type WebsiteV3StateMessage,
 } from "@/lib/website-v3/preview-protocol";
 import type { InspectorSurface } from "@/lib/website-v3/inspector-scope";
+import type { OrderModePreview } from "@/lib/website-v3/editor-selection";
 import type {
   DraftPagePayload,
   DraftSectionPayload,
@@ -63,7 +64,7 @@ export function PreviewCanvas({
   activeSectionKey?: string;
   activeField?: string;
   activeRegion?: "header" | "footer" | "footer-branding" | "order-banner" | "order-items" | "order-fulfillment";
-  orderDialog?: "fulfillment" | "item";
+  orderDialog?: Exclude<OrderModePreview, "header"> | "item";
   onOpenOrderJourney?: () => void;
   onSelectRegion?: (region: "header" | "footer" | "footer-branding" | "order-banner" | "order-items" | "order-fulfillment", element?: HeaderElement) => void;
   hoveredSectionKey?: string | null;

@@ -27,6 +27,7 @@ export const DRAFT_TTL_MS = 12 * 60 * 60 * 1000;
  *  réhydratée depuis le menu fraîchement chargé, ce qui fait au passage la
  *  revalidation : un identifiant introuvable EST le cas « n'existe plus ». */
 export interface DraftLine {
+  sourceMenuId?: number;
   uid: string;
   itemId: number;
   /** Le nom de l'article au moment de la mise au brouillon. C'est la seule
@@ -59,6 +60,7 @@ export interface DraftCustomer {
 }
 
 export interface OrderDraft {
+  eventConfig?: import("@/lib/api").OrderEventConfig;
   version: number;
   /** Quand ce brouillon est apparu pour la première fois. Volontairement NON
    *  rafraîchi à chaque réécriture : reprendre un brouillon *est* une écriture

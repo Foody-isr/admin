@@ -1,0 +1,61 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/menu/items/[itemId]/page.tsx",
+      "sha256": "8aee2e20f82f4f053458a91bf8741b9eee46f680cc324240d2b6e63e7ba49a92",
+      "baseSha256": "2fd6db1afa123069b8c992b07740179413fa167161229489b40d50ef1b7e93e1",
+      "features": [
+        "menu-ingredients-and-portions",
+        "menu-variants-and-sizes",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The exact source diff only integrates article-to-carte draft group selection, creation, save confirmation and recovery, including corrective removals after partial persistence. Other classified fields, prices, variants, recipes, modifiers, photos, availability, permissions and unrelated translated copy retain their prior controls and persistence."
+    },
+    {
+      "path": "src/app/[restaurantId]/menu/items/new/page.tsx",
+      "sha256": "3548aa76512b0d487f1b5a32700c7832f0208c24f662ad7534727213f567a3ae",
+      "baseSha256": "de67ad40d74471806eac195e28f979efc0d4470227f141e6d707ed22cec74092",
+      "features": [
+        "menu-ingredients-and-portions",
+        "menu-variants-and-sizes",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The exact source diff only integrates article-to-carte draft group selection, creation, save confirmation and recovery, including corrective removals after partial persistence. Other classified fields, prices, variants, recipes, modifiers, photos, availability, permissions and unrelated translated copy retain their prior controls and persistence."
+    },
+    {
+      "path": "src/components/menu-item/MenuItemDistribution.tsx",
+      "sha256": "1680397123bdf19749502a71bcbe89f6b27d282e11dc79ff036cc76a2f268e1e",
+      "baseSha256": "0358d973611f60eb10b7c09514e475f9f1f00e71d0bae41eae350a129b86a760",
+      "features": [
+        "menu-ingredients-and-portions",
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The exact source diff only integrates article-to-carte draft group selection, creation, save confirmation and recovery, including corrective removals after partial persistence. Other classified fields, prices, variants, recipes, modifiers, photos, availability, permissions and unrelated translated copy retain their prior controls and persistence."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "c5864c8907ccdd77502547a626418373b2bf5fbace45a6e707ea813c4ee221ec",
+      "baseSha256": "6d4f3bc8e2ae9279ac862872e19fb645de075b3e82ebecd0f4ba9c0bdd3476b4",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The exact source diff only integrates article-to-carte draft group selection, creation, save confirmation and recovery, including corrective removals after partial persistence. Other classified fields, prices, variants, recipes, modifiers, photos, availability, permissions and unrelated translated copy retain their prior controls and persistence."
+    }
+  ]
+}

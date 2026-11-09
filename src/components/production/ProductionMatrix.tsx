@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { GripVerticalIcon } from 'lucide-react';
+import { EventOrderBadge } from '@/components/orders/EventOrderBadge';
 import { useI18n } from '@/lib/i18n';
 import {
   ProductionSheetResponse,
@@ -434,7 +435,7 @@ export function ProductionMatrix({
                         />
                       </span>
                     )}
-                    {o.customer_name}
+                    {o.customer_name}<EventOrderBadge isEvent={o.is_event}/>
                     <span
                       className={`ms-2 text-fs-micro px-2 py-0.5 rounded-r-sm no-underline ${
                         o.order_type === 'delivery'

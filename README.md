@@ -33,7 +33,7 @@ dialog, the rule is also immediate while other stock/preparation drafts retain
 product Save. Unrelated product drafts remain untouched. Deploy the API's optional
 availability_rule_id extension before this Admin. Stock preparation and carte
 publication remain separate workflows.
-Website V3 → Order journey can draft and publish the optional entry sign-in
+Website V3 → Order page → Fulfillment can draft and publish the optional entry sign-in
 invitation. Settings → Usage and quotas is read-only restaurant-scoped Google and
 Geoapify consumption, including independent units, 80% warnings and UTC renewal.
 Deploy API migration 268 and the remaining-stock route before this Admin version.
@@ -431,6 +431,8 @@ npx playwright test -c playwright.website-editor.config.ts item-modal.spec.ts`.
 The legacy `/[restaurantId]/website` and `/[restaurantId]/website-v2` implementations have been removed. Their URLs redirect to Website V3, preserving the restaurant and query parameters. Components shared with V3 and QR customization remain in use.
 
 Draft endpoints: `GET`/`PUT /restaurants/:id/website-draft`, `POST /restaurants/:id/website-publish`, and `POST /restaurants/:id/website-discard`. Website configuration endpoints also remain available to their other consumers.
+
+The Website editor sends `X-Website-Draft-Revision` on save, publish and discard. Deploy the matching API before Admin. When another tab changes the draft or publishes it, recovery reapplies edits to different fields and asks the operator to review the new preview. Conflicting local edits stay in the editor.
 
 The **Text** appearance panel exposes section spacing, automatic or
 S/M/L/XL minimum height (240/400/560/720 px), and content width (automatic,
@@ -1759,3 +1761,68 @@ date on or after that day. Now reloads the server clock through the protected
 simulation endpoint. Current saved rules and ready stock are used, including for
 past references; it neither reconstructs history nor creates/reserves an order,
 stock, courier or payment. Deploy the private simulation API before this interface.
+
+
+## Carte groups from the item editor
+
+Item creation and editing can select draft groups or stage a new group under an
+existing carte without leaving the article. Choices, temporary group keys and
+explicit series dates are retained in the local new-item draft. Nothing writes a
+group until the article is saved. Saving updates only the item's memberships in
+freshly read private carte drafts, preserving other editorial and stock changes.
+The API's existing optimistic revisions detect concurrent saves. Stable temporary
+keys let an explicit retry verify an uncertain save without duplicating a group.
+Publication remains a separate action, explained in the save confirmation.
+After partial creation, item details stay locked while group choices remain editable.
+Regression: `npx tsx --test src/lib/item-menu-assignments.test.ts` and
+`npx playwright test -c playwright.redesign.config.ts item-menu-assignment.spec.ts`.
+Publish the matching FR/HE/EN help and embedded API corpus with this client.
+
+
+## Event handover calendar and delivery fees
+
+Event finalization keeps a free handover date and time window, independent of
+weekly carte series, while ordinary orders keep their series selector. Delivery
+fees are entered in Fulfillment before payment intent. Returning to articles
+preserves the fee during composition; persisted drafts still exclude financial
+inputs. A private link can retain a staff fee (including zero) by submitting
+`delivery_fee_fixed: true` alongside `delivery_fee`. A blank field omits both
+and retains address-based pricing. Deploy the compatible API before Admin.
+Synthetic regressions: `internal-sumit-checkout.spec.ts`.
+
+
+## Manual order steps (4 November 2026)
+
+New-order finalization has Reception and customer, then Payment and confirmation;
+Event / Catering inserts Event between them. Visited step titles and Previous
+retain all in-memory fields, including payment choice, delivery quotes and discounts.
+Continue validates required fields and focuses the first error; the correction list
+opens earlier steps and collapsed optional sections. All invalid controls receive
+an outline and a linked inline message. Equal start/end handover windows remain
+invalid with a specific explanation; an event at the handover end is accepted.
+An event starting before handover finishes produces a nonblocking warning.
+Recipient-provided details remain deferrable through the explicit Foody-link choice.
+Only the final step asks Add to production plan with mandatory Yes/No radios;
+neither is selected initially and earlier steps have no production banner.
+The choice survives step/payment changes. No also excludes automatically eligible
+orders after scheduling/payment. Yes retains prepared-link/event confirmation gates. Optional event date/address/contact reuse is explicit and never
+silently synchronizes later edits. Deploy the compatible API accepting optional staff production_plan before this UI.
+Guest and older POS clients retain their existing omitted-field behavior; the
+server owns the stored metadata. No schema migration is needed.
+
+Synthetic acceptance: `FOODY_PREVIEW_PRODUCTION=1 FOODY_PREVIEW_LOW_DISK=1 npx
+playwright test -c playwright.redesign.config.ts internal-sumit-checkout.spec.ts
+internal-combo-substitutions.spec.ts` (41 passing). The adjacent library submission
+assertion still expects a carte item without its existing source_menu_id; this
+payload is unchanged by this feature. The FR/HE/EN help and identical API support
+corpus are prepared together. Documentation contracts pin the reviewed immutable Landing commit for CI;
+release promotes the same verified develop artifacts.
+
+## Transaction history workspace
+
+The restaurant Transactions destination requires payments.view or payments.manage and reads the same /api/v1/transactions projection as POS. Search, dates, channel and payment-method filters retain restaurant headers and query scoping. Details is read-only; gross confirmed collection and locally recorded returns remain separate by currency. Stancer, Sumit and Verifone keep their actual origins, without changing POS terminal providers. An unavailable original order never removes an immutable cash tender or grants a refund. Publish the matching FR/HE/EN transactions guide with the compatible API/Admin/POS release.
+
+
+## Configurable production and delivery intake (local preparation)
+
+Compatible API migration 288 adds an independent Products already prepared counter and receiving-date validity in a saved article’s Stock & availability section. Apply saves only that counter with its current revision; conflicts retain input and require Reload current stock. Delivery zones advertise order-deadline support before exposing day-offset/time controls. Empty/default policies retain existing behavior. These settings are restaurant-owned and do not configure Lovely or other tenants automatically.

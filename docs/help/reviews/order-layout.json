@@ -1,0 +1,61 @@
+{
+  "files": [
+    {
+      "path": "src/components/website-v3/WebsiteV3Builder.tsx",
+      "sha256": "142f0ca04e5241d35a5620086384faeee7b1aac923115e93317284bccdd3f436",
+      "baseSha256": "12114c20932220cb044aa6307281394d5e9276becac1ce338638f5323f6cd711",
+      "features": [
+        "website-sections",
+        "website-pages"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new preview mode is only used by the order fulfilment inspector. Page addresses, section management and the general draft and publication procedures follow their existing workflow."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "ccfd50a4198c586a4816461dc48c7813c56a2fbb60fb39c1ca90263294b617e6",
+      "baseSha256": "b5bffc5d6fe6382326f33246e0cc98b16742bfad243b7467c009276884d8d66d",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The only change is the TypeScript role name for the compact order catalogue title. It does not change API requests, data fields or runtime behaviour for the other features in this file."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "7f21e500241583e916794665ca05ec5fdb2015212c0d6f30a597ac6b0c53ba6b",
+      "baseSha256": "56c26d4cafb43a74b55b4d8f57c33598a8a929e3d2b49d4afe3ab661fa460374",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-journey",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The changed strings label the order catalogue header, its preview and the mobile product layout. No strings for the other features in this shared locale file were edited."
+    },
+    {
+      "path": "src/components/website-v3/editor.css",
+      "sha256": "c35e0d8a570c667d1f9cfd91ea5ad8d45f17d8d5452139ea4912223924e2d4a4",
+      "baseSha256": "b8583e076c0f0a1b45d02939d2cd1474fe993035901a168eb61c15c872141c88",
+      "features": [
+        "website-journey"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The CSS draws layout samples in the item list inspector. The order journey controls and their storefront presentation are outside those selectors."
+    }
+  ]
+}

@@ -43,9 +43,9 @@ export const BUILTIN_LABELS: Record<string, { en: string; fr: string; he: string
   whatsapp_number:  { en: 'WhatsApp number',   fr: 'Numéro WhatsApp',   he: 'מספר וואטסאפ' },
 };
 
-/** The built-in's French label, for the editor's chips and messages. */
-export function builtinLabel(id: string): string {
-  return BUILTIN_LABELS[id]?.fr ?? id;
+/** The built-in's localized label, for the editor's chips and messages. */
+export function builtinLabel(id: string, locale: 'en' | 'fr' | 'he' = 'fr'): string {
+  return BUILTIN_LABELS[id]?.[locale] ?? id;
 }
 
 /**

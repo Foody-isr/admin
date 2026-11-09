@@ -31,6 +31,7 @@ const menuAppearance = crispyMenu ? JSON.parse(readFileSync(new URL("./fixtures/
   ? JSON.parse(readFileSync(new URL("./fixtures/mamie-menu-appearance.json", import.meta.url), "utf8"))
   : null;
 const date = "2026-10-04T12:00:00Z";
+const port = Number(process.env.FOODY_WEBSITE_EDITOR_API_PORT || 18081);
 const image = "http://localhost:3003/images/login/cafe-israel.webp";
 const page = (id, type, slug, title, settings = {}) => ({
   id,
@@ -207,9 +208,11 @@ if (headerChoices) {
   draft.pages[1].appearance_overrides.website_order.prompt_on_entry = false;
 }
 let published = structuredClone(draft),
-  dirty = false;
+  dirty = false,
+  revision = 0;
 const response = () => ({
-  state: structuredClone(draft),
+  state: structuredClone(dirty ? draft : published),
+  revision: String(revision),
   draft_dirty: dirty,
   draft_saved_at: date,
   published_at: date,
@@ -266,7 +269,7 @@ http
     res.setHeader("Vary", "Origin");
     res.setHeader(
       "Access-Control-Allow-Headers",
-      "content-type, authorization, x-restaurant-id",
+      "content-type, authorization, x-restaurant-id, x-website-draft-revision",
     );
     res.setHeader(
       "Access-Control-Allow-Methods",
@@ -278,6 +281,27 @@ http
       return;
     }
     const path = new URL(req.url, "http://localhost").pathname;
+    if (path === "/__reel-fixture/clip.mp4" && req.method === "GET") {
+      const clip = readFileSync(new URL("../website-editor/fixtures/video.mp4", import.meta.url));
+      res.setHeader("Content-Type", "video/mp4");
+      res.setHeader("Accept-Ranges", "bytes");
+      const range = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range || "");
+      if (range) {
+        const start = Number(range[1]);
+        const end = range[2] ? Math.min(Number(range[2]), clip.length - 1) : clip.length - 1;
+        if (start > end) {
+          res.writeHead(416, { "Content-Range": `bytes */${clip.length}` }).end();
+          return;
+        }
+        res.writeHead(206, {
+          "Content-Range": `bytes ${start}-${end}/${clip.length}`,
+          "Content-Length": end - start + 1,
+        }).end(clip.subarray(start, end + 1));
+        return;
+      }
+      res.writeHead(200, { "Content-Length": clip.length }).end(clip);
+      return;
+    }
     let raw = "";
     for await (const chunk of req) raw += chunk;
     let body = {};
@@ -288,11 +312,18 @@ http
       res.end("{}");
       return;
     }
+    const expected = req.headers["x-website-draft-revision"];
+    if (expected !== undefined && expected !== String(revision)) {
+      res.writeHead(409, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "website_draft_changed" }));
+      return;
+    }
     let result;
     if (path === "/api/v1/restaurants/1/website-draft") {
       if (req.method === "PUT") {
         draft = body;
         dirty = true;
+        revision += 1;
       }
       result = { json: response() };
     } else if (path === "/api/v1/restaurants/1/website-publish") {
@@ -303,10 +334,12 @@ http
         sections: draft.sections.map(({tmp_id, page_tmp_id, ...section}, index) => ({...section, id: section.id ?? index + 1000, ...(page_tmp_id ? {page_id: pageIds.get(page_tmp_id)} : {})})),
       };
       dirty = false;
+      revision += 1;
       result = { json: response() };
     } else if (path === "/api/v1/restaurants/1/website-discard") {
       draft = structuredClone(published);
       dirty = false;
+      revision += 1;
       result = { json: response() };
     } else if (path === "/api/v1/chain/branches")
       result = {
@@ -372,15 +405,15 @@ http
     res.writeHead(result.status ?? 200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(result.json ?? {}));
   })
-  .listen(18081, "127.0.0.1", () =>
-    console.log("Website editor synthetic fixture: http://127.0.0.1:18081"),
+  .listen(port, "127.0.0.1", () =>
+    console.log(`Website editor synthetic fixture: http://127.0.0.1:${port}`),
   );
 
 // Opt-in alias for the separately built public renderer's local-only API origin.
 // Both ports share this process's synthetic draft/publication state.
 if (process.env.FOODY_BUILT_WEB_API_ALIAS === "1") {
   http.createServer((req,res) => {
-    const upstream=http.request({hostname:"127.0.0.1",port:18081,path:req.url,method:req.method,headers:req.headers},response => {
+    const upstream=http.request({hostname:"127.0.0.1",port,path:req.url,method:req.method,headers:req.headers},response => {
       res.writeHead(response.statusCode || 502,response.headers);
       response.pipe(res);
     });

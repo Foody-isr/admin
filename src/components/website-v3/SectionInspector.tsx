@@ -54,6 +54,14 @@ export function SectionInspector({
 }) {
   const { t } = useI18n();
   const campaignSupported = useCampaignCapability("campaign_hero");
+  const videoCarouselSupported = useCampaignCapability("video_carousel");
+  const responsiveVideoSupported = useCampaignCapability("responsive_video_sections");
+  const webStoryPlayerSupported = useCampaignCapability("web_story_player");
+  const responsiveVideoFields = section.section_type === "video" && section.layout === "carousel"
+    ? [["mobile_at_end", "editorReelsMobileAtEnd"], ["reel_preview_autoplay", "editorReelsAutoplayOnScroll"]]
+    : section.section_type === "hero_banner" && section.layout === "split"
+      ? [["mobile_media_first", "editorHeroMediaFirstMobile"], ["hide_video_playback_button", "editorHeroHidePlaybackButton"]]
+      : [];
   const meta = SQUARE_COMPONENTS[section.section_type];
   const configuredPlacementGroupId = stableId(
     section.settings.placement_group_id,
@@ -111,6 +119,7 @@ export function SectionInspector({
             <span>{t("editorLayout")}</span>
             <div className="sqe-layout-choices">
               {squareLayouts(section.section_type).map((layout) => {
+                const isVideoCarousel = section.section_type === "video" && layout.value === "carousel";
                 const Icon =
                   layout.value === "split"
                     ? Columns2
@@ -124,8 +133,8 @@ export function SectionInspector({
                 return (
                   <button
                     type="button"
-                    disabled={layout.value === "campaign" && !campaignSupported}
-                    title={layout.value === "campaign" && !campaignSupported ? t("campaignRuntimeUnavailable") : undefined}
+                    disabled={(layout.value === "campaign" && !campaignSupported) || (isVideoCarousel && !videoCarouselSupported)}
+                    title={layout.value === "campaign" && !campaignSupported ? t("campaignRuntimeUnavailable") : isVideoCarousel && !videoCarouselSupported ? t("editorReelsUnsupported") : undefined}
                     key={layout.value}
                     className="sqe-layout-choice"
                     data-field-id="section.layout"
@@ -178,7 +187,28 @@ export function SectionInspector({
           </div>
           {section.section_type !== "order_discovery" ? (
             <>
-              {section.section_type === "video" && <VideoSettingsFields section={section} onChange={onChange} showLayout={false} />}
+              {section.section_type === "video" && section.layout !== "carousel" && <VideoSettingsFields section={section} onChange={onChange} showLayout={false} />}
+              {responsiveVideoFields.map(([key, label]) => (
+                <ToggleField
+                  key={key}
+                  fieldId={`section.settings.${key}`}
+                  label={t(label)}
+                  checked={section.settings[key] === true}
+                  disabled={!responsiveVideoSupported && section.settings[key] !== true}
+                  description={!responsiveVideoSupported ? t("editorResponsiveVideoUnsupported") : undefined}
+                  onChange={(value) => onChange(["settings", key], value)}
+                />
+              ))}
+              {section.section_type === "video" && section.layout === "carousel" && (
+                <ToggleField
+                  fieldId="section.settings.web_story_player"
+                  label={t("editorWebStoryPlayer")}
+                  checked={section.settings.web_story_player === true}
+                  disabled={!webStoryPlayerSupported && section.settings.web_story_player !== true}
+                  description={t(webStoryPlayerSupported ? "editorWebStoryPlayerHint" : "editorWebStoryPlayerUnsupported")}
+                  onChange={(value) => onChange(["settings", "web_story_player"], value)}
+                />
+              )}
               {section.section_type === "hero_banner" && (
                 <>
                   <div

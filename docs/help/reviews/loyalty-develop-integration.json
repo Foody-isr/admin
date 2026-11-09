@@ -1,8 +1,8 @@
 {
-  "reason": "Integration of the unpublished Foody loyalty/Wallet pilot onto current develop. All new API, Web, Admin and POS entry/decision gates retain false defaults; no environment or restaurant is activated. Existing lifecycle V2, scheduled-order acceptance, commercial closure, current iPad open-check workflows, authorization and payment protections from develop are retained. Sixteen never-applied loyalty migrations are renumbered to 286–301 after current applied 283–285 without changing applied SQL. The current transactional manual-payment override adds the loyalty refund-only guard under its existing locks, and the new lifecycle financial list excludes private held/abandoned loyalty preparations. Web keeps lifecycle collection gating and existing original-request loyalty recovery; POS merges all current translations and open-check navigation without replacing them. Direct Apple/Google, points/visits and fixed/item rewards retain their reviewed source/payment/tenant boundaries, unknown-outcome journals, default-off capabilities and original stock/printing identities. This integration changes no available public workflow or permission. Existing published FR/HE/EN procedures remain byte-identical to the current immutable Landing baseline; the previously reviewed private POS directory and the sixteen unpublished loyalty SQL migrations receive internal technical selectors. The API support corpus is synchronized to those already reviewed/current published iPad and customer procedures, without new assistant actions, business tools or data access. Current-source evidence is refreshed only for the four integrated services; Landing runtime and Backoffice evidence remain exact. This local preparation is not an immutable release checkpoint or deployment; authorized commits/pins, PR checks, development verification and physical/native financial acceptance remain required.",
-  "documentationRef": "a414bc9271e3f2ae0457eae3865ec281e5a8a2ef",
-  "inventorySha256": "4666f2a5884aef584968cd4cb86b1188cd5f3459f65cd757d9d7c92591459486",
-  "base": "5523aae6f47f158d13f8db83d23b4cb3302a729d",
+  "reason": "Both pilot options are disabled by default. The transaction history route and its permissions and translations are retained. The configuration and recovery controls only appear with their separate loyalty options and matching server authority.",
+  "documentationRef": "d58bb1bc6045a3fbd0623034b638074e7f398f55",
+  "inventorySha256": "c20dfb50ec6670962063793110f7ca46c4336a907be59bd79324f2e11583ec55",
+  "base": "1d17d7f7c6e4133dcafaa807d59c76c4a6bd01f8",
   "files": [
     {
       "path": ".env.example",
@@ -11,7 +11,7 @@
     },
     {
       "path": "src/app/[restaurantId]/layout.tsx",
-      "sha256": "b77d4e205f2586b26800bc10d95082d309d5029abf78f3ea01f2f47338c41768",
+      "sha256": "9ad09b9050cfb20330bce10c002f6c053d167b5048aca2408ba653e5f2bbc394",
       "disposition": "no-user-impact"
     },
     {
@@ -26,7 +26,7 @@
     },
     {
       "path": "src/components/Sidebar.tsx",
-      "sha256": "5edbbf86ddc08ebeaf72a42b2b83f2ae0c0c6fc2db94458ceebc9271cd5adc92",
+      "sha256": "45d72c855571449e61aacbe0657a852aba2264b57992d726a78bca6e0d304c45",
       "disposition": "no-user-impact"
     },
     {
@@ -51,12 +51,12 @@
     },
     {
       "path": "src/lib/api.ts",
-      "sha256": "9a0f013717d9e6440377692591f89ce231e1a4a258d0e330744b276d5c1cc93c",
+      "sha256": "6dc2b8cccf88abda7d2bce23398353cc3596b830ce1b309b64120a7b155c750d",
       "disposition": "no-user-impact"
     },
     {
       "path": "src/lib/i18n.tsx",
-      "sha256": "57f7036fa75195fbeb3e8cc169844bacfdf8937e779ebdf84fb27da454cf367d",
+      "sha256": "f0a16ad95f467f555f16c3dedf59d5abca2c82e37c661f03ab78938900a13b34",
       "disposition": "no-user-impact"
     },
     {
@@ -71,7 +71,7 @@
     },
     {
       "path": "src/lib/route-permissions.ts",
-      "sha256": "0df7486ee425e3c00eb32a6404fc233e5d3609fe087e81b6895d16a8aaf3df4e",
+      "sha256": "4225af7234a6282d9d733eb53b8511a2517862fbac4b6d267131696d9244b05f",
       "disposition": "no-user-impact"
     }
   ]

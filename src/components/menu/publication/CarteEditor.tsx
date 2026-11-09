@@ -16,7 +16,7 @@ import {
   Store,
 } from "lucide-react";
 import {
-  ApiError,
+  ApiError, setMenuEventUsage,
   getRestaurant,
   listMenus,
   listAllItems,
@@ -62,6 +62,7 @@ import { CarteGroups } from "./CarteGroups";
 import { CarteItemPicker } from "./CarteItemPicker";
 import ActionMenu from "@/components/common/ActionMenu";
 import styles from "./CarteEditor.module.css";
+import { eventOrderCopy } from "@/lib/orders/event-order-copy";
 
 type Hour = {
   day_of_week: number;
@@ -778,6 +779,7 @@ function CarteEditor({
           </DialogHeader>
           {panel === "settings" && doc && (
             <div className="space-y-4">
+              {menu&&<label className="flex items-center gap-2"><input type="checkbox" checked={!!menu.is_catering} disabled={!canEdit||busy} onChange={async e=>{const checked=e.target.checked;try{await setMenuEventUsage(rid,menu.id,checked);setMenu({...menu,is_catering:checked});}catch{setError(eventOrderCopy[locale].saveError);}}}/>{eventOrderCopy[locale].carteSetting}</label>}
               <label className="block space-y-1">
                 <span>{t("name")}</span>
                 <input

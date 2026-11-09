@@ -257,6 +257,7 @@ const FIELD_TEST_VALUES: Record<string, TestValue> = {
   "section.settings.video_autoplay": true,
   "section.settings.video_loop": true,
   "section.settings.video_muted": true,
+  "section.settings.web_story_player": true,
   "section.settings.padding": "none",
   "section.settings.height": "tall",
   "section.settings.width": "wide",
@@ -480,7 +481,8 @@ function editorFor(
   isAction: boolean,
   pageTypes: FieldContract["pageTypes"] = ALL_PAGES,
 ): FieldEditorContract {
-  if (id === "checkout.offer_sign_in") return { kind: "field", scope: "page", pageTitle: "Brunch Order", sectionLabel: "Parcours de commande", publicSlug: "brunch-order", surface: "checkout", commit: "change" };
+  if (id === "checkout.offer_sign_in") return { kind: "field", scope: "page", pageTitle: "Brunch Order", sectionLabel: "Mode de commande", publicSlug: "brunch-order", commit: "change" };
+  if (id === "section.settings.web_story_player") return { kind: "field", scope: "section", sectionPanel: "appearance", pageTitle: "About", sectionLabel: "Video", publicSlug: "about", commit: "change", prerequisite: { id: "section.layout", value: "carousel" } };
   if ([
     "section.settings.controls_alignment",
     "section.settings.show_counter",
@@ -1014,6 +1016,7 @@ export const FIELD_CONTRACTS: readonly FieldContract[] = [
   section("section.settings.video_autoplay", ["settings", "video_autoplay"], "[data-website-section] video", "value"),
   section("section.settings.video_loop", ["settings", "video_loop"], "[data-website-section] video", "value"),
   section("section.settings.video_muted", ["settings", "video_muted"], "[data-website-section] video", "value"),
+  section("section.settings.web_story_player", ["settings", "web_story_player"], '[data-section-type="video"]', "value"),
   section("section.settings.padding", ["settings", "padding"], "[data-website-section]", "style"),
   section("section.settings.height", ["settings", "height"], "[data-website-section]", "style"),
   section("section.settings.width", ["settings", "width"], "text", "style"),

@@ -435,6 +435,23 @@ test("service windows expose their own shared color assignment", () => {
   assert.match(markup, /pickup, delivery and scheduling windows/);
   assert.equal((markup.match(/aria-label="Color style [1-6]"/g) ?? []).length, 6);
 });
+test("the order mode screen can be styled and previewed independently", () => {
+  const markup = render(<OrderPageEditor restaurantId={24}
+    page={{type:"order", slug:"order", title:"Order", sort_order:0, nav_visible:true, is_homepage:false, is_default:true, seo:{}, settings:{menu_ids:[1]},
+      appearance_overrides:{website_order:{choose_before_menu:true, entry_color_style:"style-3", fulfillment_color_style:"style-4"}}}}
+    region="order-fulfillment" previewMode="entry" onPreviewMode={() => undefined}
+    onChange={() => undefined} onPreviewItem={() => undefined} />);
+  assert.match(markup, /How customers choose/);
+  assert.equal((markup.match(/type="radio"/g) ?? []).length, 2);
+  assert.match(markup, /Screen to edit/);
+  assert.match(markup, /<option value="entry" selected="">Order method screen/);
+  assert.match(markup, /<option value="delivery">Delivery/);
+  assert.match(markup, /<option value="pickup">Pickup/);
+  assert.match(markup, /aria-label="Color style 3" aria-pressed="true"/);
+  assert.match(markup, /aria-label="Color style 4" aria-pressed="true"/);
+  assert.match(markup, /Screen title/);
+  assert.match(markup, /Service card labels/);
+});
 test("item details edit shared roles in a collapsed global panel", () => {
   const markup = render(
     <SiteColorsEditor palette={{}} target={{styleId: "style-4", itemDetail: true}}

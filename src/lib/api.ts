@@ -25,6 +25,7 @@ import {
   platformAuthenticatorIsAvailable,
 } from '@simplewebauthn/browser';
 import { normalizeRichExtraction } from './menu-import/normalize-extraction';
+import { decodeTransactionHistory, type TransactionHistory } from './transactions';
 
 import { RUNTIME_API_URL, RUNTIME_WEB_URL } from './runtime-origins';
 import { boundedSupportHistory } from './help/context';
@@ -52,6 +53,15 @@ export async function askSupportAssistant(message: string, lang: string, history
 }
 
 export const API_URL = RUNTIME_API_URL;
+
+/** Reads the restaurant-wide Foody ledger without contacting a terminal or provider. */
+export async function listTransactions(restaurantId: number, options: {
+  from?: string; to?: string; q?: string; method?: string; source?: string; limit?: number; offset?: number;
+} = {}): Promise<TransactionHistory> {
+  const query = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  for (const [key, value] of Object.entries(options)) if (value !== undefined && value !== '') query.set(key, String(value));
+  return decodeTransactionHistory(await apiFetch<TransactionHistory>(`/api/v1/transactions?${query}`, restaurantId));
+}
 
 /** Detects this browser's IP on the guest host without forwarding staff credentials. */
 export async function getOrderingTestCurrentIP(): Promise<string> {
@@ -448,6 +458,7 @@ export interface Location {
 }
 
 export interface Menu {
+  is_catering?: boolean;
   publication_enabled?: boolean;
   id: number;
   restaurant_id: number;
@@ -890,6 +901,7 @@ export interface OptionSelection {
 }
 
 export interface OrderItem {
+  source_menu_id?: number; source_menu_name?: string;
   option_selections?: OptionSelection[];
   /** Preparation override; empty/absent inherits the order method. */
   dining_option?: string;
@@ -940,7 +952,17 @@ export interface OrderItem {
   billed_invoice_number?: string;
 }
 
+/** Event requirements and answers frozen on a staff-prepared order. */
+export interface OrderEventConfig {
+ name: string; guests: number; event_date: string; event_time: string; venue: string; contact: string; notes: string;
+ require_guests: boolean; require_date: boolean; require_time: boolean; allow_date_change?: boolean;
+ payment_mode: 'none' | 'full' | 'deposit' | 'hold' | 'deposit_hold';
+ revision?: number; hold_type?: 'fixed' | 'percent'; hold_value?: number; hold?: {status:'pending'|'declined'|'verified';amount_minor:number;currency:string;verified_at?:string;transaction_id?:string;reference?:string}; deposit_type: 'fixed' | 'percent'; deposit_value: number;
+ balance_due_date: string; finalized_at?: string;
+}
+
 export interface Order {
+  event_config?: OrderEventConfig;
   /** Read-only independent lifecycle facts for this Order ID. */
   lifecycle?: OrderLifecycle | null;
   lifecycle_v2?: OrderLifecycleV2 | null;
@@ -981,6 +1003,7 @@ export interface Order {
   total_amount: number;
   items: OrderItem[];
   created_at: string;
+  updated_at?: string;
   table_number?: string;
   table_code?: string;
   is_scheduled?: boolean;
@@ -1353,7 +1376,8 @@ export interface OrderTypeSelectorConfig {
 // Stored as an opaque JSON blob on WebsiteConfig.typography (the server never
 // inspects its internals). foodyweb reads the SAME camelCase shape verbatim in
 // lib/themes/typography.ts — keep the two in sync.
-export type TypographyRoleKey = 'categoryBar' | 'categoryTitle' | 'itemName' | 'itemPrice' | 'itemDescription';
+export type TypographyRoleKey = 'categoryBar' | 'categoryTitle' | 'itemName' | 'itemPrice' | 'itemDescription' | 'navigation'
+  | 'orderEntryTitle' | 'orderEntryOption' | 'orderCatalogueTitle' | 'orderPickupTitle' | 'orderDeliveryTitle';
 
 export interface TypographyRoleOverride {
   /** Curated font family. Empty/absent = inherit the pairing's font. */
@@ -5268,6 +5292,7 @@ export interface CreateOrderModifierInput {
 /** One line on a manually-built order. Price is recomputed server-side from the
  *  menu item, selected variant, and modifiers — the client value is ignored. */
 export interface CreateOrderItemInput {
+  source_menu_id?: number;
   option_selections?: OptionSelection[];
   dining_option?: string;
   seat_number?: number | null;
@@ -5315,6 +5340,7 @@ export interface CreateOrderInput {
   payment_required?: boolean;
   /** Staff-prepared Sumit checkout; the server enforces provider and payment authority. */
   internal_checkout?: 'link' | 'card';
+  event_config?: OrderEventConfig;
   // Delivery-only address fields.
   delivery_address?: string;
   delivery_city?: string;
@@ -5326,6 +5352,8 @@ export interface CreateOrderInput {
    *  staff endpoint has no delivery-zone resolution, so this is the only way a
    *  manual delivery order gets a non-zero fee. Ignored server-side for pickup. */
   delivery_fee?: number;
+  /** Preserve this explicit staff fee through private-link address validation. */
+  delivery_fee_fixed?: boolean;
   /** When true the order is created as scheduled (status "scheduled") for
    *  `scheduled_for`. The server persists these for any order. */
   is_scheduled?: boolean;
@@ -5335,6 +5363,9 @@ export interface CreateOrderInput {
   /** When true the order is pinned onto the production sheet regardless of
    *  scheduling/payment — the "Ajouter au plan de production" checkbox. */
   force_production?: boolean;
+  /** Explicit staff inclusion choice; false suppresses automatic admission.
+   *  Omitted by legacy clients to retain their existing production rules. */
+  production_plan?: boolean;
   items: CreateOrderItemInput[];
   combos?: CreateOrderComboInput[];
   discount_code?: string;
@@ -5407,7 +5438,8 @@ export async function removeOrderItem(
 export interface ReplaceComboInput {
   seat_number?: number | null;
   seat_numbers?: number[];
-  combo_item_id: number;
+  source_menu_id?: number;
+    combo_item_id: number;
   selections: CreateOrderComboSelectionInput[];
   serie_date?: string; // "YYYY-MM-DD"
 }
@@ -5563,7 +5595,8 @@ export interface KitchenPlanModifierBreakdown {
 }
 
 export interface KitchenPlanItem {
-  menu_item_id: number;
+  source_menu_id?: number;
+    menu_item_id: number;
   name: string;
   variant?: string;
   variant_portion?: string;
@@ -5686,6 +5719,7 @@ export interface ProductionCellProvenance {
   standalone_portions?: ProductionSheetPortion[]; // weighed items: breakdown of standalone count
 }
 export interface ProductionSheetOrder {
+  is_event?: boolean;
   order_id: number;
   customer_name: string;
   order_type: 'dine_in' | 'pickup' | 'delivery';
@@ -5718,6 +5752,7 @@ export interface ProductionPortioning {
   max_box?: number;
 }
 export interface ProductionSheetResponse {
+  sections?: { menu_id: number; name: string; is_catering: boolean; sheet: ProductionSheetResponse }[];
   date: string;
   categories: ProductionSheetCategory[];
   items: ProductionSheetItem[];
@@ -5743,6 +5778,7 @@ export async function fetchProductionSheet(
   );
   return {
     date: data.date,
+    sections: data.sections ?? [],
     categories: data.categories ?? [],
     items: data.items ?? [],
     orders: data.orders ?? [],
@@ -6591,6 +6627,7 @@ export type DraftStatePayload = {
 
 export type DraftResponse = {
   state: DraftStatePayload;
+  revision?: string;
   draft_dirty: boolean;
   draft_saved_at?: string | null;
   published_at?: string | null;
@@ -6598,16 +6635,16 @@ export type DraftResponse = {
 
 export async function getWebsiteDraft(restaurantId: number): Promise<DraftResponse> {
   return apiFetch<DraftResponse>(
-    `/api/v1/restaurants/${restaurantId}/website-draft`, restaurantId
+    `/api/v1/restaurants/${restaurantId}/website-draft`, restaurantId, { cache: "no-store" }
   );
 }
 
 export async function saveWebsiteDraft(
-  restaurantId: number, payload: DraftStatePayload
+  restaurantId: number, payload: DraftStatePayload, revision: string
 ): Promise<DraftResponse> {
   return apiFetch<DraftResponse>(
     `/api/v1/restaurants/${restaurantId}/website-draft`, restaurantId,
-    { method: 'PUT', body: JSON.stringify(payload) }
+    { method: 'PUT', body: JSON.stringify(payload), headers: { 'X-Website-Draft-Revision': revision } }
   );
 }
 
@@ -6637,17 +6674,17 @@ export async function setWebsitePageSettings(
   );
 }
 
-export async function publishWebsiteDraft(restaurantId: number): Promise<DraftResponse> {
+export async function publishWebsiteDraft(restaurantId: number, revision: string): Promise<DraftResponse> {
   return apiFetch<DraftResponse>(
     `/api/v1/restaurants/${restaurantId}/website-publish`, restaurantId,
-    { method: 'POST' }
+    { method: 'POST', headers: { 'X-Website-Draft-Revision': revision } }
   );
 }
 
-export async function discardWebsiteDraft(restaurantId: number): Promise<DraftResponse> {
+export async function discardWebsiteDraft(restaurantId: number, revision: string): Promise<DraftResponse> {
   return apiFetch<DraftResponse>(
     `/api/v1/restaurants/${restaurantId}/website-discard`, restaurantId,
-    { method: 'POST' }
+    { method: 'POST', headers: { 'X-Website-Draft-Revision': revision } }
   );
 }
 
@@ -9874,7 +9911,9 @@ export interface DeliveryZoneSameDay {
   time_mode: 'inherit' | 'restaurant';
 }
 
+export interface OrderingDeadline { days: number[]; days_before: number; time: string }
 export interface DeliverySchedule {
+  order_deadlines?: OrderingDeadline[];
   same_day?: DeliveryZoneSameDay;
   mode: 'customer' | 'automatic' | 'restaurant';
   days?: number[];
@@ -9935,8 +9974,8 @@ export async function getDeliveryZones(restaurantId: number): Promise<DeliveryZo
 }
 
 /** Reads zone capabilities from the same scoped response as the inventory. */
-export async function getDeliveryZoneWorkspace(restaurantId: number): Promise<{ zones: DeliveryZone[]; zone_same_day_supported?: boolean; legacy_same_day_active?: boolean }> {
-  const data = await apiFetch<{ zones: DeliveryZone[] | null; zone_same_day_supported?: boolean; legacy_same_day_active?: boolean }>(
+export async function getDeliveryZoneWorkspace(restaurantId: number): Promise<{ zones: DeliveryZone[]; order_deadlines_supported?: boolean; zone_same_day_supported?: boolean; legacy_same_day_active?: boolean }> {
+  const data = await apiFetch<{ zones: DeliveryZone[] | null; order_deadlines_supported?: boolean; zone_same_day_supported?: boolean; legacy_same_day_active?: boolean }>(
     `/api/v1/delivery/zones?restaurant_id=${restaurantId}`, restaurantId
   );
   if (!data || !(Array.isArray(data.zones) || data.zones === null)) throw new Error('Invalid delivery zone response');
@@ -11383,14 +11422,14 @@ export function verifyLifecycleV2(context: LifecycleActorContext, command: impor
 }
 
 /** Reads the active restaurant's Sumit-only internal checkout capability. */
-export function getInternalCheckoutCapabilities(restaurantId: number): Promise<{ enabled: boolean }> {
+export function getInternalCheckoutCapabilities(restaurantId: number): Promise<{ enabled: boolean; hold_enabled?: boolean }> {
   return apiFetch(`/api/v1/public/internal-checkout-capabilities?restaurant_id=${restaurantId}`, restaurantId);
 }
 
 /** Opens or resumes the one hosted Sumit page bound to a prepared order. */
-export function payInternalCheckout(restaurantId: number, orderId: number, receiptToken: string): Promise<{ payment_url: string }> {
+export function payInternalCheckout(restaurantId: number, orderId: number, receiptToken: string, expectedEventRevision?: number, holdConsent?: {authorize_hold:boolean;expected_hold_amount_minor:number}): Promise<{ payment_url: string; completed?: boolean }> {
   return apiFetch(`/api/v1/public/orders/${orderId}/internal-checkout?restaurant_id=${restaurantId}`, restaurantId, {
-    method: 'POST', headers: { 'X-Receipt-Token': receiptToken }, body: '{}',
+    method: 'POST', headers: { 'X-Receipt-Token': receiptToken }, body: JSON.stringify({expected_event_revision:expectedEventRevision,...holdConsent}),
   });
 }
 
@@ -11402,6 +11441,7 @@ export function cashGuaranteeAction(restaurantId: number, orderId: number, actio
 /** The server calendar used by the read-only ordering simulation. */
 export interface AvailabilitySimulationCalendar {
   enabled: boolean;
+  prepared_stock_applied?: boolean;
   evaluated_at?: string;
   timezone?: string;
   delivery_mode?: DeliverySchedule['mode'];
@@ -11428,4 +11468,31 @@ export async function simulateOrderingAvailability(restaurantId: number, input: 
   });
   if (!result || typeof result.deliverable !== 'boolean' || typeof result.resolved !== 'boolean') throw new Error('Incomplete ordering simulation');
   return { ...result, calendar: result.schedule };
+}
+
+/** Saves the internal carte classification independently from publication. */
+export function setMenuEventUsage(restaurantId: number, menuId: number, isCatering: boolean): Promise<{ is_catering: boolean }> {
+ return apiFetch(`/api/v1/menu/menus/${menuId}/event-usage?restaurant_id=${restaurantId}`,restaurantId,{method:'PUT',body:JSON.stringify({is_catering:isCatering})});
+}
+
+/** Reconciles an existing event transaction without creating a new payment. */
+export function reconcileEventPayment(restaurantId:number,orderId:number,transactionId:string):Promise<{payment_status:PaymentStatus}>{return apiFetch(`/api/v1/orders/${orderId}/event-payment/reconcile?restaurant_id=${restaurantId}`,restaurantId,{method:'POST',body:JSON.stringify({transaction_id:transactionId})});}
+
+/** Saves one restaurant-owned event editor delta atomically against its reviewed version. */
+export async function editEventOrder(restaurantId:number,orderId:number,input:{expected_updated_at:string;event_config?:OrderEventConfig;add:CreateOrderItemInput[];update:{id:number;input:CreateOrderItemInput}[];remove:number[];combos:{group:string;input:Parameters<typeof replaceOrderCombo>[3]}[];fulfillment?:Parameters<typeof updateOrderFulfillment>[2];discount?:{remove?:boolean;type?:'fixed'|'percent';value?:number;reason?:string}}):Promise<Order>{
+ const result=await apiFetch<{order:Order}>(`/api/v1/orders/${orderId}/event`,restaurantId,{method:'PUT',body:JSON.stringify(input)});return result.order;
+}
+
+/** Rechecks the event's existing bank authorization without reserving or debiting again. */
+export function reconcileEventHold(restaurantId:number,orderId:number):Promise<{hold:NonNullable<OrderEventConfig['hold']>}>{return apiFetch(`/api/v1/orders/${orderId}/event-hold/reconcile`,restaurantId,{method:'POST',body:'{}'});}
+
+/** Independent remaining shelf stock; null disables the opt-in pool. */
+export interface PreparedStock { available_until: string; quantity: number | null; revision: number }
+/** Read the selected restaurant's current shelf quantity before editing. */
+export async function getPreparedStock(rid: number, itemId: number): Promise<PreparedStock> {
+  return apiFetch<PreparedStock>(`/api/v1/menu/items/${itemId}/prepared-stock`, rid);
+}
+/** Save a reviewed remaining quantity, rejecting concurrent reservation changes. */
+export async function setPreparedStock(rid: number, itemId: number, quantity: number | null, revision: number, availableUntil: string): Promise<PreparedStock> {
+  return apiFetch<PreparedStock>(`/api/v1/menu/items/${itemId}/prepared-stock`, rid, { method: 'PUT', body: JSON.stringify({quantity, expected_revision: revision, available_until: availableUntil}) });
 }

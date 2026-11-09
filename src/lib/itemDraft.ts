@@ -2,6 +2,7 @@ import type { ItemType, PricingMode, MenuItemCustomerFacts } from '@/lib/api';
 import type { ComboStepDraft } from '@/components/menu-item/combo/types';
 import type { VariantGroupState } from '@/components/menu-item/VariantsEditor';
 import type { MenuItemSection } from '@/components/menu-item/TabBar';
+import type { ItemMenuAssignment } from '@/lib/item-menu-assignments';
 
 const STORAGE_PREFIX = 'foody.menu.itemDraft.';
 const CURRENT_VERSION = 1;
@@ -19,6 +20,7 @@ export interface ItemDraft {
   itemType: ItemType;
   comboSteps: ComboStepDraft[];
   selectedGroupIds: number[];
+  menuAssignments?: ItemMenuAssignment[];
   selectedModifierSetIds: number[];
   variantGroups: VariantGroupState[];
   activeTab: MenuItemSection;
@@ -43,7 +45,7 @@ function keyFor(rid: number): string {
 export function isMeaningfulDraft(input: ItemDraftInput): boolean {
   return (
     input.pricingMode === 'by_weight' || (input.pricePerKg ?? 0) > 0 || !!input.aiContext?.trim() ||
-    input.allowNotes === false || input.comboAllowQuantity === false ||
+    input.allowNotes === true || input.comboAllowQuantity === false ||
     input.posAutoSelectFirstVariant === false || input.posSkipCustomization === true ||
     !!input.customerFacts?.ingredients?.some(ingredient => ingredient.name.trim()) ||
     !!input.customerFacts?.allergens?.length || !!input.customerFacts?.may_contain?.length ||
@@ -54,6 +56,7 @@ export function isMeaningfulDraft(input: ItemDraftInput): boolean {
     input.description.trim().length > 0 ||
     input.comboSteps.length > 0 ||
     input.selectedGroupIds.length > 0 ||
+    (input.menuAssignments?.length ?? 0) > 0 ||
     input.selectedModifierSetIds.length > 0 ||
     input.variantGroups.length > 0
   );

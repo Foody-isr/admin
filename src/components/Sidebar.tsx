@@ -20,6 +20,7 @@ import {
   CalendarDays,
   Menu as MenuIcon,
   ClipboardList,
+  ReceiptText,
   Users,
   BarChart3,
   Settings,
@@ -164,6 +165,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         { href: `${base}/orders/production`, labelKey: 'productionTitle' },
       ],
     },
+    { href: `${base}/transactions`, labelKey: 'transactions', icon: ReceiptText, perm: ['payments.view', 'payments.manage'] },
     ...(loyaltyProgramEnabled ? [{ href: `${base}/loyalty/program`, labelKey: 'loyaltyProgramTitle', icon: ClipboardList, perm: ['settings.view', 'settings.edit'] }] : []),
     ...(loyaltyCheckoutEnabled ? [{ href: `${base}/loyalty/checkouts`, labelKey: 'loyaltyCheckoutNav', icon: ClipboardList, perm: ['payments.view', 'payments.manage'] }] : []),
     {

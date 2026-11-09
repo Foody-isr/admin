@@ -1,0 +1,81 @@
+{
+  "files": [
+    {
+      "path": "src/components/menu/publication/CarteEditor.tsx",
+      "sha256": "027f54ebbd513b1c6f3c9d6968b48a53877f078c62d438b25c9d856927e77d14",
+      "baseSha256": "c8b6a817bb82f05f10cb9dc44b7b404839eec835ce3526b1b9a98695990fc627",
+      "features": [
+        "menu-menus-and-groups"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new immediate internal catering checkbox is documented in the event guide. Existing carte groups, visibility, channel publication and draft publication procedures retain their prior behavior; the internal classification does not publish a carte."
+    },
+    {
+      "path": "src/components/orders/NewOrderItemModal.tsx",
+      "sha256": "8189e90d748dd535d1df1b750c2d5784b4b0ec7aead04332daad3d26db6bbd5b",
+      "baseSha256": "4555353860e16c37f2d259278c342f34a431f52f93ddc4d44e634ed8acb7ca0c",
+      "features": [
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "These shared order/catalog contracts add the opt-in event context, internal carte provenance or its staff badge. The scoped existing configuration, permission, delivery, variant/photo and non-event workflows retain their procedures. New event and production behavior is covered in the five updated FR/HE/EN order guides."
+    },
+    {
+      "path": "src/components/orders/detail/OrderDetailHead.tsx",
+      "sha256": "d48635635894803db870087c5f68be0a77e835875aee82c3ef54f8819bf3b4cb",
+      "baseSha256": "0fedea5cdbc56d3152737461f93dca28a52bd6aead29b51e5475ef1cace328f6",
+      "features": [
+        "order-lifecycle"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "These shared order/catalog contracts add the opt-in event context, internal carte provenance or its staff badge. The scoped existing configuration, permission, delivery, variant/photo and non-event workflows retain their procedures. New event and production behavior is covered in the five updated FR/HE/EN order guides."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "1b56c6d57e6f7cce43eb4dead8a02c4ee55381d47f7fe8c2b625c818a7f869ac",
+      "baseSha256": "d35f9a77a384cf7f518be782ca8b39c2a4366e3eff77affd6afd8ddd1a4ffbd8",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "These shared order/catalog contracts add the opt-in event context, internal carte provenance or its staff badge. The scoped existing configuration, permission, delivery, variant/photo and non-event workflows retain their procedures. New event and production behavior is covered in the five updated FR/HE/EN order guides."
+    },
+    {
+      "path": "src/lib/orders/draftLines.ts",
+      "sha256": "de666981bb50b78788447e6264a5dcfc587601e988f8d9a61de7a1aa3402cf11",
+      "baseSha256": "57a261e5e6ed0d5767609f3d8e01518da5f798fffdd8a4489c494a326175a22d",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "These shared order/catalog contracts add the opt-in event context, internal carte provenance or its staff badge. The scoped existing configuration, permission, delivery, variant/photo and non-event workflows retain their procedures. New event and production behavior is covered in the five updated FR/HE/EN order guides."
+    },
+    {
+      "path": "src/lib/orders/orderDraft.ts",
+      "sha256": "57840d057bb45499e6a01198f2917d423e1e24a95474743f6b780e07f5f1618e",
+      "baseSha256": "d87e33b0bbc150312904c73a2e8e8ebef1e745f406a1431ec6037ebf4c43a25e",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "These shared order/catalog contracts add the opt-in event context, internal carte provenance or its staff badge. The scoped existing configuration, permission, delivery, variant/photo and non-event workflows retain their procedures. New event and production behavior is covered in the five updated FR/HE/EN order guides."
+    },
+    {
+      "path": "src/lib/orders/table-columns.tsx",
+      "sha256": "87b9d4402ba9447a19536ff1e73b8a362aef26a6044568c8c999b9109ac53cfc",
+      "baseSha256": "f20daa879122bec745796ee1b7002dd36698052dace59e97b341bd28b076cc55",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "These shared order/catalog contracts add the opt-in event context, internal carte provenance or its staff badge. The scoped existing configuration, permission, delivery, variant/photo and non-event workflows retain their procedures. New event and production behavior is covered in the five updated FR/HE/EN order guides."
+    }
+  ]
+}

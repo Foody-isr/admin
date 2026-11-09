@@ -25,12 +25,14 @@ export function normalizeNavbarStyle(value: unknown): NavbarStyle {
 /** Normalizes an API response into the strict V3 editor contract. */
 export function normalizeDraftResponse(response: {
   state: unknown;
+  revision?: string;
   draft_dirty: boolean;
   draft_saved_at?: string | null;
   published_at?: string | null;
 }): DraftResponse {
   const source = response;
   return {
+    revision: source.revision,
     draft_dirty: Boolean(source.draft_dirty),
     draft_saved_at: source.draft_saved_at,
     published_at: source.published_at,
@@ -658,7 +660,7 @@ export function validateDraftForPublish(
 }
 
 /** Maps server validation errors back to deterministic field identifiers. */
-export function mapWebsiteDraftError(error: unknown): FieldError | null {
+export function mapWebsiteDraftError(error: unknown, pages: DraftPagePayload[] = [], slugConflictMessage?: string): FieldError | null {
   const message =
     error &&
     typeof error === "object" &&
@@ -670,6 +672,16 @@ export function mapWebsiteDraftError(error: unknown): FieldError | null {
         ? error.message
         : String(error);
   const normalized = message.toLowerCase();
+  const omittedSlug = /slug "([^"]+)" belongs to omitted page/.exec(message)?.[1];
+  if (omittedSlug) {
+    const page = pages.find((candidate) => candidate.slug === omittedSlug);
+    return {
+      fieldId: "page.slug",
+      message: slugConflictMessage ?? message,
+      pageKey: page ? pageKey(page) : undefined,
+      sectionPanel: "settings",
+    };
+  }
   if (normalized.includes("reserved slug")) {
     return { fieldId: "page.slug", message, sectionPanel: "settings" };
   }

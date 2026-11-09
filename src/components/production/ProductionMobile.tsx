@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronDownIcon } from 'lucide-react';
+import { EventOrderBadge } from '@/components/orders/EventOrderBadge';
 import { useI18n } from '@/lib/i18n';
 import {
   ProductionSheetResponse,
@@ -187,7 +188,7 @@ function ClientsView({
               <span
                 className={`flex-1 min-w-0 flex items-center ${done ? 'opacity-60 line-through' : ''}`}
               >
-                <span className="font-medium truncate">{o.customer_name}</span>
+                <span className="font-medium truncate">{o.customer_name}<EventOrderBadge isEvent={o.is_event}/></span>
                 <OrderBadge order={o} />
               </span>
               <span className="shrink-0 text-fs-xs text-[var(--fg-muted)] tabular-nums">
@@ -256,7 +257,7 @@ function StatusView({ sheet, onRowClick, doneIds, onToggleDone }: Props) {
             done ? 'opacity-60 line-through' : ''
           }`}
         >
-          <span className="font-medium truncate">{o.customer_name}</span>
+          <span className="font-medium truncate">{o.customer_name}<EventOrderBadge isEvent={o.is_event}/></span>
           <OrderBadge order={o} />
         </button>
       </div>

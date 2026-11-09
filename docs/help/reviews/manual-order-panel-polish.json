@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-04",
+  "documentationRef": "55bf66079a72f28619b81090723d23bebda6f9f4",
+  "review": "Reviewed existing French, English and Hebrew manual-order, event and prepared-checkout guides. This visual correction preserves every documented control label, step, required field, validation rule, payment intent, production condition and recovery. None of these guides embeds an affected screenshot. Public prose and the API corpus remain unchanged.",
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/orders/new/page.tsx",
+      "sha256": "e7216dd4441eb1b65658f6d7c23649d87b7a600323a8fa3d37bdc2b8cdc6601f",
+      "disposition": "no-user-impact",
+      "reason": "Presentation-only manual-order correction: one responsive ticket width is shared by basket and checkout; product columns follow catalogue space; the step rail, option spacing, field borders and production summary are restyled. Labels, actions, data entry, accessible errors, focus, step gating, payloads, permissions and production/payment rules are unchanged. The published FR/HE/EN procedures remain accurate and contain no affected screenshot."
+    },
+    {
+      "path": "src/components/orders/NewOrderCheckoutPanel.tsx",
+      "sha256": "7c2ec89e3e54fd00773a594d65af374d3245c468f2b24af7f2f385994d56bf33",
+      "disposition": "no-user-impact",
+      "reason": "Presentation-only manual-order correction: one responsive ticket width is shared by basket and checkout; product columns follow catalogue space; the step rail, option spacing, field borders and production summary are restyled. Labels, actions, data entry, accessible errors, focus, step gating, payloads, permissions and production/payment rules are unchanged. The published FR/HE/EN procedures remain accurate and contain no affected screenshot."
+    },
+    {
+      "path": "src/components/orders/order-checkout.module.css",
+      "sha256": "fccbea8bd4a5d0d0b7253cb4f11a3909b899d2b30656abd237c4f2588fa4df93",
+      "disposition": "no-user-impact",
+      "reason": "Presentation-only manual-order correction: one responsive ticket width is shared by basket and checkout; product columns follow catalogue space; the step rail, option spacing, field borders and production summary are restyled. Labels, actions, data entry, accessible errors, focus, step gating, payloads, permissions and production/payment rules are unchanged. The published FR/HE/EN procedures remain accurate and contain no affected screenshot."
+    }
+  ]
+}

@@ -12,6 +12,7 @@ import { readOrderLifecycleV2 } from '@/lib/orders/lifecycle-v2';
 import { readOrderLifecycle } from '@/lib/orders/lifecycle';
 import { orderDetailUrl } from '@/lib/orders/routes';
 import styles from './order-detail.module.css';
+import { EventOrderBadge } from '../EventOrderBadge';
 import { PreparedCheckoutActions } from '../InternalOrderPayment';
 
 /** Fixed drawer toolbar. Sharing retains Foody's canonical order link. */
@@ -60,7 +61,7 @@ export function OrderDetailHead({ order, children }: { order: Order; children: R
           title={linkCopied ? t('linkCopied') : t('shareOrder')}>
           {linkCopied ? <Check /> : <Share2 />}
         </Button>
-        {children}
+        <EventOrderBadge event={order.event_config}/>{children}
       </div>
     </div>
   );

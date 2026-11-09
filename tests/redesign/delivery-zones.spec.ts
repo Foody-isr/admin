@@ -9,7 +9,7 @@ const seed=():DeliveryZone[]=>[
 ];
 const runtimeErrors=new WeakMap<Page,string[]>();
 test.afterEach(async({page})=>{expect(runtimeErrors.get(page)??[]).toEqual([]);});
-async function install(page:Page,opts:{locale?:string;permissions?:string[];country?:string;zoneRules?:boolean;legacy?:boolean}={}){
+async function install(page:Page,opts:{locale?:string;permissions?:string[];country?:string;zoneRules?:boolean;deadlines?:boolean;legacy?:boolean}={}){
  const errors:string[]=[];runtimeErrors.set(page,errors);page.on('pageerror',error=>errors.push(error.message));
  const fixture=createFixture(),writes:{method:string;path:string;body:any;rid:string|undefined;query:string}[]=[];
  const control={zones:seed(),policy:{enabled:false,allowed_days:[1,2,3,4,5],restricted_days:[5],coverage_zone_ids:[1],transit_minutes:60,time_mode:'restaurant'},policyConflict:false,minimum:50,zoneReads:0,settingsReads:0,geoReads:0,failRead:false,failMinimumRead:false,malformed:false,failWrite:false,applyAndFail:false,failAfterWrite:false,conflict:false,geoUnavailable:false,geoFound:true,tileFailure:false,gate:null as Promise<void>|null};
@@ -20,7 +20,7 @@ async function install(page:Page,opts:{locale?:string;permissions?:string[];coun
   if(path==='/api/v1/users/me')return route.fulfill({json:{role_name:'Custom',permissions:opts.permissions??['orders.manage','settings.view','settings.edit'],user:{id:1,full_name:'Équipe démo',role:'manager'}}});
   if(path==='/api/v1/public/geocode'){expect(url.searchParams.get('restaurant_id')).toMatch(/^[12]$/);control.geoReads++;return route.fulfill({status:control.geoUnavailable?503:200,json:control.geoUnavailable?{error:'Synthetic geocode outage'}:control.geoFound?{found:true,lat:32.08,lng:34.82}:{found:false}});}
   if(path.startsWith('/api/v1/delivery/zones')){
-   if(method==='GET'){control.zoneReads++;return route.fulfill({status:control.failRead?503:200,json:control.failRead?{error:'Synthetic read failure'}:control.malformed?{}:{zones:control.zones.map(row=>({...row,restaurant_id:Number(rid)})),zone_same_day_supported:opts.zoneRules??false,legacy_same_day_active:opts.legacy??false}});}
+   if(method==='GET'){control.zoneReads++;return route.fulfill({status:control.failRead?503:200,json:control.failRead?{error:'Synthetic read failure'}:control.malformed?{}:{zones:control.zones.map(row=>({...row,restaurant_id:Number(rid)})),order_deadlines_supported:opts.deadlines??false,zone_same_day_supported:opts.zoneRules??false,legacy_same_day_active:opts.legacy??false}});}
    writes.push({method,path,body,rid,query:url.search});if(control.gate)await control.gate;const id=Number(path.split('/')[5]);let result=control.zones.find(row=>row.id===id);
    if(control.conflict)return route.fulfill({status:409,json:{error:'zone used by tour'}});
    if(!control.failWrite||control.applyAndFail){if(method==='DELETE')control.zones=control.zones.filter(row=>row.id!==id);else if(method==='POST'){result={...body,id:Math.max(0,...control.zones.map(row=>row.id))+1,restaurant_id:Number(rid),updated_at:'2026-10-01T00:00:00Z',created_at:'2026-10-04T12:00:00Z'};control.zones.push(result!);}else if(result)Object.assign(result,body);}
@@ -212,4 +212,23 @@ test('conflicting postal same-day rules retain the zone draft after a server con
  await expect(form.getByRole('alert')).toContainText('pour conserver les dates de précommande');
  await expect(form.getByRole('combobox',{name:'Choix de l’horaire pour les commandes à l’avance',exact:true})).toHaveValue('customer');
  await expect(form).toBeVisible();expect(state.writes).toHaveLength(0);
+});
+
+
+test('zone order deadlines close Friday intake and Sunday advance orders without changing pickup',async({page})=>{
+ const {writes}=await install(page,{locale:'en',deadlines:true,zoneRules:true});
+ await open(page);await edit(page);
+ const dialog=page.getByRole('dialog');
+ await expect(dialog.getByText('Order deadlines',{exact:true})).toBeVisible();
+ await dialog.getByRole('combobox',{name:'Order before Friday',exact:true}).selectOption('0');
+ await dialog.getByLabel('Before Friday',{exact:true}).fill('13:00');
+ await dialog.getByRole('combobox',{name:'Order before Sunday',exact:true}).selectOption('1');
+ await dialog.getByLabel('Before Sunday',{exact:true}).fill('00:00');
+ await dialog.getByRole('button',{name:'Save',exact:true}).click();
+ await expect(dialog).toHaveCount(0);
+ expect(writes.filter(write=>write.method==='PUT')).toHaveLength(1);
+ const write=writes.find(write=>write.method==='PUT')!;
+ expect(write.rid).toBe('1');expect(write.path).toBe('/api/v1/delivery/zones/1');
+ expect(write.body.schedule.order_deadlines).toEqual([{days:[5],days_before:0,time:'13:00'},{days:[0],days_before:1,time:'00:00'}]);
+ expect(writes.some(write=>write.path.includes('/settings'))).toBe(false);
 });

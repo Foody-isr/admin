@@ -1,4 +1,6 @@
 "use client";
+import { OrderTypographyFields } from "./OrderTypographyFields";
+import type { TypographyOverrides } from "@/lib/api";
 import { ColorStylePicker } from "./ColorStylePicker";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ArrowLeft, Link as LinkIcon, Star } from "lucide-react";
@@ -526,6 +528,10 @@ export function HeaderInspector({
               {color(c.textColor, header.navigation.color, (value) =>
                 patch("navigation", { color: value }),
               )}
+              <h4>{t("editorHeaderMenuTypography")}</h4>
+              <OrderTypographyFields restaurantId={restaurantId} role="navigation"
+                base={{}} value={(config.typography ?? {}) as TypographyOverrides}
+                onChange={value => onChange(["typography"], value)} />
             </>,
           )}
           {!customOrderHeader && !restaurantLayout && accordion(

@@ -1,0 +1,53 @@
+{
+  "files": [
+    {
+      "path": "src/components/website-v3/WebsiteV3Builder.tsx",
+      "sha256": "030cfe9759ebb05a062c28994266c91fd7715279005bef809fa4ce36c05a5f58",
+      "baseSha256": "b764d95de681db1c4050e2211bcce85bb49afb2095798d937e928b0af7d69d76",
+      "features": [
+        "website-pages"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the existing site sign-in preference is wired to the order mode inspector. Page creation, page settings, routes, publication and the other page editing procedures remain as reviewed."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "2e08f0c1b070af372172251f79ecd953055a5fd5c2fdf2bdca19e27e3decb5bb",
+      "baseSha256": "ccfd50a4198c586a4816461dc48c7813c56a2fbb60fb39c1ca90263294b617e6",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This change only adds the pickup and delivery title roles to the existing typography TypeScript union. The unrelated API requests, models, screens and procedures listed here retain the preceding implementation."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "42a383f379384f0484978e180f5a5d8257df7bdd030a5622e2f27a3c0c9fa298",
+      "baseSha256": "1237143fc2dee74dd3779955d49bc38304b5f0ff6978f18a122708748bed92a6",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "google-account-setup",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The changed French, Hebrew and English strings are limited to the Website V3 order mode presentation, its appearance controls and the entry sign-in setting. The copy and procedures of the listed features are unchanged."
+    }
+  ]
+}

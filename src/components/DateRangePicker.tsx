@@ -8,7 +8,7 @@ import {
   ChevronRightIcon,
   SlidersHorizontalIcon,
 } from 'lucide-react';
-import { clampWeekStartDay, type WeekStartDay } from '@/lib/weeks';
+import { clampWeekStartDay, getWeekStart, getWeekEnd, type WeekStartDay } from '@/lib/weeks';
 import { useI18n } from '@/lib/i18n';
 import {
   getDisplayPreferences,
@@ -188,8 +188,7 @@ function builtinPresets(weekStartDay: WeekStartDay, now: Date): { key: DateRange
   const last30Start = new Date(today);
   last30Start.setDate(last30Start.getDate() - 29);
 
-  const weekStart = new Date(today);
-  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() - weekStartDay + 7) % 7));
+  const weekStart = getWeekStart(today, weekStartDay);
 
   const lastWeekStart = new Date(weekStart);
   lastWeekStart.setDate(lastWeekStart.getDate() - 7);
@@ -215,7 +214,7 @@ function builtinPresets(weekStartDay: WeekStartDay, now: Date): { key: DateRange
     { key: 'drYesterday', range: { from: yesterday, to: endOfDay(yesterday) } },
     { key: 'drLast7Days', range: { from: last7Start, to: endOfDay(now) } },
     { key: 'drLast30Days', range: { from: last30Start, to: endOfDay(now) } },
-    { key: 'drThisWeek', range: { from: weekStart, to: endOfDay(now) } },
+    { key: 'drThisWeek', range: { from: weekStart, to: endOfDay(getWeekEnd(weekStart)) } },
     { key: 'drLastWeek', range: { from: lastWeekStart, to: endOfDay(lastWeekEnd) } },
     { key: 'drThisMonth', range: { from: monthStart, to: endOfDay(now) } },
     { key: 'drLastMonth', range: { from: lastMonthStart, to: endOfDay(lastMonthEnd) } },

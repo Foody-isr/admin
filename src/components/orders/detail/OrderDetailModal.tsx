@@ -12,11 +12,13 @@ import type { AcceptOrderResult, CheckoutConfig, Order } from '@/lib/api';
 
 import { LifecycleOperations } from './LifecycleOperations';
 import { OrderDetailShell } from './OrderDetailShell';
+import { EventOrderSummary } from '../EventOrderSummary';
 import { OrderDetailHead, OrderDetailSummary, OrderDetailLoadingHead } from './OrderDetailHead';
 import { CommandBar } from './CommandBar';
 import { OrderOverflowMenu } from './menus/OrderOverflowMenu';
 import { WorkflowStepper } from './spine/WorkflowStepper';
 import styles from './order-detail.module.css';
+import { usePermissions } from '@/lib/permissions-context';
 import { ActivityTimeline } from './spine/ActivityTimeline';
 import { DeliverySlotAssignment } from '@/components/orders/DeliverySlotAssignment';
 import { ScheduledBanner } from './spine/ScheduledCallout';
@@ -91,6 +93,7 @@ export function OrderDetailModal({
   onEditCustomer, onToggleForceProduction, restaurantName, restaurantDefaultLocale, customFieldLabels, checkoutConfig,
 }: OrderDetailModalProps) {
   const { t, direction } = useI18n();
+  const {hasAnyPermission}=usePermissions();
   const { symbol: currencySign, code: currencyCode } = useCurrency();
 
   const [message, setMessage] = useState<{ kind: WhatsAppMessageKind; channel: WhatsAppChannel } | null>(null);
@@ -124,7 +127,7 @@ export function OrderDetailModal({
 
   const caps = deriveOrderCapabilities(
     order,
-    { canManage, canOverride, canDelete, currencyCode },
+    { canManage, canPlanProduction: hasAnyPermission('kitchen.manage'), canOverride, canDelete, currencyCode },
     {
       onConfirmWeights: !!onConfirmWeights,
       onOverride: !!onOverride,
@@ -242,6 +245,7 @@ export function OrderDetailModal({
         summary={<OrderDetailSummary order={order} isCancelled={caps.isCancelled} onRetry={onRetry} />}
         center={
           <>
+            <EventOrderSummary key={order.id} order={order}/>
             {/* Alerts head the ticket, and TicketItems opens with its own
                 settlement banners, so the whole alarm stack stays contiguous. */}
             {!canManage && order.delivery_slot_pending && <p role="status" className="mb-4 text-fs-sm">{t('deliverySlotPending')}</p>}

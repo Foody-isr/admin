@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import {
   getAllCategories, updateMenuItem, deleteModifier, uploadMenuItemImage,
   detachModifierSetFromItem, setModifierSetItemOverrides,
-  listMenus, addItemsToGroup, removeItemFromGroup,
+  listMenus,
   listModifierSets, attachModifierSetToItems,
   listOptionSets, getItemOptionPrices,
   syncItemVariants,
@@ -24,6 +24,8 @@ import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import type { MenuItemSection } from '@/components/menu-item/TabBar';
 import MenuItemDistribution from '@/components/menu-item/MenuItemDistribution';
+import ItemMenuSaveNotice from '@/components/menu-item/ItemMenuSaveNotice';
+import { saveItemMenuAssignments, ItemMenuAssignmentError, type ItemMenuAssignment } from '@/lib/item-menu-assignments';
 import MenuItemPhoto from '@/components/menu-item/MenuItemPhoto';
 import { itemPhotos, validateItemPhotos } from '@/lib/item-photos';
 import MenuItemEditorForm from '@/components/menu-item/MenuItemEditorForm';
@@ -139,7 +141,7 @@ function EditItemEditor() {
   const [sourceLocale, setSourceLocale] = useState<Locale>('en');
   const [categoryId, setCategoryId] = useState(() => item?.category_id ?? 0);
   const [isActive, setIsActive] = useState(() => item?.is_active ?? true);
-  const [allowNotes, setAllowNotes] = useState<boolean>(() => item?.allow_notes ?? true);
+  const [allowNotes, setAllowNotes] = useState<boolean>(() => item?.allow_notes ?? false);
   const [posAutoSelectFirstVariant, setPosAutoSelectFirstVariant] = useState(() => item?.pos_auto_select_first_variant ?? true);
   const [posSkipCustomization, setPosSkipCustomization] = useState(() => item?.pos_skip_customization ?? false);
   const [comboAllowQuantity, setComboAllowQuantity] = useState<boolean>(() => item?.combo_allow_quantity ?? true);
@@ -195,8 +197,9 @@ function EditItemEditor() {
   // can pick the exact group inside each carte. The previous menu-only model
   // dropped items into whichever group happened to be first on save.
   const [menus, setMenus] = useState<Menu[]>([]);
-  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<number>>(new Set());
-  const [initialGroupIds, setInitialGroupIds] = useState<Set<number>>(new Set());
+  const [menuAssignments, setMenuAssignments] = useState<ItemMenuAssignment[]>([]);
+  const [assignmentSaveAttempted, setAssignmentSaveAttempted] = useState(false);
+  const [savedMenuNames, setSavedMenuNames] = useState<string[] | null>(null);
 
   // Food cost / ingredients state
   const [ingredients, setIngredients] = useState<MenuItemIngredient[]>([]);
@@ -236,7 +239,7 @@ function EditItemEditor() {
 
   const formSnapshot = JSON.stringify({ name, price, pricingMode, pricePerKg, estimatedWeightGrams,
     description, photos, aiContext, customerFacts, portion, translations, categoryId, isActive, allowNotes,
-    comboAllowQuantity, posAutoSelectFirstVariant, posSkipCustomization, itemType, comboSteps, variantGroups, groups: Array.from(selectedGroupIds).sort((a,b) => a-b) });
+    comboAllowQuantity, posAutoSelectFirstVariant, posSkipCustomization, itemType, comboSteps, variantGroups, menuAssignments });
   const initialSnapshot = useRef<string | null>(null);
   useEffect(() => {
     if (initialized.current && !loading && !loadError && initialSnapshot.current === null) initialSnapshot.current = formSnapshot;
@@ -311,7 +314,7 @@ function EditItemEditor() {
           setTranslations(found.translations ?? {});
           setCategoryId(found.category_id);
           setIsActive(found.is_active);
-          setAllowNotes(found.allow_notes ?? true);
+          setAllowNotes(found.allow_notes ?? false);
           setPosAutoSelectFirstVariant(found.pos_auto_select_first_variant ?? true);
           setPosSkipCustomization(found.pos_skip_customization ?? false);
           setComboAllowQuantity(found.combo_allow_quantity ?? true);
@@ -360,18 +363,6 @@ function EditItemEditor() {
           }
           break;
         }
-      }
-      const gIds = new Set<number>();
-      for (const menu of allMenus) {
-        for (const group of menu.groups ?? []) {
-          if ((group.items ?? []).some((i) => i.id === iid)) {
-            gIds.add(group.id);
-          }
-        }
-      }
-      if (!initialized.current) {
-        setSelectedGroupIds(gIds);
-        setInitialGroupIds(new Set(gIds));
       }
       initialized.current = true;
     } catch (cause) {
@@ -534,17 +525,12 @@ function EditItemEditor() {
           groups: toVariantSyncPayload(variantGroups),
         });
       }
-      const addedGroups = Array.from(selectedGroupIds).filter((id) => !initialGroupIds.has(id));
-      const removedGroups = Array.from(initialGroupIds).filter((id) => !selectedGroupIds.has(id));
-      for (const groupId of addedGroups) {
-        await addItemsToGroup(rid, groupId, [iid]);
-      }
-      for (const groupId of removedGroups) {
-        await removeItemFromGroup(rid, groupId, iid);
-      }
-      leaveGuard.finish(backTarget);
+      setAssignmentSaveAttempted(true);
+      const names = await saveItemMenuAssignments(rid, iid, menuAssignments);
+      if (names.length) setSavedMenuNames(names);
+      else leaveGuard.finish(backTarget);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : t('saveFailed'));
+      setSaveError(err instanceof ItemMenuAssignmentError ? t(err.translationKey) : err instanceof Error ? err.message : t('saveFailed'));
     } finally {
       saveLock.current = false; setSaving(false);
     }
@@ -664,8 +650,11 @@ function EditItemEditor() {
       categoryId={categoryId}
       setCategoryId={setCategoryId}
       menus={menus}
-      selectedGroupIds={selectedGroupIds}
-      setSelectedGroupIds={setSelectedGroupIds}
+      restaurantId={rid}
+      itemId={iid}
+      preserveRemovals={assignmentSaveAttempted}
+      menuAssignments={menuAssignments}
+      setMenuAssignments={setMenuAssignments}
       isActive={isActive}
       setIsActive={setIsActive}
       disabled={loading || saving || imageBusy || modifierBusy}
@@ -1188,6 +1177,8 @@ function EditItemEditor() {
           )}
         </Modal>
       )}
+
+      {savedMenuNames && <ItemMenuSaveNotice names={savedMenuNames} onClose={() => leaveGuard.finish(backTarget)} />}
 
       {/* ── Type-switch confirmation modal ─────────────────────── */}
       {pendingType && (

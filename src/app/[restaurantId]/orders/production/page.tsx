@@ -15,7 +15,9 @@ import {
   SlidersHorizontalIcon,
   ChevronDownIcon,
 } from 'lucide-react';
+import { eventOrderCopy } from '@/lib/orders/event-order-copy';
 import { useI18n } from '@/lib/i18n';
+import { useWs } from '@/lib/ws-context';
 import { usePermissions } from '@/lib/permissions-context';
 import { useIsMobile } from '@/components/ui/use-mobile';
 import { Kpi, PageHead } from '@/components/ds';
@@ -49,7 +51,11 @@ export default function ProductionPage() {
   const restaurantId = Number(params.restaurantId);
   const requestedDate = useSearchParams().get('date');
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const ec = eventOrderCopy[locale];
+  const {lastEvent}=useWs();
+  const [refreshKey,setRefreshKey]=useState(0);
+  const [loadFailed,setLoadFailed]=useState(false);
   // A clients × items matrix can't be read on a phone, so instead of shrinking
   // it we swap in ProductionMobile — a single-axis view the staffer switches
   // between (Clients / Items / Status). Split/fullscreen/drag stay desktop-only.
@@ -62,7 +68,7 @@ export default function ProductionPage() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'production' | 'courses'>('production');
   const [fullscreen, setFullscreen] = useState(false);
-  const [splitMode, setSplitMode] = useState<'none' | 'category' | 'customer'>('none');
+  const [splitMode, setSplitMode] = useState<'none' | 'category' | 'customer' | 'carte'>('carte');
   // Portion sizes each article is sold in (from its variants), used both to
   // offer box caps and to know what the packed rule may repack into.
   const [portionsByItem, setPortionsByItem] = useState<Record<number, number[]>>({});
@@ -89,12 +95,15 @@ export default function ProductionPage() {
 
   // Load available days, default to the next upcoming day (or the last one).
   useEffect(() => {
+    let stopped=false;
     fetchProductionDays(restaurantId).then((d) => {
+      if(stopped)return;
       setDays(d);
       const today = new Date().toISOString().slice(0, 10);
       const upcoming = d.find((x) => x.date === requestedDate) ?? d.find((x) => x.date >= today) ?? d[d.length - 1];
       setDate(upcoming ? upcoming.date : today);
-    });
+    }).catch(()=>{if(!stopped)setLoadFailed(true);});
+    return()=>{stopped=true;};
   }, [restaurantId, requestedDate]);
 
   // Load each article's available portion sizes (from its size variants) so the
@@ -112,14 +121,20 @@ export default function ProductionPage() {
       .catch(() => undefined);
   }, [restaurantId]);
 
-  // Load the sheet for the active day.
+  useEffect(()=>{if(lastEvent&&(lastEvent.type==='production.plan.updated'||lastEvent.type.startsWith('order.')||lastEvent.type==='payment.completed'))setRefreshKey(k=>k+1);},[lastEvent]);
+  useEffect(()=>{const reload=()=>setRefreshKey(k=>k+1);window.addEventListener('focus',reload);return()=>window.removeEventListener('focus',reload);},[]);
+
+  // Refresh rows and day counts together without resetting the selected handover day.
   useEffect(() => {
     if (!date) return;
-    setLoading(true);
-    fetchProductionSheet(restaurantId, date)
-      .then(setSheet)
-      .finally(() => setLoading(false));
-  }, [restaurantId, date]);
+    let stopped=false;
+    setLoading(true);setLoadFailed(false);
+    Promise.all([fetchProductionSheet(restaurantId,date),fetchProductionDays(restaurantId)])
+      .then(([value,available])=>{if(!stopped){setSheet(value);setDays(available);}})
+      .catch(()=>{if(!stopped)setLoadFailed(true);})
+      .finally(()=>{if(!stopped)setLoading(false);});
+    return()=>{stopped=true;};
+  },[restaurantId,date,refreshKey]);
 
   // Keep state in sync when the user leaves native full-screen via Esc.
   useEffect(() => {
@@ -262,7 +277,8 @@ export default function ProductionPage() {
     : (id: number) => router.push(orderDetailPath(restaurantId, id));
   // Split views are desktop-only; on a phone we always render the single main
   // table (any split chosen on a wider screen is ignored while narrow).
-  const effectiveSplit = isMobile ? 'none' : splitMode;
+  const effectiveSplit = isMobile && splitMode !== 'carte' ? 'none' : splitMode;
+  const carteSheets = useMemo(()=>{const visible=new Set(orderedSheet?.orders.map(order=>order.order_id)??[]);return (sheet?.sections??[]).map(section=>({...section,sheet:applyOrder(recomputeTotals(section.sheet,section.sheet.orders.filter(order=>visible.has(order.order_id))))})).filter(section=>section.sheet.orders.length>0);},[sheet,orderedSheet,applyOrder]);
 
   // Enter full screen: maximize layout (state) + request native full-screen
   // (falls back to the in-app overlay if the browser blocks the API).
@@ -386,6 +402,7 @@ export default function ProductionPage() {
           : 'flex flex-col'
       }
     >
+      {loadFailed&&<p role="alert" className="mb-4 text-fs-sm text-[var(--danger-500)]">{t('workspaceLoadError')}</p>}
       {fullscreen ? (
         /* Maximized, table-only header */
         <div className="flex flex-wrap items-center gap-[var(--s-3)]">
@@ -410,6 +427,7 @@ export default function ProductionPage() {
             desc={t('productionLiveSub')}
             actions={
               <>
+                <button type="button" className="inline-flex h-11 items-center gap-2 rounded-r-lg border border-[var(--line-strong)] px-4 text-fs-sm" onClick={()=>setRefreshKey(k=>k+1)} disabled={loading} aria-label={t('refresh')}><RotateCcwIcon className="size-4"/>{t('refresh')}</button>
                 {date && <DateStepper date={date} days={days} onChange={setDate} />}
                 <ActionsDropdown
                   actions={[
@@ -496,6 +514,7 @@ export default function ProductionPage() {
         <ProductionShoppingList restaurantId={restaurantId} date={date} />
       )}
 
+      {view === 'production' && (sheet?.sections?.length ?? 0)>0 && <label className="mb-3 flex items-center gap-2 text-fs-sm print:hidden"><input type="checkbox" checked={splitMode==='carte'} onChange={e=>setSplitMode(e.target.checked?'carte':'none')}/>{ec.byCarte}</label>}
       {!loading && view === 'production' && orderedSheet && orderedSheet.orders.length === 0 && (
         <p className="text-fs-sm text-[var(--fg-muted)]">{t('productionNoOrders')}</p>
       )}
@@ -503,7 +522,13 @@ export default function ProductionPage() {
         view === 'production' &&
         orderedSheet &&
         orderedSheet.orders.length > 0 &&
-        (effectiveSplit === 'category' ? (
+        (effectiveSplit === 'carte' && carteSheets.length > 0 ? (
+          <div className="space-y-6">
+            <p className="text-fs-xs text-[var(--fg-muted)]">{ec.doneHint}</p>
+            <nav aria-label={ec.byCarte} className="sticky top-0 z-10 flex gap-2 overflow-x-auto border-b border-[var(--line)] bg-[var(--surface)] py-3 print:hidden">{carteSheets.map(section=><a key={section.menu_id} className="shrink-0 rounded border border-[var(--line-strong)] px-3 py-2 text-fs-sm" href={`#production-carte-${section.menu_id}`}>{section.name||ec.otherCartes}</a>)}</nav>
+            {carteSheets.map(section=><section key={section.menu_id} id={`production-carte-${section.menu_id}`} className="scroll-mt-20 space-y-3"><h2 className="text-fs-lg font-semibold">{section.name||ec.otherCartes}{section.is_catering&&<span className="ms-3 text-fs-xs font-medium">{ec.badge}</span>}</h2>{isMobile?<ProductionMobile sheet={section.sheet} onRowClick={handleRowClick} doneIds={doneIds} onToggleDone={toggleDone} portioner={portioner} unitDisplayIds={unitDisplayIds}/>:<ProductionMatrix sheet={section.sheet} onRowClick={handleRowClick} portioner={portioner} unitDisplayIds={unitDisplayIds} onToggleItemDisplay={display.toggleItem} doneIds={doneIds} onToggleDone={toggleDone}/>}</section>)}
+          </div>
+        ) : effectiveSplit === 'category' ? (
           <div className="flex flex-col gap-[var(--s-4)]">
             {categorySheets.map(({ cat, sheet: cs }) => (
               <ProductionMatrix

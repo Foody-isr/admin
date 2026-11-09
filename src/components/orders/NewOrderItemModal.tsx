@@ -29,6 +29,7 @@ export interface ComboSelection {
 }
 
 export interface NewOrderLine {
+  sourceMenuId?: number;
   optionSelections?: import("@/lib/api").OptionSelection[];
   /** Stable per-line id — distinct lines of the same item must not merge. */
   uid: string;

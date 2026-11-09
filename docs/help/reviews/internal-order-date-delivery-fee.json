@@ -1,0 +1,43 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "d9edd47b355e5d914fc165a9fc50989c26ef78575a3fa2c16aeb768e135ae8be",
+      "baseSha256": "1b56c6d57e6f7cce43eb4dead8a02c4ee55381d47f7fe8c2b625c818a7f869ac",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The shared client/localization file adds only the optional staff delivery_fee_fixed input or finalization-specific fee guidance. The changed internal-order and event procedures are reviewed in all languages. Customer profiles, public delivery-zone configuration, menus, POS, generic payment/provider operations, site settings and communications retain their existing controls and procedures."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "c9e8b9c21af9fcebb2c84df58ba3f9570fa0b18bcd843fa89179286889420e63",
+      "baseSha256": "c5864c8907ccdd77502547a626418373b2bf5fbace45a6e707ea813c4ee221ec",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The shared client/localization file adds only the optional staff delivery_fee_fixed input or finalization-specific fee guidance. The changed internal-order and event procedures are reviewed in all languages. Customer profiles, public delivery-zone configuration, menus, POS, generic payment/provider operations, site settings and communications retain their existing controls and procedures."
+    }
+  ]
+}

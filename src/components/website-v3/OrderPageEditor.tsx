@@ -1,24 +1,25 @@
 "use client";
 import { ItemImageFramingEditor } from "./ItemImageFramingEditor";
 import type { MenuItem } from "@/lib/api";
-import { BooleanInput } from '@/components/ds/Selection';
+import { BooleanInput, ChoiceRow } from "@/components/ds/Selection";
 import { ColorStylePicker, openSiteColors, type SiteColorEditTarget } from "./ColorStylePicker";
 import {
   selectOrderColorStyle,
+  selectOrderLayout,
   compactItemPresentation,
-  compactOrderPresentation,
   woltOrderPresentation,
 } from "@/lib/website-v3/order-design";
 
 import { NumberInput } from "@/components/ui/NumberInput";
 import { OrderTypographyFields } from "./OrderTypographyFields";
 import type { TypographyOverrides, TypographyRoleKey } from "@/lib/api";
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { useI18n } from "@/lib/i18n";
 import type { DraftPagePayload, StatePath } from "@/lib/website-v3/types";
-import type { OrderEditorRegion } from "@/lib/website-v3/editor-selection";
+import type { OrderEditorRegion, OrderModePreview } from "@/lib/website-v3/editor-selection";
 import { record } from "@/lib/website-v3/restaurant-themes";
 import { ImageUploadField } from "./SectionContentEditors";
+import { InspectorField, ToggleField, controlClass } from "./controls";
 
 /** Edits the same page-local order blocks rendered by the public order page. */
 export function OrderPageEditor({
@@ -29,9 +30,13 @@ export function OrderPageEditor({
   region,
   onChange,
   onPreviewItem,
+  previewMode = "fulfillment",
+  onPreviewMode,
+  onOfferSignInChange,
   sharedHeader = false,
   restaurantHeader = false,
   orderChoicesAvailable = true,
+  serviceChoicePreviewAvailable = orderChoicesAvailable,
   restaurantCoverUrl = "",
   onEditHeader,
 }: {
@@ -42,15 +47,26 @@ export function OrderPageEditor({
   region: OrderEditorRegion;
   onChange: (path: StatePath, value: unknown) => void;
   onPreviewItem: (open: boolean) => void;
+  previewMode?: OrderModePreview;
+  onPreviewMode?: (surface: OrderModePreview) => void;
+  onOfferSignInChange?: (checked: boolean) => void;
   sharedHeader?: boolean;
   restaurantHeader?: boolean;
   orderChoicesAvailable?: boolean;
+  serviceChoicePreviewAvailable?: boolean;
   restaurantCoverUrl?: string;
   onEditHeader?: () => void;
 }) {
   const { t } = useI18n();
+  const formatGroup = useId();
   useEffect(() => () => onPreviewItem(false), [onPreviewItem]);
+  useEffect(() => () => onPreviewMode?.("entry"), [onPreviewMode]);
   const value = record(page.appearance_overrides.website_order);
+  const serviceFirst = value.choose_before_menu === true;
+  const itemLayout = value.layout ?? (serviceFirst ? "gallery" : "list");
+  const defaultMobileLayout = serviceFirst && itemLayout === "gallery" ? "carousel" : "inherit";
+  const mobileCarousel = (value.mobile_item_layout ?? defaultMobileLayout) === "carousel";
+  const defaultItemAction = serviceFirst && (itemLayout === "gallery" || mobileCarousel) ? "button" : "none";
   const set = (key: string, next: unknown) =>
     onChange(["appearance_overrides", "website_order", key], next);
   const editMenuColors = (menuGroup: SiteColorEditTarget["menuGroup"]) => value.color_preset === "wolt" ? (
@@ -98,6 +114,11 @@ export function OrderPageEditor({
         onChange={next => set(key, next)} />
     </label>
   );
+  const roleFields = (role: TypographyRoleKey) => (
+    <OrderTypographyFields restaurantId={restaurantId} role={role} base={record(config.typography) as TypographyOverrides}
+      value={record(page.appearance_overrides.typography) as TypographyOverrides}
+      onChange={next => onChange(["appearance_overrides", "typography"], next)} />
+  );
   const typography = (prefix: string, role: TypographyRoleKey) => (
     <>
       <label className="sqe-field">
@@ -131,10 +152,7 @@ export function OrderPageEditor({
           {toggle(`${prefix}_caps`, "editorOrderAllCaps", false)}
         </>
       )}
-      {(value[`${prefix}_style`] ?? "inherit") === "inherit" && <OrderTypographyFields
-        restaurantId={restaurantId} role={role} base={record(config.typography) as TypographyOverrides}
-        value={record(page.appearance_overrides.typography) as TypographyOverrides}
-        onChange={next => onChange(["appearance_overrides", "typography"], next)} />}
+      {(value[`${prefix}_style`] ?? "inherit") === "inherit" && roleFields(role)}
       {(value[`${prefix}_style`] ?? "inherit") !== "inherit" &&
         select(
           `${prefix}_weight`,
@@ -174,42 +192,116 @@ export function OrderPageEditor({
         {toggle("show_title", "editorRestaurantName", false)}
       </div>
     );
-  if (region === "order-fulfillment")
+  if (region === "order-fulfillment") {
+    const step = previewMode === "pickup" || previewMode === "delivery" ? previewMode : null;
+    const screenStyleKey = step ? `${step}_step_color_style` : "entry_color_style";
+    const menuStyle = String(value.color_style ?? "default");
+    const fulfillmentStyle = String(value.fulfillment_color_style ?? "default");
+    const inheritedStepStyle = fulfillmentStyle === "default" ? menuStyle : fulfillmentStyle;
+    const changeFormat = (beforeMenu: boolean) => {
+      set("choose_before_menu", beforeMenu);
+      onPreviewMode?.("entry");
+    };
     return (
       <div className="sqe-panel-body sqe-order-settings">
-        <ColorStylePicker
-          value={String(value.fulfillment_color_style ?? "default")}
-          inheritedStyle={String(value.color_style ?? "default")}
-          defaultLabel={t("editorJourneyInheritMenu")}
-          onChange={id => set("fulfillment_color_style", id)} />
-        <p>{t("editorOrderModalColorsHint")}</p>
+        {orderChoicesAvailable && <fieldset className="mb-5 min-w-0">
+          <legend className="font-semibold">{t("editorOrderPresentation")}</legend>
+          <ChoiceRow type="radio" name={formatGroup} checked={serviceFirst} onChange={() => changeFormat(true)}
+            aria-label={t("editorOrderEntryFormat")} label={t("editorOrderEntryFormat")} description={t("editorOrderEntryFormatHint")} />
+          <ChoiceRow type="radio" name={formatGroup} checked={!serviceFirst} onChange={() => changeFormat(false)}
+            aria-label={t("editorOrderClassicFormat")} label={t("editorOrderClassicFormat")} description={t("editorOrderClassicFormatHint")} />
+        </fieldset>}
+        {onOfferSignInChange && <ToggleField fieldId="checkout.offer_sign_in" label={t("editorOfferSignIn")}
+          description={t("editorOfferSignInHint")} checked={record(config.checkout_config).offer_sign_in !== false}
+          onChange={onOfferSignInChange} />}
+        {orderChoicesAvailable && serviceFirst && <details open className="my-5">
+          <summary className="cursor-pointer font-semibold">{t("editorOrderScreenAppearance")}</summary>
+          {onPreviewMode && serviceChoicePreviewAvailable && <div className="mt-4">
+            <InspectorField label={t("editorOrderScreenToEdit")}>
+              <select className={controlClass} value={previewMode === "header" ? "" : step ?? "entry"}
+                onChange={event => onPreviewMode(event.target.value as "entry" | "pickup" | "delivery")}>
+                {previewMode === "header" && <option value="" disabled>{t("editorOrderMobileHeader")}</option>}
+                <option value="entry">{t("editorOrderEntryScreen")}</option>
+                <option value="delivery">{t("editorJourneyDelivery")}</option>
+                <option value="pickup">{t("editorJourneyPickup")}</option>
+              </select>
+            </InspectorField>
+          </div>}
+          {previewMode !== "header" && <div className="mt-4">
+            <ColorStylePicker value={String(value[screenStyleKey] ?? "default")} inheritedStyle={step ? inheritedStepStyle : undefined}
+              onChange={id => set(screenStyleKey, id)} />
+            <h4>{t("editorOrderEntryTitle")}</h4>
+            {roleFields(step === "pickup" ? "orderPickupTitle" : step === "delivery" ? "orderDeliveryTitle" : "orderEntryTitle")}
+            {!step && <>
+              <h4>{t("editorOrderEntryOption")}</h4>
+              {roleFields("orderEntryOption")}
+            </>}
+          </div>}
+        </details>}
+        <details open={!serviceFirst} className="my-5">
+          <summary className="cursor-pointer font-semibold">{t(serviceFirst ? "editorOrderPanelAppearance" : "editorOrderClassicAppearance")}</summary>
+          <div className="mt-4">
+            <ColorStylePicker value={fulfillmentStyle} inheritedStyle={menuStyle}
+              defaultLabel={t("editorJourneyInheritMenu")} onChange={id => set("fulfillment_color_style", id)} />
+            <p>{t("editorOrderModalColorsHint")}</p>
+            {!serviceFirst && <>
+              {orderChoicesAvailable && toggle("prompt_on_entry", "editorOrderPrompt")}
+              {toggle("modal_cover", "editorOrderModalCover")}
+              {value.modal_cover !== false && <ImageUploadField
+                restaurantId={restaurantId}
+                label={t("editorOrderModalImage")}
+                fieldId="page.appearance_overrides.website_order.modal_cover_url"
+                currentUrl={String(value.modal_cover_url || restaurantCoverUrl)}
+                framing={value.modal_cover_framing}
+                onFramingChange={value => set("modal_cover_framing", value)}
+                onUploaded={url => set("modal_cover_url", url)}
+                onRemove={() => set("modal_cover_url", "")}
+              />}
+              <p>{t("editorOrderModalImageHint")}</p>
+              {toggle("modal_logo", "editorLogo")}
+            </>}
+          </div>
+        </details>
         {sharedHeader ? (
-          <button className="sqe-button" onClick={onEditHeader}>
-            {t("editorHeader")}
-          </button>
-        ) : (
-          toggle("show_fulfillment", "editorOrderShowService")
-        )}
-        {orderChoicesAvailable && toggle("prompt_on_entry", "editorOrderPrompt")}
-        {toggle("modal_cover", "editorOrderModalCover")}
-        {value.modal_cover !== false && <ImageUploadField
-          restaurantId={restaurantId}
-          label={t("editorOrderModalImage")}
-          fieldId="page.appearance_overrides.website_order.modal_cover_url"
-          currentUrl={String(value.modal_cover_url || restaurantCoverUrl)}
-          framing={value.modal_cover_framing}
-          onFramingChange={value => set("modal_cover_framing", value)}
-          onUploaded={url => set("modal_cover_url", url)}
-          onRemove={() => set("modal_cover_url", "")}
-        />}
-        <p>{t("editorOrderModalImageHint")}</p>
-        {toggle("modal_logo", "editorLogo")}
+          <button className="sqe-button" onClick={onEditHeader}>{t("editorHeader")}</button>
+        ) : toggle("show_fulfillment", "editorOrderShowService")}
+        {orderChoicesAvailable && serviceFirst && <details>
+          <summary>{t("editorOrderMobileHeader")}</summary>
+          {onPreviewMode && serviceChoicePreviewAvailable && <button type="button" className="sqe-button" aria-pressed={previewMode === "header"}
+            onClick={() => onPreviewMode(previewMode === "header" ? "entry" : "header")}>{t("editorOrderMobileHeaderPreview")}</button>}
+          {select("mobile_header_layout", "editorLayout", "compact", [
+            ["compact", "editorOrderMobileHeaderCompact"],
+            ["standard", "editorOrderMobileHeaderStandard"],
+          ])}
+          {value.mobile_header_layout !== "standard" && <>
+            <p>{t("editorOrderMobileHeaderHint")}</p>
+            <ColorStylePicker value={String(value.mobile_header_color_style ?? "default")}
+              defaultLabel={t("editorHeader")}
+              onChange={id => set("mobile_header_color_style", id)} />
+            <h4>{t("editorOrderCatalogueTitle")}</h4>
+            {roleFields("orderCatalogueTitle")}
+          </>}
+        </details>}
+        {toggle("fulfillment_panels", "editorOrderFulfillmentPanels", serviceFirst)}
+        {toggle("preorder_reminder", "editorOrderPreorderReminder", serviceFirst)}
+        {sharedHeader && <details>
+          <summary>{t("editorOrderHeaderActions")}</summary>
+          {select("header_search_placement", "editorOrderSearchPlacement", serviceFirst ? "menu" : "inherit", [
+            ["inherit", "editorOrderInherited"],
+            ["menu", "editorOrderActionInMenu"],
+            ["hidden", "editorNone"],
+          ])}
+          {toggle("hide_header_cart", "editorOrderHideHeaderCart", serviceFirst)}
+          {toggle("info_in_menu", "editorOrderInfoInMenu", serviceFirst)}
+          {toggle("language_in_menu", "editorOrderLanguageInMenu", serviceFirst)}
+        </details>}
         <p>{t("editorOrderServicesHint")}</p>
         <a className="sqe-button" href={`/${restaurantId}/settings`}>
           {t("editorSettings")}
         </a>
       </div>
     );
+  }
   return (
     <div className="sqe-order-settings">
       <div className="sqe-panel-body">
@@ -233,15 +325,13 @@ export function OrderPageEditor({
           <p>{t("editorOrderWoltHint")}</p>
           <label>{t("editorLayout")}</label>
           <div className="sqe-order-layouts">
-            {["list", "grid", "cards", "text", "single", "rows"].map((layout) => (
+            {["list", "grid", "cards", "text", "single", "rows", "gallery"].map((layout) => (
               <button
                 type="button"
                 key={layout}
                 aria-label={t(`editorOrderLayout_${layout}`)}
-                aria-pressed={(value.layout ?? "list") === layout}
-                onClick={() => layout === "rows" && value.layout !== "rows"
-                  ? onChange(["appearance_overrides", "website_order"], compactOrderPresentation(value))
-                  : set("layout", layout)}
+                aria-pressed={itemLayout === layout}
+                onClick={() => onChange(["appearance_overrides", "website_order"], selectOrderLayout(value, layout, itemLayout))}
               >
                 <span data-layout={layout}>
                   {Array.from({ length: 6 }, (_, i) => (
@@ -253,7 +343,12 @@ export function OrderPageEditor({
             ))}
           </div>
           <p>{t("editorOrderCompactHint")}</p>
-          {select("columns", "editorDesktopColumns", "2", [
+          {select("mobile_item_layout", "editorOrderMobileLayout", defaultMobileLayout, [
+            ["inherit", "editorOrderFollowLayout"],
+            ["carousel", "editorOrderMobileCarousel"],
+          ])}
+          {mobileCarousel && <p>{t("editorOrderMobileCarouselHint")}</p>}
+          {select("columns", "editorDesktopColumns", serviceFirst ? "3" : "2", [
             ["1", "1"],
             ["2", "2"],
             ["3", "3"],
@@ -301,7 +396,7 @@ export function OrderPageEditor({
         <h3>{t("editorContent")}</h3>
         {toggle("sticky_categories", "editorOrderStickyCategories")}
         <p>{t("editorOrderStickyCategoriesHint")}</p>
-        {select("category_shape", "editorOrderCategoryStyle", value.card_style === "filled" ? "pill" : "plain", [
+        {select("category_shape", "editorOrderCategoryStyle", serviceFirst ? "underline" : value.card_style === "filled" ? "pill" : "plain", [
           ["plain", "editorOrderCategoryStylePlain"],
           ["underline", "editorOrderCategoryStyleUnderline"],
           ["rounded", "editorShapeRound"],
@@ -316,8 +411,8 @@ export function OrderPageEditor({
           {editMenuColors("categories")}
           <p>{t("editorOrderCategoryColorsHint")}</p>
         </details>
-        {toggle("show_search", "editorOrderSearch")}
-        {toggle("show_availability_filter", "editorOrderAvailabilityFilter")}
+        {toggle("show_search", "editorOrderSearch", !serviceFirst)}
+        {toggle("show_availability_filter", "editorOrderAvailabilityFilter", !serviceFirst)}
         {toggle("show_category_titles", "editorCategoryTitles")}
         {value.show_category_titles !== false && (
           <details>
@@ -340,7 +435,7 @@ export function OrderPageEditor({
             ["separator", "editorOrderBorderSeparator"],
           ])}
           {spacing("item_spacing", "editorOrderItemSpacing", value.card_style === "filled" ? 16 : 32, 80)}
-          {value.layout === "rows" && spacing("row_padding", "editorOrderRowPadding", 16, 48)}
+          {itemLayout === "rows" && spacing("row_padding", "editorOrderRowPadding", 16, 48)}
           {select("price_placement", "editorOrderPricePlacement", value.card_style === "filled" ? "bottom" : "after_description", [
             ["after_description", "editorOrderPriceAfterDescription"],
             ["bottom", "editorOrderPriceBottom"],
@@ -354,7 +449,7 @@ export function OrderPageEditor({
         <details>
           <summary>{t("editorItemImages")}</summary>
           {toggle("show_images", "editorItemImages")}
-          {(value.layout ?? "list") !== "grid" && value.layout !== "cards" && <>
+          {itemLayout !== "grid" && itemLayout !== "cards" && itemLayout !== "gallery" && <>
             {select("image_position", "editorOrderImagePosition", "auto", [
               ["auto", "editorOrderInherited"],
               ["left", "editorAlign_left"],
@@ -382,9 +477,10 @@ export function OrderPageEditor({
             ["soft", "editorOrderShapeSoft"],
             ["rounded", "editorShapeRound"],
           ])}
-          {select("item_action", "editorOrderAddButton", "none", [
+          {select("item_action", "editorOrderAddButton", defaultItemAction, [
             ["none", "editorOrderWholeCard"],
             ["cutout", "editorOrderCutout"],
+            ["button", "editorOrderImagePlus"],
           ])}
         </details>
         <details>

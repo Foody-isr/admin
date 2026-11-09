@@ -6,6 +6,7 @@ import {
 } from "./types";
 
 export type OrderEditorRegion = "order-banner" | "order-items" | "order-fulfillment" | "order-journey";
+export type OrderModePreview = "fulfillment" | "entry" | "pickup" | "delivery" | "header";
 
 export type RailSelection =
   | { kind: "site"; pageKey?: string; region?: "header" | "footer" | "footer-branding"; headerElement?: HeaderElement }

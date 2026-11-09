@@ -11,11 +11,18 @@ export function compactItemPresentation(value: Record<string, unknown>): Record<
   return { ...value, item_layout: "cover", item_width: "compact", item_radius: "rounded", item_aspect_ratio: "16/9", item_image_fit: "cover" };
 }
 
+/** Applies the selected disposition on desktop and mobile, where the carousel is opt-in. */
+export function selectOrderLayout(value: Record<string, unknown>, layout: string, current: unknown): Record<string, unknown> {
+  if (layout === "rows" && current !== "rows") return compactOrderPresentation(value);
+  return { ...value, layout, mobile_item_layout: "inherit" };
+}
+
 /** Applies a compact restaurant menu while retaining colors, content and ordering preferences. */
 export function compactOrderPresentation(value: Record<string, unknown>): Record<string, unknown> {
   return {
     ...value,
     layout: "rows",
+    mobile_item_layout: "inherit",
     card_style: "plain",
     card_border: "separator",
     card_radius: "square",

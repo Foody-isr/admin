@@ -3,6 +3,65 @@ import { normalizeSiteColors } from "../../src/lib/website-v3/site-colors";
 import { normalizeWebsiteHeader } from "../../src/lib/website-v3/header";
 import type { DraftStatePayload } from "../../src/lib/website-v3/types";
 
+test("a disposition selected in the mobile preview replaces the carousel and saves the illustrated list", async ({ page, request, context }) => {
+  test.skip(process.env.FOODY_MENU_APPEARANCE !== "1", "Requires the isolated photo menu fixture.");
+  await page.addInitScript(() => {
+    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_user", JSON.stringify({ id: 1, full_name: "Demo", role: "manager", email: "demo@foody.test" }));
+    localStorage.setItem("foody_restaurant_ids", "[1]");
+    localStorage.setItem("foody-admin-locale", "fr");
+  });
+  await context.route("**/*", route => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
+  const port = process.env.FOODY_WEBSITE_EDITOR_API_PORT ?? "18081";
+  const endpoint = `http://127.0.0.1:${port}/api/v1/restaurants/1/website-draft`;
+  const draft = async (): Promise<DraftStatePayload> => (await (await request.get(endpoint)).json()).state;
+  const seed = await draft();
+  for (const page of seed.pages) page.is_homepage = page.type === "order";
+  const order = seed.pages.find(page => page.type === "order")!;
+  order.appearance_overrides = { foody_renderer_version: 1, website_order: {
+    layout: "list", mobile_item_layout: "carousel", card_style: "filled", card_border: "line", image_position: "right",
+  }};
+  expect((await request.put(endpoint, { data: seed })).ok()).toBe(true);
+  await page.goto("/1/website-v3");
+  await page.getByRole("button", { name: "Liste des articles", exact: true }).click({ timeout: 60_000 });
+  await page.getByRole("button", { name: "Format de l’aperçu", exact: true }).click();
+  await page.getByRole("menuitemradio", { name: "Vue téléphone", exact: true }).click();
+
+  const preview = page.frameLocator("iframe");
+  const group = preview.locator(".website-order-items").first();
+  const item = group.locator(".website-order-item").first();
+  await expect(group).toHaveAttribute("data-mobile-layout", "carousel");
+  await expect(item).toHaveCSS("flex-direction", "column-reverse");
+
+  const list = page.getByRole("button", { name: "Liste avec images", exact: true });
+  await expect(list).toHaveAttribute("aria-pressed", "true");
+  await list.click();
+  await expect(group).not.toHaveAttribute("data-mobile-layout", "carousel");
+  await expect(item).toHaveCSS("flex-direction", "row");
+  const copy = await item.locator(".website-order-item-copy").boundingBox();
+  const photo = await item.locator(".website-order-item-media").boundingBox();
+  expect(photo!.x).toBeGreaterThanOrEqual(copy!.x + copy!.width);
+
+  await page.getByRole("button", { name: "Grille d’images", exact: true }).click();
+  await expect(item).toHaveAttribute("data-layout", "grid");
+  await expect(item).toHaveCSS("padding-left", "0px");
+  await page.getByRole("button", { name: "Cartes", exact: true }).click();
+  await expect(item).toHaveAttribute("data-layout", "cards");
+  await expect(item).toHaveCSS("padding-left", "16px");
+  await page.getByRole("button", { name: "Menu texte", exact: true }).click();
+  await expect(item.locator(".website-order-item-media")).toHaveCount(0);
+  await expect(item.locator(".website-order-item-copy")).toHaveCSS("flex-direction", "row");
+  await page.getByRole("button", { name: "Une colonne", exact: true }).click();
+  await expect(item.locator(".website-order-item-copy")).toHaveCSS("flex-direction", "column");
+
+  await list.click();
+  await expect.poll(async () => (await draft()).pages.find(page => page.type === "order")?.appearance_overrides.website_order)
+    .toMatchObject({ layout: "list", mobile_item_layout: "inherit", card_style: "filled", card_border: "line", image_position: "right" });
+  await page.reload();
+  await expect(item).toHaveAttribute("data-layout", "list");
+  await expect(item).toHaveCSS("flex-direction", "row");
+});
+
 // Run with FOODY_MENU_APPEARANCE=1 or FOODY_CRISPY_MENU=1. All writes stay in the synthetic API.
 test("compact menu styles survive editing, reload and publication on mobile in LTR and RTL", async ({ page, request, context }) => {
   const wolt = process.env.FOODY_CRISPY_MENU === "1";

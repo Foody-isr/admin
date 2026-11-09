@@ -28,6 +28,8 @@ interface Props {
   /** Receives only the changed field, so callers keep their own state shape. */
   onChange: (patch: Partial<CustomerDeliveryValue>) => void;
   disabled?: boolean;
+  addressInputProps?: Pick<React.InputHTMLAttributes<HTMLInputElement>, 'id' | 'aria-invalid' | 'aria-describedby' | 'aria-label'>;
+  addressError?: React.ReactNode;
   /** Order-specific content shown under the address line — the manual order
    *  sheet puts the linked customer's known addresses there. A slot rather than
    *  a flag to drop the address field: the form stays whole everywhere, so a
@@ -45,17 +47,19 @@ interface Props {
  * one form is the whole point of this component; if a field belongs on a
  * customer, it belongs here and appears on both screens at once.
  */
-export function CustomerDeliveryFields({ value, onChange, disabled, underAddress }: Props) {
+export function CustomerDeliveryFields({ value, onChange, disabled, underAddress, addressInputProps, addressError }: Props) {
   const { t } = useI18n();
   return (
     <>
       <Field label={t('deliveryAddress')}>
         <Input
+          {...addressInputProps}
           dir="auto"
           value={value.address}
           disabled={disabled}
           onChange={(e) => onChange({ address: e.target.value })}
         />
+        {addressError}
       </Field>
       {underAddress}
       <div className="grid grid-cols-3 gap-2">

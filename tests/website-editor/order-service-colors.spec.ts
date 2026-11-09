@@ -1,7 +1,151 @@
 import { test, expect } from "@playwright/test";
 import { normalizeWebsiteHeader } from "../../src/lib/website-v3/header";
+import { record } from "../../src/lib/website-v3/restaurant-themes";
 import { normalizeSiteColors } from "../../src/lib/website-v3/site-colors";
 import type { DraftStatePayload } from "../../src/lib/website-v3/types";
+
+test("order mode separates the published format, screen appearance and shared sign-in invitation", async ({ page, request, context }) => {
+  test.skip(process.env.FOODY_HEADER_CHOICES !== "1", "Requires the isolated pickup and delivery fixture.");
+  await page.addInitScript(() => {
+    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_user", JSON.stringify({ id: 1, full_name: "Demo", role: "manager", email: "demo@example.invalid" }));
+    localStorage.setItem("foody_restaurant_ids", "[1]");
+    localStorage.setItem("foody-admin-locale", "fr");
+    localStorage.setItem("foody-locale", "fr");
+  });
+  await context.route("**/*", route => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
+  const port = process.env.FOODY_WEBSITE_EDITOR_API_PORT ?? "18081";
+  const endpoint = `http://127.0.0.1:${port}/api/v1/restaurants/1/website-draft`;
+  const draft = async (): Promise<DraftStatePayload> => (await (await request.get(endpoint)).json()).state;
+  const seed = await draft();
+  for (const item of seed.pages) item.is_homepage = item.type === "order";
+  seed.sections = [];
+  seed.config.checkout_config = { lock_order_type: false, offer_sign_in: true };
+  const colors = normalizeSiteColors({});
+  Object.assign(colors.styles[1], { background: "#b0cbbb", title: "#112200" });
+  Object.assign(colors.styles[2], { background: "#f4ede0", title: "#453728" });
+  seed.config.custom_palette = { ...record(seed.config.custom_palette), color_styles: colors };
+  seed.pages.find(item => item.type === "order")!.appearance_overrides = {
+    foody_renderer_version: 1, website_order: { choose_before_menu: true },
+  };
+  expect((await request.put(endpoint, { data: seed })).ok()).toBe(true);
+
+  await page.goto("/1/website-v3");
+  const orderMode = page.getByRole("button", { name: "Mode de commande", exact: true });
+  await orderMode.click({ timeout: 60_000 });
+  const format = page.getByRole("group", { name: "Présentation du choix du mode", exact: true });
+  const chooseFormat = format.getByRole("radio", { name: "Choix du mode", exact: true });
+  const classicFormat = format.getByRole("radio", { name: "Fenêtre classique", exact: true });
+  const screen = page.getByRole("combobox", { name: "Écran à personnaliser", exact: true });
+  const appearance = page.locator("details").filter({ has: page.getByText("Apparence des écrans", { exact: true }) });
+  const signIn = page.getByRole("switch", { name: /Afficher l’invitation à se connecter à l’arrivée/ });
+  const preview = page.frameLocator("iframe");
+  const step = preview.locator(".website-order-step");
+  const background = preview.locator(".website-order-start-content");
+  const guest = step.getByRole("button", { name: "Commander sans compte", exact: true });
+  const address = step.getByLabel("Adresse de livraison", { exact: true });
+  await expect(format.getByRole("radio")).toHaveCount(2);
+  await expect(chooseFormat).toBeChecked();
+  await expect(preview.locator(".website-order-entry")).toBeVisible();
+  await screen.selectOption("delivery");
+  await appearance.getByRole("button", { name: "Style de couleurs 3", exact: true }).click();
+  await expect(background).toHaveCSS("background-color", "rgb(244, 237, 224)");
+  await expect(guest).toBeVisible();
+  await expect(step.getByRole("button", { name: "Me connecter", exact: true })).toBeDisabled();
+  await guest.click();
+  await expect(address).toBeVisible();
+  await signIn.uncheck();
+  await expect.poll(async () => (await draft()).config.checkout_config).toMatchObject({ offer_sign_in: false });
+  await expect(address).toBeVisible();
+  await expect(step.getByRole("button", { name: "Se connecter", exact: true })).toBeDisabled();
+  await expect(guest).toHaveCount(0);
+  await signIn.check();
+  await expect(guest).toBeVisible();
+
+  await screen.selectOption("pickup");
+  await appearance.getByRole("button", { name: "Style de couleurs 2", exact: true }).click();
+  await appearance.getByRole("combobox", { name: "Graisse du texte", exact: true }).selectOption("600");
+  await expect(background).toHaveCSS("background-color", "rgb(176, 203, 187)");
+  await expect(guest).toBeVisible();
+  await guest.click();
+  const pickupTitle = step.getByRole("heading", { name: "Retrait sur place", exact: true });
+  await expect(pickupTitle).toHaveCSS("font-weight", "600");
+  await expect(pickupTitle).toHaveCSS("color", "rgb(17, 34, 0)");
+
+  await classicFormat.check();
+  await expect(screen).toHaveCount(0);
+  await expect(preview.locator(".website-entry-dialog[open]")).toBeVisible();
+  await expect.poll(async () => (await draft()).pages.find(item => item.type === "order")!.appearance_overrides.website_order)
+    .toMatchObject({ choose_before_menu: false, delivery_step_color_style: "style-3", pickup_step_color_style: "style-2" });
+  await chooseFormat.check();
+  await expect(screen).toHaveValue("entry");
+  await expect(preview.locator(".website-order-entry")).toBeVisible();
+
+  const published = page.waitForResponse(response => response.url().endsWith("/website-publish") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Publier", exact: true }).click();
+  expect((await published).ok()).toBe(true);
+  const storefront = await context.newPage();
+  await storefront.goto("http://localhost:3000/r/atelier-foody/order?lang=fr");
+  await storefront.locator(".website-order-entry").getByRole("button", { name: "Retrait", exact: true }).click();
+  const pickup = storefront.locator(".website-order-step");
+  await expect(pickup.getByRole("button", { name: "Me connecter", exact: true })).toBeEnabled();
+  await pickup.getByRole("button", { name: "Commander sans compte", exact: true }).click();
+  await expect(pickup.getByRole("heading", { name: "Retrait sur place", exact: true })).toHaveCSS("font-weight", "600");
+  await expect(storefront.locator(".website-order-start-content")).toHaveCSS("background-color", "rgb(176, 203, 187)");
+});
+
+test("mobile order header settings preview and save independently of the product layout", async ({ page, request, context }) => {
+  test.skip(process.env.FOODY_HEADER_CHOICES !== "1", "Requires the isolated pickup and delivery fixture.");
+  await page.addInitScript(() => {
+    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_user", JSON.stringify({id:1, full_name:"Demo", role:"manager", email:"demo@foody.test"}));
+    localStorage.setItem("foody_restaurant_ids", "[1]");
+    localStorage.setItem("foody-admin-locale", "fr");
+  });
+  await context.route("**/*", route => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
+  const port = process.env.FOODY_WEBSITE_EDITOR_API_PORT ?? "18081";
+  const endpoint = `http://127.0.0.1:${port}/api/v1/restaurants/1/website-draft`;
+  const draft = async (): Promise<DraftStatePayload> => (await (await request.get(endpoint)).json()).state;
+  const seed = await draft();
+  for (const item of seed.pages) item.is_homepage = item.type === "order";
+  seed.sections = [];
+  seed.config.checkout_config = { lock_order_type: false };
+  seed.config.nav_layout = { header: normalizeWebsiteHeader({layout: "left", fulfillment: {enabled: true}}) };
+  const colors = normalizeSiteColors({});
+  Object.assign(colors.styles[1], { background: "#b0cbbb", title: "#112200", menu: {
+    ...colors.styles[1].menu, card_background: "#fff7ec", card_title: "#283522",
+  } });
+  seed.config.custom_palette = {mode:"light", bg:"#fff8ed", surface:"#ffffff", ink:"#263321", accent:"#345548", color_styles: colors};
+  const order = seed.pages.find(item => item.type === "order")!;
+  order.appearance_overrides = { foody_renderer_version: 1, website_order: {
+    choose_before_menu: true, layout: "list", mobile_item_layout: "inherit",
+  }};
+  expect((await request.put(endpoint, {data: seed})).ok()).toBe(true);
+  await page.goto("/1/website-v3");
+  await page.getByRole("button", {name: "Mode de commande", exact: true}).click({timeout:60_000});
+  await page.getByRole("button", {name: "Format de l’aperçu", exact: true}).click();
+  await page.getByRole("menuitemradio", {name: "Vue téléphone", exact: true}).click();
+  const settings = page.locator("details").filter({has: page.locator("summary", {hasText: /^En-tête mobile de la carte$/})});
+  await settings.locator("summary").click();
+  await settings.getByRole("button", {name: "Prévisualiser l’en-tête", exact: true}).click();
+  const preview = page.frameLocator("iframe");
+  await expect(preview.locator(".website-entry-dialog[open]")).toHaveCount(0);
+  const heading = preview.locator(".website-catalogue-mobile-heading h1");
+  await expect(heading).toBeVisible();
+  const layout = settings.getByRole("combobox", {name:"Disposition", exact:true});
+  await layout.selectOption("standard");
+  await expect(heading).toHaveCount(0);
+  await layout.selectOption("compact");
+  await settings.getByRole("button", {name:"Style de couleurs 2", exact:true}).click();
+  await expect(preview.locator(".website-header")).toHaveCSS("background-color", "rgb(176, 203, 187)");
+  await expect(preview.locator(".website-service-location")).toHaveCSS("background-color", "rgb(255, 247, 236)");
+  await expect(heading).toHaveCSS("color", "rgb(17, 34, 0)");
+  await settings.getByRole("combobox", {name:"Graisse du texte", exact:true}).selectOption("600");
+  await expect(heading).toHaveCSS("font-weight", "600");
+  await expect(preview.locator(".website-order-items").first()).not.toHaveAttribute("data-mobile-layout", "carousel");
+  await expect.poll(async () => (await draft()).pages.find(item => item.type === "order")?.appearance_overrides.website_order)
+    .toMatchObject({mobile_header_layout:"compact", mobile_header_color_style:"style-2", layout:"list", mobile_item_layout:"inherit"});
+});
 
 test("service modal colors survive preview, reload and publication; desktop languages use the existing selector", async ({ page, request, context }) => {
   test.setTimeout(240_000);

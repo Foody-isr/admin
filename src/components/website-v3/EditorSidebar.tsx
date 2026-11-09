@@ -1,5 +1,6 @@
 "use client";
 
+import { useCampaignCapability } from "./CampaignRuntimeContext";
 import { ComponentAnimationFields } from "./ComponentAnimationFields";
 import type { SiteColorEditTarget } from "./ColorStylePicker";
 import { EditorialLayoutPreview } from "./EditorialLayoutPreview";
@@ -141,6 +142,7 @@ export function EditorSidebar({
   onDeleteSection: (key: string) => void;
 }) {
   const { t } = useI18n();
+  const videoCarouselSupported = useCampaignCapability("video_carousel");
   const [designScreen, setDesignScreen] = useState<"root" | "colors" | "buttons">("root");
   const [colorTarget, setColorTarget] = useState<SiteColorEditTarget>();
   useEffect(() => {
@@ -817,6 +819,8 @@ export function EditorSidebar({
                             className="sqe-layout-choice"
                             aria-label={t(layout.labelKey)}
                             aria-pressed={pendingLayout === layout.value}
+                            disabled={item.type === "video" && layout.value === "carousel" && !videoCarouselSupported}
+                            title={item.type === "video" && layout.value === "carousel" && !videoCarouselSupported ? t("editorReelsUnsupported") : undefined}
                             onClick={() => {
                               setPendingLayout(layout.value);
                               onPreviewSection(item.type, layout.value);

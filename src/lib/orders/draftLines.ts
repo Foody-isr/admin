@@ -80,6 +80,7 @@ export function rehydrateDraftLines(
       selectedVariantPrice: d.selectedVariantPrice,
       modifiers: d.modifiers,
       comboItemId: d.comboItemId,
+      sourceMenuId: d.sourceMenuId,
       comboSelections: d.comboSelections,
     };
 
@@ -131,6 +132,7 @@ function sanitizeLine(raw: unknown, index: number): SanitizedLine {
       selectedVariantPrice: d.selectedVariantPrice,
       modifiers: sanitizeModifiers(d.modifiers),
       comboItemId: d.comboItemId,
+      sourceMenuId: typeof d.sourceMenuId === "number" && Number.isInteger(d.sourceMenuId) && d.sourceMenuId > 0 ? d.sourceMenuId : undefined,
       comboSelections: sanitizeComboSelections(d.comboSelections),
       unitPriceAtDraft: typeof d.unitPriceAtDraft === 'number' ? d.unitPriceAtDraft : 0,
     },
@@ -211,7 +213,8 @@ function shellLine(d: DraftLine): NewOrderLine {
     selectedVariantName: d.selectedVariantName,
     modifiers: d.modifiers,
     comboItemId: d.comboItemId,
-    comboSelections: d.comboSelections,
+    sourceMenuId: d.sourceMenuId,
+      comboSelections: d.comboSelections,
   };
 }
 
@@ -240,6 +243,7 @@ export function toDraftLines(lines: NewOrderLine[], remembered?: Map<string, num
       selectedVariantPrice: l.selectedVariantPrice,
       modifiers: l.modifiers,
       comboItemId: l.comboItemId,
+      sourceMenuId: l.sourceMenuId,
       comboSelections: l.comboSelections,
       unitPriceAtDraft: kept !== undefined ? kept : lineUnitPrice(l),
     };
