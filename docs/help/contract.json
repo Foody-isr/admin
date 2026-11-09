@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "ed206cd6cac76ea3cc5842446f5aeb74987f1684",
+  "documentationRef": "6c7f776b3136b1f81cd5ee4008a64bfd5c5fd26d",
   "documentationRevision": "524b7daa5b3d13f4300993ce7b9e52b13fee35b86e395d0c3693402122be214f",
   "articles": {
     "getting-started/first-login": {
@@ -6300,7 +6300,7 @@
       ]
     },
     "src/components/website-v3/MobileExperienceEditor.tsx": {
-      "sha256": "3cfe6448f91572ad170a712b90e3e3802ae310c932652b8ea7aa7052fca3d7a8",
+      "sha256": "b747ac503f5bea8da16f04839c124ebf9f36002d4ea1bfda6574fe2c6374bae0",
       "features": [
         "website-qr-customize-your-site",
         "website-navigation"

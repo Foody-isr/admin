@@ -87,7 +87,7 @@ function CopyField({ label, locale, value, onChange, maxLength, placeholder, mul
     value: value?.[locale] ?? "",
     placeholder,
     onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange({
-      ...value, [locale]: event.target.value.replace(/\p{Cc}+/gu, " "),
+      ...value, [locale]: event.target.value.replace(/[\t\r\n]+/g, " "),
     }),
   };
   return (
