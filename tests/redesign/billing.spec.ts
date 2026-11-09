@@ -9,6 +9,7 @@ async function install(page: Page, options: { locale?: string; scopedRole?: stri
   await page.route('**/api/v1/**', async route => {
     const request = route.request(), path = new URL(request.url()).pathname, method = request.method(), body = request.postDataJSON() ?? {}, restaurant = request.headers()['x-restaurant-id'];
     if (path === '/api/v1/users/me') return route.fulfill({ json: { permissions: ['settings.view', 'settings.edit'], role_name: options.scopedRole ?? 'Owner', user: { id: 1, full_name: 'Équipe démo', role: options.accountRole ?? 'owner' } } });
+    if (path.endsWith('/foody-billing')) return route.fulfill({ status: 404, json: { error: 'foody_billing_not_found' } });
     if (/\/subscription$/.test(path)) { control.reads++; return control.failRead ? route.fulfill({ status: 503, json: { error: 'Synthetic subscription failure' } }) : route.fulfill({ json: { subscription: control.subscription && { ...control.subscription, restaurant_id: Number(restaurant) } } }); }
     if (path.endsWith('/subscription/change-plan')) {
       writes.push({ body, restaurant, path }); if (control.gate) await control.gate;
@@ -63,4 +64,57 @@ test('billing empty history and locale changes preserve the loaded subscription'
 
 test('billing malformed subscription never exposes change actions', async ({ page }) => {
   const state = await install(page); state.control.subscription = null; await page.goto('/1/billing'); await expect(page.locator('main [role=alert]')).toContainText('Impossible de charger'); await expect(upgrade(page)).toHaveCount(0); expect(state.writes).toHaveLength(0);
+});
+
+test('private offer requires the monthly mandate and verifies a return without starting a second payment', async ({ page }) => {
+  const state = await install(page);
+  const checkoutCalls: unknown[] = [];
+  let verifications = 0;
+  let started = false;
+  const offer = {
+    id: 7, version: 2, title: 'Offre pilote démo', includes: 'Logiciel Foody', terms: 'Conditions de test.',
+    start_date: '2026-11-09', monthly: { net_minor: 33898, vat_minor: 6102, total_minor: 40000 },
+    annual: { net_minor: 386441, vat_minor: 69559, total_minor: 456000 },
+  };
+  const pending = { offer_id: 7, cycle: 'monthly', status: 'pending', amount_minor: 40000, reference: 'FB-synthetic' };
+  const initial = {
+    offer, accepted_offer: null, agreement: null, payment: null,
+    checkout_enabled: true, monthly_enabled: true, due: true, can_resume: false,
+  };
+  await page.route('**/api/v1/restaurants/1/foody-billing**', async (route) => {
+    const url = new URL(route.request().url());
+    expect(route.request().headers()['x-restaurant-id']).toBe('1');
+    if (url.pathname.endsWith('/usage')) return route.fulfill({ json: { month: '2026-11', quotas: null, observed: { openai_whisper_requests: 12 }, complete: true } });
+    if (url.pathname.endsWith('/checkout')) {
+      checkoutCalls.push(route.request().postDataJSON());
+      started = true;
+      return route.fulfill({ json: { checkout_url: 'https://cst.test-gsc.vfims.com/sandbox-checkout' } });
+    }
+    if (url.pathname.endsWith('/reconcile')) {
+      verifications++;
+      return route.fulfill({ json: { ...initial, due: false, accepted_offer: offer,
+        agreement: { offer_id: 7, cycle: 'monthly', period_end: '2026-12-09T10:00:00Z', renews: true },
+        payment: { ...pending, status: 'paid' } } });
+    }
+    return route.fulfill({ json: { ...initial, payment: started ? pending : null } });
+  });
+  await page.route('https://cst.test-gsc.vfims.com/sandbox-checkout', (route) => route.fulfill({ body: 'Sandbox checkout fixture' }));
+  await page.goto('/1/billing');
+  await expect(page.getByRole('heading', { name: 'Offre pilote démo' })).toBeVisible();
+  await expect(page.getByText('Transcriptions de stock OpenAI')).toBeVisible();
+  await expect(upgrade(page)).toHaveCount(0);
+  await page.getByRole('radio', { name: /^Mensuel/ }).check();
+  const pay = page.getByRole('button', { name: 'Continuer vers Verifone' });
+  await expect(pay).toBeDisabled();
+  await page.getByRole('checkbox', { name: /J’accepte cette version/ }).check();
+  await expect(pay).toBeDisabled();
+  await page.getByRole('checkbox', { name: /J’autorise Foody/ }).check();
+  await pay.click();
+  await expect(page.getByText('Sandbox checkout fixture')).toBeVisible();
+  expect(checkoutCalls).toEqual([{ offer_id: 7, cycle: 'monthly', accept_terms: true, accept_renewal: true, locale: 'fr' }]);
+  await page.goto('/1/billing?foody_billing_return=1');
+  await expect(page.getByText(/Paiement de test confirmé/)).toBeVisible();
+  expect(verifications).toBe(1);
+  expect(checkoutCalls).toHaveLength(1);
+  expect(state.writes).toHaveLength(0);
 });

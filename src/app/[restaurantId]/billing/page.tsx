@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context';
 import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
 import { Badge, Button, ConfirmDialog, PageHead, Section } from '@/components/ds';
+import { FoodyBillingEntry } from './PrivateBilling';
 
 const PLANS: { tier: PlanTier; price: number | null; features: string[] }[] = [
   { tier: 'starter', price: 299, features: ['posScreen', 'menuManagement', 'receiptPrinting', 'pickupAndTakeaway', 'pushNotifications'] },
@@ -24,7 +25,8 @@ function checkedSubscription(value: SubscriptionDetail, rid: number): Subscripti
 /** Review this restaurant's subscription and confirm owner-only plan changes. */
 export default function BillingPage() {
   const { restaurantId } = useParams();
-  return <BillingWorkspace key={String(restaurantId)} rid={Number(restaurantId)} />;
+  const rid = Number(restaurantId);
+  return <FoodyBillingEntry key={String(restaurantId)} rid={rid}><BillingWorkspace rid={rid} /></FoodyBillingEntry>;
 }
 function BillingWorkspace({ rid }: { rid: number }) {
   const { t, locale } = useI18n(), { user } = useAuth(), { isOwner, loading: permissionsLoading } = usePermissions();
