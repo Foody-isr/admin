@@ -1,0 +1,57 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/billing/page.tsx",
+      "sha256": "81bc79b1fdd85005ba6d3e88a6ac5118503c8b04c70901afb082c643d3a55867",
+      "baseSha256": "0287b0e71bf7680e2bbabdcd0d8fac6796e79d8ad5c7e80689e44241c9d59b71",
+      "features": [
+        "billing"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The old billing page still renders when the private sandbox offer is absent. Production keeps its existing plan and history controls, and the private procedure is documented separately."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "8e10054941a7f2cd92806dd86e9a69115773cec628729206b1660f6b87f4b884",
+      "baseSha256": "2e08f0c1b070af372172251f79ecd953055a5fd5c2fdf2bdca19e27e3decb5bb",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The appended client wrappers address only the private sandbox subscription routes. The existing request client and public feature contracts do not change."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "249e194f4c4a4570650dc84ffd0c442c7f9231c2e7f7ebfe6eaacccc8b3cc5f6",
+      "baseSha256": "42a383f379384f0484978e180f5a5d8257df7bdd030a5622e2f27a3c0c9fa298",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new translations are specific to the sandbox private offer screen. Existing translations and procedures retain their original keys and content."
+    }
+  ]
+}
