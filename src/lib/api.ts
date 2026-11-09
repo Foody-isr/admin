@@ -11496,3 +11496,58 @@ export async function getPreparedStock(rid: number, itemId: number): Promise<Pre
 export async function setPreparedStock(rid: number, itemId: number, quantity: number | null, revision: number, availableUntil: string): Promise<PreparedStock> {
   return apiFetch<PreparedStock>(`/api/v1/menu/items/${itemId}/prepared-stock`, rid, { method: 'PUT', body: JSON.stringify({quantity, expected_revision: revision, available_until: availableUntil}) });
 }
+
+// ─── Private Foody software offer (sandbox) ──────────────────────────────────
+
+export type FoodyBillingCycle = 'monthly' | 'annual';
+export type FoodyBillingPrice = { net_minor: number; vat_minor: number; total_minor: number };
+export type FoodyBillingOffer = {
+  id: number; version: number; title: string; includes: string; terms: string; start_date: string;
+  monthly: FoodyBillingPrice; annual: FoodyBillingPrice;
+};
+export type FoodyBillingView = {
+  offer: FoodyBillingOffer;
+  accepted_offer: FoodyBillingOffer | null;
+  agreement: { offer_id: number; cycle: FoodyBillingCycle; period_end: string; renews: boolean; card_last_four?: string } | null;
+  payment: { offer_id: number; cycle: FoodyBillingCycle; status: 'creating' | 'pending' | 'review' | 'paid' | 'failed'; amount_minor: number; reference: string } | null;
+  checkout_enabled: boolean;
+  monthly_enabled: boolean;
+  due: boolean;
+  can_resume: boolean;
+};
+
+export type FoodyBillingUsage = {
+  month: string; quotas: { counters: { id: string; used: number }[] } | null;
+  observed: Record<string, number>; complete: boolean;
+};
+
+function foodyBillingPath(restaurantId: number) {
+  return '/api/v1/restaurants/' + restaurantId + '/foody-billing';
+}
+
+/** Return the authenticated owner's private offer, if available. */
+export function getFoodyBilling(rid: number, signal?: AbortSignal): Promise<FoodyBillingView> {
+  return apiFetch(foodyBillingPath(rid), rid, { cache: 'no-store', signal });
+}
+
+/** Authorize a specific offer version and ask for the hosted checkout URL. */
+export function startFoodyBillingCheckout(rid: number, input: {
+  offer_id: number; cycle: FoodyBillingCycle; accept_terms: true; accept_renewal: boolean; locale: string;
+}): Promise<{ checkout_url: string }> {
+  return apiFetch(foodyBillingPath(rid) + '/checkout', rid, { method: 'POST', body: JSON.stringify(input) });
+}
+
+/** Read back an existing attempt without initiating a payment. */
+export function reconcileFoodyBilling(rid: number, signal?: AbortSignal): Promise<FoodyBillingView> {
+  return apiFetch(foodyBillingPath(rid) + '/reconcile', rid, { method: 'POST', signal });
+}
+
+/** Stop subsequent monthly debits while keeping the paid period. */
+export function stopFoodyBillingRenewal(rid: number): Promise<FoodyBillingView> {
+  return apiFetch(foodyBillingPath(rid) + '/stop-renewal', rid, { method: 'POST' });
+}
+
+/** Read observed usage without any billable amount. */
+export function getFoodyBillingUsage(rid: number, signal?: AbortSignal): Promise<FoodyBillingUsage> {
+  return apiFetch(foodyBillingPath(rid) + '/usage', rid, { cache: 'no-store', signal });
+}
