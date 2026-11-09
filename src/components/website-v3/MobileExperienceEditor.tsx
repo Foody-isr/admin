@@ -255,7 +255,7 @@ export function MobileExperienceEditor({
 
         {section === "installation" && <div className="space-y-4">
           {([["home", "editorMobileInstallHome"], ["confirmation", "editorMobileInstallConfirm"], ["menu", "editorMobileInstallMenu"]] as const).map(([placement, label]) => (
-            <ToggleField key={placement} fieldId={`mobile.installation.${placement}`} label={t(label)}
+            <ToggleField key={placement} label={t(label)}
               checked={installation[placement]} onChange={enabled => {
                 setInstallation({ ...installation, [placement]: enabled });
                 previewPlacement(placement);
@@ -286,7 +286,7 @@ export function MobileExperienceEditor({
         </div>}
 
         {section === "navigation" && <div className="space-y-4">
-          <ToggleField fieldId="mobile.navigation.enabled" label={t("editorMobileEnableBar")} checked={navigation.enabled}
+          <ToggleField label={t("editorMobileEnableBar")} checked={navigation.enabled}
             description={t("editorMobileStandaloneOnly")}
             onChange={enabled => setNavigation({ ...navigation, enabled })} />
           <InspectorField label={t("editorMobileBarStyle")}>
@@ -298,7 +298,7 @@ export function MobileExperienceEditor({
           <details className="space-y-3 border-b border-slate-200 pb-3">
             <summary className="cursor-pointer text-sm font-semibold">{t("editorMobileColors")}</summary>
             {colorFields.map(([key, label, fallback]) => (
-              <ColorField key={key} fieldId={`mobile.navigation.colors.${key}`} label={t(label)}
+              <ColorField key={key} label={t(label)}
                 value={navigation.colors?.[key] ?? ""} fallback={colorFallback(key, navigation.colors, fallback)}
                 onChange={color => {
                   const colors = { ...navigation.colors };
@@ -386,7 +386,7 @@ export function MobileExperienceEditor({
             placeholder={t("editorMobileMoreShort")} onChange={title => setMore({ ...more, title })} />
         </div>}
         {section === "banner" && <div className="space-y-4">
-          <ToggleField fieldId="mobile.more.banner" label={t("editorMobileBanner")} checked={more.banner?.enabled === true}
+          <ToggleField label={t("editorMobileBanner")} checked={more.banner?.enabled === true}
             onChange={enabled => setMore({ ...more, banner: { ...more.banner, enabled } })} />
           {more.banner?.enabled && <>
             <CopyField label={t("editorMobileTitle")} locale={locale} value={more.banner.title} maxLength={80}

@@ -68,10 +68,12 @@ test("draft mobile settings preview and publish to the restaurant storefront", a
     await expect(navigation).toBeVisible();
     await expect(preview.getByRole("heading", { name: title })).toHaveCount(0);
     await page.getByText("Couleurs de la barre", { exact: true }).click();
-    const color = (key: string) => page.locator(`input[type="text"][data-field-id="mobile.navigation.colors.${key}"]`);
-    await color("icon").fill("#283044");
-    await color("active_icon").fill("#1b625a");
-    await color("accent").fill("#c8eac9");
+    const color = (label: string) => page.locator("label")
+      .filter({ has: page.getByText(label, { exact: true }) })
+      .locator('input[type="text"]');
+    await color("Icônes").fill("#283044");
+    await color("Icône active").fill("#1b625a");
+    await color("Accent des animations").fill("#c8eac9");
     const activeIcon = (nav: typeof navigation) => nav.locator("[aria-current=page] .mobile-tabbar-icon");
     await expect(activeIcon(navigation)).toHaveCSS("color", "rgb(27, 98, 90)");
     await expect(navigation.locator("[data-mobile-tab=more] .mobile-tabbar-icon")).toHaveCSS("color", "rgb(40, 48, 68)");

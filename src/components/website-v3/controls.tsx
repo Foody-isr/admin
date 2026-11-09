@@ -101,7 +101,8 @@ export function ToggleField({
   disabled,
   onChange,
 }: {
-  fieldId: string;
+  /** Identifies fields exercised by the generic editor connectivity suite. */
+  fieldId?: string;
   label: string;
   description?: string;
   checked: boolean;
@@ -137,7 +138,8 @@ export function ColorField({
   fallback,
   onChange,
 }: {
-  fieldId: string;
+  /** Identifies fields exercised by the generic editor connectivity suite. */
+  fieldId?: string;
   label: string;
   value: string;
   fallback: string;
