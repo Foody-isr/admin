@@ -37,6 +37,9 @@ async function save(page: Page) { await page.getByRole('button', { name: 'Enregi
 
 test('a complete visits program needs explicit confirmation and preserves exact money', async ({ page }, info) => {
   const state = await setup(page); await expect(page.getByRole('heading', { name: 'Programme de fidélité', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Programme de fidélité', exact: true })).toHaveAttribute('href', '/1/loyalty/program');
+  await expect(page.getByText('Aucun programme configuré', { exact: true })).toBeVisible();
+  expect(state.posts).toHaveLength(0);
   await expect(page.getByRole('button', { name: 'Enregistrer la configuration', exact: true })).toBeDisabled(); await fill(page);
   await page.screenshot({ path: info.outputPath('program-desktop.png'), fullPage: true, animations: 'disabled' });
   await save(page); await expect(page.getByText('La configuration a été enregistrée.', { exact: false })).toBeVisible();

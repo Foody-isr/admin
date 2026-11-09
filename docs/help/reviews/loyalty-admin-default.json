@@ -1,0 +1,52 @@
+{
+  "reason": "Three-language loyalty procedures cover the actual feature. This review scopes the unaffected features that share the changed source files.",
+  "files": [
+    {
+      "path": "src/components/Sidebar.tsx",
+      "sha256": "c51eed3f80bfa5fd30c942a58f00a67d64056155b93c49556429de3f5527fea7",
+      "baseSha256": "45d72c855571449e61aacbe0657a852aba2264b57992d726a78bca6e0d304c45",
+      "features": [
+        "global-search",
+        "payments-transactions",
+        "pos-payments"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The change makes only the new loyalty configuration destination visible under settings permissions. Other links, destinations and permission lists are identical."
+    },
+    {
+      "path": "src/lib/help/context.ts",
+      "sha256": "817f96edca821cd0042977e692665f3d2c4ce6072411c0e96b0e4653eb816bee",
+      "baseSha256": "0fe6d70615b95a87ac0f927f9430cdd0b71130af5b9797958385e01fbb71537a",
+      "features": [
+        "google-account-setup"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the loyalty program route now resolves to the customers help topic. All other help topics, entry points and support requests are unchanged."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "e2de6bd3dc83992cd387a46963e69c0d431063fc388692f74d715c5a42867100",
+      "baseSha256": "b8237ce300a0c8455ab2f745ede96e4c716e49e358436e2ee7439fd078c0a0b1",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff against current develop adds only the three translated empty-state labels for loyalty. Every existing label, including the current mobile editor labels, stays identical."
+    }
+  ]
+}
