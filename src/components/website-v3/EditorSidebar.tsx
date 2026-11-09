@@ -20,6 +20,7 @@ import {
   Search,
   ShoppingBag,
   Settings,
+  Smartphone,
   Tag,
   Type,
   Utensils,
@@ -50,12 +51,13 @@ import {
 import { EDITOR_ELEMENTS } from "@/lib/website-v3/editor-elements";
 import type { StatePath } from "@/lib/website-v3/types";
 import { componentGroupsForPage } from "./PreviewCanvas";
+import { PagePickerButton, PagePickerRow } from "./controls";
 
 import type { OrderJourneyScreen } from "@/lib/website-v3/order-journey";
 import type { OrderEditorRegion } from "@/lib/website-v3/editor-selection";
 
 type Panel =
-  "outline" | "pages" | "inspector" | "library" | "page-library" | "design";
+  "outline" | "pages" | "inspector" | "library" | "page-library" | "design" | "mobile";
 
 /** A single contextual sidebar for pages, section editing and global design. */
 export function EditorSidebar({
@@ -73,6 +75,9 @@ export function EditorSidebar({
   onSelectOrderRegion,
   onOpenOrderJourney,
   design,
+  mobileEditor,
+  onOpenMobile,
+  onCloseMobile,
   alerts,
   onSectionPanelChange,
   hoveredSectionKey,
@@ -112,6 +117,9 @@ export function EditorSidebar({
   onSelectOrderRegion?: (region: OrderEditorRegion) => void;
   onOpenOrderJourney?: (pageKey: string, screen: OrderJourneyScreen) => void;
   design: (onEditShared: () => void, initialScreen?: "root" | "colors" | "buttons", colorTarget?: SiteColorEditTarget) => ReactNode;
+  mobileEditor?: (onClose: () => void) => ReactNode;
+  onOpenMobile?: () => void;
+  onCloseMobile?: () => void;
   alerts: ReactNode;
   onSectionPanelChange: (sectionPanel: SectionPanel) => void;
   onSelectSite: (region?: "header" | "footer" | "footer-branding") => void;
@@ -242,6 +250,7 @@ export function EditorSidebar({
   };
   const editPage = () => onPageSettings(activeKey);
   const done = () => {
+    if (panel === "mobile") onCloseMobile?.();
     setPanel("outline");
     setRowMenu(null);
     setPendingSection(null);
@@ -255,6 +264,14 @@ export function EditorSidebar({
     setSectionContentOpen(false);
     setPanel("inspector");
   };
+  if (panel === "mobile" && mobileEditor) {
+    return (
+      <div aria-busy={busy} style={busy ? { pointerEvents: "none", opacity: 0.6 } : undefined}>
+        {alerts}
+        {mobileEditor(done)}
+      </div>
+    );
+  }
   const header =
     panel === "outline" || panel === "pages" ? (
       <>
@@ -273,15 +290,14 @@ export function EditorSidebar({
             {t("editorDesign")}
           </button>
         </div>
-        <div className="sqe-page-switch">
-          <button
-            className="sqe-button"
-            aria-expanded={panel === "pages"}
-            onClick={() => setPanel(panel === "pages" ? "outline" : "pages")}
-          >
-            <span>{activePage.title}</span>
-            <ChevronDown size={18} />
+        {mobileEditor && <div className="sqe-section-row px-3">
+          <button type="button" onClick={() => { onOpenMobile?.(); setPanel("mobile"); }}>
+            <Smartphone size={20} />{t("editorMobileExperience")}
           </button>
+        </div>}
+        <div className="sqe-page-switch">
+          <PagePickerButton title={activePage.title} expanded={panel === "pages"}
+            onClick={() => setPanel(panel === "pages" ? "outline" : "pages")} />
           <button
             className="sqe-icon-button"
             aria-label={t("editorPageSettings")}
@@ -675,19 +691,10 @@ export function EditorSidebar({
                 .filter((p) => (types as readonly string[]).includes(p.type))
                 .map((p) => (
                   <div key={pageKey(p)}>
-                  <div
-                    className="sqe-page-item"
-                    aria-current={pageKey(p) === activeKey}
-                    style={{ position: "relative" }}
-                  >
-                    <button
-                      onClick={() => {
-                        done();
-                        onSelectPage(pageKey(p));
-                      }}
-                    >
-                      {p.title}
-                    </button>
+                  <PagePickerRow title={p.title} selected={pageKey(p) === activeKey} onClick={() => {
+                    done();
+                    onSelectPage(pageKey(p));
+                  }}>
                     <button
                       className="sqe-icon-button"
                       aria-label={`${t("editorMore")} : ${p.title}`}
@@ -762,7 +769,7 @@ export function EditorSidebar({
                         </div>
                       </>
                     )}
-                  </div>
+                  </PagePickerRow>
                   {p.type === "order" && onOpenOrderJourney && <nav className="sqe-journey-pages" aria-label={`${t("editorOrderJourney")} : ${p.title}`}>
                     <span>{t("editorOrderJourney")}</span>
                     {([ ["cart", "editorJourneyCart"], ["checkout", "editorJourneyCheckout"], ["confirmation", "editorJourneyConfirmation"] ] as const).map(([screen, title]) => (

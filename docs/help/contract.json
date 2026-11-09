@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "115709de472d99ad9687aa1fbc1c0a0f4134cbb4",
+  "documentationRef": "4470867e4467a76d741feb7879a64e78b8bb3c9f",
   "documentationRevision": "43c8c3a9c5eae56c35c5583dba48e3583ea6d1b37f73afb71d85033c1befed99",
   "articles": {
     "getting-started/first-login": {
@@ -6196,7 +6196,7 @@
       ]
     },
     "src/components/website-v3/EditorSidebar.tsx": {
-      "sha256": "e1dcb59859e5f4528810089c6d7986c7b6e97b7ed5e016b90c87c94891cd4328",
+      "sha256": "876584f5099c39eae9c43da1387fd8b607afb4d784e68aac622ccc95aa3f07e9",
       "features": [
         "website-qr-customize-your-site",
         "website-sections"
@@ -6314,6 +6314,13 @@
     },
     "src/components/website-v3/MissingFooter.tsx": {
       "sha256": "1cea01e407a1d14d4982444bdcdf975728f647f25a8245a5feaaf79014c2dd33",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-navigation"
+      ]
+    },
+    "src/components/website-v3/MobileExperienceEditor.tsx": {
+      "sha256": "46d21517d77b8da577ddd4493726d6afba1e27a21081182519d09b20faac8ba4",
       "features": [
         "website-qr-customize-your-site",
         "website-navigation"
@@ -6501,7 +6508,7 @@
       ]
     },
     "src/components/website-v3/WebsiteV3Builder.tsx": {
-      "sha256": "030cfe9759ebb05a062c28994266c91fd7715279005bef809fa4ce36c05a5f58",
+      "sha256": "d42dbb6ff5b420450e3b1f6a0fcb72b76ac955f50a87240fbfc2355dc79dcbad",
       "features": [
         "website-qr-customize-your-site",
         "website-sections",
@@ -6509,7 +6516,7 @@
       ]
     },
     "src/components/website-v3/controls.tsx": {
-      "sha256": "1315036a2b2882e7488a3e9d42c0f8b8319e81af755475b9710611495425b812",
+      "sha256": "4b4c62624692a9a50c5e70569c25e7ab263cad837afc4f176181b6b16b69af43",
       "features": [
         "website-qr-customize-your-site"
       ]
@@ -6761,7 +6768,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "824ea21050afea9eaf9ad3fa5e90cff556c97c2eb64238f53a904fcef6154412",
+      "sha256": "e2de6bd3dc83992cd387a46963e69c0d431063fc388692f74d715c5a42867100",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -7654,8 +7661,16 @@
         "shared-runtime"
       ]
     },
+    "src/lib/website-v3/mobile-experience.ts": {
+      "sha256": "faefe0d099133279e016d78b40cb5ef119ca1784e4dd79a684efbdbf1700752e",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-navigation",
+        "shared-runtime"
+      ]
+    },
     "src/lib/website-v3/navigation-links.ts": {
-      "sha256": "bbdd7f2e0cf9bd85a83cca69aaccd2f080865e8f3e80628b35eff5964faf34b4",
+      "sha256": "a47a9566ae7f7a8383ba6e3e16ca8e425a1c60d12f1ff51458f3a6c76e2d94e9",
       "features": [
         "website-qr-customize-your-site",
         "shared-runtime"
@@ -7743,7 +7758,7 @@
       ]
     },
     "src/lib/website-v3/runtime-capabilities.ts": {
-      "sha256": "5b829ccf86b9dc46f3b4ea507f42790ebef14523889dfa907e052673cef47c45",
+      "sha256": "d6158fd139c3f5190df2ab886e890ec4e3663ff98863d57d31ae91453379232f",
       "features": [
         "website-qr-customize-your-site",
         "website-sections",
@@ -22177,6 +22192,7 @@
         "editorJourneyCheckout",
         "editorJourneyConfirmation",
         "editorMakeHomepage",
+        "editorMobileExperience",
         "editorMore",
         "editorMoveDown",
         "editorMoveUp",
@@ -22447,6 +22463,73 @@
         "editorNoFooter"
       ],
       "actions": []
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/MobileExperienceEditor.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/website-v3/MobileExperienceEditor.tsx",
+      "line": 1,
+      "features": [
+        "website-qr-customize-your-site",
+        "website-navigation"
+      ],
+      "labels": [
+        "editorDelete",
+        "editorDone",
+        "editorMobileAction",
+        "editorMobileAddGroup",
+        "editorMobileAddLink",
+        "editorMobileAutoColor",
+        "editorMobileBanner",
+        "editorMobileBar",
+        "editorMobileBarStyle",
+        "editorMobileBenefit",
+        "editorMobileBenefitLoyalty",
+        "editorMobileBenefitMenu",
+        "editorMobileBrowser",
+        "editorMobileColors",
+        "editorMobileConfirmation",
+        "editorMobileCopyScope",
+        "editorMobileDocked",
+        "editorMobileEnableBar",
+        "editorMobileExperience",
+        "editorMobileExternalUrl",
+        "editorMobileFloating",
+        "editorMobileGroup",
+        "editorMobileHidden",
+        "editorMobileHome",
+        "editorMobileIcon",
+        "editorMobileImage",
+        "editorMobileInstallHint",
+        "editorMobileInstalled",
+        "editorMobileLabel",
+        "editorMobileLinks",
+        "editorMobileMaxTabs",
+        "editorMobileMenu",
+        "editorMobileMissingPage",
+        "editorMobileMore",
+        "editorMobileMoreHint",
+        "editorMobileMoreShort",
+        "editorMobileNoGroup",
+        "editorMobilePlacement",
+        "editorMobilePreview",
+        "editorMobilePreviewScreen",
+        "editorMobileSharedCopy",
+        "editorMobileSitePage",
+        "editorMobileSitePages",
+        "editorMobileStandaloneOnly",
+        "editorMobileSubtitle",
+        "editorMobileTarget",
+        "editorMobileTitle",
+        "editorMoveDown",
+        "editorMoveUp",
+        "editorNoPages",
+        "editorReceiptLanguage",
+        "editorSearchPages"
+      ],
+      "actions": [
+        "updateItem"
+      ]
     },
     {
       "id": "foodyadmin:src/components/website-v3/MobileUnavailable.tsx:ui-controls:1",
@@ -26489,6 +26572,21 @@
       "labels": [],
       "actions": [
         "acceptsInlineEdit"
+      ]
+    },
+    {
+      "id": "foodyadmin:src/lib/website-v3/mobile-experience.ts:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/lib/website-v3/mobile-experience.ts",
+      "line": 1,
+      "features": [
+        "website-qr-customize-your-site",
+        "website-navigation",
+        "shared-runtime"
+      ],
+      "labels": [],
+      "actions": [
+        "saved"
       ]
     },
     {

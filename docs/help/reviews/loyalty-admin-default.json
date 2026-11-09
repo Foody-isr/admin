@@ -25,27 +25,28 @@
     },
     {
       "path": "src/lib/i18n.tsx",
-      "sha256": "824ea21050afea9eaf9ad3fa5e90cff556c97c2eb64238f53a904fcef6154412",
-      "baseSha256": "084aedd8be62e4bb16dae57ea3bbb2dc2793777bb9dd0b05b45cff7962c570a4",
+      "sha256": "e2de6bd3dc83992cd387a46963e69c0d431063fc388692f74d715c5a42867100",
+      "baseSha256": "b8237ce300a0c8455ab2f745ede96e4c716e49e358436e2ee7439fd078c0a0b1",
       "features": [
         "customers-profiles",
-        "delivery-dispatch",
-        "delivery-zones",
-        "google-account-setup",
         "menu-menus-and-groups",
-        "menu-product-photos",
         "menu-variants-and-sizes",
-        "orders-internal-sumit-checkout",
-        "payments-transactions",
-        "pos-behavior",
-        "stancer-cash-guarantee",
-        "website-journey",
-        "website-order-design",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
         "website-sections",
-        "whatsapp"
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions"
       ],
       "disposition": "no-user-impact",
-      "reason": "The three added translations describe an unconfigured loyalty program. Every existing translated label for the overlapping features is unchanged."
+      "reason": "The diff against current develop adds only the three translated empty-state labels for loyalty. Every existing label, including the current mobile editor labels, stays identical."
     }
   ]
 }
