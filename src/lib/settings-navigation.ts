@@ -14,7 +14,7 @@ export interface SettingsNavigationGroup {
 }
 
 /** One settings hierarchy shared by the app rail and settings breadcrumbs. */
-export function settingsNavigation(restaurantId: number): SettingsNavigationGroup[] {
+export function settingsNavigation(restaurantId: number, showPrivateBilling = false): SettingsNavigationGroup[] {
   const base = `/${restaurantId}`;
   return [
     { labelKey: 'settingsGroupAccount', items: [
@@ -22,6 +22,7 @@ export function settingsNavigation(restaurantId: number): SettingsNavigationGrou
       { href: `${base}/settings/language`, labelKey: 'language' },
       { href: `${base}/settings/notifications`, labelKey: 'notifications' },
       { href: `${base}/settings/security`, labelKey: 'security' },
+      ...(showPrivateBilling ? [{ href: `${base}/billing`, labelKey: 'billing', exact: true }] : []),
       { href: `${base}/settings/usage`, labelKey: 'apiQuotaTitle', perm: ['settings.view', 'settings.edit'] },
     ] },
     { labelKey: 'settingsGroupRestaurant', items: [
@@ -77,8 +78,12 @@ export function isSettingsDestinationActive(pathname: string, destination: Setti
 }
 
 /** Keep each offered destination consistent with its route guard and page scope. */
-export function visibleSettingsNavigation(restaurantId: number, hasAnyPermission: (...permissions: string[]) => boolean): SettingsNavigationGroup[] {
-  return settingsNavigation(restaurantId).map(group => ({
+export function visibleSettingsNavigation(
+  restaurantId: number,
+  hasAnyPermission: (...permissions: string[]) => boolean,
+  showPrivateBilling = false,
+): SettingsNavigationGroup[] {
+  return settingsNavigation(restaurantId, showPrivateBilling).map(group => ({
     ...group,
     items: group.items.filter(item => {
       const required = requiredPermissionsForPath(item.href);

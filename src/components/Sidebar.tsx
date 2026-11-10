@@ -9,11 +9,12 @@ import SearchTriggerButton from './search/SearchTriggerButton';
 import { NavigationFrame, useDesktopNavigation } from './common/NavigationFrame';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/lib/auth-context';
 import { usePermissions } from '@/lib/permissions-context';
 import { useWs } from '@/lib/ws-context';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme-context';
-import { getLowStockCount, getPrepLowStockCount } from '@/lib/api';
+import { API_URL, getFoodyBilling, getLowStockCount, getPrepLowStockCount } from '@/lib/api';
 import {
   Home,
   CalendarDays,
@@ -86,7 +87,8 @@ interface SidebarProps {
 export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
-  const { hasAnyPermission, roleName, loading: permissionsLoading } = usePermissions();
+  const userId = useAuth().user?.id;
+  const { hasAnyPermission, isOwner, roleName, loading: permissionsLoading } = usePermissions();
   const { status: wsStatus } = useWs();
   const { t, direction } = useI18n();
   const { collapsed: storedCollapsed, toggleCollapsed, setCollapsed } = useSidebar();
@@ -95,9 +97,29 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
   const [lowStockCount, setLowStockCount] = useState(0);
   const [lowPrepCount, setLowPrepCount] = useState(0);
+  const [privateBillingAccess, setPrivateBillingAccess] = useState<string | null>(null);
   const [expansion, setExpansion] = useState<{ pathname: string; overrides: Record<string, boolean> }>({ pathname, overrides: {} });
   const overrides = expansion.pathname === pathname ? expansion.overrides : {};
-  const settingsGroups = visibleSettingsNavigation(restaurantId, hasAnyPermission);
+  const billingScope = !permissionsLoading && isOwner && userId && API_URL !== 'https://api.foody-pos.co.il'
+    ? `${restaurantId}:${userId}`
+    : null;
+  const settingsGroups = visibleSettingsNavigation(
+    restaurantId, hasAnyPermission, billingScope !== null && privateBillingAccess === billingScope,
+  );
+
+  useEffect(() => {
+    if (!billingScope) return;
+    const request = new AbortController();
+    getFoodyBilling(restaurantId, request.signal)
+      .then((view) => {
+        if (!request.signal.aborted) setPrivateBillingAccess(view.offer?.id ? billingScope : null);
+      })
+      .catch(() => {
+        // Offer availability comes from the scoped API. Hide the link when it cannot confirm access.
+        if (!request.signal.aborted) setPrivateBillingAccess(null);
+      });
+    return () => request.abort();
+  }, [billingScope, restaurantId]);
 
   useEffect(() => {
     if (permissionsLoading || isCourierRoleName(roleName)) return;
