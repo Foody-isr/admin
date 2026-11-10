@@ -26,6 +26,13 @@ const upgrade = (page: Page) => page.getByRole('button', { name: 'Passer à Prem
 async function confirm(page: Page) { await upgrade(page).click(); await page.getByRole('alertdialog').getByRole('button', { name: 'Confirmer', exact: true }).click(); }
 const verify = (page: Page) => page.getByRole('button', { name: 'Vérifier l’abonnement', exact: true });
 
+async function openAccountNavigation(page: Page) {
+  const nav = page.getByRole('navigation', { name: 'Navigation principale' });
+  await nav.getByRole('button', { name: 'Paramètres', exact: true }).click();
+  await nav.getByRole('button', { name: 'Compte', exact: true }).click();
+  return nav;
+}
+
 for (const locale of ['fr', 'he']) test(`billing responsive subscription, plans and history ${locale}`, async ({ page }, info) => {
   const state = await install(page, { locale }); await page.setViewportSize({ width: locale === 'fr' ? 375 : 1440, height: 1000 }); await page.goto('/1/billing'); await expect(page.getByText('Demo •••• 4242')).toBeVisible(); await page.screenshot({ path: info.outputPath(`billing-overview-${locale}.png`) }); await page.getByText(locale === 'fr' ? 'Historique des paiements' : 'היסטוריית תשלומים', { exact: true }).scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath(`billing-history-${locale}.png`) }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); expect(state.fixture.unhandled).toEqual([]);
 });
@@ -66,7 +73,7 @@ test('billing malformed subscription never exposes change actions', async ({ pag
   const state = await install(page); state.control.subscription = null; await page.goto('/1/billing'); await expect(page.locator('main [role=alert]')).toContainText('Impossible de charger'); await expect(upgrade(page)).toHaveCount(0); expect(state.writes).toHaveLength(0);
 });
 
-test('private offer requires the monthly mandate and verifies a return without starting a second payment', async ({ page }) => {
+test('the owner can open a private offer from Account, accept the monthly mandate and verify the return', async ({ page }) => {
   const state = await install(page);
   const checkoutCalls: unknown[] = [];
   let verifications = 0;
@@ -99,7 +106,12 @@ test('private offer requires the monthly mandate and verifies a return without s
     return route.fulfill({ json: { ...initial, payment: started ? pending : null } });
   });
   await page.route('https://cst.test-gsc.vfims.com/sandbox-checkout', (route) => route.fulfill({ body: 'Sandbox checkout fixture' }));
-  await page.goto('/1/billing');
+  await page.goto('/1/dashboard');
+  const nav = await openAccountNavigation(page);
+  const billing = nav.getByRole('link', { name: 'Facturation', exact: true });
+  await expect(billing).toHaveAttribute('href', '/1/billing');
+  await billing.click();
+  await expect(billing).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('heading', { name: 'Offre pilote démo' })).toBeVisible();
   await expect(page.getByText('Transcriptions de stock OpenAI')).toBeVisible();
   await expect(upgrade(page)).toHaveCount(0);
@@ -117,4 +129,8 @@ test('private offer requires the monthly mandate and verifies a return without s
   expect(verifications).toBe(1);
   expect(checkoutCalls).toHaveLength(1);
   expect(state.writes).toHaveLength(0);
+
+  await page.goto('/2/dashboard');
+  await openAccountNavigation(page);
+  await expect(billing).toHaveCount(0);
 });
