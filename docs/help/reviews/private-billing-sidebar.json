@@ -1,0 +1,27 @@
+{
+  "files": [
+    {
+      "path": "src/components/Sidebar.tsx",
+      "sha256": "a9932b4fcc2efdb38d58cd1c465917c1d5235808ee1ff27efe8e9234860c5de5",
+      "baseSha256": "c51eed3f80bfa5fd30c942a58f00a67d64056155b93c49556429de3f5527fea7",
+      "features": [
+        "pos-payments",
+        "global-search",
+        "payments-transactions",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The sandbox offer check adds the billing link for owners of a restaurant with a published private offer. Existing operational navigation and the public procedures for this file are unchanged."
+    },
+    {
+      "path": "src/lib/settings-navigation.ts",
+      "sha256": "985bd9845866c8f2dec1139365ff5ff0f3c5766f9c66573d30d6f4ca223f26a1",
+      "baseSha256": "288e9428a40baa6652c1d84a3017d123b2ab04fd1c05e01fe511cf6cb92b677a",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The Account group receives the existing billing destination only when the scoped API confirms a private sandbox offer. Existing destinations and shared settings procedures are unchanged."
+    }
+  ]
+}
