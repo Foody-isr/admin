@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { decodeTransactionHistory } from './transactions';
+import { ashraitReceiptFields, decodeAshraitCardReceipt } from './ashrait-card-receipt';
 
 function history() {
   return { transactions: [{ id: 'provider:1', kind: 'sale' as const, status: 'completed', method: 'credit_card', source: 'online', payment_rail: 'stancer',
@@ -25,4 +26,37 @@ test('rejects malformed money, dates and totals instead of displaying zero', () 
   assert.throws(() => decodeTransactionHistory(value));
   const totals = history(); totals.totals_by_currency.EUR = 0.1;
   assert.throws(() => decodeTransactionHistory(totals));
+});
+
+test('renders only the selected masked Ashrait copy with exact identifiers and zero values', () => {
+  const reference = 'SYNTHETIC_RECEIPT_UID';
+  const raw = {
+    transaction: { uid: reference, transId: 'SYNTHETIC_TRANS' },
+    customer: {
+      pan: '**** 0000',
+      currency: '376',
+      transactionAmount: '0',
+      isSignatureRequired: 'false',
+      emvApplicationIdentifier: 'A0000000000001',
+    },
+    merchant: { issuerApprovalNumber: '001' },
+  };
+  const receipt = decodeAshraitCardReceipt(raw, reference);
+  const values = Object.fromEntries(ashraitReceiptFields(receipt, 'customer', 'fr')
+    .map(({ key, value }) => [key, value]));
+  assert.equal(values.pan, '**** 0000');
+  assert.equal(values.transactionAmount, '0.00 ILS');
+  assert.equal(values.isSignatureRequired, 'false');
+  assert.equal(values.emvApplicationIdentifier, 'A0000000000001');
+  assert.equal(values.transId, 'SYNTHETIC_TRANS');
+  assert.equal(values.issuerApprovalNumber, undefined);
+  assert.throws(() => decodeAshraitCardReceipt(raw, 'SYNTHETIC_OTHER_UID'));
+  assert.throws(() => decodeAshraitCardReceipt({
+    ...raw,
+    customer: { ...raw.customer, pan: '1234567890123456' },
+  }, reference));
+  assert.throws(() => decodeAshraitCardReceipt({
+    ...raw,
+    customer: { ...raw.customer, cvv: '000' },
+  }, reference));
 });

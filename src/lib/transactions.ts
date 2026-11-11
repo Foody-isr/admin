@@ -10,6 +10,7 @@ export interface TransactionRecord {
   currency: string;
   occurred_at: string;
   reference?: string;
+  ashrait_receipt_key?: string;
   related_transaction_id?: string;
   allocation_details_unavailable?: boolean;
   allocations: Array<{ order_id?: number; check_id?: string; amount_minor?: number }>;
@@ -35,6 +36,8 @@ export function decodeTransactionHistory(value: TransactionHistory): Transaction
     || value.transactions.some(row => !row || typeof row.id !== 'string' || !['sale', 'refund', 'void'].includes(row.kind)
       || !minor(row.amount_minor) || !currency(row.currency) || !Number.isFinite(Date.parse(row.occurred_at))
       || typeof row.method !== 'string' || typeof row.source !== 'string' || typeof row.payment_rail !== 'string'
+      || (row.ashrait_receipt_key !== undefined && (typeof row.ashrait_receipt_key !== 'string'
+        || !/^(sale|refund):[0-9a-f-]{36}$/.test(row.ashrait_receipt_key) || typeof row.reference !== 'string'))
       || !Array.isArray(row.allocations) || !Array.isArray(row.items) || row.items.some(item => typeof item !== 'string'))
     || [value.totals_by_currency, value.recorded_returns_by_currency].some(totals => !totals || typeof totals !== 'object'
       || Array.isArray(totals) || Object.entries(totals).some(([code, amount]) => !currency(code) || !minor(amount)))) {
