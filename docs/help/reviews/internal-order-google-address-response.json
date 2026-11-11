@@ -1,0 +1,25 @@
+{
+  "files": [
+    {
+      "path": "src/components/delivery/RouteAddressField.tsx",
+      "sha256": "6de0851ddf9c28f04b4d3c4366c4e76f918dbbeeddff7a262d758e2194e5de91",
+      "baseSha256": "7cc49b6f28780844d94b2d3705c1fcc9d609cb49e08469dabcbdb5a9de8861d6",
+      "disposition": "no-user-impact",
+      "features": [
+        "delivery-dispatch"
+      ],
+      "reason": "The internal order picker accepts the API’s existing complete address response and keeps street refinements in search. The documented selection procedure is accurate and dispatcher callers still use the formatted address."
+    },
+    {
+      "path": "src/lib/delivery.ts",
+      "sha256": "86e54d9ca86ba268235dd5d5358adecf13704f03e6a49ea815ca291162ec3ed5",
+      "baseSha256": "f75e3653c927601268332e7e808e04f0cf020834722289c139ac1aae0d8ac4be",
+      "disposition": "no-user-impact",
+      "features": [
+        "delivery-dispatch",
+        "shared-runtime"
+      ],
+      "reason": "The optional street and house number fields describe the response already supplied by Google address resolution. They support the documented full address selection without changing route or courier procedures."
+    }
+  ]
+}

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "dbb0771e7b684130854f7edc1c061155596d8428",
+  "documentationRef": "ce019134c6b0d7be4d7b69413ceb961f3dc5551f",
   "documentationRevision": "1520c0d773a41a2a0c1b1284e26fc0540fdddf0ffef27e2a5ae9323ef2555c63",
   "articles": {
     "getting-started/first-login": {
@@ -4164,7 +4164,7 @@
       ]
     },
     "src/components/delivery/RouteAddressField.tsx": {
-      "sha256": "7cc49b6f28780844d94b2d3705c1fcc9d609cb49e08469dabcbdb5a9de8861d6",
+      "sha256": "6de0851ddf9c28f04b4d3c4366c4e76f918dbbeeddff7a262d758e2194e5de91",
       "features": [
         "delivery-dispatch"
       ]
@@ -6710,7 +6710,7 @@
       ]
     },
     "src/lib/delivery.ts": {
-      "sha256": "f75e3653c927601268332e7e808e04f0cf020834722289c139ac1aae0d8ac4be",
+      "sha256": "86e54d9ca86ba268235dd5d5358adecf13704f03e6a49ea815ca291162ec3ed5",
       "features": [
         "delivery-dispatch",
         "shared-runtime"

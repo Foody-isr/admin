@@ -524,16 +524,18 @@ test('a malformed fixed fee identifies its field and pickup excludes the fee', a
 
 test('a Google suggestion sets the street and city, and editing it discards the previous quote', async ({ page }) => {
   const state = await install(page, false);
-  const first = { id: 'first', address: '12 rue Démo', city: 'Ville Démo', lat: 32.08, lng: 34.78 };
-  const second = { id: 'second', address: '24 rue Démo', city: 'Autre Ville', lat: 32.18, lng: 34.88 };
+  const street = { id: 'street', kind: 'street', address: 'Rue Démo', city: 'Ville Démo', street: 'Rue Démo', house_number: '' };
+  const first = { id: 'first', address: '12 rue Démo', city: 'Ville Démo', street: 'rue Démo', house_number: '12', lat: 32.08, lng: 34.78 };
+  const second = { id: 'second', address: '24 rue Démo', city: 'Autre Ville', street: 'rue Démo', house_number: '24' };
   await page.route('**/public/address-autocomplete?*', route => {
     const query = route.request().postDataJSON().text;
-    const result = query.startsWith('12') ? first : second;
+    const result = query.startsWith('12') ? first : query.startsWith('24') ? second : street;
     return route.fulfill({ json: { suggestions: [{ id: result.id, kind: 'prediction', address: result.address, city: result.city, lookup_token: result.id }] } });
   });
   await page.route('**/public/address-autocomplete/resolve?*', route => {
-    const result = route.request().postDataJSON().lookup_token === first.id ? first : second;
-    return route.fulfill({ json: { suggestion: { ...result, kind: 'address' } } });
+    const token = route.request().postDataJSON().lookup_token;
+    const result = token === first.id ? first : token === second.id ? second : street;
+    return route.fulfill({ json: { suggestion: result } });
   });
   let old: import('@playwright/test').Route | undefined;
   const quotes: URLSearchParams[] = [];
@@ -548,10 +550,15 @@ test('a Google suggestion sets the street and city, and editing it discards the 
   await panel.getByRole('radio', { name: 'Livraison', exact: true }).check();
   const address = panel.getByRole('combobox', { name: 'Adresse de livraison', exact: true });
   await expect(panel.getByRole('textbox', { name: 'Ville', exact: true })).toHaveCount(0);
+  await address.fill('Rue démo');
+  await panel.getByRole('option', { name: 'Rue Démo, Ville Démo' }).getByRole('button').click();
+  await expect(address).toHaveValue('Rue Démo, Ville Démo');
+  expect(quotes).toHaveLength(0);
   await address.fill('12 ru démo vile');
   await panel.getByRole('option', { name: '12 rue Démo, Ville Démo' }).click();
   await expect(address).toHaveValue('12 rue Démo, Ville Démo');
   await expect.poll(() => !!old).toBe(true);
+  expect(Object.fromEntries(quotes[0])).toMatchObject({ restaurant_id: '1', address: first.address, city: first.city, lat: '32.08', lng: '34.78' });
   await address.fill('24 ru démo autre vile');
   await expect(panel.getByRole('option', { name: '24 rue Démo, Autre Ville' })).toBeVisible();
   await panel.getByRole('button', { name: 'Continuer', exact: true }).click();
@@ -560,7 +567,7 @@ test('a Google suggestion sets the street and city, and editing it discards the 
   expect(quotes).toHaveLength(1);
   await panel.getByRole('option', { name: '24 rue Démo, Autre Ville' }).click();
   await expect(panel.getByRole('status').filter({ hasText: 'Frais de livraison calculés' })).toContainText('10.00');
-  expect(Object.fromEntries(quotes[1])).toMatchObject({ restaurant_id: '1', address: second.address, city: second.city, lat: '32.18', lng: '34.88' });
+  expect(Object.fromEntries(quotes[1])).toEqual({ restaurant_id: '1', address: second.address, city: second.city });
   await old!.fulfill({ json: { deliverable: true, resolved: true, delivery_fee: 99 } }).catch(() => {});
   await paymentStep(panel);
   await panel.getByRole('radio', { name: 'Payer plus tard', exact: true }).check();
