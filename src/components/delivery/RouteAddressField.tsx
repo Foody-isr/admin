@@ -1,20 +1,26 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type InputHTMLAttributes } from 'react';
 import { formatRouteAddress } from '@/lib/route-address';
 import { Input } from '@/components/ds';
 import { autocompleteRouteAddress, resolveRouteAddress, type AddressSuggestion } from '@/lib/delivery';
 
 /** Search and select an endpoint using the restaurant's existing address provider. */
-export function RouteAddressField({ restaurantId, locale, label, placeholder, value, onChange, onResolvingChange, disabled, t }: {
+export function RouteAddressField({ restaurantId, locale, label, placeholder, value, onChange, onSelectAddress, onResolvingChange, inputProps, disabled, t }: {
   restaurantId: number; locale: string; label: string; placeholder?: string; value: string;
   onChange: (value: string) => void; onResolvingChange?: (resolving: boolean) => void; disabled?: boolean; t: (key: string) => string;
+  /** Receives a complete address and its city separately. Partial suggestions stay in the search field. */
+  onSelectAddress?: (suggestion: AddressSuggestion) => void;
+  inputProps?: Pick<InputHTMLAttributes<HTMLInputElement>, 'id' | 'aria-label' | 'aria-invalid' | 'aria-describedby'>;
 }) {
-  const id = useId();
+  const generatedId = useId();
+  const id = inputProps?.id ?? generatedId;
   const session = useRef('');
   const request = useRef(0);
   const selection = useRef('');
   const resolution = useRef(0);
+  const currentValue = useRef(value);
+  currentValue.current = value;
   const resolvingCallback = useRef(onResolvingChange);
   resolvingCallback.current = onResolvingChange;
   const [resolving, setResolving] = useState(false);
@@ -54,24 +60,27 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
     setResolving(true); resolvingCallback.current?.(true); setError(false); setSuggestions([]);
     try {
       const resolved = suggestion.lookup_token ? await resolveRouteAddress(restaurantId, suggestion.lookup_token) : suggestion;
-      if (resolution.current !== version) return;
+      if (resolution.current !== version || currentValue.current !== value) return;
       const address = formatRouteAddress(resolved);
       session.current = '';
-      if (resolved.kind === 'street') {
+      const incomplete = resolved.kind !== 'address' || !resolved.address.trim() || !resolved.city.trim();
+      if (resolved.kind === 'street' || (onSelectAddress && incomplete)) {
         onChange(address); return;
       }
       selection.current = address;
-      session.current = '';
-      onChange(address); setFocused(false);
-    } catch { if (resolution.current === version) setError(true); }
+      if (onSelectAddress) onSelectAddress(resolved);
+      else onChange(address);
+      setFocused(false);
+    } catch { if (resolution.current === version && currentValue.current === value) setError(true); }
     finally { if (resolution.current === version) { setResolving(false); resolvingCallback.current?.(false); } }
   };
 
+  const describedBy = [inputProps?.['aria-describedby'], error && `${id}-error`].filter(Boolean).join(' ') || undefined;
   return <div className="relative flex min-w-0 flex-col gap-1.5">
     <label htmlFor={id} className="text-fs-xs font-medium text-[var(--fg-muted)]">{label}</label>
-    <Input id={id} role="combobox" aria-autocomplete="list" aria-expanded={focused && suggestions.length > 0}
+    <Input {...inputProps} id={id} role="combobox" aria-autocomplete="list" aria-expanded={focused && suggestions.length > 0}
       aria-controls={`${id}-list`} aria-activedescendant={suggestions[active] ? `${id}-${active}` : undefined}
-      aria-describedby={error ? `${id}-error` : undefined} value={value} placeholder={placeholder} disabled={disabled}
+      aria-describedby={describedBy} value={value} placeholder={placeholder} disabled={disabled}
       autoComplete="off" dir="auto" maxLength={500} className="min-w-0 text-[16px] sm:text-fs-sm"
       onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
       onChange={event => { ++request.current; ++resolution.current; setResolving(false); resolvingCallback.current?.(false); selection.current = ''; onChange(event.target.value); setFocused(true); }}

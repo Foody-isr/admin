@@ -10191,16 +10191,21 @@ export async function geocodeAddress(
  * Resolve a delivery address against the restaurant's delivery zones and return
  * the matched zone's fee. Wraps the public `GET /public/delivery/check`. Used to
  * prefill the delivery fee on the manual-order screen (staff can still edit it).
- * Returns `{ deliverable: false }` on any error so callers can degrade to a blank
- * fee field rather than block the order.
+ * A resolved suggestion can supply coordinates for geometry-based zones.
+ * Returns `{ deliverable: false }` when the check fails.
  */
 export async function checkDeliverable(
   restaurantId: number,
   address: string,
   city?: string,
+  position?: { lat: number; lng: number },
 ): Promise<{ deliverable: boolean; resolved?: boolean; delivery_fee?: number }> {
   const q = new URLSearchParams({ restaurant_id: String(restaurantId), address });
   if (city) q.set('city', city);
+  if (position) {
+    q.set('lat', String(position.lat));
+    q.set('lng', String(position.lng));
+  }
   try {
     const res = await fetch(`${API_URL}/api/v1/public/delivery/check?${q.toString()}`);
     if (!res.ok) return { deliverable: false };

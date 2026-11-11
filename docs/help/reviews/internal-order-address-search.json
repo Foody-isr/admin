@@ -1,0 +1,53 @@
+{
+  "files": [
+    {
+      "path": "src/components/customers/CustomerDeliveryFields.tsx",
+      "sha256": "c09f16def090dc0bec111fd8d66b12c696f03722b98dddc2917f3002637d73bc",
+      "baseSha256": "71fcac9c73b96473b8438e8321d24beeaa450aae5095cc9394ac3d54bcd1b1a1",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles"
+      ],
+      "reason": "The optional order address control is used by the internal order panel. Customer profiles keep the same street, city, unit fields, editing controls and saved data."
+    },
+    {
+      "path": "src/components/delivery/RouteAddressField.tsx",
+      "sha256": "7cc49b6f28780844d94b2d3705c1fcc9d609cb49e08469dabcbdb5a9de8861d6",
+      "baseSha256": "2b72a277f20e69bd4a1431cd7da396451db9027c1cea1df4883311f8f8ea618b",
+      "disposition": "no-user-impact",
+      "features": [
+        "delivery-dispatch"
+      ],
+      "reason": "The dispatcher and staff profile keep their existing Google lookup and formatted address entry. The optional structured callback and inline validation labels are used by internal checkout."
+    },
+    {
+      "path": "src/lib/delivery.ts",
+      "sha256": "f75e3653c927601268332e7e808e04f0cf020834722289c139ac1aae0d8ac4be",
+      "baseSha256": "4ea278df4343d69735b2702275441532d59911d34fc3f8e081a07382965898a9",
+      "disposition": "no-user-impact",
+      "features": [
+        "delivery-dispatch",
+        "shared-runtime"
+      ],
+      "reason": "The address prediction type now declares the optional coordinates already present in resolved API responses. Route and courier calls and their editing behavior are unchanged."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "2d6875526f10d29a18ec7abee960c820f6407587a0443062e9f48a2193c12e0b",
+      "baseSha256": "ecf46093e9eef8fdad6f563c3d8a589cff27a3bcb587aa9f526f9cbc932d3a9e",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos",
+        "stancer-cash-guarantee",
+        "payments-transactions"
+      ],
+      "reason": "Only the internal order form supplies optional resolved coordinates to the existing delivery check. Zone administration, customer profiles, menu calls and payment operations use their existing contracts."
+    }
+  ]
+}

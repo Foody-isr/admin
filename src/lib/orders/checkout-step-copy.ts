@@ -13,6 +13,10 @@ interface CheckoutCopy {
   sameDate: string;
   useAddress: string;
   useContact: string;
+  addressPlaceholder: string;
+  addressSearchHint: string;
+  addressManual: string;
+  addressSearch: string;
   timingWarning: string;
   errors: Record<CheckoutError, string>;
 }
@@ -25,6 +29,10 @@ export const checkoutStepCopy: Record<'fr' | 'en' | 'he', CheckoutCopy> = {
     detailsByClient: 'Le client complétera ses informations via le lien Foody', detailsByClientHint: 'Les coordonnées et les informations événement manquantes seront demandées au client avant confirmation.',
     additional: 'Informations complémentaires', requirements: 'Informations à demander au client', sameDate: 'Utiliser la date de retrait ou de livraison', useAddress: 'Reprendre l’adresse de livraison', useContact: 'Reprendre le contact client',
     timingWarning: 'Le créneau de réception se termine après le début de l’événement. Vérifiez les horaires prévus.',
+    addressPlaceholder: 'Rue, numéro et ville',
+    addressSearchHint: 'Sélectionnez une adresse complète dans les suggestions.',
+    addressManual: 'Saisir l’adresse manuellement',
+    addressSearch: 'Rechercher avec Google',
     errors: {
       date: 'Choisissez une date de retrait ou de livraison valide.', time: 'Renseignez l’heure de début du créneau.', windowEnd: 'Renseignez l’heure de fin du créneau.', windowOrder: 'La fin du créneau doit être après le début. Choisissez une heure de fin plus tardive.',
       name: 'Renseignez le nom du client.', phone: 'Renseignez le téléphone du client.', address: 'Renseignez l’adresse de livraison.', fee: 'Saisissez des frais de livraison positifs ou nuls, avec deux décimales maximum.', feePending: 'Les frais de livraison sont en cours de calcul. Attendez le résultat.', feeUnavailable: 'Les frais de livraison sont indisponibles. Réessayez ou définissez des frais fixes.',
@@ -40,6 +48,10 @@ export const checkoutStepCopy: Record<'fr' | 'en' | 'he', CheckoutCopy> = {
     detailsByClient: 'The customer will complete their details through the Foody link', detailsByClientHint: 'Missing contact and event details will be requested from the customer before confirmation.',
     additional: 'Additional information', requirements: 'Information to request from the customer', sameDate: 'Use the pickup or delivery date', useAddress: 'Use the delivery address', useContact: 'Use the customer contact',
     timingWarning: 'The handover window ends after the event starts. Check the planned times.',
+    addressPlaceholder: 'Street, number and city',
+    addressSearchHint: 'Select a complete address from the suggestions.',
+    addressManual: 'Enter the address manually',
+    addressSearch: 'Search with Google',
     errors: {
       date: 'Choose a valid pickup or delivery date.', time: 'Enter the start of the time window.', windowEnd: 'Enter the end of the time window.', windowOrder: 'The window must end after it starts. Choose a later end time.',
       name: 'Enter the customer name.', phone: 'Enter the customer phone number.', address: 'Enter the delivery address.', fee: 'Enter a delivery fee of zero or more, with up to two decimal places.', feePending: 'The delivery fee is being calculated. Wait for the result.', feeUnavailable: 'The delivery fee is unavailable. Retry or enter a fixed fee.',
@@ -55,6 +67,10 @@ export const checkoutStepCopy: Record<'fr' | 'en' | 'he', CheckoutCopy> = {
     detailsByClient: 'הלקוח ישלים את הפרטים דרך קישור Foody', detailsByClientHint: 'פרטי קשר ואירוע חסרים יתבקשו מהלקוח לפני האישור.',
     additional: 'מידע נוסף', requirements: 'פרטים לבקשה מהלקוח', sameDate: 'שימוש בתאריך האיסוף או המשלוח', useAddress: 'העתקת כתובת המשלוח', useContact: 'העתקת פרטי הקשר של הלקוח',
     timingWarning: 'חלון קבלת ההזמנה מסתיים אחרי תחילת האירוע. בדקו את השעות המתוכננות.',
+    addressPlaceholder: 'רחוב, מספר בית ועיר',
+    addressSearchHint: 'בחרו כתובת מלאה מרשימת ההצעות.',
+    addressManual: 'הזנת כתובת ידנית',
+    addressSearch: 'חיפוש באמצעות Google',
     errors: {
       date: 'בחרו תאריך איסוף או משלוח תקין.', time: 'הזינו את שעת תחילת החלון.', windowEnd: 'הזינו את שעת סיום החלון.', windowOrder: 'שעת הסיום חייבת להיות אחרי שעת ההתחלה. בחרו שעת סיום מאוחרת יותר.',
       name: 'הזינו את שם הלקוח.', phone: 'הזינו את מספר הטלפון של הלקוח.', address: 'הזינו את כתובת המשלוח.', fee: 'הזינו דמי משלוח של אפס ומעלה, עד שתי ספרות אחרי הנקודה.', feePending: 'דמי המשלוח מחושבים כעת. המתינו לתוצאה.', feeUnavailable: 'דמי המשלוח אינם זמינים. נסו שוב או קבעו סכום קבוע.',
