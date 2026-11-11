@@ -79,6 +79,28 @@ async function install(page: Page, locale = 'fr') {
   return state;
 }
 
+test('dispatch shows the stop awaiting a result, preserves reports, and sends a scoped reminder', async ({ page }) => {
+  const state = await install(page);
+  state.routes[0].status = 'active';
+  state.routes[0].stops[1].navigation_started_at = '2026-10-12T05:30:00Z';
+  state.routes[0].stops[2].status = 'skipped';
+  state.routes[0].stops[2].issue_reason = 'wrong_address';
+  await page.route('**/api/v1/delivery/routes/1/courier-reminder?**', intercepted => {
+    const request = intercepted.request();
+    state.writes.push({ path: new URL(request.url()).pathname, rid: request.headers()['x-restaurant-id'] });
+    return intercepted.fulfill({ json: { accepted: 1 } });
+  });
+  await page.goto('/1/orders/deliveries');
+  await expect(page.getByText('Résultat à confirmer', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Annuler le départ', exact: true })).toHaveCount(0);
+  const issues = page.getByRole('region', { name: 'Incidents de livraison signalés' });
+  await expect(issues).toContainText('Adresse incorrecte');
+  await expect(issues.getByRole('link', { name: 'Ouvrir la commande' })).toHaveAttribute('href', '/1/orders/1003');
+  await page.getByRole('button', { name: 'Rappeler le livreur', exact: true }).click();
+  await expect(page.getByText('Rappel accepté pour envoi.')).toBeVisible();
+  expect(state.writes).toEqual([{ path: '/api/v1/delivery/routes/1/courier-reminder', rid: '1' }]);
+});
+
 test('planner separates completed deliveries from work and preserves history', async ({ page }, info) => {
   const state = await install(page);
   await page.goto('/1/orders/deliveries');

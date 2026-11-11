@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "7d53f0f87e1b2a062248520845f775d635316fb1",
-  "documentationRevision": "fcc50775c3a832a54f28049d57a1cf4fdf1ce05f687d7c5334c070c12015b568",
+  "documentationRef": "8fcc140206535a0bda902607ad1a0faaa8e94256",
+  "documentationRevision": "361aa008f6ed731d02538f7f412a8c72298fd8a830b646f55c7526bb52e164c5",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -240,15 +240,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/using-support.mdx",
-          "sha256": "bd5834cc82e1e38233303c1f4a157005f64fc03fd73224cab225df3e64072e37"
+          "sha256": "e96ce064541d4b35a55bc865a36a3b9d4774347e2470061c7ea9453a8e051851"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/using-support.mdx",
-          "sha256": "c9bd0a129e8eaaba91c31a0df477b3790f54de300e1cff2e74ea387bc4208328"
+          "sha256": "e2a1bd70fb7088854caecdd2956e40b1a7d6d634a66db8bc3550db93dbb505dc"
         },
         "he": {
           "path": "src/content/help/he/getting-started/using-support.mdx",
-          "sha256": "21cc705b62313ab697ab7060c69339e04f85b22844244b8369dae502bc1dcf3a"
+          "sha256": "94afbd046d2c0023b1bde92c072d8a0049d2a2c394b83bb7b0baa6f741506ae0"
         }
       }
     },
@@ -449,15 +449,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/managing-orders.mdx",
-          "sha256": "a01382cf660735706cefe476cea29f6146f45702b93bfa74d663b6a93bee323b"
+          "sha256": "ce1b65166d45f45631eb2ed3cbada5ab6895ca1fa48295b483fe933910e5c9c9"
         },
         "fr": {
           "path": "src/content/help/fr/orders/managing-orders.mdx",
-          "sha256": "d59cdcd32c4b64c6ac9667a2576a2e4aa2fb981bddd341daf860d2895cf5ece6"
+          "sha256": "db98b8dc3b4f80422bb7914cfd12d7cc4d95fbe6ce3e7e691016691e45cd8bb8"
         },
         "he": {
           "path": "src/content/help/he/orders/managing-orders.mdx",
-          "sha256": "1c7e27c074fb4871ad3db2f0eff8f4ec13e0fec9dfb00de8231dca66a22869ec"
+          "sha256": "9214b63d9cf04398070d66073271b5b6ffde63451a72fa60cdc2f645e6ba6891"
         }
       }
     },
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "be7f6d2e41f727b2849c7f72e75f318ee2bd2c81b1787657d559e31c23d2da1d"
+          "sha256": "f7a442115e71ba71c0870387c6f7db96d7bd749ccf76c32e9b446c47141d4283"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "7ccedeb13bd324bad41926232295c38146cc14a8dfdd6abe6a8e9be9681da4ca"
+          "sha256": "a8ece4ca9a50b2687b6837a5c5e9e6528b5567f7890619d7a1b9cd78cf999432"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "7827d648373fa79271b9c1b7087e551b7f9015d995002e832eee30f0e8651545"
+          "sha256": "20fbe97f20f09591d8e3071117ae0c719e33678ac0a333437d054508ba6f68be"
         }
       }
     },
@@ -753,15 +753,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/courier-workspace.mdx",
-          "sha256": "571a5aa351d9e31c5183744d7a7448d5daf72c174da1a98c50a9846bc596e62b"
+          "sha256": "5af0003d2bd1d5bcd9525ed69c8fec1a66775cc7ecb66608a8a6deeca88c2f30"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/courier-workspace.mdx",
-          "sha256": "c094c6e905464b932b1e7ded85d13c97f1f6516404f0d0d133d74988a4f69f98"
+          "sha256": "e2215d1870a4b9c6a4ca8bf095ffea8a7cbe23b9e1f48aefffc810899c333bcb"
         },
         "he": {
           "path": "src/content/help/he/delivery/courier-workspace.mdx",
-          "sha256": "7b92acd5ac6dc612cc7b328a4275b0fb3fb66d1ee90eaba1f013e48afa533c98"
+          "sha256": "ddbb92514db5907977df034e193202dea21db0a2032e85c13f739d826d35dc8a"
         }
       }
     },
@@ -1627,15 +1627,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/tracking-and-account.mdx",
-          "sha256": "c9366382a2ba1d26edbd174bba6324e10cbc9e6a8d0c3b5a512b5cd7c6db826e"
+          "sha256": "2b506b2200ff230120b9159538a5a89955d9be969d1b71ed401913a22684898c"
         },
         "fr": {
           "path": "src/content/help/fr/guest/tracking-and-account.mdx",
-          "sha256": "07c1d4c11293d215410c9f9d2bd35dd4b097f37f4f6b6bd775b0dcebf1744dcd"
+          "sha256": "b087ea45cc63bb5a2ce13c5231b85f4ef3ebabb199caa764c9bd8bf3d8edb290"
         },
         "he": {
           "path": "src/content/help/he/guest/tracking-and-account.mdx",
-          "sha256": "bdf796465a2f18f0dd2dd9ddbce8486ba4ca4edcea841dbd1b44ddad8d3054e9"
+          "sha256": "3412e8801e33e5a4f4d5445a6f3a31a6f804940faea8c7f9e4bd35787bf1ee84"
         }
       }
     },
@@ -1817,15 +1817,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "31717464bce6367554d896763388992f4f5e7fd4b1e2027a14e8c1fb50856f97"
+          "sha256": "56eb12f45b639bdad4d174e6b321dca451084a95bb452f7a27f25cec3fc97f54"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "36945b678351d1ab4b14a6bcedb5abb53a41068bea7c79b5102e4d1b8194dcb7"
+          "sha256": "ae81bb88efcf525be4d4cd910fb8fedcd77bece42cc59df8840eaed0f5b838fa"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "c7c5c0026ea2da8f56f23bb0f7841e931a9bedc972dd50290ffdfb796d12ae43"
+          "sha256": "b723984400642dfaaf44625f4a3a49ce568b02cc672b5cb726bb0d3fbac2950f"
         }
       }
     },
@@ -4081,14 +4081,14 @@
       ]
     },
     "src/components/delivery/CourierItinerary.module.css": {
-      "sha256": "02b817e9fa6ea25cb82499cb0dd9f1bfaa302b5fc72b59ab505fa2b982dfe943",
+      "sha256": "a9839a2ba024fb2b6843af7d1353ee495a6694cad8ecf4db0a7cd7de2c9cb337",
       "features": [
         "delivery-dispatch",
         "courier"
       ]
     },
     "src/components/delivery/CourierItineraryView.tsx": {
-      "sha256": "c6f325a9c97e80de7a80bca4809fb2ed9205182f5446ebd9cba144286947a247",
+      "sha256": "f0cb6b58e600f5e7262641fa12a5c1fa30f86da5c8880eb1e950d1098af62357",
       "features": [
         "delivery-dispatch",
         "courier"
@@ -4102,7 +4102,7 @@
       ]
     },
     "src/components/delivery/CourierShell.tsx": {
-      "sha256": "bde5917b465c048a5f463fc38e1f7b124d9ddd50f2d92b03f1591def37e64de2",
+      "sha256": "93b50eaa62fdfc94baceb4190a0533ce5e30c2957756d20f3350a0c64c01be7f",
       "features": [
         "delivery-dispatch",
         "courier"
@@ -4139,7 +4139,7 @@
       ]
     },
     "src/components/delivery/DispatcherView.tsx": {
-      "sha256": "407c939f57eefc36f078567a38cd5343c088061b57d3f4a01489a2caeae9c227",
+      "sha256": "d8973a6876cc6ebcbc44c54f1efec7c64ad7246a2985a04d7fa686fea98910c3",
       "features": [
         "delivery-dispatch"
       ]
@@ -4158,7 +4158,7 @@
       ]
     },
     "src/components/delivery/NavigationAppMenu.tsx": {
-      "sha256": "f4885fcaa1481988b7482f836a0d73e7495e04be12321e1a14d8c4c9caaba053",
+      "sha256": "7d81ff437b106911e51eb77b227f44f208829d6a2838e331dc96d600ee0f1d13",
       "features": [
         "delivery-dispatch",
         "courier"
@@ -6724,7 +6724,7 @@
       ]
     },
     "src/lib/delivery.ts": {
-      "sha256": "86e54d9ca86ba268235dd5d5358adecf13704f03e6a49ea815ca291162ec3ed5",
+      "sha256": "8632dd1ee8e181c26d5c05bbdec1a107bbd067deb300d24262a5f5b7052da1c4",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -6782,7 +6782,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "43bc23c18e0a689c42fdd7e2188c6f8f5bfcbaa61c651196e20e5985f5cf1bdf",
+      "sha256": "42a87a4143de912e46dd06904c3fbdfb8d1b7d6d57b4326e211cd8cc4af8a906",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -16140,19 +16140,25 @@
         "callCustomer",
         "close",
         "couldNotLoad",
+        "courierAwaitingResult",
+        "courierChooseIssue",
         "courierDeliveryProgress",
         "courierEstimatedFinish",
         "courierFinishCurrentRoute",
+        "courierIssueExplanation",
+        "courierIssueReason",
         "courierLocationLocating",
+        "courierReportIssue",
         "courierResizePanel",
         "courierRouteMap",
         "courierRouteNumber",
+        "courierSaveIssue",
         "courierSearchPlaceholder",
         "courierSearchStops",
         "courierSelectRoute",
         "courierSelectStop",
-        "courierSelectedStop",
         "courierStartAction",
+        "courierStartAndNavigate",
         "deliveryExpectedArrival",
         "deliveryPlanStops",
         "deliveryPlanTotalDuration",
@@ -16178,8 +16184,11 @@
         "load",
         "onArrived",
         "onDelivered",
+        "onNavigate",
         "onReload",
+        "onReportIssue",
         "onStart",
+        "onVisible",
         "saved",
         "updated"
       ]
@@ -16210,6 +16219,8 @@
         "courier"
       ],
       "labels": [
+        "courierReminderSettings",
+        "courierRemindersDescription",
         "darkMode",
         "language",
         "lightMode",
@@ -16337,6 +16348,11 @@
         "correctAddress",
         "couldNotLoad",
         "courier",
+        "courierDeparturePending",
+        "courierReportedIssues",
+        "courierResultPending",
+        "courierReviewOrder",
+        "courierSendReminder",
         "customer",
         "deliveries",
         "deliveryExpectedArrival",
@@ -16389,6 +16405,7 @@
         "routeSettingsSaveFailed",
         "routeSettingsStartAddress",
         "routeSettingsStartPlaceholder",
+        "routeStatusActive",
         "routeStatusCompleted",
         "selectAll",
         "selectCourier",
@@ -16405,6 +16422,7 @@
         "saveVerifiedAddress",
         "saved",
         "savedCourierEndpoints",
+        "sendCourierReminder",
         "transferSelectedStop",
         "updated"
       ]

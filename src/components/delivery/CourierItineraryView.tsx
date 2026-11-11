@@ -3,13 +3,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
 import { useI18n, useCurrency } from '@/lib/i18n';
+import { ApiError } from '@/lib/api';
 import { useWs } from '@/lib/ws-context';
 import {
+  beginStopNavigation,
+  deliveryIssueLabels,
   getMyRoutes,
   checkMyRouteNavigation,
   startRoute,
   markArrived,
   markStopDelivered,
+  reportStopIssue,
+  type DeliveryIssueReason,
   type DeliveryRoute,
   type CourierLocationDTO,
   type RouteStop,
@@ -21,9 +26,10 @@ import {
   buildDeliveryEtaLabel,
   buildDeliveryEtaMessage,
   deliveryEtaWindow,
+  isPendingDeliveryStop,
   type DeliveryEtaWindow,
 } from '@/lib/delivery-planning';
-import { callUrl, whatsappUrl } from '@/lib/delivery-links';
+import { callUrl, wazeNavigationUrl, whatsappUrl, type NavigationDestination } from '@/lib/delivery-links';
 import { NavigationAppMenu } from '@/components/delivery/NavigationAppMenu';
 import { DeliveryDuration } from '@/components/delivery/DeliveryDuration';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
@@ -32,7 +38,9 @@ import { CourierLocationStatus } from '@/components/delivery/CourierLocationStat
 import {
   Button,
   ConfirmDialog,
+  Drawer,
   Input,
+  Select,
 } from '@/components/ds';
 import {
   PhoneIcon,
@@ -87,16 +95,14 @@ function NoStopsCard({ t }: { t: Translator }) {
 function RouteEndpointRow({
   kind,
   address,
-  lat,
-  lng,
   time,
+  finalDestination,
   t,
 }: {
   kind: 'start' | 'end';
   address: string;
-  lat?: number | null;
-  lng?: number | null;
   time?: string;
+  finalDestination?: NavigationDestination;
   t: Translator;
 }) {
   return (
@@ -110,10 +116,9 @@ function RouteEndpointRow({
         <p className={styles.stopMeta}>
           {t(kind === 'start' ? 'routeTimelineStartReminder' : 'routeTimelineTerminus')}
         </p>
-        {kind === 'end' && (
-          <div className={styles.stopActions}>
-            <NavigationAppMenu destination={{ address, lat, lng }} label={t('navigate')} t={t} />
-          </div>
+        {finalDestination && (
+          <NavigationAppMenu destination={finalDestination} label={t('navigate')} t={t}
+            onNavigate={(url) => window.location.assign(url)} />
         )}
       </div>
     </div>
@@ -129,7 +134,7 @@ function TimelineStop({
   busy,
   onSelect,
   onArrived,
-  onDelivered,
+  canDeliver,
 }: {
   stop: RouteStop;
   route: DeliveryRoute;
@@ -138,7 +143,7 @@ function TimelineStop({
   busy: boolean;
   onSelect: () => void;
   onArrived: () => void;
-  onDelivered: () => void;
+  canDeliver: boolean;
 }) {
   const { t, locale } = useI18n();
   const { money } = useCurrency();
@@ -154,7 +159,6 @@ function TimelineStop({
     t
   )?.line2;
   const finished = stop.status === 'delivered' || stop.status === 'skipped';
-  const canDeliver = route.status === 'active';
   return (
     <div
       data-stop-id={stop.id}
@@ -199,6 +203,7 @@ function TimelineStop({
             {stop.delivery_notes?.trim() && <p>{stop.delivery_notes.trim()}</p>}
           </div>
         </div>
+        {stop.issue_reason && <p className={styles.stopMeta}>{t(deliveryIssueLabels[stop.issue_reason])}</p>}
         {selected && (
           <div>
             {eta && (
@@ -217,13 +222,6 @@ function TimelineStop({
             {!finished && (
               <>
                 <div className={styles.stopActions}>
-                  <NavigationAppMenu
-                    destination={stop}
-                    variant="secondary"
-                    size="sm"
-                    label={t('navigate')}
-                    t={t}
-                  />
                   {stop.customer_phone && (
                     <Button asChild variant="ghost" size="md" icon>
                       <a
@@ -241,17 +239,6 @@ function TimelineStop({
                     <Button variant="ghost" size="md" disabled={busy} onClick={onArrived}>
                       <MapPinIcon />
                       {t('markArrived')}
-                    </Button>
-                  )}
-                  {!current && (
-                    <Button
-                      variant="secondary"
-                      size="md"
-                      disabled={busy || !canDeliver}
-                      onClick={onDelivered}
-                    >
-                      <CheckCircle2Icon />
-                      {t('markDelivered')}
                     </Button>
                   )}
                 </div>
@@ -297,6 +284,9 @@ function CourierRouteView({
   const searchRef = useRef<HTMLInputElement>(null);
   const dragStart = useRef<number | null>(null);
   const [startConfirmOpen, setStartConfirmOpen] = useState(false);
+  const [startNavigationStop, setStartNavigationStop] = useState<RouteStop | null>(null);
+  const [issueStop, setIssueStop] = useState<RouteStop | null>(null);
+  const [issueReason, setIssueReason] = useState<DeliveryIssueReason | ''>('');
   const reporter = useLocationReporter(
     rid,
     reportLocation && route.status === 'active'
@@ -378,7 +368,8 @@ function CourierRouteView({
     (stop) => stop.status !== 'delivered' && stop.status !== 'skipped' && !stop.navigation_verified
   );
 
-  const currentStop = stops.find((s) => s.status !== 'delivered' && s.status !== 'skipped') ?? null;
+  const awaitingResult = stops.find((stop) => isPendingDeliveryStop(stop) && stop.navigation_started_at);
+  const currentStop = awaitingResult ?? stops.find(isPendingDeliveryStop) ?? null;
   const delivered = stops.filter((s) => s.status === 'delivered').length;
   const unresolvedStops = stops.filter(
     (s) => s.needs_geocode && s.status !== 'delivered' && s.status !== 'skipped'
@@ -396,27 +387,41 @@ function CourierRouteView({
       return await fn();
     } catch (e) {
       await load();
-      setError(deliveryRoutingError(e, t) ?? t(failureKey));
+      setError(e instanceof ApiError && e.message === 'another stop is awaiting a delivery result'
+        ? t('courierAwaitingResult')
+        : deliveryRoutingError(e, t) ?? t(failureKey));
     } finally {
       busyRef.current = false;
       setBusy(false);
     }
   }
 
-  const startNow = () =>
+  const startNow = (stop: RouteStop | null) =>
     withBusy(async () => {
-      if (!route) return;
       setRoute(await startRoute(rid, route.id, courierId));
+      if (stop) {
+        const updated = await beginStopNavigation(rid, route.id, stop.id, courierId);
+        setRoute(updated);
+        window.location.assign(wazeNavigationUrl(stop));
+        return;
+      }
       await onReload();
-    });
+    }, stop ? 'courierNavigationFailed' : 'deliveryPlanFailed');
 
-  const onStart = () => {
+  const onStart = (stop: RouteStop | null = null) => {
     if (unresolvedStops.length > 0 || navigationUnverified.length > 0) {
+      setStartNavigationStop(stop);
       setStartConfirmOpen(true);
       return;
     }
-    void startNow();
+    void startNow(stop);
   };
+
+  const onNavigate = (stop: RouteStop, url: string) =>
+    withBusy(async () => {
+      setRoute(await beginStopNavigation(rid, route.id, stop.id, courierId));
+      window.location.assign(url);
+    }, 'courierNavigationFailed');
 
   const onArrived = (stop: RouteStop) =>
     withBusy(async () => {
@@ -434,10 +439,22 @@ function CourierRouteView({
       await onReload();
     }, 'courierDeliveryFailed');
 
+  const onReportIssue = () => {
+    if (!issueStop || !issueReason) return;
+    void withBusy(async () => {
+      const updated = await reportStopIssue(rid, route.id, issueStop.id, issueReason, courierId);
+      setIssueStop(null);
+      setRoute(updated);
+      setSelectedStopId(null);
+      if (updated.status === 'completed') onCompleted(updated);
+      await onReload();
+    }, 'courierIssueFailed');
+  };
+
   const selectedId = stops.some((stop) => stop.id === selectedStopId)
     ? selectedStopId
     : currentStop?.id;
-  const actionStop = stops.find((stop) => stop.id === selectedId) ?? null;
+  const actionStop = awaitingResult ?? stops.find((stop) => stop.id === selectedId) ?? null;
   const actionStopFinished = actionStop?.status === 'delivered' || actionStop?.status === 'skipped';
   const normalizedQuery = query.trim().toLocaleLowerCase(locale);
   const filteredStops = stops.filter((stop) =>
@@ -748,7 +765,7 @@ function CourierRouteView({
               busy={busy}
               onSelect={() => selectStop(stop)}
               onArrived={() => void onArrived(stop)}
-              onDelivered={() => void onDelivered(stop)}
+              canDeliver={route.status === 'active' && (!awaitingResult || awaitingResult.id === stop.id)}
             />
           ))}
           {filteredStops.length === 0 && (
@@ -760,8 +777,6 @@ function CourierRouteView({
             <RouteEndpointRow
               kind="end"
               address={route.end_address}
-              lat={route.end_lat}
-              lng={route.end_lng}
               t={t}
             />
           )}
@@ -780,7 +795,7 @@ function CourierRouteView({
             {actionStop && route.status === 'active' && (
               <div className={styles.nextStop}>
                 <p>
-                  {t('courierSelectedStop')} {String(actionStop.sequence).padStart(2, '0')}
+                  {t(awaitingResult ? 'courierCurrentDelivery' : 'courierSelectedStop')} {String(actionStop.sequence).padStart(2, '0')}
                 </p>
                 <p className="font-semibold text-[var(--fg)]">
                   {actionStop.address || actionStop.customer_name}
@@ -788,26 +803,23 @@ function CourierRouteView({
               </div>
             )}
           </div>
-          <div className={styles.dockActions}>
+          <div className={`${styles.dockActions} ${route.status === 'active' ? styles.activeDockActions : ''}`}>
             {route.status === 'draft' ? (
-              <Button
-                variant="primary"
-                size="lg"
-                disabled={busy || !canStart || navigationLoading || stops.length === 0}
-                onClick={onStart}
-                aria-label={t('startRoute')}
-              >
-                <RouteIcon />
-                {t('courierStartAction')}
-              </Button>
+              <>
+                <Button variant="secondary" size="lg"
+                  disabled={busy || !canStart || navigationLoading || !currentStop}
+                  onClick={() => onStart()} aria-label={t('startRoute')}>
+                  {t('courierStartAction')}
+                </Button>
+                <Button variant="primary" size="lg"
+                  disabled={busy || !canStart || navigationLoading || !currentStop}
+                  onClick={() => onStart(currentStop)}>
+                  <RouteIcon />
+                  {t('courierStartAndNavigate')}
+                </Button>
+              </>
             ) : actionStop && route.status === 'active' ? (
               <>
-                <NavigationAppMenu
-                  destination={actionStop}
-                  label={t('navigate')}
-                  size="lg"
-                  t={t}
-                />
                 <Button
                   variant="primary"
                   size="lg"
@@ -817,9 +829,26 @@ function CourierRouteView({
                   <CheckCircle2Icon />
                   {t('markDelivered')}
                 </Button>
+                <Button variant="secondary" size="lg" disabled={busy || actionStopFinished} onClick={() => {
+                  setError(null);
+                  setIssueReason('');
+                  setIssueStop(actionStop);
+                }}>
+                  {t('courierReportIssue')}
+                </Button>
+                <NavigationAppMenu
+                  destination={actionStop}
+                  label={t(awaitingResult ? 'courierResumeNavigation' : 'navigate')}
+                  className={styles.navigationAction}
+                  size="lg"
+                  t={t}
+                  disabled={busy || navigationLoading || actionStopFinished}
+                  onNavigate={(url) => void onNavigate(actionStop, url)}
+                />
               </>
             ) : null}
           </div>
+          {awaitingResult && <p role="status" className="mt-2 text-fs-xs text-[var(--fg-subtle)]">{t('courierAwaitingResult')}</p>}
           {route.status === 'draft' && !canStart && (
             <p className="mt-2 text-fs-xs text-[var(--fg-subtle)]">
               {t('courierFinishCurrentRoute')}
@@ -827,6 +856,24 @@ function CourierRouteView({
           )}
         </div>
       </div>
+      <Drawer open={issueStop !== null} onOpenChange={(open) => { if (!open) setIssueStop(null); }}
+        title={t('courierReportIssue')} closeDisabled={busy}>
+        <div className="space-y-4 p-4">
+          <p className="font-medium">{issueStop?.address || issueStop?.customer_name}</p>
+          <p>{t('courierIssueExplanation')}</p>
+          <label className="block space-y-1">
+            <span>{t('courierIssueReason')}</span>
+            <Select value={issueReason} disabled={busy} onChange={(event) => setIssueReason(event.target.value as DeliveryIssueReason | '')}>
+              <option value="">{t('courierChooseIssue')}</option>
+              {Object.entries(deliveryIssueLabels).map(([reason, label]) => (
+                <option key={reason} value={reason}>{t(label)}</option>
+              ))}
+            </Select>
+          </label>
+          {error && <p role="alert">{error}</p>}
+          <Button disabled={busy || !issueReason} onClick={onReportIssue}>{t('courierSaveIssue')}</Button>
+        </div>
+      </Drawer>
       <ConfirmDialog
         open={startConfirmOpen}
         onOpenChange={setStartConfirmOpen}
@@ -839,7 +886,7 @@ function CourierRouteView({
         cancelLabel={t('back')}
         onConfirm={() => {
           setStartConfirmOpen(false);
-          void startNow();
+          void startNow(startNavigationStop);
         }}
       />
     </div>
@@ -880,6 +927,13 @@ export default function CourierItineraryView({ rid, courierId }: { rid: number; 
   useEffect(() => {
     if (lastEvent?.type === 'route.updated' || lastEvent?.type.startsWith('order.')) void load();
   }, [lastEvent, load]);
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void load();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [load]);
   const [selectedRouteId, setSelectedRouteId] = useState<number | null>(null);
   const selectedRoute =
     routes?.find((route) => route.id === selectedRouteId) ??
@@ -928,8 +982,11 @@ export default function CourierItineraryView({ rid, courierId }: { rid: number; 
             <RouteEndpointRow
               kind="end"
               address={completedDestination.end_address}
-              lat={completedDestination.end_lat}
-              lng={completedDestination.end_lng}
+              finalDestination={{
+                address: completedDestination.end_address,
+                lat: completedDestination.end_lat,
+                lng: completedDestination.end_lng,
+              }}
               t={t}
             />
             <div className="flex justify-end p-2">

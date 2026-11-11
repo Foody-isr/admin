@@ -2,6 +2,13 @@ import { apiFetch } from '@/lib/api';
 import type { Order } from '@/lib/api';
 
 export type RouteStopStatus = 'pending' | 'arrived' | 'delivered' | 'skipped';
+export const deliveryIssueLabels = {
+  customer_absent: 'courierIssueCustomerAbsent',
+  wrong_address: 'courierIssueWrongAddress',
+  other: 'courierIssueOther',
+} as const;
+
+export type DeliveryIssueReason = keyof typeof deliveryIssueLabels;
 export type DeliveryRouteStatus = 'draft' | 'active' | 'completed' | 'cancelled';
 
 export interface RouteStop {
@@ -9,6 +16,8 @@ export interface RouteStop {
   order_id: number;
   sequence: number;
   status: RouteStopStatus;
+  navigation_started_at?: string;
+  issue_reason?: DeliveryIssueReason;
   customer_name: string;
   customer_phone: string;
   address: string;
@@ -113,6 +122,32 @@ export async function startRoute(restaurantId: number, routeId: number, courierI
     { method: 'POST' },
   );
   return data.route;
+}
+
+/** Reserve a stop for navigation before leaving Foody. */
+export async function beginStopNavigation(restaurantId: number, routeId: number, stopId: number, courierId?: number): Promise<DeliveryRoute> {
+  const data = await apiFetch<{ route: DeliveryRoute }>(
+    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/navigate?${courierQuery(restaurantId, courierId)}`, restaurantId,
+    { method: 'POST' },
+  );
+  return data.route;
+}
+
+/** Record an unsuccessful delivery attempt for manager follow-up. */
+export async function reportStopIssue(restaurantId: number, routeId: number, stopId: number, reason: DeliveryIssueReason, courierId?: number): Promise<DeliveryRoute> {
+  const data = await apiFetch<{ route: DeliveryRoute }>(
+    `/api/v1/delivery/routes/${routeId}/stops/${stopId}/issue?${courierQuery(restaurantId, courierId)}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ reason }) },
+  );
+  return data.route;
+}
+
+/** Ask the assigned courier to resume the route via their registered push devices. */
+export function remindRouteCourier(restaurantId: number, routeId: number): Promise<{ accepted: number }> {
+  return apiFetch<{ accepted: number }>(
+    `/api/v1/delivery/routes/${routeId}/courier-reminder?${q(restaurantId)}`, restaurantId,
+    { method: 'POST' },
+  );
 }
 
 /** Record arrival on the current or owner- or superadmin-selected courier’s route. */
