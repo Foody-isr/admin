@@ -399,17 +399,29 @@
 }
 .draftDock .dockActions {
   flex: 1;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 .draftDock .dockActions > button {
   padding-inline: 12px;
   font-size: 14px;
+  white-space: normal;
 }
 .draftDock .dockActions > button svg {
   display: none;
 }
 .dockActions > p {
   width: 100%;
+}
+.activeDockActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.activeDockActions > button {
+  white-space: normal;
+}
+.activeDockActions > .navigationAction,
+.activeDockActions > p {
+  grid-column: 1 / -1;
 }
 .empty {
   padding: 90px 24px 32px;

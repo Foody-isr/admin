@@ -15,6 +15,7 @@ import Link from 'next/link';
 import {
   AlertCircleIcon,
   ArrowRightLeftIcon,
+  BellIcon,
   CheckIcon,
   ListIcon,
   MapIcon,
@@ -43,6 +44,8 @@ import {
 import { useWs } from '@/lib/ws-context';
 import {
   cancelDeliveryRoute,
+  deliveryIssueLabels,
+  remindRouteCourier,
   listDeliveryRoutes,
   listOpenDeliveryRoutes,
   optimizeRoute,
@@ -69,6 +72,7 @@ import {
 } from '@/lib/api';
 import { EditCustomerDialog } from '@/components/orders/EditCustomerDialog';
 import { localizeStatus } from '@/lib/orders/status-presentation';
+import { orderDetailPath } from '@/lib/orders/routes';
 import { deliveryRoutingError } from '@/lib/delivery-planning';
 import type { RouteLayer, CourierMarker } from '@/components/delivery/DeliveryMap';
 import {
@@ -153,6 +157,8 @@ interface RouteRibbonProps {
   onSaveSettings: (input: RouteSettingsInput) => Promise<void>;
   onCancel: () => void;
   onResetDeparture: () => void;
+  onRemind: () => void;
+  reminder?: { state: 'sending' | 'sent' | 'none' | 'error' };
   t: Translator;
 }
 
@@ -173,6 +179,8 @@ function RouteRibbon({
   onSaveSettings,
   onCancel,
   onResetDeparture,
+  onRemind,
+  reminder,
   t,
 }: RouteRibbonProps) {
   const delivered = route.stops.filter((stop) => stop.status === 'delivered').length;
@@ -180,7 +188,7 @@ function RouteRibbon({
   const unresolved = pending.filter((stop) => stop.needs_geocode).length;
   const ordered = [...(history ? route.stops : pending)].sort((a, b) => a.sequence - b.sequence);
   const progress = route.stops.length > 0 ? (delivered / route.stops.length) * 100 : 0;
-  const canResetDeparture = route.status === 'active' && route.stops.length > 0 && route.stops.every((stop) => stop.status === 'pending');
+  const canResetDeparture = route.status === 'active' && route.stops.length > 0 && route.stops.every((stop) => stop.status === 'pending' && !stop.navigation_started_at);
   const courierInk = `color-mix(in srgb, ${color} 40%, var(--fg))`;
 
   return (
@@ -201,7 +209,7 @@ function RouteRibbon({
             </Badge>
           )}
           <Badge tone={routeStatusTone(history ? 'completed' : route.status)}>
-            {history ? t('routeStatusCompleted') : t(`routeStatus${route.status.charAt(0).toUpperCase()}${route.status.slice(1)}`)}
+            {history ? t('routeStatusCompleted') : route.status === 'draft' ? t('courierDeparturePending') : t('routeStatusActive')}
           </Badge>
         </span>
       </CardHeader>
@@ -280,6 +288,18 @@ function RouteRibbon({
           </div>
         )}
 
+        {!history && pending.length > 0 && (
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={onRemind} disabled={busy || reminder?.state === 'sending'}>
+              <BellIcon />{t('courierSendReminder')}
+            </Button>
+            {reminder && reminder.state !== 'sending' && (
+              <span role="status" className="text-fs-xs text-[var(--fg-muted)]">
+                {t(reminder.state === 'sent' ? 'courierReminderSent' : reminder.state === 'none' ? 'courierReminderNotAccepted' : 'courierReminderFailed')}
+              </span>
+            )}
+          </div>
+        )}
         <div className="overflow-hidden rounded-r-lg border border-[var(--line)]">
           <div className="flex flex-col">
             {ordered.map((stop, index) => {
@@ -334,8 +354,11 @@ function RouteRibbon({
                           {t('deliveryNotes')}: {deliveryNotes}
                         </span>
                       )}
+                      {stop.navigation_started_at && isPendingDeliveryStop(stop) && (
+                        <Badge className="mt-1" tone="warning">{t('courierResultPending')}</Badge>
+                      )}
                       {!isPendingDeliveryStop(stop) ? (
-                        <Badge className="mt-1" tone={stop.status === 'delivered' ? 'success' : 'neutral'}>{t(stop.status === 'delivered' ? 'stopStatusDelivered' : 'skipped')}</Badge>
+                        <Badge className="mt-1" tone={stop.status === 'delivered' ? 'success' : 'neutral'}>{t(stop.issue_reason ? deliveryIssueLabels[stop.issue_reason] : stop.status === 'delivered' ? 'stopStatusDelivered' : 'skipped')}</Badge>
                       ) : window ? (
                         <span dir="ltr" className="mt-1 block w-fit text-[11px] font-medium leading-snug text-[var(--info-500)]">
                           {window.label}
@@ -401,6 +424,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [moveTarget, setMoveTarget] = useState<number | null>(null);
   const [moving, setMoving] = useState(false);
   const [routeBusy, setRouteBusy] = useState<number | null>(null);
+  const [reminders, setReminders] = useState<Record<number, RouteRibbonProps['reminder']>>({});
+  const remindersInFlight = useRef(new Set<number>());
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [addressEditorLoading, setAddressEditorLoading] = useState(false);
   const [undoAction, setUndoAction] = useState<
@@ -441,8 +466,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
       const managerRouteRows = routeRows.filter((route) => route.status !== 'draft' || route.stops.length > 0);
       const managerOpenRouteRows = openRouteRows.filter(isOpenDeliveryRoute);
       const routedOrderIds = new Set([
-        ...managerRouteRows.flatMap((route) => route.stops.map((stop) => stop.order_id)),
-        ...managerOpenRouteRows.flatMap((route) => route.stops.map((stop) => stop.order_id)),
+        ...managerRouteRows.flatMap((route) => route.stops.filter((stop) => !stop.issue_reason).map((stop) => stop.order_id)),
+        ...managerOpenRouteRows.flatMap((route) => route.stops.filter((stop) => !stop.issue_reason).map((stop) => stop.order_id)),
       ]);
       const available = candidateRows.orders.filter((order) => !routedOrderIds.has(order.id));
       let visibleRoutes = managerRouteRows;
@@ -573,7 +598,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const openRouteByOrderId = useMemo(() => {
     const map = new Map<number, DeliveryRoute>();
     openRoutes.forEach((route) => {
-      route.stops.forEach((stop) => map.set(stop.order_id, route));
+      route.stops.filter(isPendingDeliveryStop).forEach((stop) => map.set(stop.order_id, route));
     });
     return map;
   }, [openRoutes]);
@@ -640,6 +665,23 @@ export default function DispatcherView({ rid }: { rid: number }) {
     return null;
   }, [routes, selectedStopId]);
 
+  const sendCourierReminder = async (routeId: number) => {
+    if (remindersInFlight.current.has(routeId)) return;
+    remindersInFlight.current.add(routeId);
+    setReminders((current) => ({ ...current, [routeId]: { state: 'sending' } }));
+    try {
+      const { accepted } = await remindRouteCourier(rid, routeId);
+      setReminders((current) => ({ ...current, [routeId]: { state: accepted > 0 ? 'sent' : 'none' } }));
+    } catch {
+      setReminders((current) => ({ ...current, [routeId]: { state: 'error' } }));
+    } finally {
+      remindersInFlight.current.delete(routeId);
+    }
+  };
+
+  const reportedIssues = dayRoutes.flatMap((route) =>
+    route.stops.flatMap((stop) => stop.issue_reason ? [{ route, stop, reason: stop.issue_reason }] : []),
+  );
   const allPicked = unplannedOrders.length > 0 && picked.size === unplannedOrders.length;
   const toggleOrder = (id: number) => setPicked((current) => {
     if (openRouteByOrderId.has(id)) return current;
@@ -892,6 +934,23 @@ export default function DispatcherView({ rid }: { rid: number }) {
         </>
       } />
 
+      {reportedIssues.length > 0 && (
+        <section className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-4" aria-label={t('courierReportedIssues')}>
+          <h2 className="mb-2 text-fs-sm font-semibold">{t('courierReportedIssues')}</h2>
+          <ul className="space-y-2">
+            {reportedIssues.map(({ route, stop, reason }) => (
+              <li key={stop.id} className="flex flex-wrap items-center justify-between gap-2 text-fs-sm">
+                <span>
+                  <bdi>#{stop.order_id}</bdi> · {t(deliveryIssueLabels[reason])} · {courierById.get(route.courier_id)?.full_name ?? t('courier')}
+                </span>
+                <Button variant="secondary" size="sm" asChild>
+                  <Link href={orderDetailPath(rid, stop.order_id)}>{t('courierReviewOrder')}</Link>
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
         <Tabs value={view} onValueChange={(value) => { setView(value as 'open' | 'history'); setSelectedStopId(null); setSelectedCourier(null); }}>
           <TabsList aria-label={t('deliveries')}>
@@ -1022,6 +1081,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
                   setMoveTarget(null);
                 }}
                 onMessage={orderId => setMessageTarget({ orderId })}
+                onRemind={() => void sendCourierReminder(route.id)}
+                reminder={reminders[route.id]}
                 onOptimize={() => void recalculateRoute(route.id)}
                 onSaveSettings={(input) => saveRouteSettings(route.id, input)}
                 onCancel={() => setUndoAction({ kind: 'route', routeId: route.id, stopCount: route.stops.filter(isPendingDeliveryStop).length })}
@@ -1097,6 +1158,11 @@ export default function DispatcherView({ rid }: { rid: number }) {
               </div>
 
               <div className="flex flex-wrap gap-2">
+                {selectedEntry.stop.navigation_started_at && isPendingDeliveryStop(selectedEntry.stop) && (
+                  <Button variant="secondary" asChild>
+                    <Link href={orderDetailPath(rid, selectedEntry.stop.order_id)}>{t('courierReviewOrder')}</Link>
+                  </Button>
+                )}
                 {view === 'open' && <Button variant="secondary" disabled={addressEditorLoading} onClick={() => void openAddressEditor()}>
                   <PencilIcon />
                   {t('correctAddress')}
