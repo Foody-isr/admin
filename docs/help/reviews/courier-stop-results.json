@@ -1,0 +1,28 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "501f7ed4f3c8ddb3be0ad526bd25e88564793151559b13e0b07f268412b674a9",
+      "baseSha256": "e2de6bd3dc83992cd387a46963e69c0d431063fc388692f74d715c5a42867100",
+      "features": [
+        "customers-loyalty-program",
+        "customers-profiles",
+        "delivery-zones",
+        "google-account-setup",
+        "menu-menus-and-groups",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-internal-sumit-checkout",
+        "payments-transactions",
+        "pos-behavior",
+        "stancer-cash-guarantee",
+        "website-journey",
+        "website-order-design",
+        "website-sections",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only new courier departure, navigation, incident and reminder labels were added in French, English and Hebrew. The classified unrelated screens use the same strings, controls, permissions and behavior."
+    }
+  ]
+}

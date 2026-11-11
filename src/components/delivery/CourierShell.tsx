@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import {
+  BellIcon,
   Building2Icon,
   LanguagesIcon,
   LogOutIcon,
@@ -10,11 +12,12 @@ import {
   SunIcon,
   UserRoundIcon,
 } from 'lucide-react';
-import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/components/ds';
+import { Button, Drawer, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/components/ds';
 import { useAuth } from '@/lib/auth-context';
 import { useI18n, SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme-context';
 import type { Restaurant } from '@/lib/api';
+import { getEnvironment, PushClientError, subscribe } from '@/lib/push';
 
 const LOCALE_LABELS: Record<Locale, string> = {
   en: 'English',
@@ -32,6 +35,26 @@ export function CourierShell({ children, restaurant }: CourierShellProps) {
   const { user, restaurantIds, logout } = useAuth();
   const { t, locale, setLocale } = useI18n();
   const { theme, toggleTheme } = useTheme();
+  const [remindersOpen, setRemindersOpen] = useState(false);
+  const [enabling, setEnabling] = useState(false);
+  const [notificationStatus, setNotificationStatus] = useState('');
+  const enableReminders = async () => {
+    if (enabling) return;
+    setEnabling(true);
+    setNotificationStatus('');
+    try {
+      await subscribe(restaurant.id);
+      setNotificationStatus('courierRemindersEnabled');
+    } catch (err) {
+      const env = getEnvironment();
+      setNotificationStatus(env.isIOS && !env.isStandalone ? 'courierRemindersInstall'
+        : err instanceof PushClientError && err.code === 'permissionDenied' ? 'notificationsBlockedDesc'
+        : 'pushActionFailed');
+    } finally {
+      setEnabling(false);
+    }
+  };
+
   const initials = (user?.full_name || user?.email || '?')
     .split(/\s+/)
     .map((part) => part.charAt(0))
@@ -84,6 +107,9 @@ export function CourierShell({ children, restaurant }: CourierShellProps) {
             </div>
 
             <MenuSeparator />
+            <MenuItem onSelect={() => setRemindersOpen(true)}>
+              <BellIcon />{t('courierReminderSettings')}
+            </MenuItem>
             <MenuItem onSelect={toggleTheme}>
               {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
               {theme === 'dark' ? t('lightMode') : t('darkMode')}
@@ -130,6 +156,15 @@ export function CourierShell({ children, restaurant }: CourierShellProps) {
         </Menu>
       </header>
 
+      <Drawer open={remindersOpen} onOpenChange={setRemindersOpen} title={t('courierReminderSettings')} closeDisabled={enabling}>
+        <div className="space-y-3 p-4">
+          <p>{t('courierRemindersDescription')}</p>
+          {notificationStatus && <p role="status">{t(notificationStatus)}</p>}
+          <Button disabled={enabling} onClick={() => void enableReminders()}>
+            {t(enabling ? 'enabling' : 'enableNotifications')}
+          </Button>
+        </div>
+      </Drawer>
       <main id="courier-content" className="h-full">
         {children}
       </main>

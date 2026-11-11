@@ -7,7 +7,7 @@ const route = (id: number, status: DeliveryRoute['status'] = 'draft'): DeliveryR
 
 async function install(page: Page, options: { active?: boolean; missing?: boolean; mismatch?: boolean; locale?: string; role?: 'superadmin' | 'owner' | 'manager' | 'courier'; roleName?: string } = {}) {
   const fixture = createFixture();
-  const state = { routes: [route(1, options.active ? 'active' : 'draft'), route(2)], requests: [] as string[], courierRequests: [] as { path: string; courierId: string | null; rid?: string }[], writes: [] as { path: string; rid?: string; courierId?: string | null; body: any }[], locationReports: [] as { rid?: string; body: { lat: number; lng: number } }[], failLocation: false, socket: undefined as WebSocketRoute | undefined, failDelivered: false, failDeliveredStatus: 400, failNavigation: false, errors: [] as string[] };
+  const state = { routes: [route(1, options.active ? 'active' : 'draft'), route(2)], requests: [] as string[], courierRequests: [] as { path: string; courierId: string | null; rid?: string }[], writes: [] as { path: string; rid?: string; courierId?: string | null; body: any }[], locationReports: [] as { rid?: string; body: { lat: number; lng: number } }[], failLocation: false, socket: undefined as WebSocketRoute | undefined, failDelivered: false, failDeliveredStatus: 400, failNavigation: false, externalNavigation: [] as string[], errors: [] as string[] };
   await page.routeWebSocket('**/ws?**', socket => { state.socket = socket; });
   if (options.missing) Object.assign(state.routes[0].stops[0], { lat: null, lng: null, needs_geocode: true });
   page.on('pageerror', error => state.errors.push(error.message));
@@ -52,6 +52,16 @@ async function install(page: Page, options: { active?: boolean; missing?: boolea
         item.status = 'delivered';
         if (selected.stops.every(stop => stop.status === 'delivered' || stop.status === 'skipped')) selected.status = 'completed';
       }
+      if (path.endsWith('/navigate')) {
+        const item = selected.stops.find(stop => stop.id === Number(path.split('/')[7]))!;
+        item.navigation_started_at = '2026-10-14T05:00:00Z';
+      }
+      if (path.endsWith('/issue')) {
+        const item = selected.stops.find(stop => stop.id === Number(path.split('/')[7]))!;
+        item.status = 'skipped';
+        item.issue_reason = body.reason;
+        if (selected.stops.every(stop => stop.status === 'delivered' || stop.status === 'skipped')) selected.status = 'completed';
+      }
       if (path.endsWith('/start')) selected.status = 'active';
       return intercepted.fulfill({ json: { route: selected } });
     }
@@ -60,6 +70,10 @@ async function install(page: Page, options: { active?: boolean; missing?: boolea
   });
   await page.route('**/*', intercepted => {
     const url = new URL(intercepted.request().url());
+    if (url.hostname === 'www.waze.com') {
+      state.externalNavigation.push(url.toString());
+      return intercepted.fulfill({ status: 204 });
+    }
     return ['localhost', '127.0.0.1'].includes(url.hostname) || url.pathname.startsWith('/api/v1/') ? intercepted.fallback() : intercepted.abort();
   });
   return state;
@@ -93,14 +107,20 @@ test('fixed navigation and delivery actions follow the selected map pin', async 
   await expect(dock).toContainText('Arrêt sélectionné 04');
   await expect(dock).toContainText('Avenue des Oliviers 4');
   await dock.getByRole('button', { name: 'Choisir une application de navigation' }).click();
-  const destination = new URL((await page.getByRole('menuitem', { name: 'Waze' }).getAttribute('href'))!);
+  await page.getByRole('menuitem', { name: 'Waze' }).click();
+  await expect.poll(() => state.externalNavigation.length).toBe(1);
+  const destination = new URL(state.externalNavigation[0]);
   const selected = state.routes[0].stops[3];
   expect(destination.searchParams.get('ll')).toBe(`${selected.lat},${selected.lng}`);
-  await page.keyboard.press('Escape');
+  await page.reload();
+  await expect(dock).toContainText('Arrêt en cours 04');
   await dock.getByRole('button', { name: 'Marquer livrée', exact: true }).click();
   await expect.poll(() => state.routes[0].stops[3].status).toBe('delivered');
   expect(state.routes[0].stops[0].status).toBe('pending');
-  expect(state.writes.map(write => write.path)).toEqual(['/api/v1/delivery/routes/1/stops/4/delivered']);
+  expect(state.writes.map(write => write.path)).toEqual([
+    '/api/v1/delivery/routes/1/stops/4/navigate',
+    '/api/v1/delivery/routes/1/stops/4/delivered',
+  ]);
 });
 
 test('selecting a finished stop disables completion without targeting a different order', async ({ page }) => {
@@ -173,24 +193,48 @@ test('start then deliver directly without requiring the arrived action', async (
 test('delivery failure keeps the order pending and displays feedback', async ({ page }) => {
   const state = await install(page, { active: true }); state.failDelivered = true; await page.goto('/1/orders/deliveries');
   await card(page, 2).getByRole('button', { name: /Sélectionner l’arrêt/ }).click();
-  await card(page, 2).getByRole('button', { name: 'Marquer livrée', exact: true }).click();
+  await run(page).getByTestId('courier-action-dock').getByRole('button', { name: 'Marquer livrée', exact: true }).click();
   await expect(run(page).getByText('Impossible de marquer cette commande comme livrée. Réessayez.')).toBeVisible();
   expect(state.routes[0].stops[1].status).toBe('pending');
   expect(state.errors).toEqual([]);
 });
 
-test('Waze uses a coordinate destination for a Latin address', async ({ page }) => {
-  const state = await install(page); await page.goto('/1/orders/deliveries');
-  await card(page).getByRole('button', { name: 'Choisir une application de navigation' }).click();
-  const url = new URL((await page.getByRole('menuitem', { name: 'Waze' }).getAttribute('href'))!);
-  expect(url.searchParams.get('ll')).toBe('32.07,34.79'); expect(url.searchParams.get('q')).toBeNull();
+test('draft navigation records departure and survives reload until a stop result is saved', async ({ page }) => {
+  const state = await install(page);
+  await page.goto('/1/orders/deliveries');
+  await expect(card(page).getByRole('button', { name: 'Choisir une application de navigation' })).toHaveCount(0);
+  await run(page).getByRole('button', { name: 'Démarrer et ouvrir Waze' }).click();
+  await expect.poll(() => state.externalNavigation.length).toBe(1);
+  const url = new URL(state.externalNavigation[0]);
+  expect(url.searchParams.get('ll')).toBe('32.07,34.79');
+  expect(url.searchParams.get('q')).toBeNull();
+  expect(state.writes.map(write => write.path)).toEqual([
+    '/api/v1/delivery/routes/1/start',
+    '/api/v1/delivery/routes/1/stops/1/navigate',
+  ]);
+
+  await page.reload();
+  await card(page, 2).locator('button[aria-expanded]').click();
+  const dock = run(page).getByTestId('courier-action-dock');
+  await expect(dock).toContainText('Arrêt en cours 01');
+  await dock.getByRole('button', { name: 'Signaler un problème' }).click();
+  const report = page.getByRole('dialog', { name: 'Signaler un problème' });
+  await expect(report.getByRole('button', { name: 'Enregistrer le signalement' })).toBeDisabled();
+  await report.getByRole('combobox', { name: 'Motif' }).selectOption('customer_absent');
+  await report.getByRole('button', { name: 'Enregistrer le signalement' }).click();
+  await expect(dock).toContainText('Arrêt sélectionné 02');
+  await expect(card(page)).toContainText('Client absent');
+  expect(state.writes.at(-1)).toMatchObject({
+    path: '/api/v1/delivery/routes/1/stops/1/issue',
+    body: { reason: 'customer_absent' },
+  });
   expect(state.errors).toEqual([]);
 });
 
 test('unlocated address is warned before departure and before Waze text search', async ({ page }) => {
-  const state = await install(page, { missing: true }); await page.goto('/1/orders/deliveries');
-  await expect(card(page).getByText(/Adresse non vérifiée/)).toBeVisible();
-  await card(page).getByRole('button', { name: 'Choisir une application de navigation' }).click();
+  const state = await install(page, { missing: true, active: true }); await page.goto('/1/orders/deliveries');
+  await expect(run(page).getByTestId('courier-action-dock').getByText(/Adresse non vérifiée/)).toBeVisible();
+  await run(page).getByTestId('courier-action-dock').getByRole('button', { name: 'Choisir une application de navigation' }).click();
   await page.getByRole('menuitem', { name: 'Waze' }).click();
   await expect(page.getByRole('alertdialog')).toContainText('Yoram Kaniuk 1, Tel Aviv');
   await expect(page.getByRole('alertdialog')).toContainText('en hébreu');
@@ -209,11 +253,14 @@ test('Hebrew mobile keeps call and delivered actions visible without overflow', 
 
 
 test('a mismatched cached point is flagged before Waze and never used as its GPS destination', async ({ page }) => {
-  const state = await install(page, { mismatch: true }); await page.goto('/1/orders/deliveries');
+  const state = await install(page, { mismatch: true, active: true }); await page.goto('/1/orders/deliveries');
   await expect(run(page).getByText(/destinations de livraison à vérifier/)).toBeVisible();
-  await expect(card(page).getByText(/Adresse non vérifiée/)).toBeVisible();
-  await card(page).getByRole('button', { name: 'Choisir une application de navigation' }).click();
-  const url = new URL((await page.getByRole('menuitem', { name: 'Waze' }).getAttribute('href'))!);
+  await expect(run(page).getByTestId('courier-action-dock').getByText(/Adresse non vérifiée/)).toBeVisible();
+  await run(page).getByTestId('courier-action-dock').getByRole('button', { name: 'Choisir une application de navigation' }).click();
+  await page.getByRole('menuitem', { name: 'Waze' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: /Rechercher/ }).click();
+  await expect.poll(() => state.externalNavigation.length).toBe(1);
+  const url = new URL(state.externalNavigation[0]);
   expect(url.searchParams.get('ll')).toBeNull();
   expect(url.searchParams.get('q')).toBe('Yoram Kaniuk 1, Tel Aviv');
   expect(state.errors).toEqual([]);
