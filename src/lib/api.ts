@@ -26,6 +26,7 @@ import {
 } from '@simplewebauthn/browser';
 import { normalizeRichExtraction } from './menu-import/normalize-extraction';
 import { decodeTransactionHistory, type TransactionHistory } from './transactions';
+import { decodeAshraitCardReceipt, type AshraitCardReceipt } from './ashrait-card-receipt';
 
 import { RUNTIME_API_URL, RUNTIME_WEB_URL } from './runtime-origins';
 import { boundedSupportHistory } from './help/context';
@@ -61,6 +62,15 @@ export async function listTransactions(restaurantId: number, options: {
   const query = new URLSearchParams({ restaurant_id: String(restaurantId) });
   for (const [key, value] of Object.entries(options)) if (value !== undefined && value !== '') query.set(key, String(value));
   return decodeTransactionHistory(await apiFetch<TransactionHistory>(`/api/v1/transactions?${query}`, restaurantId));
+}
+
+/** Reads only the masked card copies linked to the selected transaction. */
+export async function getTransactionAshraitReceipt(restaurantId: number, key: string, reference: string, signal: AbortSignal): Promise<AshraitCardReceipt> {
+  const query = new URLSearchParams({ restaurant_id: String(restaurantId), key });
+  const result = await apiFetch<{ receipt: unknown }>(
+    `/api/v1/transactions/ashrait-receipt?${query}`, restaurantId, { cache: 'no-store', signal },
+  );
+  return decodeAshraitCardReceipt(result.receipt, reference);
 }
 
 /** Detects this browser's IP on the guest host without forwarding staff credentials. */

@@ -1,0 +1,45 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "7c7f6aa44f53774ae24678bcbdc2c31c95dea8af9d2b7576424d1505715023c5",
+      "baseSha256": "2d6875526f10d29a18ec7abee960c820f6407587a0443062e9f48a2193c12e0b",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "A single read method retrieves the masked archive for the selected transaction. Existing calls and online payment actions preserve their contracts and permissions."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "42a87a4143de912e46dd06904c3fbdfb8d1b7d6d57b4326e211cd8cc4af8a906",
+      "baseSha256": "501f7ed4f3c8ddb3be0ad526bd25e88564793151559b13e0b07f268412b674a9",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new translation keys label only the Ashrait receipt in the transaction details. Existing feature labels and locale handling are identical."
+    }
+  ]
+}

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "be1b3b3837c1a37ff632146b9b96ded73bb5e08c",
-  "documentationRevision": "483cbc5937e89bccf9fc184a8a3979597bbb3b9f2080965720a1640750b4f8ee",
+  "documentationRef": "8fcc140206535a0bda902607ad1a0faaa8e94256",
+  "documentationRevision": "361aa008f6ed731d02538f7f412a8c72298fd8a830b646f55c7526bb52e164c5",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -1114,15 +1114,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/pos-behavior.mdx",
-          "sha256": "c1acf15677803c93d52b41caeb1bcb94919540d7586bd5b457002863c9676888"
+          "sha256": "95b38113c5fa562b151dc237d221f2b3d635e4dc03ca380b6282722b452ce415"
         },
         "fr": {
           "path": "src/content/help/fr/settings/pos-behavior.mdx",
-          "sha256": "508f864b7628c1ff6a2c8a91a8f9218b5cc399db34a16a0488463c12f78727fa"
+          "sha256": "172393a099cccde2c788a4715c8573302040f28822502e2ee30aa0a62f07d757"
         },
         "he": {
           "path": "src/content/help/he/settings/pos-behavior.mdx",
-          "sha256": "9176b8619498c502f3dbcbfcbc287f31d921639dd91e5077bff21a3786efac1d"
+          "sha256": "4ffdfed2b74460f97945e2670c6f1dc8947d4feca70f4e58debe9d1eef5b0f17"
         }
       }
     },
@@ -1304,15 +1304,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/pos-checkout.mdx",
-          "sha256": "be1418b2568d7fe21f5f883b64e9ca953a2ad1736b2a60a82587d13b8d89e815"
+          "sha256": "b86b40ca852c1a7f6c4e3611e21af9ae0a25ba27a5abfececa17375187e67cb3"
         },
         "fr": {
           "path": "src/content/help/fr/payments/pos-checkout.mdx",
-          "sha256": "bbcced40a90547a7b6eca42cf61e5eb4d8dd46199ce9dca9d2f126c41eb42e93"
+          "sha256": "bc5a926581a60f5a29f916c27e851322ee0a9d0519d5f6cfc6890badc6dbb348"
         },
         "he": {
           "path": "src/content/help/he/payments/pos-checkout.mdx",
-          "sha256": "d6379dad8642f25100d432d95792b5e7c361461004ea8f6cb0bf12bd450c7777"
+          "sha256": "e608debf7b987a1f8f8f62dd7c849d2c1c05c193cb18ba8a1b17e80803b0c98c"
         }
       }
     },
@@ -1323,15 +1323,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/victa-mini.mdx",
-          "sha256": "c483332bbb83edb9d176ba98a11969ec12786c3a9cd6725e4113d94a7a522994"
+          "sha256": "f8df31882e0d44af28b6d03c283fc302d86aa82857620773f38a0df4218e8a9d"
         },
         "fr": {
           "path": "src/content/help/fr/payments/victa-mini.mdx",
-          "sha256": "d61129f07aacf21464a1c44ac6aabd3fe134bcc8e2e2139bec90085f2ca40d24"
+          "sha256": "f1fd831e3e3cd18bf227300a201d2bead7020c8fb1eaaa7b9b4770250f5b293b"
         },
         "he": {
           "path": "src/content/help/he/payments/victa-mini.mdx",
-          "sha256": "0ae851da746901387809a25321bd444bdac6a5556d0373311d45de8d056896eb"
+          "sha256": "6d93a110259dc1856c00ef7cb885b3f5329bcaacdc20689a46b4766028d1bccf"
         }
       }
     },
@@ -1361,15 +1361,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/pos-workspace.mdx",
-          "sha256": "dc76d5554cb1868d375a25180cc85af4ce6e2b4f313482f4a4d6d092ab3d5aa9"
+          "sha256": "e18263590f539e03717b237e3a661cabf8f861c2a4e5e59418d1b80ae63de3ed"
         },
         "fr": {
           "path": "src/content/help/fr/settings/pos-workspace.mdx",
-          "sha256": "663efa98211d5c676a604f0c27e59ae7583fbea219a216fae38bce348902051b"
+          "sha256": "40d57f733857fe27f5f278cd8359af29dc07427adad04922a056f06df48b54c7"
         },
         "he": {
           "path": "src/content/help/he/settings/pos-workspace.mdx",
-          "sha256": "3831c71feb59b4c5f76c7cf2dcf7ddb6a74e026c1194a504db5e9264e2855d56"
+          "sha256": "145efd6116c907d3b5e8d4c1d1e5cc2f960779b28122c86e796ff63a51603058"
         }
       }
     },
@@ -1817,15 +1817,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "d3591d2331244f10c296a149e654cacb40b26a8aa79e0e1d8a58912e89565aa7"
+          "sha256": "56eb12f45b639bdad4d174e6b321dca451084a95bb452f7a27f25cec3fc97f54"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "0e94e231b577d7fcc37fc647717768fad096f2bfc2a5efb85f958e1972f35167"
+          "sha256": "ae81bb88efcf525be4d4cd910fb8fedcd77bece42cc59df8840eaed0f5b838fa"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "725cac970ea655122ba3b540fb5987974eaf2067f156db223d64a085f1a55622"
+          "sha256": "b723984400642dfaaf44625f4a3a49ce568b02cc672b5cb726bb0d3fbac2950f"
         }
       }
     },
@@ -2083,15 +2083,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/transactions.mdx",
-          "sha256": "9448fa64f109c466c10f388ca461974f0f4ddf612290539595b023b15a86c14b"
+          "sha256": "e4b35cb3ebb63fa7f9ace1dc9bf674bfb0c7b4c0b714aa49cf449667bb94cd4f"
         },
         "fr": {
           "path": "src/content/help/fr/payments/transactions.mdx",
-          "sha256": "fa253b6a5e2fdf6d7ec625f078eaa77c2eab097fec542603239910fd6c867109"
+          "sha256": "d6d8d0f017200ea9a6a3216b785906fa37296302375ab76b6be763e4b63b724a"
         },
         "he": {
           "path": "src/content/help/he/payments/transactions.mdx",
-          "sha256": "f031cb6bb4cff8caf7d71517a1afb9c2089b76d728d5baf7272afd53970653d0"
+          "sha256": "e3a2ed7043f16ba24be7effdd9cd6703db566403a90c1e587a1da5b88ca6db90"
         }
       }
     },
@@ -2102,15 +2102,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/ashrait-terminal-inspection.mdx",
-          "sha256": "9fe7a0813b046385435dbb6c3547b204c3883a8d97738044088ea1e32d4bab75"
+          "sha256": "6b61b6172462efc0329f910b45e128d155ff16326afa1b7bac3fd46b7e0a86d9"
         },
         "fr": {
           "path": "src/content/help/fr/payments/ashrait-terminal-inspection.mdx",
-          "sha256": "ad179a4041bdd291f0d050a3a97529f62f5a1b42c571cd13bb29ceae634c202e"
+          "sha256": "31abaa2da92dcf4f43876b8f553219d7b9fc09d742ae42140f569a8aee37ab0a"
         },
         "he": {
           "path": "src/content/help/he/payments/ashrait-terminal-inspection.mdx",
-          "sha256": "eccc3c4b259ade88df58555087b78d40c9e625f04004e3be5052781c812cb5ec"
+          "sha256": "755c32920c243d286877f6eb5d81dab8bc3cdeb066177c250e289208e8fdfc92"
         }
       }
     },
@@ -3604,8 +3604,15 @@
         "table-service-policy"
       ]
     },
+    "src/app/[restaurantId]/transactions/ashrait-receipt.tsx": {
+      "sha256": "e1765dc80a013a1e95c38067077a26216e45bd621f3908b3fdaac06c56429b6f",
+      "features": [
+        "pos-payments",
+        "payments-transactions"
+      ]
+    },
     "src/app/[restaurantId]/transactions/page.tsx": {
-      "sha256": "0228d7330b7edbc3d25668027eee2fce0b94193f394fb6df526f5651d78a4591",
+      "sha256": "948bed1ea05ab38f2ac391217be7272d484e8548f3f8f5e81caddcd5214f7270",
       "features": [
         "pos-payments",
         "payments-transactions"
@@ -6572,7 +6579,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "2d6875526f10d29a18ec7abee960c820f6407587a0443062e9f48a2193c12e0b",
+      "sha256": "7c7f6aa44f53774ae24678bcbdc2c31c95dea8af9d2b7576424d1505715023c5",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6584,6 +6591,13 @@
         "orders-internal-sumit-checkout",
         "stancer-cash-guarantee",
         "orders-events",
+        "payments-transactions"
+      ]
+    },
+    "src/lib/ashrait-card-receipt.ts": {
+      "sha256": "1b8fd6dedab760ad080463fd532822c89d2d3d68f6e2ab98c49f8aaed91a1d7d",
+      "features": [
+        "shared-runtime",
         "payments-transactions"
       ]
     },
@@ -6768,7 +6782,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "501f7ed4f3c8ddb3be0ad526bd25e88564793151559b13e0b07f268412b674a9",
+      "sha256": "42a87a4143de912e46dd06904c3fbdfb8d1b7d6d57b4326e211cd8cc4af8a906",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -7460,7 +7474,7 @@
       ]
     },
     "src/lib/transactions.ts": {
-      "sha256": "68f8f7b8defa144d51f766ce67bf7b831714295fad459c0032796c982296080e",
+      "sha256": "707b9904ec11fb3115c68240e362bb73809ce34ebf49b33e94b8d2b6fedf804b",
       "features": [
         "shared-runtime",
         "payments-transactions"
@@ -14747,6 +14761,30 @@
         "handleAssignmentModeChange",
         "loadedAssignments",
         "saved"
+      ]
+    },
+    {
+      "id": "foodyadmin:src/app/[restaurantId]/transactions/ashrait-receipt.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/app/[restaurantId]/transactions/ashrait-receipt.tsx",
+      "line": 1,
+      "features": [
+        "pos-payments",
+        "payments-transactions"
+      ],
+      "labels": [
+        "ashraitReceiptCustomer",
+        "ashraitReceiptDetails",
+        "ashraitReceiptLoadError",
+        "ashraitReceiptMerchant",
+        "ashraitReceiptPrint",
+        "ashraitReceiptPrintError",
+        "ashraitReceiptUnavailable",
+        "loading",
+        "retry"
+      ],
+      "actions": [
+        "printCopy"
       ]
     },
     {

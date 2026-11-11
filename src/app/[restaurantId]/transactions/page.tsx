@@ -10,6 +10,7 @@ import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import type { TransactionHistory, TransactionRecord } from '@/lib/transactions';
 import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
 import { isoDate } from '@/lib/weeks';
+import { TransactionAshraitReceipt } from './ashrait-receipt';
 import { Button, Drawer, Input, PageHead, Select, Table, TableShell, Tbody, Td, Th, Thead, Tr } from '@/components/ds';
 
 /** One shared history across recorded cash, card-present and online collections. */
@@ -108,6 +109,7 @@ function History({ rid }: { rid: number }) {
           {allocation.amount_minor != null && <span> — {money(allocation.amount_minor, selected.currency)}</span>}
         </div>)}
         {selected.items.length > 0 && <ul>{selected.items.map((item, index) => <li key={index}>{item}</li>)}</ul>}
+        <TransactionAshraitReceipt key={selected.id} rid={rid} row={selected} />
         <p className="text-sm text-[var(--fg-muted)]">{t('transactionHistoryReadOnly')}</p>
       </div>}
     </Drawer>
