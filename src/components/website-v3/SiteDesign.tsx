@@ -63,6 +63,7 @@ export function SiteDesign({
   const campaignHero = useCampaignCapability("campaign_hero");
   const campaignProducts = useCampaignCapability("campaign_products");
   const displayTypography = useCampaignCapability("display_typography");
+  const siteTypography = useCampaignCapability("site_typography");
   const campaignLayoutControls = useCampaignCapability("campaign_layout_controls");
   const campaignSupported = campaignHero && campaignProducts && displayTypography && campaignLayoutControls;
   const [screen, setScreen] = useState<Screen>(initialScreen);
@@ -95,7 +96,8 @@ export function SiteDesign({
   const heading = String(
     site.headingFont || state.config.hero_name_font || "Manrope",
   );
-  const body = String(site.bodyFont ?? "Manrope");
+  const body = String(site.bodyFont || "Manrope");
+  const fontSettings = (typography as TypographyOverrides).site;
   useEffect(() => {
     if (screen === "themes" || screen === "styles" || screen === "detail") {
       [...RESTAURANT_THEMES, ...SITE_STYLES].forEach((theme) => loadWebsiteFont(theme.heading));
@@ -262,18 +264,19 @@ export function SiteDesign({
         <div className="sqe-panel-body">
           <h3>{t("editorFonts")}</h3>
           <SiteFontsEditor restaurantId={previewContext.restaurantId} typography={typography as TypographyOverrides}
-            heading={heading} body={body} onChange={value => patch({typography: value})} />
+            heading={heading} body={body} scaleAndWeight={siteTypography} onChange={value => patch({typography: value})} />
           <p
             style={{
               fontFamily: heading,
-              fontSize: 28,
-              lineHeight: "36px",
+              fontSize: 28 * (fontSettings?.headingSizeMult ?? 1),
+              fontWeight: fontSettings?.headingWeight,
+              lineHeight: 36 / 28,
               color: ink,
             }}
           >
             {restaurantName}
           </p>
-          <p style={{ fontFamily: body }}>
+          <p style={{ fontFamily: body, fontSize: 16 * (fontSettings?.bodySizeMult ?? 1), fontWeight: fontSettings?.bodyWeight }}>
             {description || t("editorStylesHint")}
           </p>
         </div>

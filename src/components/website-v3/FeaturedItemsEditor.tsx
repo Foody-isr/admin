@@ -43,10 +43,12 @@ import {
 export function FeaturedItemsEditor({
   restaurantId,
   section,
+  selectionLimit,
   onChange,
 }: {
   restaurantId: number;
   section: DraftSectionPayload;
+  selectionLimit?: number;
   onChange: (path: StatePath, value: unknown) => void;
 }) {
   const { t } = useI18n();
@@ -176,7 +178,7 @@ export function FeaturedItemsEditor({
             <button
               className="sqe-button sqe-button-secondary w-full"
               onClick={() => {
-                setDraftIds(ids);
+                setDraftIds(selectionLimit ? ids.slice(0, selectionLimit) : ids);
                 setQuery("");
                 setPicker(true);
               }}
@@ -517,7 +519,8 @@ export function FeaturedItemsEditor({
           </div>
           <DialogDescription>{t("featuredSelectionHelp")}</DialogDescription>
           <div className="flex flex-wrap gap-3">
-            <button type="button" className="sqe-text-button" data-field-id="section.featured.select_all" disabled={loading || loadError} onClick={() => setDraftIds(current => selectAllFeaturedItems(current, visibleItems))}>{t("featuredSelectAllVisible")}</button>
+            {selectionLimit ? <p className="text-sm tabular-nums" aria-live="polite">{draftIds.length} / {selectionLimit}</p> :
+              <button type="button" className="sqe-text-button" data-field-id="section.featured.select_all" disabled={loading || loadError} onClick={() => setDraftIds(current => selectAllFeaturedItems(current, visibleItems))}>{t("featuredSelectAllVisible")}</button>}
             <button type="button" className="sqe-text-button" data-field-id="section.featured.clear_selection" onClick={() => setDraftIds([])}>{t("featuredClearSelection")}</button>
           </div>
           <div className="flex gap-3">
@@ -570,6 +573,7 @@ export function FeaturedItemsEditor({
                             type="checkbox"
                             className="h-5 w-5 accent-black"
                             checked={draftIds.includes(item.id)}
+                            disabled={selectionLimit !== undefined && draftIds.length >= selectionLimit && !draftIds.includes(item.id)}
                             onChange={() =>
                               setDraftIds((value) =>
                                 toggleFeaturedItem(value, item.id),

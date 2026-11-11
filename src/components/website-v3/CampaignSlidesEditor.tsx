@@ -13,14 +13,15 @@ import { useCampaignCapability } from "./CampaignRuntimeContext";
 import {BoundedNumberInput} from "./BoundedNumberInput";
 
 /** Edits campaign slides using the same draft payload consumed by preview and publication. */
-export function CampaignSlidesEditor({restaurantId, section, onChange, selectedSlide}: {
-  restaurantId: number; section: DraftSectionPayload; selectedSlide?: number; onChange: (path: StatePath, value: unknown) => void;
+export function CampaignSlidesEditor({restaurantId, section, onChange, selectedSlide, appOrder = false}: {
+  restaurantId: number; section: DraftSectionPayload; selectedSlide?: number; appOrder?: boolean; onChange: (path: StatePath, value: unknown) => void;
 }) {
   const {t} = useI18n();
   const supported = useCampaignCapability("campaign_hero");
   const displaySupported = useCampaignCapability("display_typography");
   const layoutSupported = useCampaignCapability("campaign_layout_controls");
   const slides = campaignSlidesForSection(section);
+  const appCopyLimits = { headline: 120, subheadline: 320, image_alt: 160, cta_text: 48, cta_link: 0 };
   const identity=String(section.id ?? section.tmp_id);
   const latest=useRef({slides,identity,onChange});
   const mounted=useRef(true);
@@ -42,7 +43,7 @@ export function CampaignSlidesEditor({restaurantId, section, onChange, selectedS
   return <fieldset disabled={!supported} className="min-w-0 space-y-5">
     <legend className="text-sm font-semibold">{t("campaignSlides")}</legend>
     {!supported && <p role="status" className="text-xs">{t("campaignRuntimeUnavailable")}</p>}
-    <p className="text-xs text-slate-500">{t("campaignSlidesHelp")}</p>
+    <p className="text-xs text-slate-500">{t(appOrder ? "editorMobileHomeSlidesHelp" : "campaignSlidesHelp")}</p>
     <InspectorField label={t("editorTextStyle")}><select className={controlClass} data-field-id="section.settings.headline_size" value={String(section.settings.headline_size || "md")} onChange={event => onChange(["settings","headline_size"],event.target.value)}>{["sm","md","lg","xl","display"].map(size => <option key={size} value={size} disabled={size === "display" && !displaySupported}>{t(`editorSize_${size}`)}</option>)}</select></InspectorField>
     {slides.map((slide, index) => <details key={slide.id} open={slides.length === 1 || selectedSlide === index || undefined} className="rounded-xl border border-slate-200 p-3">
       <summary className="cursor-pointer text-sm font-semibold">{t("campaignSlide")} {index + 1}{slide.headline ? ` · ${slide.headline}` : ""}</summary>
@@ -52,8 +53,10 @@ export function CampaignSlidesEditor({restaurantId, section, onChange, selectedS
           <button type="button" className="sqe-icon-button" aria-label={`${t("editorMoveDown")} ${index + 1}`} disabled={index === slides.length - 1} onClick={() => move(index, 1)}><ArrowDown size={16}/></button>
           <button type="button" className="sqe-icon-button" aria-label={`${t("campaignDeleteSlide")} ${index + 1}`} disabled={slides.length === 1} onClick={() => save(slides.filter((_, i) => i !== index))}><Trash2 size={16}/></button>
         </div>
-        {([['headline','editorHeadline'],['subheadline','editorText'],['image_alt','campaignImageAlt'],['cta_text','editorButton'],['cta_link','editorLink']] as const).map(([key,label]) => <InspectorField key={key} label={t(label)}><input className={controlClass} data-field-id={`section.content.slides.${index}.${key}`} value={slide[key]} onChange={event => update(index, {[key]: event.target.value})}/></InspectorField>)}
-        <ImageUploadField restaurantId={restaurantId} label={t("editorBackgroundMedia")} fieldId={`section.content.slides.${index}.image_url`} currentUrl={slide.image_url} framing={slide.image_framing} onFramingChange={value => update(index,{image_framing:value})} onUploaded={url => update(index,{image_url:url,video_url:""})} onRemove={() => update(index,{image_url:""})}/>
+        {([['headline','editorHeadline'],['subheadline','editorText'],['image_alt','campaignImageAlt'],['cta_text','editorButton'],['cta_link','editorLink']] as const)
+          .filter(([key]) => !appOrder || key !== "cta_link")
+          .map(([key,label]) => <InspectorField key={key} label={t(label)}><input className={controlClass} data-field-id={`section.content.slides.${index}.${key}`} value={slide[key]} maxLength={appOrder ? appCopyLimits[key] : undefined} onChange={event => update(index, {[key]: event.target.value})}/></InspectorField>)}
+        <ImageUploadField restaurantId={restaurantId} label={t("editorBackgroundMedia")} fieldId={`section.content.slides.${index}.image_url`} currentUrl={slide.image_url} framing={slide.image_framing} onFramingChange={value => update(index,{image_framing:value})} onUploaded={url => update(index,{image_url:url,...(!appOrder ? {video_url:""} : {})})} onRemove={() => update(index,{image_url:""})}/>
         <VideoUploadField restaurantId={restaurantId} fieldId={`section.content.slides.${index}.video_url`} currentUrl={slide.video_url} posterUrl={slide.image_url} onUploaded={url => update(index,{video_url:url})} onRemove={() => update(index,{video_url:""})}/>
         {slide.video_url && slide.image_url && <InspectorField label={t("campaignVideoFraming")}><ImageFramingControl src={slide.image_url} value={slide.video_framing} onChange={value => update(index,{video_framing:value})}/></InspectorField>}
         <ColorField fieldId={`section.content.slides.${index}.background_color`} label={t("campaignSlideBackground")} value={slide.background_color} fallback="#ffb9cd" onChange={value => update(index,{background_color:value})}/>
@@ -74,7 +77,7 @@ export function CampaignSlidesEditor({restaurantId, section, onChange, selectedS
         ["card_width_percent", "campaignCardWidth", 70, 100, 92],
         ["card_width_percent_mobile", "campaignCardWidthMobile", 70, 100, 90],
         ["card_gap", "campaignCardGap", 0, 64, 24],
-      ] as const).map(([key, label, min, max, fallback]) => <InspectorField key={key} label={t(label)}><BoundedNumberInput fieldId={`section.settings.${key}`} min={min} max={max} integer={key==="card_gap"} value={Number(section.settings[key] ?? fallback)} onChange={value=>onChange(["settings",key],value)}/></InspectorField>)}
+      ] as const).filter(([key]) => !appOrder || key !== "card_width_percent").map(([key, label, min, max, fallback]) => <InspectorField key={key} label={t(label)}><BoundedNumberInput fieldId={`section.settings.${key}`} min={min} max={max} integer={key==="card_gap"} value={Number(section.settings[key] ?? (appOrder ? key === "card_gap" ? 0 : 100 : fallback))} onChange={value=>onChange(["settings",key],value)}/></InspectorField>)}
       {section.settings.card_gap !== undefined && <button type="button" className="sqe-text-button" onClick={() => onChange(["settings", "card_gap"], undefined)}>{t("campaignResetGap")}</button>}
     </fieldset>
   </fieldset>;

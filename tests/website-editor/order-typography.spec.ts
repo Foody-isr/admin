@@ -3,6 +3,124 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { DraftStatePayload } from "../../src/lib/website-v3/types";
 
+test("site font sizes and weights are shared by the editor, the published site and the installed app", async ({
+  page, context, request,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_user", JSON.stringify({ id: 1, full_name: "Demo", role: "manager", email: "demo@foody.test" }));
+    localStorage.setItem("foody_restaurant_ids", "[1]");
+    localStorage.setItem("foody-admin-locale", "fr");
+  });
+  await context.route("**/*", route =>
+    ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort(),
+  );
+  const fixture = `http://127.0.0.1:${process.env.FOODY_WEBSITE_EDITOR_API_PORT ?? 18081}/api/v1/restaurants/1`;
+  const draft = async (): Promise<DraftStatePayload> => (await (await request.get(fixture + "/website-draft")).json()).state;
+  const initial = await draft();
+  try {
+    const seed = structuredClone(initial);
+    const home = seed.pages.find(entry => entry.type === "landing")!;
+    for (const entry of seed.pages) entry.is_homepage = entry === home;
+    seed.config.typography = { site: { headingFont: "Manrope", bodyFont: "Inter" } };
+    seed.config.nav_layout = { mobile_experience: {
+      version: 1,
+      navigation: { enabled: true, items: [
+        { id: "home", target: "home", placement: "bar" },
+        { id: "more", target: "more", placement: "bar" },
+        { id: "orders", target: "orders", placement: "more" },
+      ] },
+    } };
+    const content = {
+      id: 71, section_type: "text", page: home.slug, page_id: home.id, sort_order: 0,
+      is_visible: true, layout: "default",
+      content: { title: "Les titres du site", body: "Un texte qui suit le design du site." }, settings: {},
+    };
+    seed.sections = [content, {
+      ...content, id: 72, sort_order: 1, content: { title: "Titre personnalisé" },
+      settings: { title_size: "sm", title_weight: "bold" },
+    }];
+    expect((await request.put(fixture + "/website-draft", { data: seed })).ok()).toBe(true);
+    expect((await request.post(fixture + "/website-publish")).ok()).toBe(true);
+
+    const openFonts = async () => {
+      await page.getByRole("button", { name: "Design du site", exact: true }).click();
+      await page.getByRole("button", { name: /^Polices/ }).click();
+    };
+    await page.goto("/1/website-v3");
+    await openFonts();
+    const preview = page.frameLocator("iframe");
+    const title = preview.getByRole("heading", { name: "Les titres du site" });
+    const body = preview.getByText("Un texte qui suit le design du site.", { exact: true });
+    const localTitle = preview.getByRole("heading", { name: "Titre personnalisé" });
+    await expect(title).toBeVisible();
+    const fontSize = (element: Element) => parseFloat(getComputedStyle(element).fontSize);
+    const initialTitle = await title.evaluate(fontSize);
+    const initialBody = await body.evaluate(fontSize);
+    const localSize = await localTitle.evaluate(fontSize);
+
+    const headings = page.getByRole("group", { name: "Titres", exact: true });
+    const paragraphs = page.getByRole("group", { name: "Paragraphes", exact: true });
+    const size = (group: typeof headings) => group.getByRole("textbox", { name: "Taille du texte (%)" });
+    const weight = (group: typeof headings) => group.getByRole("combobox", { name: "Graisse du texte" });
+    await size(headings).fill("125");
+    await weight(headings).selectOption("600");
+    await size(paragraphs).fill("120");
+    await weight(paragraphs).selectOption("500");
+    await expect(title).toHaveCSS("font-weight", "600");
+    await expect(body).toHaveCSS("font-weight", "500");
+    await expect.poll(() => title.evaluate(fontSize)).toBeCloseTo(initialTitle * 1.25);
+    await expect.poll(() => body.evaluate(fontSize)).toBeCloseTo(initialBody * 1.2);
+    await expect(localTitle).toHaveCSS("font-weight", "700");
+    expect(await localTitle.evaluate(fontSize)).toBe(localSize);
+    await expect.poll(async () => (await draft()).config.typography).toMatchObject({
+      site: { headingSizeMult: 1.25, headingWeight: 600, bodySizeMult: 1.2, bodyWeight: 500 },
+    });
+
+    await page.reload();
+    await openFonts();
+    await expect(size(headings)).toHaveValue("125");
+    await expect(weight(paragraphs)).toHaveValue("500");
+    for (const format of ["Vue téléphone", "Vue ordinateur"]) {
+      await page.getByRole("button", { name: "Format de l’aperçu", exact: true }).click();
+      await page.getByRole("menuitemradio", { name: format, exact: true }).click();
+      await expect(title).toHaveCSS("font-weight", "600");
+    }
+    const publish = page.getByRole("button", { name: "Publier", exact: true });
+    await expect(publish).not.toHaveAttribute("title", /Vérifiez/);
+    await publish.click();
+    await expect.poll(async () => (await (await request.get(fixture + "/website-draft")).json()).draft_dirty).toBe(false);
+
+    const storefront = await context.newPage();
+    const root = "http://localhost:3000/r/atelier-foody";
+    await storefront.goto(root + "?lang=fr");
+    const theme = storefront.locator("html");
+    await expect(theme).toHaveCSS("--site-heading-scale", "1.25");
+    await expect(theme).toHaveCSS("--site-body-scale", "1.2");
+    await expect(storefront.getByRole("heading", { name: "Les titres du site" })).toHaveCSS("font-weight", "600");
+    await expect(storefront.getByText("Un texte qui suit le design du site.", { exact: true })).toHaveCSS("font-weight", "500");
+    await storefront.goto(root + "/account/more?lang=fr");
+    const more = storefront.locator(".mobile-more");
+    await expect(more.getByRole("heading", { name: "Plus", exact: true })).toHaveCSS("font-weight", "600");
+    await expect(more.getByRole("link", { name: "Historique" })).toHaveCSS("font-weight", "500");
+    const desktopSize = await more.locator("h1").evaluate(fontSize);
+    await storefront.setViewportSize({ width: 390, height: 844 });
+    expect(await more.locator("h1").evaluate(fontSize)).toBe(desktopSize);
+    await storefront.addInitScript(() => Object.defineProperty(navigator, "standalone", { value: true }));
+    await storefront.reload();
+    await expect(storefront.locator(".mobile-tabbar")).toBeVisible();
+    await expect(theme).toHaveCSS("--site-heading-scale", "1.25");
+    await expect(theme).toHaveCSS("--site-body-scale", "1.2");
+    await expect(more.getByRole("link", { name: "Historique" })).toHaveCSS("font-weight", "500");
+    await expect(storefront.locator('.mobile-tabbar [data-mobile-tab="more"]')).toHaveCSS("font-weight", "500");
+    await expect.poll(() => more.locator("h1").evaluate(fontSize)).toBe(desktopSize);
+  } finally {
+    for (const tab of context.pages()) await tab.close();
+    expect((await request.put(fixture + "/website-draft", { data: initial })).ok()).toBe(true);
+    expect((await request.post(fixture + "/website-publish")).ok()).toBe(true);
+  }
+});
+
 // All saves/publications are synthetic and remain inside the fixture server.
 test("uploaded fonts, inherited menu typography and spacing survive preview, reload and publication", async ({
   page,

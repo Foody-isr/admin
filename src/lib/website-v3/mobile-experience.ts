@@ -25,8 +25,27 @@ export type MobileNavigationItem = {
   label?: MobileCopy;
 };
 
+export type MobileHomeSection = {
+  layout: string;
+  content: Record<string, unknown>;
+  settings: Record<string, unknown>;
+};
+
+export type MobileAppHome = {
+  enabled: boolean;
+  hero_height?: 66 | 76 | 88;
+  sticky_order?: boolean;
+  order_label?: MobileCopy;
+  hero?: MobileHomeSection;
+  featured?: MobileHomeSection;
+  featured_enabled?: boolean;
+  featured_from?: string;
+  featured_through?: string;
+};
+
 export type MobileExperience = {
   version: 1;
+  home?: MobileAppHome;
   installation: {
     home: boolean;
     confirmation: boolean;
@@ -51,7 +70,7 @@ export type MobileExperience = {
 
 export type MobilePreview = {
   mode: "browser" | "standalone";
-  screen: "page" | "more" | "confirmation";
+  screen: "page" | "home" | "more" | "confirmation";
   locale: MobileLocale;
 };
 
@@ -92,6 +111,7 @@ export function readMobileExperience(value: unknown): MobileExperience | undefin
   const defaults = defaultMobileExperience();
   return {
     version: 1,
+    home: saved.home,
     installation: { ...defaults.installation, ...saved.installation },
     navigation: {
       ...defaults.navigation,
@@ -122,6 +142,11 @@ export function mobilePublicationIssue(state: DraftStatePayload): string | undef
   }
   const image = model.more.banner?.image_url;
   if (image && !isSecureUrl(image)) return "editorMobileInvalidUrl";
+  const home = model.home;
+  if (home?.enabled && home.featured_enabled !== false &&
+    home.featured_from && home.featured_through && home.featured_from > home.featured_through) {
+    return "editorMobileHomeInvalidPeriod";
+  }
 }
 
 function isSecureUrl(value?: string): boolean {

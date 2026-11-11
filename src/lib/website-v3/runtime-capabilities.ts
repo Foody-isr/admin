@@ -14,6 +14,8 @@ const REQUIRED_SURFACES = ["page", "checkout"] as const;
 
 export type WebsiteV3RuntimeCapabilities = {
   mobile_experience?: 1;
+  mobile_app_home?: 1;
+  site_typography?: 1;
   campaign_layout_controls?: 1;
   campaign_hero?: 1;
   campaign_products?: 1;
@@ -87,6 +89,13 @@ export function campaignRuntimeErrors(state: DraftStatePayload, capabilities: We
     errors.push({
       fieldId: "site.mobile_experience",
       message: translate ? translate("editorMobileUnavailable") : "Mettez à jour Foody Web avant de publier l’expérience mobile.",
+    });
+  }
+  const mobile = config?.mobile_experience as { home?: { enabled?: boolean } } | undefined;
+  if (mobile?.home?.enabled && capabilities?.mobile_experience === 1 && capabilities.mobile_app_home !== 1) {
+    errors.push({
+      fieldId: "site.mobile_experience",
+      message: translate ? translate("editorMobileHomeUnavailable") : "Mettez à jour Foody Web pour publier l’accueil de l’app.",
     });
   }
   const header = config?.header as Record<string, unknown> | undefined;
