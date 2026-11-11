@@ -30,6 +30,8 @@ interface Props {
   disabled?: boolean;
   addressInputProps?: Pick<React.InputHTMLAttributes<HTMLInputElement>, 'id' | 'aria-invalid' | 'aria-describedby' | 'aria-label'>;
   addressError?: React.ReactNode;
+  /** An address picker that fills both the street and city. Unit fields are shared. */
+  addressControl?: React.ReactNode;
   /** Order-specific content shown under the address line — the manual order
    *  sheet puts the linked customer's known addresses there. A slot rather than
    *  a flag to drop the address field: the form stays whole everywhere, so a
@@ -37,21 +39,12 @@ interface Props {
   underAddress?: React.ReactNode;
 }
 
-/**
- * The customer's delivery details, rendered identically wherever staff edit
- * them: the manual order sheet and the Clients page.
- *
- * The two screens used to each carry their own copy — different primitives,
- * different label keys, a 3-column grid on one and 2 on the other — so the same
- * customer offered a different form depending on where you opened them. Editing
- * one form is the whole point of this component; if a field belongs on a
- * customer, it belongs here and appears on both screens at once.
- */
-export function CustomerDeliveryFields({ value, onChange, disabled, underAddress, addressInputProps, addressError }: Props) {
+/** Shared street, city and unit fields for staff delivery details. */
+export function CustomerDeliveryFields({ value, onChange, disabled, underAddress, addressInputProps, addressError, addressControl }: Props) {
   const { t } = useI18n();
   return (
     <>
-      <Field label={t('deliveryAddress')}>
+      {addressControl ? <div className="min-w-0">{addressControl}{addressError}</div> : <Field label={t('deliveryAddress')}>
         <Input
           {...addressInputProps}
           dir="auto"
@@ -60,17 +53,17 @@ export function CustomerDeliveryFields({ value, onChange, disabled, underAddress
           onChange={(e) => onChange({ address: e.target.value })}
         />
         {addressError}
-      </Field>
+      </Field>}
       {underAddress}
-      <div className="grid grid-cols-3 gap-2">
-        <Field label={t('city')} className="col-span-1">
+      <div className={addressControl ? 'grid grid-cols-2 gap-2' : 'grid grid-cols-3 gap-2'}>
+        {!addressControl && <Field label={t('city')} className="col-span-1">
           <Input
           dir="auto"
             value={value.city}
             disabled={disabled}
             onChange={(e) => onChange({ city: e.target.value })}
           />
-        </Field>
+        </Field>}
         <Field label={t('floor')} className="col-span-1">
           <Input
           dir="auto"

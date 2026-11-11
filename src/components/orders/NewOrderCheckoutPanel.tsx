@@ -23,6 +23,9 @@ import { reasonKey } from '@/lib/discounts';
 import { usePermissions } from '@/lib/permissions-context';
 import { CustomerPicker } from './CustomerPicker';
 import { CustomerDeliveryFields } from '@/components/customers/CustomerDeliveryFields';
+import { RouteAddressField } from '@/components/delivery/RouteAddressField';
+import type { AddressSuggestion } from '@/lib/delivery';
+import { formatRouteAddress } from '@/lib/route-address';
 import type { DraftCustomer } from '@/lib/orders/orderDraft';
 import { checkoutStepCopy } from '@/lib/orders/checkout-step-copy';
 import { validateCheckout, checkoutFieldProps, type CheckoutStep, type CheckoutField, type CheckoutIssue, type CheckoutErrors } from '@/lib/orders/checkout-validation';
@@ -154,6 +157,10 @@ export function NewOrderCheckoutPanel({
   const [orderType, setOrderType] = useState<OrderType>('pickup');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
+  const [addressQuery, setAddressQuery] = useState<string | null>(null);
+  const [manualAddress, setManualAddress] = useState(false);
+  const [addressResolving, setAddressResolving] = useState(false);
+  const [addressPosition, setAddressPosition] = useState<{ lat: number; lng: number }>();
   const [floor, setFloor] = useState('');
   const [apt, setApt] = useState('');
   const [entryCode, setEntryCode] = useState('');
@@ -239,8 +246,8 @@ export function NewOrderCheckoutPanel({
   const parsedFee = Number(feeInput);
   const feeValid = !feeInput || (/^\d+(?:\.\d{1,2})?$/.test(feeInput) && Number.isFinite(parsedFee));
   const fixedLinkFee = feeTouched && !!feeInput;
-  const feeQuoteKey = JSON.stringify([restaurantId, address.trim(), city.trim()]);
-  const currentFeeQuote = feeQuote?.key === feeQuoteKey ? feeQuote : null;
+  const feeQuoteKey = JSON.stringify([restaurantId, address.trim(), city.trim(), addressPosition]);
+  const currentFeeQuote = !addressResolving && feeQuote?.key === feeQuoteKey ? feeQuote : null;
   const automaticFeeReady = currentFeeQuote?.status === 'ready';
   const feeValue = orderType !== 'delivery' || !feeValid ? 0
     : feeTouched ? parsedFee
@@ -339,18 +346,18 @@ export function NewOrderCheckoutPanel({
   // Ordinary deliveries follow their current address. A deliberate fixed quote
   // takes precedence; stale, failed and pending estimates cannot become free delivery.
   useEffect(() => {
-    if (!open || payMethod === 'link' || orderType !== 'delivery' || feeTouched) return;
+    if (!open || payMethod === 'link' || orderType !== 'delivery' || feeTouched || addressResolving) return;
     const addr = address.trim();
     setDeliveryFee('');
     if (!addr) { setFeeQuote(null); return; }
     setFeeQuote({ key: feeQuoteKey, status: 'loading' });
     let cancelled = false;
     const timer = setTimeout(() => {
-      checkDeliverable(restaurantId, addr, city.trim() || undefined)
+      checkDeliverable(restaurantId, addr, city.trim() || undefined, addressPosition)
         .then((res) => {
           if (cancelled) return;
           const fee = res.delivery_fee ?? 0;
-          if (!res.deliverable || !Number.isFinite(fee) || fee < 0) {
+          if (!res.deliverable || res.resolved === false || !Number.isFinite(fee) || fee < 0) {
             setFeeQuote({ key: feeQuoteKey, status: 'error' });
             return;
           }
@@ -363,7 +370,7 @@ export function NewOrderCheckoutPanel({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [open, payMethod, orderType, address, city, feeTouched, restaurantId, feeQuoteKey, feeRetry]);
+  }, [open, payMethod, orderType, address, city, addressPosition, addressResolving, feeTouched, restaurantId, feeQuoteKey, feeRetry]);
 
   // ── Discount helpers ──────────────────────────────────────────────────────
   async function applyDiscountCode() {
@@ -451,12 +458,13 @@ export function NewOrderCheckoutPanel({
   const manualStarted = canManualDiscount && !appliedCoupon && !appliedManual && !!(manualValue.trim() || manualReason.trim());
   const steps: CheckoutStep[] = eventConfig ? ['reception', 'event', 'payment'] : ['reception', 'payment'];
   const stepIndex = steps.indexOf(step);
-  const issues = validateCheckout({ fulfillment, orderType, customerName, customerPhone, address, intent,
+  const issues = validateCheckout({ fulfillment, orderType, customerName, customerPhone, address: addressResolving ? '' : address, intent,
     linkEnabled: sumitCheckoutEnabled, cardEnabled: sumitCardEnabled, holdEnabled: sumitHoldEnabled,
     feeValid, feeTouched, feeStatus: currentFeeQuote?.status, received, total, discountedTotal,
     productionPlan: addToProduction, manualStarted, manualValue: manualValNum, manualType, manualReason, event: eventConfig });
   const visibleIssues = [...issues.filter(issue => attempted.includes(issue.step)), ...(serverIssue ? [serverIssue] : [])];
   const fieldErrors: CheckoutErrors = Object.fromEntries(visibleIssues.map(issue => [issue.field, copy.errors[issue.code]]));
+  const addressInputProps = { ...checkoutFieldProps('address', fieldErrors), 'aria-label': t('deliveryAddress') };
   const showCustomer = intent !== 'link' || optionalCustomer || customerName || customerPhone;
   const timingWarning = !!(eventConfig?.event_date && eventConfig.event_time && fulfillment.scheduledFor && fulfillment.windowEnd &&
     `${fulfillment.scheduledFor}T${fulfillment.windowEnd}` > `${eventConfig.event_date}T${eventConfig.event_time}`);
@@ -531,6 +539,8 @@ export function NewOrderCheckoutPanel({
   };
 
   const applyAddress = (a: CustomerSearchAddress) => {
+    setAddressQuery(null);
+    setAddressPosition(undefined);
     setAddress(a.address);
     setCity(a.city);
     setFloor(a.floor);
@@ -541,6 +551,27 @@ export function NewOrderCheckoutPanel({
     // Fulfillment. Only an automatic estimate follows the new address.
     if (!feeTouched) setDeliveryFee('');
   };
+
+  function editAddressSearch(value: string) {
+    setAddressQuery(value);
+    setAddress('');
+    setCity('');
+    setAddressPosition(undefined);
+  }
+
+  function selectDeliveryAddress({ address, city, lat, lng }: AddressSuggestion) {
+    setAddress(address);
+    setCity(city);
+    setAddressPosition(typeof lat === 'number' && typeof lng === 'number' && Number.isFinite(lat) && Number.isFinite(lng)
+      ? { lat, lng } : undefined);
+    setAddressQuery(null);
+  }
+
+  function toggleAddressEntry() {
+    if (!manualAddress && addressQuery !== null) setAddress(addressQuery);
+    setAddressQuery(null);
+    setManualAddress(value => !value);
+  }
 
   function confirm() {
     if (submitting || discountValidating) return;
@@ -663,10 +694,29 @@ export function NewOrderCheckoutPanel({
           {orderType === 'delivery' && payMethod !== 'link' && (
             <>
               <CustomerDeliveryFields
-                addressInputProps={{ ...checkoutFieldProps('address', fieldErrors), 'aria-label': t('deliveryAddress') }}
+                addressInputProps={addressInputProps}
                 addressError={inlineError('address')}
+                addressControl={manualAddress ? undefined : (
+                  <RouteAddressField
+                    restaurantId={restaurantId}
+                    locale={locale}
+                    label={t('deliveryAddress')}
+                    placeholder={copy.addressPlaceholder}
+                    inputProps={{
+                      ...addressInputProps,
+                      'aria-describedby': [addressInputProps['aria-describedby'], !address && 'checkout-address-search-hint'].filter(Boolean).join(' ') || undefined,
+                    }}
+                    value={addressQuery ?? formatRouteAddress({ address, city })}
+                    onChange={editAddressSearch}
+                    onSelectAddress={selectDeliveryAddress}
+                    onResolvingChange={setAddressResolving}
+                    disabled={submitting}
+                    t={t}
+                  />
+                )}
                 value={{ address, city, floor, apt, entryCode, deliveryNotes }}
                 onChange={(p) => {
+                  if (p.address !== undefined || p.city !== undefined) setAddressPosition(undefined);
                   if (p.address !== undefined) setAddress(p.address);
                   if (p.city !== undefined) setCity(p.city);
                   if (p.floor !== undefined) setFloor(p.floor);
@@ -674,8 +724,12 @@ export function NewOrderCheckoutPanel({
                   if (p.entryCode !== undefined) setEntryCode(p.entryCode);
                   if (p.deliveryNotes !== undefined) setDeliveryNotes(p.deliveryNotes);
                 }}
-                underAddress={
-                  linked && linked.addresses.length > 1 ? (
+                underAddress={<>
+                  {!manualAddress && !address && <p id="checkout-address-search-hint" className="text-fs-xs text-[var(--fg-muted)]">{copy.addressSearchHint}</p>}
+                  <Button variant="ghost" size="sm" className="self-start" onClick={toggleAddressEntry}>
+                    {manualAddress ? copy.addressSearch : copy.addressManual}
+                  </Button>
+                  {linked && linked.addresses.length > 1 && (
                     <div className="flex flex-wrap items-center gap-[var(--s-2)]">
                       <span className="text-fs-sm text-[var(--fg-muted)]">
                         {t('customerPickerKnownAddresses').replace('{n}', String(linked.addresses.length))}
@@ -689,8 +743,8 @@ export function NewOrderCheckoutPanel({
                         </Chip>
                       ))}
                     </div>
-                  ) : null
-                }
+                  )}
+                </>}
               />
             </>
           )}

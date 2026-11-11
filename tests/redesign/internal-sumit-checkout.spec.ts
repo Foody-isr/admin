@@ -414,14 +414,19 @@ test('deposit errors stay in payment and open the exact field', async ({ page })
   expect(state.created).toHaveLength(0);
 });
 
-test('ordinary delivery waits for the current address quote and accepts a free zone', async ({ page }) => {
+test('manual delivery entry recovers from unavailable suggestions and accepts a free zone', async ({ page }) => {
   const state = await install(page, false);
+  await page.route('**/public/address-autocomplete?*', route => route.fulfill({ status: 503, json: { error: 'address_lookup_unavailable' } }));
   await page.route('**/public/delivery/check?*', route => route.fulfill({ json: { deliverable: true, resolved: true, delivery_fee: new URL(route.request().url()).searchParams.get('address') === 'Zone gratuite' ? 0 : 25 } }));
   const panel = await checkout(page);
   await panel.getByRole('radio', { name: 'Livraison', exact: true }).check();
   await fillCustomer(panel);
+  await panel.getByRole('combobox', { name: 'Adresse de livraison', exact: true }).fill('12 rue démo');
+  await expect(panel.getByText('Les suggestions sont indisponibles.', { exact: false })).toBeVisible();
+  await panel.getByRole('button', { name: 'Saisir l’adresse manuellement', exact: true }).click();
   const address = panel.getByRole('textbox', { name: 'Adresse de livraison', exact: true });
-  await address.fill('12 rue démo');
+  await expect(address).toHaveValue('12 rue démo');
+  await panel.getByRole('textbox', { name: 'Ville', exact: true }).fill('Ville démo');
   await expect(panel.getByRole('status').filter({ hasText: 'Frais de livraison calculés' })).toContainText('25.00');
   await address.fill('Zone gratuite');
   await panel.getByRole('button', { name: 'Continuer', exact: true }).click();
@@ -430,7 +435,7 @@ test('ordinary delivery waits for the current address quote and accepts a free z
   await paymentStep(panel);
   await panel.getByRole('radio', { name: 'Payer plus tard', exact: true }).check();
   await panel.getByRole('button', { name: 'Créer la commande', exact: true }).click();
-  expect(state.created[0]).toMatchObject({ delivery_fee: 0, delivery_address: 'Zone gratuite', payment_status: 'unpaid' });
+  expect(state.created[0]).toMatchObject({ delivery_fee: 0, delivery_address: 'Zone gratuite', delivery_city: 'Ville démo', payment_status: 'unpaid' });
 });
 
 test('changing pickup to delivery from a visited step requires an address before advancing', async ({ page }) => {
@@ -483,6 +488,7 @@ test('event shortcuts copy only on request and reveal the optional field', async
   await fillCustomer(panel);
   await panel.locator('#checkout-scheduledFor').fill('2026-11-06');
   await panel.getByRole('radio', { name: 'Livraison', exact: true }).check();
+  await panel.getByRole('button', { name: 'Saisir l’adresse manuellement', exact: true }).click();
   await panel.getByRole('textbox', { name: 'Adresse de livraison', exact: true }).fill('12 rue démo');
   await panel.getByRole('textbox', { name: /Frais de livraison/ }).fill('0');
   await panel.getByRole('button', { name: 'Continuer', exact: true }).click();
@@ -516,26 +522,50 @@ test('a malformed fixed fee identifies its field and pickup excludes the fee', a
   expect(state.created[0]).not.toHaveProperty('delivery_fee');
 });
 
-test('a late address quote never replaces the current fee across checkout steps', async ({ page }) => {
+test('a Google suggestion sets the street and city, and editing it discards the previous quote', async ({ page }) => {
   const state = await install(page, false);
+  const first = { id: 'first', address: '12 rue Démo', city: 'Ville Démo', lat: 32.08, lng: 34.78 };
+  const second = { id: 'second', address: '24 rue Démo', city: 'Autre Ville', lat: 32.18, lng: 34.88 };
+  await page.route('**/public/address-autocomplete?*', route => {
+    const query = route.request().postDataJSON().text;
+    const result = query.startsWith('12') ? first : second;
+    return route.fulfill({ json: { suggestions: [{ id: result.id, kind: 'prediction', address: result.address, city: result.city, lookup_token: result.id }] } });
+  });
+  await page.route('**/public/address-autocomplete/resolve?*', route => {
+    const result = route.request().postDataJSON().lookup_token === first.id ? first : second;
+    return route.fulfill({ json: { suggestion: { ...result, kind: 'address' } } });
+  });
   let old: import('@playwright/test').Route | undefined;
+  const quotes: URLSearchParams[] = [];
   await page.route('**/public/delivery/check?*', route => {
-    if (new URL(route.request().url()).searchParams.get('address') === 'Ancienne adresse') { old = route; return; }
+    const params = new URL(route.request().url()).searchParams;
+    quotes.push(params);
+    if (params.get('address') === first.address) { old = route; return; }
     return route.fulfill({ json: { deliverable: true, resolved: true, delivery_fee: 10 } });
   });
   const panel = await checkout(page);
   await fillCustomer(panel);
   await panel.getByRole('radio', { name: 'Livraison', exact: true }).check();
-  const address = panel.getByRole('textbox', { name: 'Adresse de livraison', exact: true });
-  await address.fill('Ancienne adresse');
+  const address = panel.getByRole('combobox', { name: 'Adresse de livraison', exact: true });
+  await expect(panel.getByRole('textbox', { name: 'Ville', exact: true })).toHaveCount(0);
+  await address.fill('12 ru démo vile');
+  await panel.getByRole('option', { name: '12 rue Démo, Ville Démo' }).click();
+  await expect(address).toHaveValue('12 rue Démo, Ville Démo');
   await expect.poll(() => !!old).toBe(true);
-  await address.fill('Nouvelle adresse');
+  await address.fill('24 ru démo autre vile');
+  await expect(panel.getByRole('option', { name: '24 rue Démo, Autre Ville' })).toBeVisible();
+  await panel.getByRole('button', { name: 'Continuer', exact: true }).click();
+  await expect(address).toBeFocused();
+  await expect(address).toHaveAttribute('aria-invalid', 'true');
+  expect(quotes).toHaveLength(1);
+  await panel.getByRole('option', { name: '24 rue Démo, Autre Ville' }).click();
   await expect(panel.getByRole('status').filter({ hasText: 'Frais de livraison calculés' })).toContainText('10.00');
+  expect(Object.fromEntries(quotes[1])).toMatchObject({ restaurant_id: '1', address: second.address, city: second.city, lat: '32.18', lng: '34.88' });
   await old!.fulfill({ json: { deliverable: true, resolved: true, delivery_fee: 99 } }).catch(() => {});
   await paymentStep(panel);
   await panel.getByRole('radio', { name: 'Payer plus tard', exact: true }).check();
   await panel.getByRole('button', { name: 'Créer la commande', exact: true }).click();
-  expect(state.created[0]).toMatchObject({ delivery_fee: 10, delivery_address: 'Nouvelle adresse' });
+  expect(state.created[0]).toMatchObject({ delivery_fee: 10, delivery_address: second.address, delivery_city: second.city });
 });
 
 test('leaving event mode restores the normal series selector', async ({ page }) => {

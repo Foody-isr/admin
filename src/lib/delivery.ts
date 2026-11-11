@@ -312,7 +312,15 @@ export async function checkMyRouteNavigation(restaurantId: number, routeId: numb
 }
 
 /** Server-backed address prediction or completed selection. */
-export interface AddressSuggestion { id: string; kind?: string; address: string; city: string; lookup_token?: string }
+export interface AddressSuggestion {
+  id: string;
+  kind?: string;
+  address: string;
+  city: string;
+  lat?: number;
+  lng?: number;
+  lookup_token?: string;
+}
 
 /** Search addresses without exposing the provider credential. */
 export async function autocompleteRouteAddress(restaurantId: number, text: string, lang: string, sessionId: string, signal?: AbortSignal): Promise<AddressSuggestion[]> {
