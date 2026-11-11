@@ -317,6 +317,8 @@ export interface AddressSuggestion {
   kind?: string;
   address: string;
   city: string;
+  street?: string;
+  house_number?: string;
   lat?: number;
   lng?: number;
   lookup_token?: string;

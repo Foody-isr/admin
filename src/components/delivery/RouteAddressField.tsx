@@ -63,8 +63,10 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
       if (resolution.current !== version || currentValue.current !== value) return;
       const address = formatRouteAddress(resolved);
       session.current = '';
-      const incomplete = resolved.kind !== 'address' || !resolved.address.trim() || !resolved.city.trim();
-      if (resolved.kind === 'street' || (onSelectAddress && incomplete)) {
+      // The API labels street/place refinements and omits kind on complete addresses.
+      const completeAddress = resolved.address.trim() && resolved.city.trim() &&
+        (resolved.kind === 'address' || (!resolved.kind && resolved.street?.trim() && resolved.house_number?.trim()));
+      if (resolved.kind === 'street' || (onSelectAddress && !completeAddress)) {
         onChange(address); return;
       }
       selection.current = address;
