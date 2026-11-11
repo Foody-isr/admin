@@ -1446,6 +1446,10 @@ export interface TypographyOverrides {
     template?: string;
     headingFont?: string;
     bodyFont?: string;
+    headingSizeMult?: number;
+    bodySizeMult?: number;
+    headingWeight?: number;
+    bodyWeight?: number;
     buttonShape?: 'pill' | 'rounded' | 'square';
   };
 

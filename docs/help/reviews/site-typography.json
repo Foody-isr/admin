@@ -1,0 +1,23 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "f08bbd5cc4a600b0fe8eaa58516b9999edf6f61a1b3fea5fbb901537967e82dd",
+      "baseSha256": "7c7f6aa44f53774ae24678bcbdc2c31c95dea8af9d2b7576424d1505715023c5",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Les quatre champs facultatifs appartiennent au thème typographique du site. Les contrats des profils, du catalogue, de la livraison et des paiements gardent les mêmes champs et opérations."
+    }
+  ]
+}

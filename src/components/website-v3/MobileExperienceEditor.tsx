@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, type ChangeEvent } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, Download, Image, List, PanelBottom, PanelTop, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Download, House, Image, List, PanelBottom, PanelTop, Plus, Search, Trash2 } from "lucide-react";
 import { localizedCopy, useI18n } from "@/lib/i18n";
 import {
   defaultMobileExperience, mobileIcons, mobileTargets, type InstallCopy, type InstallPlacement, type MobileCopy,
-  type MobileExperience, type MobileLocale, type MobileNavigationColors, type MobileNavigationItem, type MobilePreview,
+  type MobileAppHome, type MobileExperience, type MobileLocale, type MobileNavigationColors, type MobileNavigationItem, type MobilePreview,
 } from "@/lib/website-v3/mobile-experience";
 import { isTechnicalSitePage } from "@/lib/website-v3/state";
-import { pageKey, type DraftPagePayload } from "@/lib/website-v3/types";
+import { pageKey, type DraftPagePayload, type StatePath } from "@/lib/website-v3/types";
 import { ColorField, controlClass, InspectorField, PagePickerButton, PagePickerRow, ToggleField } from "./controls";
+import { MobileAppHomeEditor } from "./MobileAppHomeEditor";
+import { useCampaignCapability } from "./CampaignRuntimeContext";
 
 const targetNames = {
   home: "editorMobileHome", order: "editorMobileOrder", loyalty: "editorMobileLoyalty",
@@ -41,6 +43,7 @@ function colorFallback(key: keyof MobileNavigationColors, colors: MobileNavigati
 }
 
 const sectionRows = {
+  home: { label: "editorMobileAppHome", Icon: House },
   installation: { label: "editorMobileInstallation", Icon: Download },
   navigation: { label: "editorMobileNavigation", Icon: PanelBottom },
   header: { label: "editorHeader", Icon: PanelTop },
@@ -101,18 +104,21 @@ function CopyField({ label, locale, value, onChange, maxLength, placeholder, mul
 
 /** Edits the shared mobile settings and drives the existing live Website V3 canvas. */
 export function MobileExperienceEditor({
-  experience, pages, activePage, restaurantName, preview, onPreview, onChange, onClose,
+  experience, pages, activePage, restaurantId, restaurantName, preview, onPreview, onChange, onHomeChange, onClose,
 }: {
   experience?: MobileExperience;
   pages: DraftPagePayload[];
   activePage: DraftPagePayload;
+  restaurantId: number;
   restaurantName: string;
   preview: MobilePreview;
   onPreview: (preview: MobilePreview, page?: string) => void;
   onChange: (experience: MobileExperience) => void;
+  onHomeChange: (path: StatePath, value: unknown) => void;
   onClose: () => void;
 }) {
   const { t } = useI18n();
+  const supportsAppHome = useCampaignCapability("mobile_app_home");
   const [section, setSection] = useState<MobileSection>();
   const [pagesOpen, setPagesOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -139,10 +145,13 @@ export function MobileExperienceEditor({
   const barCount = navigation.items.filter(item => item.placement === "bar").length;
   const home = pages.find(page => page.is_homepage);
   const screenTitle = preview.screen === "page" ? activePage.title
-    : t(preview.screen === "more" ? "editorMobileMore" : "editorMobileConfirmation");
-  const visibleSections: MobileSection[] = preview.screen === "confirmation" ? ["installation"]
-    : preview.screen === "more" ? ["header", "banner", "groups", "installation", "navigation"]
-      : activePage.is_homepage ? ["installation", "navigation"] : ["navigation"];
+    : t(preview.screen === "home" ? "editorMobileAppHome" : preview.screen === "more" ? "editorMobileMore" : "editorMobileConfirmation");
+  const visibleSections: MobileSection[] = [
+    ...(supportsAppHome ? ["home" as const] : []),
+    ...(preview.screen === "confirmation" ? ["installation" as const]
+      : preview.screen === "more" ? ["header", "banner", "groups", "installation", "navigation"] as const
+        : preview.screen === "home" || !activePage.is_homepage ? ["navigation" as const] : ["installation", "navigation"] as const),
+  ];
 
   const previewPlacement = (placement: InstallPlacement) => {
     onPreview({
@@ -158,7 +167,7 @@ export function MobileExperienceEditor({
     onPreview({
       ...preview,
       screen,
-      mode: screen === "more" ? "standalone" : screen === "confirmation" ? "browser" : preview.mode,
+      mode: screen === "home" || screen === "more" ? "standalone" : screen === "confirmation" ? "browser" : preview.mode,
     }, key);
   };
   const header = (
@@ -226,7 +235,8 @@ export function MobileExperienceEditor({
               <div className="sqe-section-row" key={value}>
                 <button type="button" onClick={() => {
                   setSection(value);
-                  onPreview({ ...preview, mode: value === "installation" ? "browser" : "standalone" });
+                  if (value === "home") choosePage("home", home ? pageKey(home) : undefined);
+                  else onPreview({ ...preview, mode: value === "installation" ? "browser" : "standalone" });
                 }}>
                   <Icon size={20} aria-hidden="true" />
                   {t(label)}
@@ -252,6 +262,14 @@ export function MobileExperienceEditor({
             </select>
           </InspectorField>
         </div>
+
+        {section === "home" && (
+          <MobileAppHomeEditor home={model.home} restaurantId={restaurantId} locale={locale}
+            onChange={(path, value) => {
+              if (experience) onHomeChange(path, value);
+              else onChange({ ...model, home: value as MobileAppHome });
+            }} />
+        )}
 
         {section === "installation" && <div className="space-y-4">
           {([["home", "editorMobileInstallHome"], ["confirmation", "editorMobileInstallConfirm"], ["menu", "editorMobileInstallMenu"]] as const).map(([placement, label]) => (

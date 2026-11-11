@@ -1,0 +1,27 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "e8ff1f75328c294e01122272230a1db68c5d45b70e44129493ff90aa030e9580",
+      "baseSha256": "42a87a4143de912e46dd06904c3fbdfb8d1b7d6d57b4326e211cd8cc4af8a906",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Les clés ajoutées sont les libellés et l’aide de l’accueil de l’application installée. Les parcours de gestion et les autres traductions conservent leurs clés."
+    }
+  ]
+}

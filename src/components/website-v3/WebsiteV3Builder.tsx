@@ -1432,6 +1432,7 @@ function DesktopWebsiteV3Builder({
                 experience={readMobileExperience((state.config.nav_layout as { mobile_experience?: unknown } | undefined)?.mobile_experience)}
                 pages={state.pages}
                 activePage={activePage}
+                restaurantId={restaurantId}
                 restaurantName={loaded.restaurant.name}
                 preview={mobilePreview ?? { mode: "browser", screen: "page", locale }}
                 onPreview={(next, key) => {
@@ -1442,6 +1443,7 @@ function DesktopWebsiteV3Builder({
                   else if (!pageChanged) bumpPreview(false);
                 }}
                 onChange={next => updateConfig(["nav_layout", "mobile_experience"], next)}
+                onHomeChange={(path, value) => updateConfig(["nav_layout", "mobile_experience", "home", ...path], value)}
                 onClose={onClose}
               />
             ) : undefined}
