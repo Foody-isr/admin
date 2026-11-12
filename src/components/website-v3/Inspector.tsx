@@ -2,6 +2,7 @@
 
 import { pageKey } from "@/lib/website-v3/types";
 import { websiteOrderChoicesAvailable } from "@/lib/website-v3/fulfillment";
+import { record } from "@/lib/website-v3/restaurant-themes";
 import type { OrderHeaderPresentation, WebsiteHeader } from "@/lib/website-v3/header";
 import { useMemo } from "react";
 import type {
@@ -85,7 +86,10 @@ export function Inspector({
           page={page}
           onOrderHeaderChange={page ? (header, shared) => onOrderHeaderChange(pageKey(page), header, shared) : undefined}
           onOrderFulfillmentScrollChange={page?.type === "order"
-            ? scroll => onPageChange(pageKey(page), ["appearance_overrides", "website_order", "fulfillment_scroll"], scroll)
+            ? scroll => onPageChange(pageKey(page), ["appearance_overrides", "website_order"], {
+                ...record(page.appearance_overrides.website_order),
+                fulfillment_scroll: scroll,
+              })
             : undefined}
           activeElement={selection.headerElement}
           config={state.config}
