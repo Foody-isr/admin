@@ -45,7 +45,7 @@ import {
 import {
   PhoneIcon,
   CheckCircle2Icon,
-  CheckIcon,
+  ChevronDownIcon,
   RouteIcon,
   AlertCircleIcon,
   MapPinIcon,
@@ -56,6 +56,7 @@ import {
   XIcon,
   StickyNoteIcon,
   HomeIcon,
+  LockKeyholeIcon,
 } from 'lucide-react';
 import styles from './CourierItinerary.module.css';
 
@@ -106,15 +107,15 @@ function RouteEndpointRow({
   t: Translator;
 }) {
   return (
-    <div className={`${styles.stop} ${styles.endpoint}`}>
+    <div className={styles.endpoint}>
       <div className={styles.rail}>
         {kind === 'start' ? <HomeIcon /> : <FlagIcon />}
-        {time && <span dir="ltr">{time}</span>}
       </div>
       <div className={styles.stopBody}>
         <p className={styles.address}>{address}</p>
         <p className={styles.stopMeta}>
-          {t(kind === 'start' ? 'routeTimelineStartReminder' : 'routeTimelineTerminus')}
+          {t(kind === 'start' ? 'courierPlannedDeparture' : 'routeTimelineTerminus')}
+          {time && <> <bdi>{time}</bdi></>}
         </p>
         {finalDestination && (
           <NavigationAppMenu destination={finalDestination} label={t('navigate')} t={t}
@@ -125,25 +126,16 @@ function RouteEndpointRow({
   );
 }
 
-/** One destination in the route timeline; selecting it never changes delivery status. */
-function TimelineStop({
+function OpenStopCard({
   stop,
   route,
-  current,
-  selected,
   busy,
-  onSelect,
   onArrived,
-  canDeliver,
 }: {
   stop: RouteStop;
   route: DeliveryRoute;
-  current: boolean;
-  selected: boolean;
   busy: boolean;
-  onSelect: () => void;
   onArrived: () => void;
-  canDeliver: boolean;
 }) {
   const { t, locale } = useI18n();
   const { money } = useCurrency();
@@ -157,102 +149,63 @@ function TimelineStop({
       entryCode: stop.delivery_entry_code,
     },
     t
-  )?.line2;
-  const finished = stop.status === 'delivered' || stop.status === 'skipped';
-  const stopStatus = stop.status === 'delivered' ? 'stopStatusDelivered' : 'courierSkipped';
-  const destination = stop.destination_locked
-    ? t(finished ? stopStatus : 'courierDestinationLocked')
-    : stop.address || stop.customer_name;
+  );
   return (
-    <div
-      data-stop-id={stop.id}
-      aria-current={current ? 'step' : undefined}
-      className={`${styles.stop} ${selected ? styles.selected : ''}`}
-    >
-      <div className={styles.rail}>
-        <strong>
-          {finished ? (
-            <CheckIcon
-              className="h-4 w-4"
-              aria-label={t(stopStatus)}
-            />
-          ) : (
-            String(stop.sequence).padStart(2, '0')
+    <div data-stop-id={stop.id} aria-current="step" className={styles.openStop}>
+      <div className={styles.openStopMeta}>
+        <span>{t('courierCurrentDelivery')} {String(stop.sequence).padStart(2, '0')}</span>
+        <span className={styles.order} dir="ltr">#{stop.order_id}</span>
+      </div>
+      <h3 className={styles.address}>{stop.address || stop.customer_name}</h3>
+      {stop.city && <p className={styles.stopMeta}>{stop.city}</p>}
+      <div className={`${styles.stopMeta} ${styles.notes}`}>
+        <StickyNoteIcon aria-hidden="true" />
+        <div>
+          <p>{stop.customer_name}</p>
+          {stop.customer_phone && (
+            <a href={callUrl(stop.customer_phone)} dir="ltr" aria-label={t('callCustomer')}>
+              {stop.customer_phone}
+            </a>
           )}
-        </strong>
-        {eta && <span dir="ltr">{eta.start}</span>}
+          {details?.line2 && <p>{details.line2}</p>}
+          {stop.delivery_notes?.trim() && <p>{stop.delivery_notes.trim()}</p>}
+        </div>
       </div>
-      <div className={styles.stopBody}>
-        <button
-          type="button"
-          className={styles.destination}
-          onClick={onSelect}
-          aria-expanded={selected}
-          aria-label={`${t('courierSelectStop')} ${stop.sequence}: ${destination}`}
-        >
-          <span className={styles.address}>{destination}</span>
-          <span className={styles.order}>#{stop.order_id}</span>
-        </button>
-        {stop.city && <p className={styles.stopMeta}>{stop.city}</p>}
-        {!stop.destination_locked && (
-          <div className={`${styles.stopMeta} ${styles.notes}`}>
-            <StickyNoteIcon aria-hidden="true" />
-            <div>
-              <p>{stop.customer_name}</p>
-              {stop.customer_phone && (
-                <a href={callUrl(stop.customer_phone)} dir="ltr" aria-label={t('callCustomer')}>
-                  {stop.customer_phone}
-                </a>
-              )}
-              {details && <p>{details}</p>}
-              {stop.delivery_notes?.trim() && <p>{stop.delivery_notes.trim()}</p>}
-            </div>
-          </div>
-        )}
-        {stop.issue_reason && <p className={styles.stopMeta}>{t(deliveryIssueLabels[stop.issue_reason])}</p>}
-        {selected && !stop.destination_locked && (
-          <div>
-            {eta && (
-              <p className={`${styles.stopMeta} text-[var(--info-500)]`}>
-                {buildDeliveryEtaLabel(t('deliveryExpectedArrival'), eta)}
-              </p>
-            )}
-            {stop.payment_method === 'cash' && stop.total_amount > 0 && (
-              <p className={styles.stopMeta}>{money(stop.total_amount, { decimals: 0 })}</p>
-            )}
-            {stop.needs_geocode && (
-              <p className="mt-2 text-fs-xs text-[var(--warning-500)]">
-                {deliveryLocationWarning(route, t)}
-              </p>
-            )}
-            {!finished && (
-              <>
-                <div className={styles.stopActions}>
-                  {stop.customer_phone && (
-                    <Button asChild variant="ghost" size="md" icon>
-                      <a
-                        href={whatsappUrl(stop.customer_phone, stopWhatsappMessage(stop, eta, t))}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={t('deliveryPlanWhatsApp')}
-                      >
-                        <MessageCircleIcon />
-                      </a>
-                    </Button>
-                  )}
-
-                  {canDeliver && current && stop.status !== 'arrived' && (
-                    <Button variant="ghost" size="md" disabled={busy} onClick={onArrived}>
-                      <MapPinIcon />
-                      {t('markArrived')}
-                    </Button>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
+      {eta && (
+        <p className={`${styles.stopMeta} text-[var(--info-500)]`}>
+          {buildDeliveryEtaLabel(t('deliveryExpectedArrival'), eta)}
+        </p>
+      )}
+      {stop.payment_method === 'cash' && stop.total_amount > 0 && (
+        <p className={styles.stopMeta}>{money(stop.total_amount, { decimals: 0 })}</p>
+      )}
+      {stop.needs_geocode && (
+        <p className="mt-2 text-fs-xs text-[var(--warning-500)]">
+          {deliveryLocationWarning(route, t)}
+        </p>
+      )}
+      {(stop.customer_phone || stop.status !== 'arrived') && (
+        <div className={styles.stopActions}>
+          {stop.customer_phone && (
+            <Button asChild variant="ghost" size="md" icon>
+              <a
+                href={whatsappUrl(stop.customer_phone, stopWhatsappMessage(stop, eta, t))}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t('deliveryPlanWhatsApp')}
+              >
+                <MessageCircleIcon />
+              </a>
+            </Button>
+          )}
+          {stop.status !== 'arrived' && (
+            <Button variant="ghost" size="md" disabled={busy} onClick={onArrived}>
+              <MapPinIcon />
+              {t('markArrived')}
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -287,11 +240,12 @@ function CourierRouteView({
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const plannedRef = useRef<HTMLDetailsElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const dragStart = useRef<number | null>(null);
   const [startConfirmOpen, setStartConfirmOpen] = useState(false);
   const [startNavigationStop, setStartNavigationStop] = useState<RouteStop | null>(null);
-  const [issueStop, setIssueStop] = useState<RouteStop | null>(null);
+  const [issueStopId, setIssueStopId] = useState<number | null>(null);
   const [issueReason, setIssueReason] = useState<DeliveryIssueReason | ''>('');
   const reporter = useLocationReporter(
     rid,
@@ -376,7 +330,12 @@ function CourierRouteView({
     (stop) => stop.status !== 'delivered' && stop.status !== 'skipped' && !stop.navigation_verified
   );
 
-  const awaitingResult = stops.find((stop) => isPendingDeliveryStop(stop) && stop.navigation_started_at);
+  const awaitingResult = route.status === 'active'
+    ? stops.find((stop) => isPendingDeliveryStop(stop) && stop.navigation_started_at)
+    : undefined;
+  const openStop = awaitingResult && !awaitingResult.destination_locked ? awaitingResult : undefined;
+  const mapStops = useMemo(() => openStop ? [openStop] : [], [openStop]);
+  const reportingStop = openStop && openStop.id === issueStopId ? openStop : null;
   const currentStop = awaitingResult ?? stops.find(isPendingDeliveryStop) ?? null;
   const delivered = stops.filter((s) => s.status === 'delivered').length;
   const unresolvedStops = stops.filter(
@@ -433,6 +392,10 @@ function CourierRouteView({
   const onOpenStop = (stop: RouteStop) =>
     withBusy(async () => {
       setRoute(await beginStopNavigation(rid, route.id, stop.id, courierId));
+      setSearchOpen(false);
+      setQuery('');
+      if (plannedRef.current) plannedRef.current.open = false;
+      if (scrollRef.current) scrollRef.current.scrollTop = 0;
     }, 'courierNavigationFailed');
 
   const onNavigate = (stop: RouteStop, url: string) =>
@@ -458,10 +421,10 @@ function CourierRouteView({
     }, 'courierDeliveryFailed');
 
   const onReportIssue = () => {
-    if (!issueStop || !issueReason) return;
+    if (!reportingStop || !issueReason) return;
     void withBusy(async () => {
-      const updated = await reportStopIssue(rid, route.id, issueStop.id, issueReason, courierId);
-      setIssueStop(null);
+      const updated = await reportStopIssue(rid, route.id, reportingStop.id, issueReason, courierId);
+      setIssueStopId(null);
       setRoute(updated);
       setSelectedStopId(null);
       if (updated.status === 'completed') onCompleted(updated);
@@ -474,17 +437,10 @@ function CourierRouteView({
     : currentStop?.id;
   const actionStop = awaitingResult ?? stops.find((stop) => stop.id === selectedId) ?? null;
   const actionStopFinished = actionStop?.status === 'delivered' || actionStop?.status === 'skipped';
-  const normalizedQuery = query.trim().toLocaleLowerCase(locale);
-  const filteredStops = stops.filter((stop) =>
-    [
-      String(stop.order_id),
-      ...(stop.destination_locked
-        ? []
-        : [stop.address, stop.city, stop.customer_name, stop.customer_phone, stop.delivery_notes]),
-    ].some((value) => value?.toLocaleLowerCase(locale).includes(normalizedQuery))
-  );
-  const date = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }).format(
-    new Date(`${route.date.slice(0, 10)}T12:00:00`)
+  const orderQuery = query.trim().replace(/^#/, '');
+  const plannedStops = stops.filter((stop) => stop.id !== openStop?.id);
+  const filteredStops = plannedStops.filter((stop) =>
+    String(stop.order_id).includes(orderQuery)
   );
   const reference = route.eta_reference_at || route.started_at || route.planned_departure_at;
   const finishAt = reference
@@ -548,9 +504,8 @@ function CourierRouteView({
         {visible && (
           <DeliveryMap
             restaurantId={rid}
-            geometry={route.route_geometry}
             routingProvider={route.routing_provider}
-            stops={stops.filter((stop) => !stop.destination_locked)}
+            stops={mapStops}
             couriers={route.status === 'active' && location ? [{
               courierId: route.courier_id, color: '#245b8c', lat: location.lat, lng: location.lng,
               stale: now - Date.parse(location.updated_at) > 60000,
@@ -566,7 +521,7 @@ function CourierRouteView({
                 : undefined
             }
             variant="courier"
-            selectedStopId={selectedId}
+            selectedStopId={openStop?.id}
             onStopClick={(stop) => selectStop(stop, true)}
             className="h-full w-full"
           />
@@ -640,6 +595,9 @@ function CourierRouteView({
                     km
                   </>
                 )}
+                {!route.needs_recalculation && route.est_duration_s > 0 && (
+                  <> · {formatEta(route.est_duration_s, t)}</>
+                )}
               </p>
             </div>
             <div className={styles.tools}>
@@ -649,7 +607,8 @@ function CourierRouteView({
                 aria-label={t('courierSearchStops')}
                 aria-expanded={searchOpen}
                 onClick={() => {
-                  setSearchOpen((value) => !value);
+                  if (!searchOpen && plannedRef.current) plannedRef.current.open = true;
+                  setSearchOpen(!searchOpen);
                   setQuery('');
                 }}
               >
@@ -763,71 +722,80 @@ function CourierRouteView({
               )
             )}
           </div>
-          {!query && route.start_address && (
-            <RouteEndpointRow
-              kind="start"
-              address={route.start_address}
-              time={departureTime}
-              t={t}
-            />
+          {route.status === 'draft' && route.start_address && (
+            <RouteEndpointRow kind="start" address={route.start_address} time={departureTime} t={t} />
           )}
-          {filteredStops.map((stop) => (
-            <TimelineStop
-              key={stop.id}
-              stop={stop}
+          {openStop && (
+            <OpenStopCard
+              stop={openStop}
               route={route}
-              current={stop.id === currentStop?.id}
-              selected={stop.id === selectedId}
               busy={busy}
-              onSelect={() => selectStop(stop)}
-              onArrived={() => void onArrived(stop)}
-              canDeliver={route.status === 'active' && (!awaitingResult || awaitingResult.id === stop.id)}
-            />
-          ))}
-          {filteredStops.length === 0 && (
-            <p role="status" className="px-6 py-8 text-center text-fs-sm text-[var(--fg-muted)]">
-              {t(query ? 'courierNoSearchResults' : 'noStopsYet')}
-            </p>
-          )}
-          {!query && route.end_address && (
-            <RouteEndpointRow
-              kind="end"
-              address={route.end_address}
-              t={t}
+              onArrived={() => void onArrived(openStop)}
             />
           )}
+          {plannedStops.length > 0 && (
+            <details className={styles.plannedStops} ref={plannedRef} data-testid="courier-planned-stops">
+              <summary>
+                <LockKeyholeIcon aria-hidden="true" />
+                <span>{t('courierViewPlannedStops')}</span>
+                <span className={styles.plannedCount}>{plannedStops.length}</span>
+                <ChevronDownIcon className={styles.plannedChevron} aria-hidden="true" />
+              </summary>
+              <ul className={styles.plannedList}>
+                {filteredStops.map((stop) => {
+                  const eta = deliveryEtaWindow(route, stop, locale);
+                  const order = t('orderNumber').replace('{id}', String(stop.order_id));
+                  const status = stop.issue_reason
+                    ? t(deliveryIssueLabels[stop.issue_reason])
+                    : stop.status === 'delivered' ? t('stopStatusDelivered')
+                    : stop.status === 'skipped' ? t('courierSkipped')
+                    : null;
+                  return (
+                    <li key={stop.id} data-stop-id={stop.id} aria-current={stop.id === currentStop?.id ? 'step' : undefined}>
+                      <button
+                        type="button"
+                        className={styles.plannedRow}
+                        aria-pressed={stop.id === selectedId}
+                        aria-label={`${t('courierSelectStop')} ${stop.sequence} · ${order}`}
+                        onClick={() => selectStop(stop)}
+                      >
+                        <span className={styles.sequence}>{String(stop.sequence).padStart(2, '0')}</span>
+                        <span className={styles.plannedOrder}>
+                          {order}
+                          {status && <span>{status}</span>}
+                        </span>
+                        {eta && <time dir="ltr">{eta.start}</time>}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {filteredStops.length === 0 && (
+                <p role="status" className={styles.plannedHint}>{t('courierNoSearchResults')}</p>
+              )}
+            </details>
+          )}
+          {route.status === 'draft' && plannedStops.length > 0 && (
+            <p className={styles.plannedHint}>{t('courierPlannedStopsHint')}</p>
+          )}
+          {stops.length === 0 && <NoStopsCard t={t} />}
         </div>
-        <div
-          className={`${styles.dock} ${route.status === 'draft' && canStart ? styles.draftDock : ''}`}
-          data-testid="courier-action-dock"
-        >
-          <div className={styles.dockTop}>
-            <div>
-              <p className={styles.duration}>
-                {route.needs_recalculation ? '—' : formatEta(route.est_duration_s, t)}
-              </p>
-              <p className={styles.date}>{date}</p>
+        <div className={styles.dock} data-testid="courier-action-dock">
+          {actionStop && route.status === 'active' && (
+            <div className={styles.dockTop}>
+              <p>{t(awaitingResult ? 'courierCurrentDelivery' : 'courierSelectedStop')} {String(actionStop.sequence).padStart(2, '0')}</p>
+              <span className={styles.order} dir="ltr">#{actionStop.order_id}</span>
             </div>
-            {actionStop && route.status === 'active' && (
-              <div className={styles.nextStop}>
-                <p>
-                  {t(awaitingResult ? 'courierCurrentDelivery' : 'courierSelectedStop')} {String(actionStop.sequence).padStart(2, '0')}
-                </p>
-                <p className="font-semibold text-[var(--fg)]">
-                  {actionStop.destination_locked ? t('courierDestinationLocked') : actionStop.address || actionStop.customer_name}
-                </p>
-              </div>
-            )}
-          </div>
+          )}
           <div className={`${styles.dockActions} ${route.status === 'active' ? styles.activeDockActions : ''}`}>
             {route.status === 'draft' ? (
               <>
-                <Button variant="secondary" size="lg"
+                <Button variant="primary" size="lg"
                   disabled={busy || !canStart || navigationLoading || !currentStop}
                   onClick={() => onStart()} aria-label={t('startRoute')}>
                   {t('courierStartAction')}
                 </Button>
-                <Button variant="primary" size="lg"
+                <Button variant="secondary" size="lg"
                   disabled={busy || !canStart || navigationLoading || !currentStop}
                   onClick={() => onStart(currentStop)}>
                   <RouteIcon />
@@ -835,7 +803,7 @@ function CourierRouteView({
                 </Button>
               </>
             ) : actionStop && route.status === 'active' ? (
-              actionStop.destination_locked && !actionStopFinished ? (
+              !openStop && !actionStopFinished ? (
                 <Button variant="primary" size="lg" className={styles.navigationAction} disabled={busy} onClick={() => void onOpenStop(actionStop)}>
                   <MapPinIcon />
                   {t('courierOpenStop')}
@@ -845,21 +813,21 @@ function CourierRouteView({
                   <Button
                     variant="primary"
                     size="lg"
-                    disabled={busy || actionStopFinished}
+                    disabled={busy || !openStop}
                     onClick={() => void onDelivered(actionStop)}
                   >
                     <CheckCircle2Icon />
                     {t('markDelivered')}
                   </Button>
-                  <Button variant="secondary" size="lg" disabled={busy || actionStopFinished} onClick={() => {
+                  <Button variant="secondary" size="lg" disabled={busy || !openStop} onClick={() => {
                     setError(null);
                     setIssueReason('');
-                    setIssueStop(actionStop);
+                    setIssueStopId(actionStop.id);
                   }}>
                     {t('courierReportIssue')}
                   </Button>
-                  {!actionStop.destination_locked && <NavigationAppMenu
-                    destination={actionStop}
+                  {openStop && <NavigationAppMenu
+                    destination={openStop}
                     label={t(awaitingResult ? 'courierResumeNavigation' : 'navigate')}
                     className={styles.navigationAction}
                     size="lg"
@@ -879,10 +847,10 @@ function CourierRouteView({
           )}
         </div>
       </div>
-      <Drawer open={issueStop !== null} onOpenChange={(open) => { if (!open) setIssueStop(null); }}
+      <Drawer open={reportingStop !== null} onOpenChange={(open) => { if (!open) setIssueStopId(null); }}
         title={t('courierReportIssue')} closeDisabled={busy}>
         <div className="space-y-4 p-4">
-          <p className="font-medium">{issueStop?.address || issueStop?.customer_name}</p>
+          <p className="font-medium">{reportingStop?.address || reportingStop?.customer_name}</p>
           <p>{t('courierIssueExplanation')}</p>
           <label className="block space-y-1">
             <span>{t('courierIssueReason')}</span>
