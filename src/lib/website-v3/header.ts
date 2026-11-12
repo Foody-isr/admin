@@ -43,7 +43,7 @@ export type WebsiteHeader = {
     link: HeaderTarget;
   };
   icons: { cart: boolean; search: boolean; color: string };
-  fulfillment: { enabled: boolean; background: string };
+  fulfillment: { enabled: boolean; background: string; scroll: "inherit" | "sticky" | "none" };
   restaurant: {
     height: "small" | "medium" | "large";
     show_name: boolean;
@@ -232,6 +232,7 @@ export function normalizeWebsiteHeader(value: unknown): WebsiteHeader {
     },
     fulfillment: {
       enabled: bool(fulfillment.enabled, false),
+      scroll: choice(fulfillment.scroll, ["inherit", "sticky", "none"] as const, "inherit"),
       // Keep the legacy wire field empty: fulfillment inherits the Header style.
       background: "",
     },

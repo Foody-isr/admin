@@ -593,16 +593,34 @@ export function HeaderInspector({
               )}
             </>,
           )}
-          {!restaurantLayout && accordion(
+          {(!restaurantLayout || !customOrderHeader) && accordion(
             "fulfillment",
             c.fulfillment,
             <>
-              <ColorStylePicker value={header.restaurant.info_color_style}
-                inheritedStyle={header.color_style} defaultLabel={c.sameAsHeader}
-                onChange={id => patch("restaurant", {info_color_style: id as WebsiteHeader["restaurant"]["info_color_style"]})} />
-              <p>{c.fulfillmentColorHint}</p>
-              {!customOrderHeader && toggle("fulfillment", c.fulfillment)}
-              <p>{c.fulfillmentHelp}</p><p>{c.rulesHint}</p>
+              {!customOrderHeader && <HeaderGroup label={c.fulfillmentScroll}>
+                <div className="sqh-radio-stack">
+                  {([
+                    ["inherit", c.fulfillmentScrollInherit],
+                    ["sticky", c.fulfillmentScrollSticky],
+                    ["none", c.fulfillmentScrollNone],
+                  ] as const).map(([scroll, label]) => (
+                    <label key={scroll} className="selection-row">
+                      <span>{label}</span>
+                      <input type="radio" name="fulfillment-scroll" checked={header.fulfillment.scroll === scroll}
+                        onChange={() => patch("fulfillment", { scroll })} />
+                    </label>
+                  ))}
+                </div>
+                <p>{c.fulfillmentScrollHelp}</p>
+              </HeaderGroup>}
+              {!restaurantLayout && <>
+                <ColorStylePicker value={header.restaurant.info_color_style}
+                  inheritedStyle={header.color_style} defaultLabel={c.sameAsHeader}
+                  onChange={id => patch("restaurant", {info_color_style: id as WebsiteHeader["restaurant"]["info_color_style"]})} />
+                <p>{c.fulfillmentColorHint}</p>
+                {!customOrderHeader && toggle("fulfillment", c.fulfillment)}
+                <p>{c.fulfillmentHelp}</p><p>{c.rulesHint}</p>
+              </>}
             </>,
           )}
         </>

@@ -1,8 +1,127 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Locator } from "@playwright/test";
 import { normalizeWebsiteHeader } from "../../src/lib/website-v3/header";
 import { record } from "../../src/lib/website-v3/restaurant-themes";
 import { normalizeSiteColors } from "../../src/lib/website-v3/site-colors";
 import type { DraftStatePayload } from "../../src/lib/website-v3/types";
+
+test("the standard site can pin or scroll its fulfillment bar independently of the header", async ({ page, context, request }) => {
+  test.skip(process.env.FOODY_HEADER_CHOICES !== "1", "Requires the isolated pickup and delivery fixture.");
+  test.setTimeout(240_000);
+  await page.addInitScript(() => {
+    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_user", JSON.stringify({ id: 1, full_name: "Demo", role: "manager", email: "demo@example.invalid" }));
+    localStorage.setItem("foody_restaurant_ids", "[1]");
+    localStorage.setItem("foody-admin-locale", "fr");
+  });
+  await context.route("**/*", route => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
+  const api = `http://127.0.0.1:${process.env.FOODY_WEBSITE_EDITOR_API_PORT ?? 18081}/api/v1/restaurants/1`;
+  const draft = async (): Promise<DraftStatePayload> => (await (await request.get(api + "/website-draft")).json()).state;
+  const seed = await draft();
+  const order = seed.pages.find(item => item.type === "order")!;
+  for (const item of seed.pages) item.is_homepage = item === order;
+  order.appearance_overrides = { foody_renderer_version: 1, website_order: {
+    layout: "list", show_banner: false, show_fulfillment: true, prompt_on_entry: false,
+    choose_before_menu: false, sticky_categories: true, language_in_menu: true,
+  }};
+  seed.sections = [];
+  seed.config.nav_layout = {
+    // Simulate a site that was saved before the scroll setting existed.
+    header: { ...normalizeWebsiteHeader({ layout: "center", scroll: "reveal" }), fulfillment: { enabled: true, background: "" } },
+    mobile_experience: { version: 1, navigation: { enabled: true, items: [
+      { id: "home", target: "home", placement: "bar" }, { id: "order", target: "order", placement: "bar" },
+    ] } },
+  };
+  expect((await request.put(api + "/website-draft", { data: seed })).ok()).toBe(true);
+  expect((await request.post(api + "/website-publish")).ok()).toBe(true);
+
+  const openControls = async () => {
+    await page.getByRole("button", { name: "En-tête", exact: true }).click({ timeout: 60_000 });
+    await page.getByRole("button", { name: "Retrait, livraison et planification", exact: true }).click();
+  };
+  const settings = page.getByRole("group", { name: "Défilement de la barre de commande" });
+  const preview = page.frameLocator("iframe");
+  const service = ".website-service-location";
+  const sticky = "[data-fulfillment-sticky]";
+  const chooseView = async (name: string) => {
+    await page.getByRole("button", { name: "Format de l’aperçu" }).click();
+    await page.getByRole("menuitemradio", { name, exact: true }).click();
+  };
+  const publish = async () => {
+    const button = page.getByRole("button", { name: "Publier", exact: true });
+    await chooseView("Vue téléphone");
+    await expect(button).not.toHaveAttribute("title", /aperçu mobile/);
+    await chooseView("Vue ordinateur");
+    await expect(button).not.toHaveAttribute("title", /.+/);
+    const response = page.waitForResponse(r => r.url().endsWith("/website-publish") && r.request().method() === "POST");
+    await button.click();
+    expect((await response).ok()).toBe(true);
+  };
+  await page.goto("/1/website-v3");
+  await openControls();
+  await chooseView("Vue téléphone");
+  await expect(settings.getByRole("radio", { name: "Suivre l’en-tête" })).toBeChecked();
+  await expect(preview.locator(service)).toBeVisible();
+  await expect(preview.locator(".order-menu-back")).toHaveCount(0);
+  await settings.getByRole("radio", { name: "Fixer pendant le défilement" }).check();
+  await expect(preview.locator(sticky).locator(service)).toBeVisible();
+  await expect(preview.locator(sticky)).toHaveCSS("position", "sticky");
+  await expect.poll(async () => (await draft()).config.nav_layout).toMatchObject({ header: { scroll: "reveal", fulfillment: { scroll: "sticky" } } });
+  await page.reload();
+  await openControls();
+  await expect(settings.getByRole("radio", { name: "Fixer pendant le défilement" })).toBeChecked();
+  await publish();
+
+  const storefront = await context.newPage();
+  const orderUrl = "http://localhost:3000/r/atelier-foody/order?lang=fr";
+  const scrollDown = async (locator: Locator) => {
+    await locator.evaluate(() => window.scrollTo({ top: 480, behavior: "instant" }));
+    await expect.poll(() => locator.evaluate(() => window.scrollY)).toBeGreaterThan(160);
+  };
+  const navigation = storefront.locator(".website-order-navigation");
+  for (const width of [390, 1280]) {
+    await storefront.setViewportSize({ width, height: 480 });
+    await storefront.goto(orderUrl);
+    const bar = storefront.locator(sticky);
+    await expect(bar.locator(service)).toBeVisible();
+    await scrollDown(bar);
+    await expect.poll(() => bar.evaluate(el => Math.round(el.getBoundingClientRect().top))).toBe(0);
+    const bottom = await bar.evaluate(el => el.getBoundingClientRect().bottom);
+    await expect.poll(() => navigation.evaluate(el => el.getBoundingClientRect().top)).toBeCloseTo(bottom, 0);
+    await expect(storefront.locator(".order-menu-back")).toHaveCount(0);
+    const lastCategory = navigation.locator("nav a").last();
+    const target = (await lastCategory.getAttribute("href"))!;
+    await lastCategory.click();
+    await expect.poll(() => storefront.locator(target).evaluate(el =>
+      el.getBoundingClientRect().top - document.querySelector(".website-order-navigation")!.getBoundingClientRect().bottom,
+    )).toBeGreaterThanOrEqual(0);
+  }
+
+  // The dedicated app keeps its previous menu and fulfillment layout.
+  const app = await context.newPage();
+  await app.setViewportSize({ width: 390, height: 700 });
+  await app.addInitScript(() => Object.defineProperty(navigator, "standalone", { value: true }));
+  await app.goto(orderUrl);
+  await expect(app.getByRole("navigation", { name: "Navigation mobile" })).toBeVisible();
+  await expect(app.locator(sticky)).toHaveCount(0);
+  await expect(app.locator(".order-menu-back")).toBeVisible();
+  await app.close();
+
+  await openControls();
+  await settings.getByRole("radio", { name: "Défiler avec la page" }).check();
+  await page.getByRole("radio", { name: "En-tête fixe", exact: true }).check();
+  await expect(preview.locator(sticky)).toHaveCount(0);
+  await expect.poll(async () => (await draft()).config.nav_layout).toMatchObject({ header: { scroll: "reveal", fulfillment: { scroll: "none" } } });
+  await expect.poll(async () => (await draft()).pages.find(item => item.type === "order")?.appearance_overrides.order_header).toMatchObject({ scroll: "sticky" });
+  await publish();
+  await storefront.setViewportSize({ width: 390, height: 480 });
+  await storefront.reload();
+  const header = storefront.locator(".website-header");
+  await expect(storefront.locator(service)).toBeVisible();
+  await scrollDown(header);
+  await expect.poll(() => header.evaluate(el => Math.round(el.getBoundingClientRect().top))).toBe(0);
+  await expect.poll(() => storefront.locator(service).evaluate(el => el.getBoundingClientRect().bottom)).toBeLessThan(0);
+  await expect.poll(() => navigation.evaluate(el => el.getBoundingClientRect().top)).toBeCloseTo((await header.boundingBox())!.height, 0);
+});
 
 test("order mode separates the published format, screen appearance and shared sign-in invitation", async ({ page, request, context }) => {
   test.skip(process.env.FOODY_HEADER_CHOICES !== "1", "Requires the isolated pickup and delivery fixture.");
