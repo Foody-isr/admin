@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "29ae803f91e2252ea273bafb944e7b52e5e9ccd7",
-  "documentationRevision": "bc40d855724c270d775d25f4ca9fe36bdfc3606bc2ea4bf04433ffa8dc3f2e05",
+  "documentationRef": "2b35f34dd970b7f9953ecbce2f07f1f347d256f2",
+  "documentationRevision": "2a1848984fc663a12adae8b9d77aa6a7c4a864d020cc4bc0bebe4dbacb049d9d",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -2132,6 +2132,25 @@
           "sha256": "27e313b3ffdbc8956d51c0df150d6b57c7e11fc1faef106cd9f4a86a632a3298"
         }
       }
+    },
+    "internal/wallet-studio": {
+      "feature": "customers-wallet-studio",
+      "audience": "internal",
+      "status": "local-release-unverified",
+      "translations": {
+        "en": {
+          "path": "docs/help/internal/en/wallet-studio.md",
+          "sha256": "e43a72d4e0c0e10f8f0d63fb4d1c599705f82e8d5b45c19dca4606388084cd58"
+        },
+        "fr": {
+          "path": "docs/help/internal/fr/wallet-studio.md",
+          "sha256": "137ed68133984f5a78d50871422ad98d73fdb59dbe16c7c38c758ab200cdfc64"
+        },
+        "he": {
+          "path": "docs/help/internal/he/wallet-studio.md",
+          "sha256": "fb5940e7216133a9980c6488a7dd27acf39b9609056e51fa2ce26c413a17955c"
+        }
+      }
     }
   },
   "sources": {
@@ -2783,7 +2802,7 @@
       ]
     },
     "src/app/[restaurantId]/layout.tsx": {
-      "sha256": "9ad09b9050cfb20330bce10c002f6c053d167b5048aca2408ba653e5f2bbc394",
+      "sha256": "f0342c209eb9f9c7b11a42c1cd1b4183b369473cd2e3bdbef78428d59ed3bf92",
       "features": [
         "payments-transactions"
       ]
@@ -2798,6 +2817,12 @@
       "sha256": "1462c9d92798062b148471b2ce7ce5df5ca997baa4f044f6450242b5ad6e0e1c",
       "features": [
         "customers-loyalty-program"
+      ]
+    },
+    "src/app/[restaurantId]/loyalty/program/wallet/page.tsx": {
+      "sha256": "9db628c41272f10259f5e460677269a43de219ebd55049eecf1772db431a51e7",
+      "features": [
+        "customers-wallet-studio"
       ]
     },
     "src/app/[restaurantId]/marketing/discounts/page.tsx": {
@@ -4482,9 +4507,16 @@
       ]
     },
     "src/components/loyalty/LoyaltyProgramWorkspace.tsx": {
-      "sha256": "ed4ab949cc204782877bf359da544b643ce3a9c5045a542e4f7e6cdf480b1aa1",
+      "sha256": "85df81d58617a06f318cb38ab68dedbeb220cd158f157118c01b0a4cda60a80c",
       "features": [
-        "customers-loyalty-program"
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ]
+    },
+    "src/components/loyalty/WalletStudioWorkspace.tsx": {
+      "sha256": "3a21b95cebca787045e164a654602f5f8ceef14af5f2540e59fea55581e5b3bd",
+      "features": [
+        "customers-wallet-studio"
       ]
     },
     "src/components/loyalty/display.ts": {
@@ -6586,7 +6618,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "f08bbd5cc4a600b0fe8eaa58516b9999edf6f61a1b3fea5fbb901537967e82dd",
+      "sha256": "6723ed8d65d0f7a629a3d0aff3a5678e0d38b6ebd9e0338afcd028438e2aaaad",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6598,7 +6630,8 @@
         "orders-internal-sumit-checkout",
         "stancer-cash-guarantee",
         "orders-events",
-        "payments-transactions"
+        "payments-transactions",
+        "customers-wallet-studio"
       ]
     },
     "src/lib/ashrait-card-receipt.ts": {
@@ -6789,7 +6822,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "e8ff1f75328c294e01122272230a1db68c5d45b70e44129493ff90aa030e9580",
+      "sha256": "a43399fcfe96264b9f6600550a3f0d2d9bbb1c6a5b9637a5ceb679fb25de14d1",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -6807,7 +6840,8 @@
         "orders-internal-sumit-checkout",
         "stancer-cash-guarantee",
         "payments-transactions",
-        "customers-loyalty-program"
+        "customers-loyalty-program",
+        "customers-wallet-studio"
       ]
     },
     "src/lib/israel-cities.ts": {
@@ -10882,6 +10916,16 @@
         "customers-loyalty-program"
       ],
       "route": "/[restaurantId]/loyalty/program"
+    },
+    {
+      "id": "foodyadmin:src/app/[restaurantId]/loyalty/program/wallet/page.tsx:next-page:1",
+      "kind": "next-page",
+      "source": "src/app/[restaurantId]/loyalty/program/wallet/page.tsx",
+      "line": 1,
+      "features": [
+        "customers-wallet-studio"
+      ],
+      "route": "/[restaurantId]/loyalty/program/wallet"
     },
     {
       "id": "foodyadmin:src/app/[restaurantId]/marketing/discounts/page.tsx:next-page:1",
@@ -17289,7 +17333,8 @@
       "source": "src/components/loyalty/LoyaltyProgramWorkspace.tsx",
       "line": 1,
       "features": [
-        "customers-loyalty-program"
+        "customers-loyalty-program",
+        "customers-wallet-studio"
       ],
       "labels": [
         "cancel",
@@ -17333,12 +17378,55 @@
         "loyaltyProgramValidity",
         "loyaltyProgramValidityHint",
         "loyaltyProgramVariant",
-        "loyaltyProgramVisits"
+        "loyaltyProgramVisits",
+        "walletStudioTitle"
       ],
       "actions": [
         "load",
         "loadError",
         "submit"
+      ]
+    },
+    {
+      "id": "foodyadmin:src/components/loyalty/WalletStudioWorkspace.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/loyalty/WalletStudioWorkspace.tsx",
+      "line": 1,
+      "features": [
+        "customers-wallet-studio"
+      ],
+      "labels": [
+        "loading",
+        "loyaltyProgramForbidden",
+        "loyaltyProgramTitle",
+        "walletStudioAppearance",
+        "walletStudioAppleText",
+        "walletStudioBack",
+        "walletStudioBackground",
+        "walletStudioBanner",
+        "walletStudioDownload",
+        "walletStudioDraft",
+        "walletStudioForeground",
+        "walletStudioImageHint",
+        "walletStudioIntro",
+        "walletStudioLogo",
+        "walletStudioNeedsProgram",
+        "walletStudioPicker",
+        "walletStudioPreview",
+        "walletStudioPreviewHint",
+        "walletStudioReadOnly",
+        "walletStudioRemove",
+        "walletStudioSave",
+        "walletStudioSaveFirst",
+        "walletStudioSigningOff",
+        "walletStudioTestCard",
+        "walletStudioTestHint",
+        "walletStudioThreshold",
+        "walletStudioTitle"
+      ],
+      "actions": [
+        "save",
+        "saved"
       ]
     },
     {
@@ -25702,7 +25790,8 @@
         "orders-internal-sumit-checkout",
         "stancer-cash-guarantee",
         "orders-events",
-        "payments-transactions"
+        "payments-transactions",
+        "customers-wallet-studio"
       ],
       "labels": [],
       "actions": [
@@ -25836,6 +25925,7 @@
         "saveProductionColumnOrder",
         "saveProductionPortioning",
         "saveRestaurantCalendarEvent",
+        "saveWalletStudio",
         "saveWebsiteDraft",
         "saved",
         "sendOrderEmail",

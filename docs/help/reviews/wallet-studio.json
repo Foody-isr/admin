@@ -1,0 +1,69 @@
+{
+  "reason": "The three internal Wallet Studio procedures cover the draft workflow and conditional Apple test signing.",
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/layout.tsx",
+      "sha256": "f0342c209eb9f9c7b11a42c1cd1b4183b369473cd2e3bdbef78428d59ed3bf92",
+      "baseSha256": "9ad09b9050cfb20330bce10c002f6c053d167b5048aca2408ba653e5f2bbc394",
+      "features": [
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new heading is selected for the nested Wallet Studio route. The transaction workspace uses its existing navigation, title and permission mapping."
+    },
+    {
+      "path": "src/components/loyalty/LoyaltyProgramWorkspace.tsx",
+      "sha256": "85df81d58617a06f318cb38ab68dedbeb220cd158f157118c01b0a4cda60a80c",
+      "baseSha256": "ed4ab949cc204782877bf359da544b643ce3a9c5045a542e4f7e6cdf480b1aa1",
+      "features": [
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The Studio link opens a separate private draft workflow documented internally. The program configuration, save and activation controls remain covered by their existing public procedure."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "6723ed8d65d0f7a629a3d0aff3a5678e0d38b6ebd9e0338afcd028438e2aaaad",
+      "baseSha256": "f08bbd5cc4a600b0fe8eaa58516b9999edf6f61a1b3fea5fbb901537967e82dd",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The request helper preserves the JSON caller contract and auth refresh behavior. The new draft endpoints and binary download are specific to the Studio."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "a43399fcfe96264b9f6600550a3f0d2d9bbb1c6a5b9637a5ceb679fb25de14d1",
+      "baseSha256": "e8ff1f75328c294e01122272230a1db68c5d45b70e44129493ff90aa030e9580",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The addition consists of Studio-only translation keys in all three languages. The existing translated controls referenced by the other guides retain their wording."
+    }
+  ]
+}
