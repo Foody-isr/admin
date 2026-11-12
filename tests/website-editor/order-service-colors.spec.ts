@@ -1,10 +1,10 @@
 import { test, expect, type Locator } from "@playwright/test";
-import { normalizeWebsiteHeader } from "../../src/lib/website-v3/header";
+import { normalizeWebsiteHeader, orderHeaderPresentation } from "../../src/lib/website-v3/header";
 import { record } from "../../src/lib/website-v3/restaurant-themes";
 import { normalizeSiteColors } from "../../src/lib/website-v3/site-colors";
 import type { DraftStatePayload } from "../../src/lib/website-v3/types";
 
-test("the standard site can pin or scroll its fulfillment bar independently of the header", async ({ page, context, request }) => {
+test("the order header controls its fulfillment bar and leaves space for category headings", async ({ page, context, request }) => {
   test.skip(process.env.FOODY_HEADER_CHOICES !== "1", "Requires the isolated pickup and delivery fixture.");
   test.setTimeout(240_000);
   await page.addInitScript(() => {
@@ -19,14 +19,15 @@ test("the standard site can pin or scroll its fulfillment bar independently of t
   const seed = await draft();
   const order = seed.pages.find(item => item.type === "order")!;
   for (const item of seed.pages) item.is_homepage = item === order;
+  const shared = normalizeWebsiteHeader({ layout: "center", scroll: "none", fulfillment: { enabled: true, scroll: "sticky" } });
   order.appearance_overrides = { foody_renderer_version: 1, website_order: {
     layout: "list", show_banner: false, show_fulfillment: true, prompt_on_entry: false,
     choose_before_menu: false, sticky_categories: true, language_in_menu: true,
-  }};
+  }, order_header: orderHeaderPresentation({ ...shared, scroll: "reveal" }) };
   seed.sections = [];
   seed.config.nav_layout = {
-    // Simulate a site that was saved before the scroll setting existed.
-    header: { ...normalizeWebsiteHeader({ layout: "center", scroll: "reveal" }), fulfillment: { enabled: true, background: "" } },
+    // A previously published site-wide choice remains the default on order pages.
+    header: shared,
     mobile_experience: { version: 1, navigation: { enabled: true, items: [
       { id: "home", target: "home", placement: "bar" }, { id: "order", target: "order", placement: "bar" },
     ] } },
@@ -42,6 +43,16 @@ test("the standard site can pin or scroll its fulfillment bar independently of t
   const preview = page.frameLocator("iframe");
   const service = ".website-service-location";
   const sticky = "[data-fulfillment-sticky]";
+  const readPageChoice = async () => (await draft()).pages.find(item => item.type === "order")?.appearance_overrides.website_order?.fulfillment_scroll;
+  const checkBarInsets = async (bar: Locator, inset: number) => {
+    const [top, bottom] = await bar.evaluate(el => {
+      const barBounds = el.getBoundingClientRect();
+      const controls = el.querySelector(".website-service-controls")!.getBoundingClientRect();
+      return [controls.top - barBounds.top, barBounds.bottom - controls.bottom];
+    });
+    expect(top).toBeCloseTo(inset, 0);
+    expect(bottom).toBeCloseTo(inset, 0);
+  };
   const chooseView = async (name: string) => {
     await page.getByRole("button", { name: "Format de l’aperçu" }).click();
     await page.getByRole("menuitemradio", { name, exact: true }).click();
@@ -59,13 +70,19 @@ test("the standard site can pin or scroll its fulfillment bar independently of t
   await page.goto("/1/website-v3");
   await openControls();
   await chooseView("Vue téléphone");
-  await expect(settings.getByRole("radio", { name: "Suivre l’en-tête" })).toBeChecked();
-  await expect(preview.locator(service)).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "En-tête de la page de commande" })).toHaveValue("custom");
+  await expect(settings.getByRole("radio", { name: "Fixer pendant le défilement" })).toBeChecked();
+  await expect(preview.locator(sticky).locator(service)).toBeVisible({ timeout: 60_000 });
+  await checkBarInsets(preview.locator(sticky), 8);
   await expect(preview.locator(".order-menu-back")).toHaveCount(0);
+  await settings.getByRole("radio", { name: "Suivre l’en-tête" }).check();
+  await expect(preview.locator(sticky)).toHaveCount(0);
+  await expect.poll(readPageChoice).toBe("inherit");
   await settings.getByRole("radio", { name: "Fixer pendant le défilement" }).check();
   await expect(preview.locator(sticky).locator(service)).toBeVisible();
   await expect(preview.locator(sticky)).toHaveCSS("position", "sticky");
-  await expect.poll(async () => (await draft()).config.nav_layout).toMatchObject({ header: { scroll: "reveal", fulfillment: { scroll: "sticky" } } });
+  await expect.poll(readPageChoice).toBe("sticky");
+  await expect.poll(async () => (await draft()).config.nav_layout).toMatchObject({ header: shared });
   await page.reload();
   await openControls();
   await expect(settings.getByRole("radio", { name: "Fixer pendant le défilement" })).toBeChecked();
@@ -78,22 +95,32 @@ test("the standard site can pin or scroll its fulfillment bar independently of t
     await expect.poll(() => locator.evaluate(() => window.scrollY)).toBeGreaterThan(160);
   };
   const navigation = storefront.locator(".website-order-navigation");
-  for (const width of [390, 1280]) {
-    await storefront.setViewportSize({ width, height: 480 });
+  await storefront.goto("http://localhost:3000/r/atelier-foody/about?lang=fr");
+  await expect(storefront.locator(".website-header")).toBeVisible();
+  await expect(storefront.locator(sticky)).toHaveCount(0);
+  for (const width of [294, 390, 1280]) {
+    await storefront.setViewportSize({ width, height: width >= 1000 ? 720 : 480 });
     await storefront.goto(orderUrl);
     const bar = storefront.locator(sticky);
     await expect(bar.locator(service)).toBeVisible();
-    await scrollDown(bar);
-    await expect.poll(() => bar.evaluate(el => Math.round(el.getBoundingClientRect().top))).toBe(0);
-    const bottom = await bar.evaluate(el => el.getBoundingClientRect().bottom);
-    await expect.poll(() => navigation.evaluate(el => el.getBoundingClientRect().top)).toBeCloseTo(bottom, 0);
-    await expect(storefront.locator(".order-menu-back")).toHaveCount(0);
     const lastCategory = navigation.locator("nav a").last();
     const target = (await lastCategory.getAttribute("href"))!;
     await lastCategory.click();
-    await expect.poll(() => storefront.locator(target).evaluate(el =>
+    const heading = storefront.locator(target).getByRole("heading").first();
+    await expect.poll(() => heading.evaluate(el =>
       el.getBoundingClientRect().top - document.querySelector(".website-order-navigation")!.getBoundingClientRect().bottom,
-    )).toBeGreaterThanOrEqual(0);
+    )).toBeGreaterThanOrEqual(23);
+    await expect(heading).toBeInViewport({ ratio: 1 });
+    await bar.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    await expect.poll(() => bar.evaluate(() => window.scrollY)).toBe(0);
+    await scrollDown(bar);
+    await expect.poll(() => bar.evaluate(el =>
+      el.getBoundingClientRect().top - parseFloat(getComputedStyle(el).top),
+    )).toBeCloseTo(0, 0);
+    const bottom = await bar.evaluate(el => el.getBoundingClientRect().bottom);
+    await expect.poll(() => navigation.evaluate(el => el.getBoundingClientRect().top)).toBeCloseTo(bottom, 0);
+    await checkBarInsets(bar, width < 500 ? 8 : 12);
+    await expect(storefront.locator(".order-menu-back")).toHaveCount(0);
   }
 
   // The dedicated app keeps its previous menu and fulfillment layout.
@@ -110,7 +137,8 @@ test("the standard site can pin or scroll its fulfillment bar independently of t
   await settings.getByRole("radio", { name: "Défiler avec la page" }).check();
   await page.getByRole("radio", { name: "En-tête fixe", exact: true }).check();
   await expect(preview.locator(sticky)).toHaveCount(0);
-  await expect.poll(async () => (await draft()).config.nav_layout).toMatchObject({ header: { scroll: "reveal", fulfillment: { scroll: "none" } } });
+  await expect.poll(readPageChoice).toBe("none");
+  await expect.poll(async () => (await draft()).config.nav_layout).toMatchObject({ header: shared });
   await expect.poll(async () => (await draft()).pages.find(item => item.type === "order")?.appearance_overrides.order_header).toMatchObject({ scroll: "sticky" });
   await publish();
   await storefront.setViewportSize({ width: 390, height: 480 });

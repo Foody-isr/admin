@@ -247,17 +247,22 @@ test("page overrides cannot replace shared content even with untrusted extra fie
 });
 
 
-test("converting an order page retires its header override without losing other appearance", async () => {
+test("converting an order page retires its header choices without losing other appearance", async () => {
   const {normalizeDraftState, convertPageType} = await import("../state");
   const state = normalizeDraftState({config: {}, pages: [{tmp_id: "one", type: "order", slug: "order", title: "Order",
-    settings: {menu_ids: [1]}, appearance_overrides: {bg: "#112233", order_header: orderHeaderPresentation(normalizeWebsiteHeader({layout: "restaurant"}))}}], sections: []});
+    settings: {menu_ids: [1]}, appearance_overrides: {bg: "#112233",
+      order_header: orderHeaderPresentation(normalizeWebsiteHeader({layout: "restaurant"})),
+      website_order: {layout: "grid", fulfillment_scroll: "sticky"},
+    }}], sections: []});
   const page = state.pages[0];
   for (const type of ["content", "landing", "catering"] as const) {
     const converted = convertPageType(page, type);
     assert.equal(converted.appearance_overrides.order_header, undefined);
+    assert.deepEqual(converted.appearance_overrides.website_order, {layout: "grid"});
     assert.equal(converted.appearance_overrides.bg, "#112233");
   }
   assert.equal(convertPageType(page, "order").appearance_overrides.order_header?.layout, "restaurant");
+  assert.equal(page.appearance_overrides.website_order?.fulfillment_scroll, "sticky");
   assert.equal(page.appearance_overrides.order_header?.layout, "restaurant");
 });
 

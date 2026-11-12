@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "src/lib/website-v3/state.ts",
+      "sha256": "9cf7af9bd2357480297b5cc4e7e5c61dd6ddc197ea74fa41f1999feca240e4b1",
+      "baseSha256": "806114c2c23c20a625defbaa98c7b0325d5d69744634c9d5df761a727948c5ca",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-sections"
+      ],
+      "reason": "Page type conversion clears the former order page’s fulfillment scroll choice. It preserves section content and the other page appearance options."
+    }
+  ]
+}
