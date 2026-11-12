@@ -18,7 +18,7 @@ interface EditCustomerDialogProps {
   onOpenChange: (open: boolean) => void;
   /** The order whose customer is being corrected — supplies the prefill values. */
   order: Order | null;
-  onConfirm: (input: OrderCustomerDetailsInput) => Promise<void> | void;
+  onConfirm: (input: OrderCustomerDetailsInput, selectedFromGoogle: boolean) => Promise<void> | void;
 }
 
 /** Corrects the customer details on an existing order from Orders or Deliveries. */
@@ -34,7 +34,7 @@ export function EditCustomerDialog({ restaurantId, open, onOpenChange, order, on
   const [addressQuery, setAddressQuery] = useState<string | null>(null);
   const [manualAddress, setManualAddress] = useState(false);
   const [addressResolving, setAddressResolving] = useState(false);
-  const [addressPosition, setAddressPosition] = useState<{ lat: number; lng: number }>();
+  const [addressSelection, setAddressSelection] = useState<{ position?: { lat: number; lng: number } }>();
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -53,7 +53,7 @@ export function EditCustomerDialog({ restaurantId, open, onOpenChange, order, on
     setAddressQuery(null);
     setManualAddress(false);
     setAddressResolving(false);
-    setAddressPosition(undefined);
+    setAddressSelection(undefined);
     setSubmitting(false);
     setSubmitError('');
   }, [open, order]);
@@ -66,21 +66,22 @@ export function EditCustomerDialog({ restaurantId, open, onOpenChange, order, on
   const changeDelivery = (patch: Partial<CustomerDeliveryValue>) => {
     setDelivery(previous => ({ ...previous, ...patch }));
     if (patch.address !== undefined || patch.city !== undefined) {
-      setAddressPosition(undefined);
+      setAddressSelection(undefined);
       setSubmitError('');
     }
   };
 
   const searchAddress = (query: string) => {
     setAddressQuery(query);
-    setAddressPosition(undefined);
+    setAddressSelection(undefined);
     setSubmitError('');
   };
 
   const selectAddress = ({ address, city, lat, lng }: AddressSuggestion) => {
     setDelivery(previous => ({ ...previous, address, city }));
-    setAddressPosition(typeof lat === 'number' && typeof lng === 'number' && Number.isFinite(lat) && Number.isFinite(lng)
-      ? { lat, lng } : undefined);
+    const position = typeof lat === 'number' && typeof lng === 'number' && Number.isFinite(lat) && Number.isFinite(lng)
+      ? { lat, lng } : undefined;
+    setAddressSelection({ position });
     setAddressQuery(null);
     setSubmitError('');
   };
@@ -110,12 +111,12 @@ export function EditCustomerDialog({ restaurantId, open, onOpenChange, order, on
         input.delivery_apt = delivery.apt.trim();
         input.delivery_entry_code = delivery.entryCode.trim();
         input.delivery_notes = delivery.deliveryNotes.trim();
-        if (addressPosition) {
-          input.delivery_latitude = addressPosition.lat;
-          input.delivery_longitude = addressPosition.lng;
+        if (addressSelection?.position) {
+          input.delivery_latitude = addressSelection.position.lat;
+          input.delivery_longitude = addressSelection.position.lng;
         }
       }
-      await onConfirm(input);
+      await onConfirm(input, addressSelection !== undefined);
       onOpenChange(false);
     } catch (cause) {
       setSubmitError((cause as Error)?.message || t('couldNotSave'));

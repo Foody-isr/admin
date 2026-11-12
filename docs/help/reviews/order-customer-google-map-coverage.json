@@ -1,0 +1,41 @@
+{
+  "files": [
+    {
+      "path": "src/components/orders/EditCustomerDialog.tsx",
+      "sha256": "28bc862299371fe5c91c80d342c68f9b5db65842e81e743bdcd49e4baf3de7b1",
+      "baseSha256": "cb896b9d97062716535f19516d5e11e00e3208f1f72989db4d62ea2b2e1d198e",
+      "disposition": "no-user-impact",
+      "features": [
+        "orders-managing-orders",
+        "order-detail"
+      ],
+      "reason": "The dialog passes the completed selection state to Deliveries. The ordinary order detail caller uses the same existing correction request and the same visible controls."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "b6d72ccaec1f82ed5a650ceccba4775499e8c3e827cc8a12bfb815cc8089adb0",
+      "baseSha256": "06b0d4b5799a0addb29fb022c72f886d4b9bcb5847d21b8f80a0e41eaf8ee776",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "reason": "The added notice is shown only after saving a selected address from Deliveries when the map service cannot locate it. The other translated features keep their current controls and behavior."
+    }
+  ]
+}
