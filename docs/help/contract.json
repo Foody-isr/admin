@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "2b35f34dd970b7f9953ecbce2f07f1f347d256f2",
-  "documentationRevision": "2a1848984fc663a12adae8b9d77aa6a7c4a864d020cc4bc0bebe4dbacb049d9d",
+  "documentationRef": "2470e80bbb80fa3866179d03545d21ede9032358",
+  "documentationRevision": "9e5fdf1687b3ade40d4e8a4cb2f373dc02df43b2886e4ccdc6e91fb0894143ce",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -12,15 +12,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/first-login.mdx",
-          "sha256": "eeed9904d0ea5b65cc4e36fcb3fa5f61d712763a39a607a635dc513bea8f4c39"
+          "sha256": "ac2c80c328d2cff93642bcb27af54e222bccd6fe9715326dda877664515dea30"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/first-login.mdx",
-          "sha256": "e570d95a2bfbf632365d28ec551f86371a04773a514d6a1b734dea194f7de6a5"
+          "sha256": "0ed19984d9b78af0b8b38ab517877ea670134411023a2d9ab444e13b3e7d4d54"
         },
         "he": {
           "path": "src/content/help/he/getting-started/first-login.mdx",
-          "sha256": "95c1634a5edf901fa4bb81174dc5e4e7ad475d5f133fbffc8bce467ae2b41940"
+          "sha256": "538b92819999b67963b55ea0118ffa1303cd2ea880889fcc4c7538190be74572"
         }
       }
     },
@@ -107,15 +107,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/customers/managing-customers.mdx",
-          "sha256": "c5390fc09b1b58c03525fa76aa1bd9e8d1f515bffd8589b14e2b2624bc435082"
+          "sha256": "501ab4fadc21f488f036aedb7d47779486c224cb8abb0c1222b5efa423d8f5e9"
         },
         "fr": {
           "path": "src/content/help/fr/customers/managing-customers.mdx",
-          "sha256": "ac211235b21845fe2b5bf45be1cfa57b72fbad8b912c650e81f30df577a3672e"
+          "sha256": "7acc759736f7adb92b4e5b7719ed5668d785334a8ec2d7a27a1ddb157bf93168"
         },
         "he": {
           "path": "src/content/help/he/customers/managing-customers.mdx",
-          "sha256": "38fb52115c0d5b41d972bfd69057f2e0924dbff0df1b81f93106fee46f3515a0"
+          "sha256": "6f9b4918da1190301ebc893205e176a94bafc85be667570bf695a0001448aaa1"
         }
       }
     },
@@ -183,15 +183,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/analytics/dashboard.mdx",
-          "sha256": "c0e664d9312c4079b2459e2742fbf7252ea999da9259e8daee5d13869bf1db87"
+          "sha256": "4235ebe663f3ee6aeebda62c958b1308eabbaaf235b3bb6139411d3b1d620361"
         },
         "fr": {
           "path": "src/content/help/fr/analytics/dashboard.mdx",
-          "sha256": "c7c0225f4bff0d690ac3709b7f1d4fc3589cc5c1c92a6563596119e8ce263e8d"
+          "sha256": "e86c39002a5ddefbb7082b31c8ec67b15cd720d44ad8c6fc6f7bdfc1111a0a5e"
         },
         "he": {
           "path": "src/content/help/he/analytics/dashboard.mdx",
-          "sha256": "9ec2cebdea1cb9d6d4702508759e98c3491c0a36720a1f114313e6637f57aa8f"
+          "sha256": "f17e76daeb59265b7bedfd216316db251dc3d3af2bd1f5128a37f105bd8412da"
         }
       }
     },
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "f7a442115e71ba71c0870387c6f7db96d7bd749ccf76c32e9b446c47141d4283"
+          "sha256": "c1c38ccb94fb5d8f68d6407b65745638c71eedfd8af8cf7f2947f932a9276f48"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "a8ece4ca9a50b2687b6837a5c5e9e6528b5567f7890619d7a1b9cd78cf999432"
+          "sha256": "456b564d0e1950980ba36a4dafbcb70530a676df98828ff324a34f140c426041"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "20fbe97f20f09591d8e3071117ae0c719e33678ac0a333437d054508ba6f68be"
+          "sha256": "40a46c18c482830356f897f40f4d907b5376561562345531dc0bf0945ef83f35"
         }
       }
     },
@@ -753,15 +753,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/courier-workspace.mdx",
-          "sha256": "5af0003d2bd1d5bcd9525ed69c8fec1a66775cc7ecb66608a8a6deeca88c2f30"
+          "sha256": "d5f9136cfc8173c7e7c26e98d9da64def406e956df5c0ed09fef3a66215f0b9f"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/courier-workspace.mdx",
-          "sha256": "e2215d1870a4b9c6a4ca8bf095ffea8a7cbe23b9e1f48aefffc810899c333bcb"
+          "sha256": "b3b4000ed8c443c68bfca94cb838d1251dcac10f3b60a5d34df4c67f4f6db15d"
         },
         "he": {
           "path": "src/content/help/he/delivery/courier-workspace.mdx",
-          "sha256": "ddbb92514db5907977df034e193202dea21db0a2032e85c13f739d826d35dc8a"
+          "sha256": "0043f477fe2af21edb74dd0af0d27c84b9453544dfce4b8ceb20d80e0001b402"
         }
       }
     },
@@ -1551,15 +1551,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/communications/whatsapp.mdx",
-          "sha256": "f8c2ee695843f93b8c92b2391460339a57829dce1402a455ad7d3e01326b5626"
+          "sha256": "98dfbc2d19dc1d475b7c21b22151aeb2f32c112b05ffb093b070ed6a81ec17d7"
         },
         "fr": {
           "path": "src/content/help/fr/communications/whatsapp.mdx",
-          "sha256": "60460d65ab73244a1d717bb96a34049a9324d0ef9143f14880bee4d3bc70cb63"
+          "sha256": "5d9867ac9584343fe8f73b3b084ae54c1c9fd0f044601d453dd87d04d57ee53a"
         },
         "he": {
           "path": "src/content/help/he/communications/whatsapp.mdx",
-          "sha256": "4e71c38c5304b922f5f9d7838bebf1184b291f0ff1427a5bc0075aa08b73b72f"
+          "sha256": "81461462f2b04846ab43147b3e98f7a405f2f068936b1b840675cf8b3ff78319"
         }
       }
     },
@@ -1817,15 +1817,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "56eb12f45b639bdad4d174e6b321dca451084a95bb452f7a27f25cec3fc97f54"
+          "sha256": "3bb2746263f71a7734ba81973af52d8d59bff58d3de54f75a0f745a538f5473b"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "ae81bb88efcf525be4d4cd910fb8fedcd77bece42cc59df8840eaed0f5b838fa"
+          "sha256": "708f2b6a7f6d30dccdafbb8aa00f2e38c4528adfff3ce5483f77156b0b005b19"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "b723984400642dfaaf44625f4a3a49ce568b02cc672b5cb726bb0d3fbac2950f"
+          "sha256": "a2e23bb4a7a49d8222b8ff2d3e7f9d011041473c0edaea21ba7bba5cef0d533e"
         }
       }
     },
@@ -4113,7 +4113,7 @@
       ]
     },
     "src/components/delivery/CourierItineraryView.tsx": {
-      "sha256": "f0cb6b58e600f5e7262641fa12a5c1fa30f86da5c8880eb1e950d1098af62357",
+      "sha256": "75365af95473829080e4ff93239bf8e53db33c7d154208495b4a00171b1531b3",
       "features": [
         "delivery-dispatch",
         "courier"
@@ -6764,7 +6764,7 @@
       ]
     },
     "src/lib/delivery.ts": {
-      "sha256": "8632dd1ee8e181c26d5c05bbdec1a107bbd067deb300d24262a5f5b7052da1c4",
+      "sha256": "7f0c821997de985d02576e6b738c4155de5beed2a30af1b1a7585928c197f794",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -6822,7 +6822,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "a43399fcfe96264b9f6600550a3f0d2d9bbb1c6a5b9637a5ceb679fb25de14d1",
+      "sha256": "0a7a32a2c634d03636522d72e2bb62d6c994768df779a2723a9707fa478df8ff",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -16194,11 +16194,13 @@
         "courierAwaitingResult",
         "courierChooseIssue",
         "courierDeliveryProgress",
+        "courierDestinationLocked",
         "courierEstimatedFinish",
         "courierFinishCurrentRoute",
         "courierIssueExplanation",
         "courierIssueReason",
         "courierLocationLocating",
+        "courierOpenStop",
         "courierReportIssue",
         "courierResizePanel",
         "courierRouteMap",
@@ -16236,6 +16238,7 @@
         "onArrived",
         "onDelivered",
         "onNavigate",
+        "onOpenStop",
         "onReload",
         "onReportIssue",
         "onStart",

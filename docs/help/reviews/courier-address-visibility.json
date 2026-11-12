@@ -1,0 +1,26 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "0a7a32a2c634d03636522d72e2bb62d6c994768df779a2723a9707fa478df8ff",
+      "baseSha256": "a43399fcfe96264b9f6600550a3f0d2d9bbb1c6a5b9637a5ceb679fb25de14d1",
+      "features": [
+        "customers-loyalty-program",
+        "delivery-zones",
+        "google-account-setup",
+        "menu-menus-and-groups",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-internal-sumit-checkout",
+        "payments-transactions",
+        "pos-behavior",
+        "stancer-cash-guarantee",
+        "website-journey",
+        "website-order-design",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The shared locale dictionaries add only Address hidden and Open this stop in English, French and Hebrew. The labels are used by the documented courier timeline and dock. The listed features retain their existing labels, procedures, access and configuration."
+    }
+  ]
+}
