@@ -1172,8 +1172,9 @@ export default function OrdersWorkspace() {
 
       {/* Fix a misspelled customer name / delivery address */}
       <EditCustomerDialog
+        restaurantId={rid}
         open={editCustomerId !== null}
-        order={orders.find((o) => o.id === editCustomerId) ?? null}
+        order={detailOrder?.id === editCustomerId ? detailOrder : orders.find((o) => o.id === editCustomerId) ?? null}
         onOpenChange={(v) => { if (!v) setEditCustomerId(null); }}
         onConfirm={handleEditCustomerConfirm}
       />

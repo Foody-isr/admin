@@ -1,14 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { XIcon, InfoIcon } from 'lucide-react';
 import { Button, Field, Input } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import type { Order, OrderCustomerDetailsInput } from '@/lib/api';
-import { CustomerDeliveryFields } from '@/components/customers/CustomerDeliveryFields';
+import { CustomerDeliveryFields, EMPTY_DELIVERY, type CustomerDeliveryValue } from '@/components/customers/CustomerDeliveryFields';
+import { RouteAddressField } from '@/components/delivery/RouteAddressField';
+import type { AddressSuggestion } from '@/lib/delivery';
+import { checkoutStepCopy } from '@/lib/orders/checkout-step-copy';
+import { formatRouteAddress } from '@/lib/route-address';
 
 interface EditCustomerDialogProps {
+  restaurantId: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** The order whose customer is being corrected — supplies the prefill values. */
@@ -16,28 +21,20 @@ interface EditCustomerDialogProps {
   onConfirm: (input: OrderCustomerDetailsInput) => Promise<void> | void;
 }
 
-// EditCustomerDialog lets staff fix a misspelled customer name or delivery
-// address straight from the order screen. Both are canonical corrections keyed
-// by the customer's phone: they show on this order, the customer's other orders
-// and the client page. When the order has no phone there is no customer key, so
-// the correction applies to this order alone. Mirrors the server contract
-// (PUT /orders/:id/customer-details).
-//
-// The address fields come from CustomerDeliveryFields, the one form used
-// wherever staff edit a customer, so this dialog cannot drift from the Clients
-// page and the manual order sheet the way it had.
-export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: EditCustomerDialogProps) {
-  const { t } = useI18n();
+/** Corrects the customer details on an existing order from Orders or Deliveries. */
+export function EditCustomerDialog({ restaurantId, open, onOpenChange, order, onConfirm }: EditCustomerDialogProps) {
+  const { locale, t } = useI18n();
+  const copy = checkoutStepCopy[locale];
   const isDelivery = order?.order_type === 'delivery';
   const hasPhone = !!order?.customer_phone?.trim();
+  const addressHintId = useId();
 
   const [name, setName] = useState('');
-  const [address, setAddress] = useState('');
-  const [city, setCity] = useState('');
-  const [floor, setFloor] = useState('');
-  const [apt, setApt] = useState('');
-  const [entryCode, setEntryCode] = useState('');
-  const [deliveryNotes, setDeliveryNotes] = useState('');
+  const [delivery, setDelivery] = useState<CustomerDeliveryValue>(EMPTY_DELIVERY);
+  const [addressQuery, setAddressQuery] = useState<string | null>(null);
+  const [manualAddress, setManualAddress] = useState(false);
+  const [addressResolving, setAddressResolving] = useState(false);
+  const [addressPosition, setAddressPosition] = useState<{ lat: number; lng: number }>();
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -45,19 +42,55 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
   useEffect(() => {
     if (!open || !order) return;
     setName(order.customer_name ?? '');
-    setAddress(order.delivery_address ?? '');
-    setCity(order.delivery_city ?? '');
-    setFloor(order.delivery_floor ?? '');
-    setApt(order.delivery_apt ?? '');
-    setEntryCode(order.delivery_entry_code ?? '');
-    setDeliveryNotes(order.delivery_notes ?? '');
+    setDelivery({
+      address: order.delivery_address ?? '',
+      city: order.delivery_city ?? '',
+      floor: order.delivery_floor ?? '',
+      apt: order.delivery_apt ?? '',
+      entryCode: order.delivery_entry_code ?? '',
+      deliveryNotes: order.delivery_notes ?? '',
+    });
+    setAddressQuery(null);
+    setManualAddress(false);
+    setAddressResolving(false);
+    setAddressPosition(undefined);
     setSubmitting(false);
     setSubmitError('');
   }, [open, order]);
 
-  const canConfirm = name.trim() !== '' &&
-    (!isDelivery || (address.trim() !== '' && city.trim() !== '')) &&
-    !submitting;
+  const addressComplete = addressQuery === null && delivery.address.trim() !== '' && delivery.city.trim() !== '';
+  const showAddressHint = !manualAddress && !addressComplete;
+  const canConfirm = !!order && name.trim() !== '' && !submitting &&
+    (!isDelivery || (addressComplete && !addressResolving));
+
+  const changeDelivery = (patch: Partial<CustomerDeliveryValue>) => {
+    setDelivery(previous => ({ ...previous, ...patch }));
+    if (patch.address !== undefined || patch.city !== undefined) {
+      setAddressPosition(undefined);
+      setSubmitError('');
+    }
+  };
+
+  const searchAddress = (query: string) => {
+    setAddressQuery(query);
+    setAddressPosition(undefined);
+    setSubmitError('');
+  };
+
+  const selectAddress = ({ address, city, lat, lng }: AddressSuggestion) => {
+    setDelivery(previous => ({ ...previous, address, city }));
+    setAddressPosition(typeof lat === 'number' && typeof lng === 'number' && Number.isFinite(lat) && Number.isFinite(lng)
+      ? { lat, lng } : undefined);
+    setAddressQuery(null);
+    setSubmitError('');
+  };
+
+  const toggleAddressEntry = () => {
+    if (!manualAddress && addressQuery !== null) changeDelivery({ address: addressQuery, city: '' });
+    setAddressQuery(null);
+    setManualAddress(!manualAddress);
+    setSubmitError('');
+  };
 
   const close = () => {
     if (submitting) return;
@@ -71,12 +104,16 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
     try {
       const input: OrderCustomerDetailsInput = { name: name.trim() };
       if (isDelivery) {
-        input.delivery_address = address.trim();
-        input.delivery_city = city.trim();
-        input.delivery_floor = floor.trim();
-        input.delivery_apt = apt.trim();
-        input.delivery_entry_code = entryCode.trim();
-        input.delivery_notes = deliveryNotes.trim();
+        input.delivery_address = delivery.address.trim();
+        input.delivery_city = delivery.city.trim();
+        input.delivery_floor = delivery.floor.trim();
+        input.delivery_apt = delivery.apt.trim();
+        input.delivery_entry_code = delivery.entryCode.trim();
+        input.delivery_notes = delivery.deliveryNotes.trim();
+        if (addressPosition) {
+          input.delivery_latitude = addressPosition.lat;
+          input.delivery_longitude = addressPosition.lng;
+        }
       }
       await onConfirm(input);
       onOpenChange(false);
@@ -120,6 +157,7 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  disabled={submitting}
                   autoFocus
                   onKeyDown={(e) => { if (e.key === 'Enter') confirm(); }}
                 />
@@ -128,21 +166,36 @@ export function EditCustomerDialog({ open, onOpenChange, order, onConfirm }: Edi
               {isDelivery && (
                 <div className="flex flex-col gap-[var(--s-3)] rounded-r-md border border-[var(--line)] p-[var(--s-4)]">
                   <CustomerDeliveryFields
-                    value={{ address, city, floor, apt, entryCode, deliveryNotes }}
-                    onChange={(p) => {
-                      if (p.address !== undefined) setAddress(p.address);
-                      if (p.city !== undefined) setCity(p.city);
-                      if (p.floor !== undefined) setFloor(p.floor);
-                      if (p.apt !== undefined) setApt(p.apt);
-                      if (p.entryCode !== undefined) setEntryCode(p.entryCode);
-                      if (p.deliveryNotes !== undefined) setDeliveryNotes(p.deliveryNotes);
-                    }}
+                    value={delivery}
+                    onChange={changeDelivery}
+                    disabled={submitting}
+                    addressControl={manualAddress ? undefined : (
+                      <RouteAddressField
+                        restaurantId={restaurantId}
+                        locale={locale}
+                        label={t('deliveryAddress')}
+                        placeholder={copy.addressPlaceholder}
+                        value={addressQuery ?? formatRouteAddress(delivery)}
+                        onChange={searchAddress}
+                        onSelectAddress={selectAddress}
+                        onResolvingChange={setAddressResolving}
+                        inputProps={{ 'aria-describedby': showAddressHint ? addressHintId : undefined }}
+                        disabled={submitting}
+                        t={t}
+                      />
+                    )}
+                    underAddress={<>
+                      {showAddressHint && <p id={addressHintId} className="text-fs-xs text-[var(--fg-muted)]">{copy.addressSearchHint}</p>}
+                      <Button type="button" variant="ghost" size="sm" className="self-start" onClick={toggleAddressEntry} disabled={submitting}>
+                        {manualAddress ? copy.addressSearch : copy.addressManual}
+                      </Button>
+                    </>}
                   />
                 </div>
               )}
             </div>
 
-            {hasPhone && (
+            {hasPhone && isDelivery && (
               <div className="mt-[var(--s-4)] flex items-start gap-[var(--s-2)] rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-[var(--s-3)] py-[var(--s-2)]">
                 <InfoIcon className="w-4 h-4 mt-0.5 shrink-0 text-[var(--fg-muted)]" />
                 <p className="text-fs-sm text-[var(--fg-muted)]">{t('editCustomerReflectNote')}</p>

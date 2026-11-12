@@ -79,6 +79,91 @@ async function install(page: Page, locale = 'fr') {
   return state;
 }
 
+for (const mode of ['coordinates', 'canonical text', 'manual recovery'] as const) {
+  test(`dispatch corrects the customer delivery address using ${mode}`, async ({ page }) => {
+    const state = await install(page);
+    const order = {
+      id: 1002, restaurant_id: 1, order_type: 'delivery', customer_name: 'Client démo',
+      delivery_address: '2 Rue de démonstration', delivery_city: 'Tel Aviv',
+      delivery_floor: '3', delivery_apt: '8', delivery_entry_code: 'TEST', delivery_notes: 'Note de démonstration',
+    };
+    const suggestion = {
+      id: 'address-demo', address: 'Rue Démo 12', city: 'Tel Aviv', street: 'Rue Démo', house_number: '12',
+    };
+    const location = { lat: 32.08, lng: 34.78 };
+    const saved = { address: suggestion.address, city: suggestion.city };
+    const operations: string[] = [];
+    const geocodes: { address: string | null; city: string | null }[] = [];
+    let correction: Record<string, unknown> | undefined;
+    await page.route('**/api/v1/orders/1002?**', request => request.fulfill({ json: { order } }));
+    await page.route('**/api/v1/public/address-autocomplete?**', async request => {
+      const url = new URL(request.request().url());
+      expect(url.searchParams.get('restaurant_id')).toBe('1');
+      return request.fulfill({ json: { suggestions: [{ ...suggestion, kind: 'prediction', lookup_token: 'demo-token' }] } });
+    });
+    await page.route('**/api/v1/public/address-autocomplete/resolve?**', request => request.fulfill({
+      json: { suggestion: mode === 'coordinates' ? { ...suggestion, ...location } : suggestion },
+    }));
+    await page.route('**/api/v1/public/geocode?**', async request => {
+      const query = new URL(request.request().url()).searchParams;
+      geocodes.push({ address: query.get('address'), city: query.get('city') });
+      const found = mode !== 'manual recovery' || geocodes.length > 1;
+      return request.fulfill({ json: found ? { found, ...location } : { found } });
+    });
+    await page.route('**/api/v1/orders/1002/customer-details?**', async request => {
+      operations.push('save');
+      expect(request.request().method()).toBe('PUT');
+      expect(request.request().headers()['x-restaurant-id']).toBe('1');
+      correction = request.request().postDataJSON();
+      return request.fulfill({ json: { order: { ...order, ...correction } } });
+    });
+    await page.route('**/api/v1/delivery/routes/1/optimize?**', async request => {
+      operations.push('optimize');
+      if (mode === 'coordinates') return request.fulfill({ status: 500, json: { error: 'demo recalculation error' } });
+      return request.fulfill({ json: { route: state.routes[0] } });
+    });
+
+    await page.goto('/1/orders/deliveries');
+    await page.getByRole('button', { name: /2 Rue de démonstration/ }).click();
+    await page.getByRole('button', { name: 'Corriger l’adresse', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Modifier le client' });
+    const address = dialog.getByRole('combobox', { name: 'Adresse de livraison' });
+    const save = dialog.getByRole('button', { name: 'Enregistrer', exact: true });
+    await expect(address).toHaveValue('2 Rue de démonstration, Tel Aviv');
+    await expect(dialog.getByRole('textbox', { name: 'Ville', exact: true })).toHaveCount(0);
+    await address.fill('12 ru Demo Tel Av');
+    await expect(save).toBeDisabled();
+    await dialog.getByRole('option').getByRole('button').click();
+    await expect(address).toHaveValue('Rue Démo 12, Tel Aviv');
+    await expect(save).toBeEnabled();
+
+    if (mode === 'manual recovery') {
+      await save.click();
+      await expect(dialog.getByRole('alert')).toContainText('Cette adresse est introuvable');
+      expect(operations).toEqual([]);
+      await dialog.getByRole('button', { name: 'Saisir l’adresse manuellement', exact: true }).click();
+      saved.address = 'Rue Démo 24';
+      saved.city = 'Ville Démo';
+      await dialog.getByRole('textbox', { name: 'Adresse de livraison' }).fill(saved.address);
+      await dialog.getByRole('textbox', { name: 'Ville', exact: true }).fill(saved.city);
+    }
+
+    await save.click();
+    await expect(dialog).toHaveCount(0);
+    if (mode === 'coordinates') await expect(page.getByText('Impossible de recalculer cette tournée.')).toBeVisible();
+    expect(operations).toEqual(['save', 'optimize']);
+    expect(geocodes).toEqual(mode === 'coordinates' ? [] : mode === 'canonical text'
+      ? [saved] : [{ address: suggestion.address, city: suggestion.city }, saved]);
+    expect(correction).toEqual({
+      name: order.customer_name,
+      delivery_address: saved.address, delivery_city: saved.city,
+      delivery_floor: order.delivery_floor, delivery_apt: order.delivery_apt,
+      delivery_entry_code: order.delivery_entry_code, delivery_notes: order.delivery_notes,
+      delivery_latitude: location.lat, delivery_longitude: location.lng,
+    });
+  });
+}
+
 test('dispatch shows the stop awaiting a result, preserves reports, and sends a scoped reminder', async ({ page }) => {
   const state = await install(page);
   state.routes[0].status = 'active';

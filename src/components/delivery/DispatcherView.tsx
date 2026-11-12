@@ -820,18 +820,29 @@ export default function DispatcherView({ rid }: { rid: number }) {
   };
 
   const saveVerifiedAddress = async (input: OrderCustomerDetailsInput) => {
-    if (!editingOrder || !selectedEntry) return;
-    const result = await geocodeAddress(rid, input.delivery_address ?? '', input.delivery_city);
-    if (!result.found || result.lat == null || result.lng == null) {
-      throw new Error(t('addressVerificationFailed'));
+    if (!editingOrder || selectedEntry?.stop.order_id !== editingOrder.id) throw new Error(t('couldNotSave'));
+    let { delivery_latitude: latitude, delivery_longitude: longitude } = input;
+    if (latitude == null || longitude == null) {
+      const result = await geocodeAddress(rid, input.delivery_address ?? '', input.delivery_city);
+      if (!result.found || result.lat == null || result.lng == null) {
+        throw new Error(t('addressVerificationFailed'));
+      }
+      latitude = result.lat;
+      longitude = result.lng;
     }
     await updateOrderCustomerDetails(rid, editingOrder.id, {
       ...input,
-      delivery_latitude: result.lat,
-      delivery_longitude: result.lng,
+      delivery_latitude: latitude,
+      delivery_longitude: longitude,
     });
-    await optimizeRoute(rid, selectedEntry.route.id);
+    let routingError: string | null = null;
+    try {
+      await optimizeRoute(rid, selectedEntry.route.id);
+    } catch (cause) {
+      routingError = deliveryRoutingError(cause, t) ?? t('deliveryPlanRecalculateFailed');
+    }
     await load();
+    if (routingError) setError(routingError);
   };
 
   const confirmUndo = async () => {
@@ -1326,6 +1337,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
       </Drawer>
 
       <EditCustomerDialog
+        restaurantId={rid}
         open={editingOrder !== null}
         onOpenChange={(open) => { if (!open) setEditingOrder(null); }}
         order={editingOrder}
