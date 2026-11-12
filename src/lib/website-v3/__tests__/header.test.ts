@@ -174,7 +174,7 @@ test("fulfillment retires saved color overrides while preserving visibility and 
       color_style: "style-4",
       fulfillment: { enabled, background: "#ff0000" },
     });
-    assert.deepEqual(header.fulfillment, { enabled, background: "" });
+    assert.deepEqual(header.fulfillment, { enabled, background: "", scroll: "inherit" });
     assert.equal(header.color_style, "style-4");
     assert.deepEqual(normalizeWebsiteHeader(header), header);
   }
@@ -217,6 +217,7 @@ test("order header is opt-in, presentation-only, and follows shared logo and lin
   assert.equal(resolvePageHeader(shared, "content", appearance), shared);
   assert.equal(resolvePageHeader(shared, "landing", appearance), shared);
   const updated = normalizeWebsiteHeader({...shared, logo: {...shared.logo, image: "/two.png"},
+    fulfillment: {...shared.fulfillment, scroll: "sticky"},
     navigation: {...shared.navigation, links: [{id: "about", label: "About", target: {kind: "page", value: "about"}}]}});
   const actual = resolvePageHeader(updated, "order", appearance);
   assert.equal(actual.layout, "restaurant");
@@ -224,6 +225,7 @@ test("order header is opt-in, presentation-only, and follows shared logo and lin
   assert.equal(actual.logo.image, "/two.png");
   assert.deepEqual(actual.navigation, updated.navigation);
   assert.deepEqual(actual.fulfillment, updated.fulfillment);
+  assert.equal(actual.fulfillment.scroll, "sticky");
   assert.equal(resolvePageHeader(updated, "order", {order_header: null}), updated);
   assert.equal(shared.layout, "center");
   assert.ok(!("navigation" in local));
