@@ -2499,6 +2499,53 @@ export async function saveLoyaltyProgram(saved: PendingLoyaltyProgram): Promise<
   return checkedProgramAck(await apiFetch<unknown>('/api/v1/loyalty/program', saved.restaurant, { method: 'PUT', cache: 'no-store', body: JSON.stringify(saved.input) }), saved);
 }
 
+export interface WalletStudioArtwork {
+  background_color: string;
+  foreground_color: string;
+  logo_png: string | null;
+  banner_png: string | null;
+}
+
+export interface WalletStudioDesign extends WalletStudioArtwork {
+  revision: number;
+}
+
+export interface WalletStudioState {
+  restaurant_id: number;
+  restaurant_name: string;
+  can_edit: boolean;
+  can_sign_test: boolean;
+  design: WalletStudioDesign;
+  program: { mode: LoyaltyRules['mode']; threshold: number; names: Record<'en' | 'fr' | 'he', string> } | null;
+}
+
+const walletStudioPath = '/api/v1/loyalty/wallet-studio';
+
+/** Read a restaurant's private design and Apple test capability. */
+export function getWalletStudio(rid: number, signal?: AbortSignal): Promise<WalletStudioState> {
+  return apiFetch(walletStudioPath, rid, { cache: 'no-store', signal });
+}
+
+/** Replace the draft only if its saved revision still matches. */
+export function saveWalletStudio(rid: number, revision: number, artwork: WalletStudioArtwork, signal?: AbortSignal): Promise<WalletStudioDesign> {
+  return apiFetch(walletStudioPath, rid, {
+    method: 'PUT', cache: 'no-store', signal,
+    body: JSON.stringify({ expected_revision: revision, ...artwork }),
+  });
+}
+
+/** Request the native archive without putting staff credentials in a URL. */
+export async function generateWalletStudioTest(rid: number, revision: number, signal?: AbortSignal): Promise<Blob> {
+  const response = await apiResponse(`${walletStudioPath}/apple-test`, rid, {
+    method: 'POST', cache: 'no-store', signal,
+    body: JSON.stringify({ expected_revision: revision }),
+  });
+  if (response.headers.get('content-type') !== 'application/vnd.apple.pkpass') {
+    throw new ApiError('wallet_studio_invalid_pass', 502);
+  }
+  return response.blob();
+}
+
 export interface LoyaltyCheckoutView {
   order_id: number;
   checkout_state: string;
@@ -2539,6 +2586,19 @@ export async function apiFetch<T>(
   options?: RequestInit,
   _retried = false,
 ): Promise<T> {
+  const res = await apiResponse(path, restaurantId, options, _retried);
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    return undefined as T;
+  }
+  return res.json();
+}
+
+async function apiResponse(
+  path: string,
+  restaurantId?: number,
+  options?: RequestInit,
+  retried = false,
+): Promise<Response> {
   const token = getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -2555,9 +2615,9 @@ export async function apiFetch<T>(
     if (res.status === 401 && typeof window !== 'undefined' && !isAuthEndpoint) {
       // Token expired mid-session: try one silent refresh and replay the
       // request before forcing a re-login.
-      if (!_retried) {
+      if (!retried) {
         const refreshed = await refreshToken();
-        if (refreshed) return apiFetch<T>(path, restaurantId, options, true);
+        if (refreshed) return apiResponse(path, restaurantId, options, true);
       }
       // Refresh impossible (beyond grace window / revoked) — clear and re-login.
       logout();
@@ -2569,10 +2629,7 @@ export async function apiFetch<T>(
     const detail = typeof body.details === 'string' ? body.details : undefined;
     throw new ApiError(body.error || body.message || `API error ${res.status}`, res.status, detail);
   }
-  if (res.status === 204 || res.headers.get('content-length') === '0') {
-    return undefined as T;
-  }
-  return res.json();
+  return res;
 }
 
 // ─── Order workflow builder ──────────────────────────────────────────────────

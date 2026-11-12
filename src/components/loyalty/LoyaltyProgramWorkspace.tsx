@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, WalletCards } from 'lucide-react';
 import { ApiError, getLoyaltyProgram, getStoredUser, listAllItems, saveLoyaltyProgram, type LoyaltyProgramState, type MenuItem } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useI18n } from '@/lib/i18n';
@@ -73,7 +74,14 @@ function ProgramForm({ rid, actor }: { rid: number; actor: number }) {
     } finally { if (life.current.alive) { lock.current = false; setBusy(false); } }
   };
   return <div className="min-w-0 space-y-6 pb-20">
-    <PageHead title={t('loyaltyProgramTitle')} desc={t('loyaltyProgramIntro')} actions={<Button variant="secondary" disabled={busy || loading} onClick={() => { if (dirty && !pending || rejected) setConfirm('refresh'); else void load(); }}><RefreshCw aria-hidden="true" />{t(rejected ? 'loyaltyProgramReview' : 'loyaltyCheckoutRefresh')}</Button>} />
+    <PageHead title={t('loyaltyProgramTitle')} desc={t('loyaltyProgramIntro')} actions={
+      <>
+        <Button variant="secondary" disabled={busy || loading} onClick={() => { if (dirty && !pending || rejected) setConfirm('refresh'); else void load(); }}>
+          <RefreshCw aria-hidden="true" />{t(rejected ? 'loyaltyProgramReview' : 'loyaltyCheckoutRefresh')}
+        </Button>
+        {state && <Button asChild variant="secondary"><Link href={`/${rid}/loyalty/program/wallet`}><WalletCards aria-hidden="true" />{t('walletStudioTitle')}</Link></Button>}
+      </>
+    } />
     {error && <p role="alert" className="border-s-2 border-[var(--warning-500)] ps-4 text-sm leading-6">{t(error)}</p>}
     {notice && <p role="status" className="border-s-2 border-[var(--info-500)] ps-4 text-sm">{t(notice)}</p>}
     {blocked && <p role="alert" className="text-sm text-[var(--danger-500)]">{t('loyaltyProgramStorage')}</p>}
