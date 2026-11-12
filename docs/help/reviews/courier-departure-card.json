@@ -1,0 +1,49 @@
+{
+  "files": [
+    {
+      "path": "src/components/delivery/CourierItinerary.module.css",
+      "sha256": "724e0c2cdd4549a5951c36dfb5d18af91575c55bebe4c24191b658222a029ac5",
+      "baseSha256": "a9839a2ba024fb2b6843af7d1353ee495a6694cad8ecf4db0a7cd7de2c9cb337",
+      "features": [
+        "delivery-dispatch"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the courier execution view changes. Dispatcher route creation, assignment, addresses, planning controls and results are unchanged."
+    },
+    {
+      "path": "src/components/delivery/CourierItineraryView.tsx",
+      "sha256": "ce2cd4ac754931aeb17d56eda33f257ceffd7420161c912adc26116b0ca0b622",
+      "baseSha256": "75365af95473829080e4ff93239bf8e53db33c7d154208495b4a00171b1531b3",
+      "features": [
+        "delivery-dispatch"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the courier execution view changes. Dispatcher route creation, assignment, addresses, planning controls and results are unchanged."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "a9eddf2185683358e18353a87a9d265adad7947ce273a93159f1b7e8679b3bd2",
+      "baseSha256": "b6d72ccaec1f82ed5a650ceccba4775499e8c3e827cc8a12bfb815cc8089adb0",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Changed strings are used exclusively by the courier departure card, the planned stops list and its order number search. Labels for other workspaces are unchanged."
+    }
+  ]
+}
