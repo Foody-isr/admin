@@ -17,6 +17,7 @@ export interface RouteStop {
   sequence: number;
   status: RouteStopStatus;
   navigation_started_at?: string;
+  destination_locked?: boolean;
   issue_reason?: DeliveryIssueReason;
   customer_name: string;
   customer_phone: string;
