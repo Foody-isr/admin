@@ -275,7 +275,14 @@ export function convertPageType(
   nextType: WebsitePageType,
 ): DraftPagePayload {
   const appearance = { ...page.appearance_overrides };
-  if (nextType !== "order") delete appearance.order_header;
+  if (nextType !== "order") {
+    delete appearance.order_header;
+    if (isRecord(appearance.website_order) && "fulfillment_scroll" in appearance.website_order) {
+      const websiteOrder = { ...appearance.website_order };
+      delete websiteOrder.fulfillment_scroll;
+      appearance.website_order = websiteOrder;
+    }
+  }
   const base = {
     ...page,
     type: nextType,

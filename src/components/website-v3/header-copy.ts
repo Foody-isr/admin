@@ -53,7 +53,7 @@ const en = {
   fulfillmentScrollInherit: "Follow the header",
   fulfillmentScrollSticky: "Keep visible while scrolling",
   fulfillmentScrollNone: "Scroll with the page",
-  fulfillmentScrollHelp: "Applies wherever the bar is shown on the standard website.",
+  fulfillmentScrollHelp: "Applies to this order page on the standard website.",
   fulfillmentHelp:
     "Turning this feature off will remove it from all pages except for Order Online.",
   type: "Type",
@@ -167,7 +167,7 @@ const fr: typeof en = {
   fulfillmentScrollInherit: "Suivre l’en-tête",
   fulfillmentScrollSticky: "Fixer pendant le défilement",
   fulfillmentScrollNone: "Défiler avec la page",
-  fulfillmentScrollHelp: "S’applique partout où la barre est affichée sur le site classique.",
+  fulfillmentScrollHelp: "S’applique à cette page de commande sur le site classique.",
   fulfillmentHelp:
     "Désactiver cette fonctionnalité la retire de toutes les pages, sauf de la page de commande.",
   type: "Type",
@@ -282,7 +282,7 @@ const he: typeof en = {
   fulfillmentScrollInherit: "כמו כותרת האתר",
   fulfillmentScrollSticky: "להשאיר גלוי בזמן הגלילה",
   fulfillmentScrollNone: "לגלול עם הדף",
-  fulfillmentScrollHelp: "חל בכל מקום שבו הסרגל מוצג באתר הרגיל.",
+  fulfillmentScrollHelp: "חל על עמוד הזמנה זה באתר הרגיל.",
   fulfillmentHelp: "השבתה תסיר את האפשרות מכל העמודים פרט לעמוד ההזמנה.",
   type: "סוג",
   text: "טקסט",

@@ -84,6 +84,9 @@ export function Inspector({
           onOpenOrderJourney={onOpenOrderJourney}
           page={page}
           onOrderHeaderChange={page ? (header, shared) => onOrderHeaderChange(pageKey(page), header, shared) : undefined}
+          onOrderFulfillmentScrollChange={page?.type === "order"
+            ? scroll => onPageChange(pageKey(page), ["appearance_overrides", "website_order", "fulfillment_scroll"], scroll)
+            : undefined}
           activeElement={selection.headerElement}
           config={state.config}
           sections={state.sections}

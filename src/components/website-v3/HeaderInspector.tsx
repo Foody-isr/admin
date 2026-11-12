@@ -39,6 +39,7 @@ export function HeaderInspector({
   activeElement,
   page,
   onOrderHeaderChange,
+  onOrderFulfillmentScrollChange,
   onOpenOrderJourney,
   orderChoicesAvailable = false,
 }: {
@@ -54,6 +55,7 @@ export function HeaderInspector({
   orderChoicesAvailable?: boolean;
   page?: DraftPagePayload | null;
   onOrderHeaderChange?: (header: ReturnType<typeof orderHeaderPresentation> | null, shared: WebsiteHeader) => void;
+  onOrderFulfillmentScrollChange?: (scroll: WebsiteHeader["fulfillment"]["scroll"]) => void;
 }) {
   const layoutControlsSupported = useCampaignCapability("campaign_layout_controls");
   const { locale, t } = useI18n(),
@@ -76,6 +78,9 @@ export function HeaderInspector({
   );
   const customOrderHeader = page?.type === "order" && page.appearance_overrides.order_header?.version === 1;
   const header = resolvePageHeader(sharedHeader, page?.type, page?.appearance_overrides);
+  const pageScroll = page?.appearance_overrides.website_order?.fulfillment_scroll;
+  const fulfillmentScroll = pageScroll === "inherit" || pageScroll === "sticky" || pageScroll === "none"
+    ? pageScroll : sharedHeader.fulfillment.scroll;
   const saveHeader = (value: WebsiteHeader) => page?.type === "order" && onOrderHeaderChange
     ? onOrderHeaderChange(orderHeaderPresentation(value), sharedHeader)
     : onChange(["nav_layout"], { ...nav, header: value });
@@ -593,11 +598,11 @@ export function HeaderInspector({
               )}
             </>,
           )}
-          {(!restaurantLayout || !customOrderHeader) && accordion(
+          {(!restaurantLayout || !customOrderHeader || onOrderFulfillmentScrollChange) && accordion(
             "fulfillment",
             c.fulfillment,
             <>
-              {!customOrderHeader && <HeaderGroup label={c.fulfillmentScroll}>
+              {onOrderFulfillmentScrollChange && <HeaderGroup label={c.fulfillmentScroll}>
                 <div className="sqh-radio-stack">
                   {([
                     ["inherit", c.fulfillmentScrollInherit],
@@ -606,8 +611,8 @@ export function HeaderInspector({
                   ] as const).map(([scroll, label]) => (
                     <label key={scroll} className="selection-row">
                       <span>{label}</span>
-                      <input type="radio" name="fulfillment-scroll" checked={header.fulfillment.scroll === scroll}
-                        onChange={() => patch("fulfillment", { scroll })} />
+                      <input type="radio" name="fulfillment-scroll" checked={fulfillmentScroll === scroll}
+                        onChange={() => onOrderFulfillmentScrollChange(scroll)} />
                     </label>
                   ))}
                 </div>
