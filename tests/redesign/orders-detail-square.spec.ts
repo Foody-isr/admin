@@ -126,6 +126,38 @@ test('limited role hides management utilities and primary actions', async ({ pag
   expect(fixture.writes).toEqual([]);
 });
 
+test('direct delivery order can correct the customer address with Google suggestions', async ({ page }) => {
+  const fixture = await install(page);
+  const order = fixture.orders[0];
+  Object.assign(order, { order_type: 'delivery', delivery_address: '10 rue Démo', delivery_city: 'Ville démo' });
+  await page.route('**/api/v1/orders?**', route => route.fulfill({ json: { orders: [], total: 0 } }));
+  await page.route('**/api/v1/public/address-autocomplete?**', route => route.fulfill({
+    json: { suggestions: [{ id: 'address-demo', address: '12 rue Démo', city: 'Ville démo', kind: 'prediction', lookup_token: 'demo-token' }] },
+  }));
+  await page.route('**/api/v1/public/address-autocomplete/resolve?**', route => route.fulfill({
+    json: { suggestion: { id: 'address-demo', address: '12 rue Démo', city: 'Ville démo', street: 'rue Démo', house_number: '12' } },
+  }));
+  let correctedAddress: { delivery_address: string; delivery_city: string } | undefined;
+  await page.route('**/api/v1/orders/1048/customer-details?**', async route => {
+    correctedAddress = route.request().postDataJSON();
+    Object.assign(order, correctedAddress);
+    await route.fulfill({ json: { order } });
+  });
+
+  await page.goto('/1/orders/1048');
+  await page.getByRole('button', { name: 'Modifier le client', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Modifier le client' });
+  const address = dialog.getByRole('combobox', { name: 'Adresse de livraison' });
+  await expect(address).toHaveValue('10 rue Démo, Ville démo');
+  await address.fill('12 ru demo');
+  await expect(dialog.getByRole('option')).toBeVisible();
+  await address.press('Enter');
+  await expect(address).toHaveValue('12 rue Démo, Ville démo');
+  await dialog.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(correctedAddress).toMatchObject({ delivery_address: '12 rue Démo', delivery_city: 'Ville démo' });
+});
+
 test('delivery facts and the settled payment method remain truthful in the compact layout', async ({ page }) => {
   const fixture = await install(page);
   Object.assign(fixture.orders[0], {

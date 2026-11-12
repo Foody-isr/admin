@@ -1,0 +1,30 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "06b0d4b5799a0addb29fb022c72f886d4b9bcb5847d21b8f80a0e41eaf8ee776",
+      "baseSha256": "0a7a32a2c634d03636522d72e2bb62d6c994768df779a2723a9707fa478df8ff",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "reason": "Only the existing address correction dialog uses the revised notice. It explains the saved address on this order and the customer profile. The profile editor, checkout controls and other translated procedures use their existing copy and behavior."
+    }
+  ]
+}
