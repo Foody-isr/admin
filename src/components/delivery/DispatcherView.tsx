@@ -819,22 +819,28 @@ export default function DispatcherView({ rid }: { rid: number }) {
     }
   };
 
-  const saveVerifiedAddress = async (input: OrderCustomerDetailsInput) => {
+  const saveAddressCorrection = async (input: OrderCustomerDetailsInput, selectedFromGoogle: boolean) => {
     if (!editingOrder || selectedEntry?.stop.order_id !== editingOrder.id) throw new Error(t('couldNotSave'));
-    let { delivery_latitude: latitude, delivery_longitude: longitude } = input;
-    if (latitude == null || longitude == null) {
+    let position = input.delivery_latitude != null && input.delivery_longitude != null
+      ? { lat: input.delivery_latitude, lng: input.delivery_longitude } : undefined;
+    if (!position) {
       const result = await geocodeAddress(rid, input.delivery_address ?? '', input.delivery_city);
-      if (!result.found || result.lat == null || result.lng == null) {
+      if (result.found && result.lat != null && result.lng != null) {
+        position = { lat: result.lat, lng: result.lng };
+      } else if (!selectedFromGoogle) {
         throw new Error(t('addressVerificationFailed'));
       }
-      latitude = result.lat;
-      longitude = result.lng;
     }
     await updateOrderCustomerDetails(rid, editingOrder.id, {
       ...input,
-      delivery_latitude: latitude,
-      delivery_longitude: longitude,
+      delivery_latitude: position?.lat,
+      delivery_longitude: position?.lng,
     });
+    if (!position) {
+      await load();
+      setError(t('deliveryAddressSavedUnlocated'));
+      return;
+    }
     let routingError: string | null = null;
     try {
       await optimizeRoute(rid, selectedEntry.route.id);
@@ -1341,7 +1347,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
         open={editingOrder !== null}
         onOpenChange={(open) => { if (!open) setEditingOrder(null); }}
         order={editingOrder}
-        onConfirm={saveVerifiedAddress}
+        onConfirm={saveAddressCorrection}
       />
 
       <AlertDialog open={undoAction != null} onOpenChange={(open) => { if (!open && routeBusy == null) setUndoAction(null); }}>

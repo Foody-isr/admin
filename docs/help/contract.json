@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "594780450118edc0d1d78a7544d817339063a418",
-  "documentationRevision": "23de4c9d6b04e3265848a1c97795a30d2bef7f530a8ddd7c7a9f7a6b908bbd27",
+  "documentationRef": "8195fa0a43d1645371e35c3b783055bfd3c0109d",
+  "documentationRevision": "664aee1cc512b719beb20866ac656b105194b3ab716c5e810fe9fc104254ff0c",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "242cd168ee5e027ec861d86be3080db7d12402c5031b21303ba8c88dcb21ee4a"
+          "sha256": "8ac3231dd9abb44a265620459d01e0677732d08bd34093e84406496bed62631b"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "1211b946b6163dae0d05378988eabd325a4d0c74c9107e70fc3cee2a4c0fa1a5"
+          "sha256": "3443c5421641722bec8724f1f66b321a1bad69d831331306031b3f9307276ce6"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "1af3fa2ddeaba6a1608389836755bdec939318eff3f390ce2225fc64b2b62ac4"
+          "sha256": "f1a45f65ee1c77d091c1fe6da835d649e18341448c038cac8e2d8a2e40364506"
         }
       }
     },
@@ -4164,7 +4164,7 @@
       ]
     },
     "src/components/delivery/DispatcherView.tsx": {
-      "sha256": "eda1961077f1537b8ffea0f6705b9358843dc6aa7e5008d29157b9f56753840e",
+      "sha256": "379183625a3236c6eb1434b8ec55acd8732014296a07cba29f1ba17be34055b1",
       "features": [
         "delivery-dispatch"
       ]
@@ -5262,7 +5262,7 @@
       ]
     },
     "src/components/orders/EditCustomerDialog.tsx": {
-      "sha256": "cb896b9d97062716535f19516d5e11e00e3208f1f72989db4d62ea2b2e1d198e",
+      "sha256": "28bc862299371fe5c91c80d342c68f9b5db65842e81e743bdcd49e4baf3de7b1",
       "features": [
         "orders-managing-orders",
         "order-detail"
@@ -6822,7 +6822,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "06b0d4b5799a0addb29fb022c72f886d4b9bcb5847d21b8f80a0e41eaf8ee776",
+      "sha256": "b6d72ccaec1f82ed5a650ceccba4775499e8c3e827cc8a12bfb815cc8089adb0",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -16410,6 +16410,7 @@
         "courierSendReminder",
         "customer",
         "deliveries",
+        "deliveryAddressSavedUnlocated",
         "deliveryExpectedArrival",
         "deliveryNotes",
         "deliveryPlanAvailableCount",
@@ -16473,8 +16474,8 @@
         "loadRequestId",
         "openAddressEditor",
         "openRouteByOrderId",
+        "saveAddressCorrection",
         "saveRouteSettings",
-        "saveVerifiedAddress",
         "saved",
         "savedCourierEndpoints",
         "sendCourierReminder",

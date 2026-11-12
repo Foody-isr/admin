@@ -79,7 +79,7 @@ async function install(page: Page, locale = 'fr') {
   return state;
 }
 
-for (const mode of ['coordinates', 'canonical text', 'manual recovery'] as const) {
+for (const mode of ['coordinates', 'canonical text', 'unlocated Google address', 'manual recovery'] as const) {
   test(`dispatch corrects the customer delivery address using ${mode}`, async ({ page }) => {
     const state = await install(page);
     const order = {
@@ -107,7 +107,7 @@ for (const mode of ['coordinates', 'canonical text', 'manual recovery'] as const
     await page.route('**/api/v1/public/geocode?**', async request => {
       const query = new URL(request.request().url()).searchParams;
       geocodes.push({ address: query.get('address'), city: query.get('city') });
-      const found = mode !== 'manual recovery' || geocodes.length > 1;
+      const found = mode !== 'unlocated Google address' && (mode !== 'manual recovery' || geocodes.length > 1);
       return request.fulfill({ json: found ? { found, ...location } : { found } });
     });
     await page.route('**/api/v1/orders/1002/customer-details?**', async request => {
@@ -133,33 +133,39 @@ for (const mode of ['coordinates', 'canonical text', 'manual recovery'] as const
     await expect(dialog.getByRole('textbox', { name: 'Ville', exact: true })).toHaveCount(0);
     await address.fill('12 ru Demo Tel Av');
     await expect(save).toBeDisabled();
-    await dialog.getByRole('option').getByRole('button').click();
-    await expect(address).toHaveValue('Rue Démo 12, Tel Aviv');
-    await expect(save).toBeEnabled();
 
     if (mode === 'manual recovery') {
+      await dialog.getByRole('button', { name: 'Saisir l’adresse manuellement', exact: true }).click();
+      const manualAddress = dialog.getByRole('textbox', { name: 'Adresse de livraison' });
+      const manualCity = dialog.getByRole('textbox', { name: 'Ville', exact: true });
+      await manualAddress.fill(suggestion.address);
+      await manualCity.fill(suggestion.city);
       await save.click();
       await expect(dialog.getByRole('alert')).toContainText('Cette adresse est introuvable');
       expect(operations).toEqual([]);
-      await dialog.getByRole('button', { name: 'Saisir l’adresse manuellement', exact: true }).click();
       saved.address = 'Rue Démo 24';
       saved.city = 'Ville Démo';
-      await dialog.getByRole('textbox', { name: 'Adresse de livraison' }).fill(saved.address);
-      await dialog.getByRole('textbox', { name: 'Ville', exact: true }).fill(saved.city);
+      await manualAddress.fill(saved.address);
+      await manualCity.fill(saved.city);
+    } else {
+      await dialog.getByRole('option').getByRole('button').click();
+      await expect(address).toHaveValue('Rue Démo 12, Tel Aviv');
     }
 
     await save.click();
     await expect(dialog).toHaveCount(0);
     if (mode === 'coordinates') await expect(page.getByText('Impossible de recalculer cette tournée.')).toBeVisible();
-    expect(operations).toEqual(['save', 'optimize']);
-    expect(geocodes).toEqual(mode === 'coordinates' ? [] : mode === 'canonical text'
-      ? [saved] : [{ address: suggestion.address, city: suggestion.city }, saved]);
+    const unlocated = mode === 'unlocated Google address';
+    if (unlocated) await expect(page.getByText('Adresse enregistrée. Le point reste à vérifier pour recalculer la tournée.')).toBeVisible();
+    expect(operations).toEqual(unlocated ? ['save'] : ['save', 'optimize']);
+    expect(geocodes).toEqual(mode === 'coordinates' ? [] : mode === 'manual recovery'
+      ? [{ address: suggestion.address, city: suggestion.city }, saved] : [saved]);
     expect(correction).toEqual({
       name: order.customer_name,
       delivery_address: saved.address, delivery_city: saved.city,
       delivery_floor: order.delivery_floor, delivery_apt: order.delivery_apt,
       delivery_entry_code: order.delivery_entry_code, delivery_notes: order.delivery_notes,
-      delivery_latitude: location.lat, delivery_longitude: location.lng,
+      ...(unlocated ? {} : { delivery_latitude: location.lat, delivery_longitude: location.lng }),
     });
   });
 }
