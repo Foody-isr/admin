@@ -100,6 +100,12 @@ async function install(page: Page, options: { active?: boolean; unopened?: boole
 }
 const run = (page: Page, id = 1) => page.locator(`[data-route-id="${id}"]`);
 const card = (page: Page, id = 1) => page.locator(`[data-stop-id="${id}"]`);
+const planned = (page: Page, id = 1) => run(page, id).getByTestId('courier-planned-stops');
+async function showPlanned(page: Page, id = 1) {
+  const list = planned(page, id);
+  await expect(list).toBeVisible();
+  if ((await list.getAttribute('open')) === null) await list.locator('summary').click();
+}
 const openStop = (page: Page, id = 1) =>
   run(page, id).getByTestId('courier-action-dock').getByRole('button', { name: 'Ouvrir cet arrêt' }).click();
 
@@ -109,12 +115,14 @@ for (const locale of ['fr', 'he']) {
     state.routes[0].stops[1].address = 'Destination sélectionnée 2';
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/1/orders/deliveries');
-    await card(page, 2).locator('button[aria-expanded]').click();
+    await showPlanned(page);
+    await card(page, 2).locator('button[aria-pressed]').click();
     const dock = run(page).getByTestId('courier-action-dock');
     await expect(dock).toContainText(locale === 'he' ? 'העצירה הנבחרת 02' : 'Arrêt sélectionné 02');
     await expect(dock).not.toContainText('Destination sélectionnée 2');
     await dock.getByRole('button', { name: locale === 'he' ? 'פתחו את העצירה' : 'Ouvrir cet arrêt' }).click();
-    await expect(dock).toContainText('Destination sélectionnée 2');
+    await expect(card(page, 2)).toContainText('Destination sélectionnée 2');
+    await expect(dock).not.toContainText('Destination sélectionnée 2');
     await dock.getByRole('button', { name: locale === 'he' ? 'סמן נמסר' : 'Marquer livrée', exact: true }).click();
     await expect.poll(() => state.routes[0].stops[1].status).toBe('delivered');
     expect(state.routes[0].stops[0].status).toBe('pending');
@@ -126,13 +134,14 @@ for (const locale of ['fr', 'he']) {
 test('the selected stop opens its only map pin and supplies the Waze destination', async ({ page }) => {
   const state = await install(page, { active: true, unopened: true }); useDemoRoute(state); await demoTiles(page);
   await page.goto('/1/orders/deliveries');
-  await card(page, 4).locator('button[aria-expanded]').click();
+  await showPlanned(page);
+  await card(page, 4).locator('button[aria-pressed]').click();
   await openStop(page);
   await run(page).getByTitle('4: Avenue des Oliviers 4', { exact: true }).click();
   const dock = run(page).getByTestId('courier-action-dock');
   await expect(dock).toContainText('Arrêt en cours 04');
   await expect(run(page).locator('.foody-courier-stop-pin')).toHaveCount(1);
-  await expect(dock).toContainText('Avenue des Oliviers 4');
+  await expect(card(page, 4)).toContainText('Avenue des Oliviers 4');
   await dock.getByRole('button', { name: 'Choisir une application de navigation' }).click();
   await page.getByRole('menuitem', { name: 'Waze' }).click();
   await expect.poll(() => state.externalNavigation.length).toBe(1);
@@ -154,7 +163,8 @@ test('the selected stop opens its only map pin and supplies the Waze destination
 test('selecting a finished stop disables completion without targeting a different order', async ({ page }) => {
   const state = await install(page, { active: true }); state.routes[0].stops[0].status = 'delivered';
   await page.goto('/1/orders/deliveries');
-  await card(page, 1).locator('button[aria-expanded]').click();
+  await showPlanned(page);
+  await card(page, 1).locator('button[aria-pressed]').click();
   const dock = run(page).getByTestId('courier-action-dock');
   await expect(dock).toContainText('Arrêt sélectionné 01');
   await expect(dock.getByRole('button', { name: 'Marquer livrée', exact: true })).toBeDisabled();
@@ -165,7 +175,8 @@ test('selecting a finished stop disables completion without targeting a differen
 test('an obsolete route response preserves the selected stop and does not complete another order', async ({ page }) => {
   const state = await install(page, { active: true, unopened: true }); state.failDelivered = true; state.failDeliveredStatus = 409;
   await page.goto('/1/orders/deliveries');
-  await card(page, 2).locator('button[aria-expanded]').click();
+  await showPlanned(page);
+  await card(page, 2).locator('button[aria-pressed]').click();
   await openStop(page);
   await run(page).getByTestId('courier-action-dock').getByRole('button', { name: 'Marquer livrée', exact: true }).click();
   await expect(run(page).getByText('Impossible de marquer cette commande comme livrée. Réessayez.')).toBeVisible();
@@ -189,11 +200,14 @@ for (const paymentMethod of ['cash', 'credit_card', 'verifone', undefined]) {
 test('courier sees order numbers and switches routes before departure without addresses or contacts', async ({ page }) => {
   const state = await install(page); await page.goto('/1/orders/deliveries');
   await page.getByRole('combobox', { name: 'Choisir une tournée' }).selectOption('2');
-  await expect(card(page, 3)).toBeVisible();
+  await expect(planned(page, 2)).toBeVisible();
   await page.getByRole('combobox', { name: 'Choisir une tournée' }).selectOption('1');
   await expect(page.getByRole('tab')).toHaveCount(0);
+  await expect(planned(page).getByText('Voir les arrêts prévus')).toBeVisible();
+  await expect(card(page)).toBeHidden();
+  await showPlanned(page);
+  await expect(card(page)).toBeVisible();
   await expect(card(page)).toContainText('#1001');
-  await expect(card(page)).toContainText('Adresse masquée');
   await expect(card(page).getByRole('link', { name: 'Appeler', exact: true })).toHaveCount(0);
   await expect(run(page).getByText('Yoram Kaniuk 1')).toHaveCount(0);
   await expect(run(page).locator('.foody-courier-stop-pin')).toHaveCount(0);
@@ -210,7 +224,7 @@ test('start then deliver directly without requiring the arrived action', async (
   const initialNavigationChecks = state.requests.filter(path => path === '/api/v1/delivery/routes/1/my-navigation-check').length;
   expect(initialNavigationChecks).toBeGreaterThan(0);
   await run(page).getByRole('button', { name: 'Démarrer la tournée', exact: true }).click();
-  await expect(card(page)).toContainText('Adresse masquée');
+  await expect(card(page)).toBeHidden();
   await openStop(page);
   await run(page).getByTestId('courier-action-dock').getByRole('button', { name: 'Marquer livrée', exact: true }).click();
   await expect.poll(() => state.routes[0].stops[0].status).toBe('delivered');
@@ -227,6 +241,7 @@ test('start then deliver directly without requiring the arrived action', async (
 
 test('delivery failure keeps the order pending and displays feedback', async ({ page }) => {
   const state = await install(page, { active: true, unopened: true }); state.failDelivered = true; await page.goto('/1/orders/deliveries');
+  await showPlanned(page);
   await card(page, 2).getByRole('button', { name: /Sélectionner l’arrêt/ }).click();
   await openStop(page);
   await run(page).getByTestId('courier-action-dock').getByRole('button', { name: 'Marquer livrée', exact: true }).click();
@@ -251,10 +266,13 @@ test('draft navigation reveals one address and survives reload until a stop resu
   ]);
 
   await page.reload();
-  await card(page, 2).locator('button[aria-expanded]').click();
+  await showPlanned(page);
+  await card(page, 2).locator('button[aria-pressed]').click();
   const dock = run(page).getByTestId('courier-action-dock');
   await expect(dock).toContainText('Arrêt en cours 01');
-  await expect(card(page, 2)).toContainText('Adresse masquée');
+  await expect(card(page, 2)).toContainText('#1002');
+  await expect(card(page, 1)).toContainText('Yoram Kaniuk 1');
+  await expect(run(page).getByText('Deuxième destination synthétique', { exact: true })).toHaveCount(0);
   await expect(dock.getByRole('button', { name: 'Ouvrir cet arrêt' })).toHaveCount(0);
   await dock.getByRole('button', { name: 'Signaler un problème' }).click();
   const report = page.getByRole('dialog', { name: 'Signaler un problème' });
@@ -269,7 +287,8 @@ test('draft navigation reveals one address and survives reload until a stop resu
   });
   await expect(card(page)).not.toContainText('Yoram Kaniuk 1');
   await openStop(page);
-  await expect(dock).toContainText('Deuxième destination synthétique');
+  await expect(card(page, 2)).toContainText('Deuxième destination synthétique');
+  await expect(run(page).getByText('Yoram Kaniuk 1', { exact: true })).toHaveCount(0);
   expect(state.errors).toEqual([]);
 });
 
@@ -379,7 +398,7 @@ test('mobile map, search and adjustable panel keep the departure actions visible
   await expect(run(page).getByText('Aucun arrêt correspondant')).toBeVisible();
   await run(page).getByRole('searchbox', { name: 'Rechercher un arrêt' }).fill('');
   await card(page, 7).getByRole('button', { name: /Sélectionner l’arrêt/ }).click();
-  await expect(card(page, 7).getByRole('button', { name: /Sélectionner l’arrêt/ })).toHaveAttribute('aria-expanded', 'true');
+  await expect(card(page, 7).getByRole('button', { name: /Sélectionner l’arrêt/ })).toHaveAttribute('aria-pressed', 'true');
   const grip = run(page).getByRole('slider', { name: 'Ajuster la hauteur de la liste' });
   await grip.focus(); await grip.press('End'); await expect(grip).toHaveAttribute('aria-valuenow', '86');
   await expect(dock.getByRole('button', { name: 'Démarrer la tournée', exact: true })).toBeInViewport();
@@ -466,15 +485,15 @@ for (const role of ['owner', 'superadmin'] as const) {
       const picker = page.getByRole('combobox', { name: label });
       await expect(picker).toHaveValue('91');
       await expect(picker.locator('option')).toHaveCount(2);
-      await expect(card(page, 1)).toBeVisible();
+      await expect(planned(page)).toBeVisible();
       await expect(card(page, 3)).toHaveCount(0);
       await expect(run(page).getByTestId('courier-action-dock')).toBeInViewport();
       await picker.selectOption('92');
-      await expect(card(page, 3)).toBeVisible();
+      await expect(planned(page, 2)).toBeVisible();
       await expect(card(page, 1)).toHaveCount(0);
       await expect(page.getByRole('combobox', { name: locale === 'he' ? 'בחירת מסלול' : locale === 'en' ? 'Select a route' : 'Choisir une tournée' })).toHaveValue('2');
       await picker.selectOption('91');
-      await expect(card(page, 1)).toBeVisible();
+      await expect(planned(page)).toBeVisible();
       const selections = state.courierRequests.filter(request => request.path.endsWith('/mine/all')).map(request => request.courierId);
       expect(selections.filter((id, index) => id !== selections[index - 1])).toEqual(['91', '92', '91']);
       expect(state.courierRequests.filter(request => request.path.includes('/delivery/routes/')).every(request => request.rid === '1' && request.courierId !== null)).toBe(true);
@@ -493,7 +512,7 @@ for (const role of ['owner', 'superadmin'] as const) {
     state.routes[1].courier_id = 92;
     await page.goto('/2/orders/courier-mode');
     await page.getByRole('combobox', { name: 'Voir comme livreur' }).selectOption('92');
-    await expect(card(page, 3)).toBeVisible();
+    await expect(planned(page, 2)).toBeVisible();
     await run(page, 2).getByRole('button', { name: 'Démarrer la tournée', exact: true }).click();
     await openStop(page, 2);
     await run(page, 2).getByTestId('courier-action-dock').getByRole('button', { name: 'Marquer livrée', exact: true }).click();
@@ -511,10 +530,10 @@ for (const role of ['owner', 'superadmin'] as const) {
     const state = await install(page, { role });
     state.routes[1].courier_id = 92;
     await page.goto('/1/orders/courier-mode');
-    await expect(card(page, 1)).toBeVisible();
+    await expect(planned(page)).toBeVisible();
     const picker = page.getByRole('combobox', { name: 'Voir comme livreur' });
     await picker.selectOption('92');
-    await expect(card(page, 3)).toBeVisible();
+    await expect(planned(page, 2)).toBeVisible();
     let release!: () => void;
     const pending = new Promise<void>((resolve) => { release = resolve; });
     let waiting = false;
@@ -531,11 +550,11 @@ for (const role of ['owner', 'superadmin'] as const) {
     await picker.selectOption('91');
     await expect.poll(() => waiting).toBe(true);
     await picker.selectOption('92');
-    await expect(card(page, 3)).toBeVisible();
+    await expect(planned(page, 2)).toBeVisible();
     release();
     await expect.poll(() => released).toBe(true);
     await expect(picker).toHaveValue('92');
-    await expect(card(page, 3)).toBeVisible();
+    await expect(planned(page, 2)).toBeVisible();
     await expect(card(page, 1)).toHaveCount(0);
     expect(state.errors).toEqual([]);
   });
@@ -561,7 +580,7 @@ for (const role of ['owner', 'superadmin'] as const) {
 test('manager courier mode keeps its own route without the owner selector', async ({ page }) => {
   const state = await install(page, { role: 'manager' });
   await page.goto('/1/orders/courier-mode');
-  await expect(card(page, 1)).toBeVisible();
+  await expect(planned(page)).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Voir comme livreur' })).toHaveCount(0);
   expect(state.courierRequests.filter(request => request.path.includes('/delivery/routes/')).every(request => request.courierId === null)).toBe(true);
   expect(state.requests).not.toContain('/api/v1/restaurants/1/staff');
@@ -575,7 +594,8 @@ test('an incomplete route hides old finish, distance and arrival estimates', asy
   await expect(run(page).getByText(/Fin estimée/)).toHaveCount(0);
   await expect(run(page).getByText('2 km', { exact: true })).toHaveCount(0);
   await expect(run(page).getByText(/Arrivée prévue/)).toHaveCount(0);
-  await expect(run(page).getByTestId('courier-action-dock').getByText('—', { exact: true })).toBeVisible();
+  await showPlanned(page);
+  await expect(planned(page).locator('time')).toHaveCount(0);
   expect(state.errors).toEqual([]);
 });
 
@@ -583,7 +603,7 @@ test('an incomplete route hides old finish, distance and arrival estimates', asy
 test('a global owner cannot select couriers in a restaurant managed by another owner', async ({ page }) => {
   const state = await install(page, { role: 'owner', roleName: 'Manager' });
   await page.goto('/1/orders/courier-mode');
-  await expect(card(page, 1)).toBeVisible();
+  await expect(planned(page)).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Voir comme livreur' })).toHaveCount(0);
   expect(state.requests).not.toContain('/api/v1/restaurants/1/staff');
   expect(state.courierRequests.filter(request => request.path.includes('/delivery/routes/')).every(request => request.courierId === null)).toBe(true);
@@ -596,15 +616,17 @@ for (const role of ['courier', 'owner', 'superadmin'] as const) {
       const state = await install(page, { role, locale });
       const before = JSON.stringify(state.routes);
       await page.goto('/1/orders/courier-mode');
-      await expect(card(page)).toBeVisible();
+      await expect(planned(page)).toBeVisible();
       for (const title of ['Ajuster', 'Options de la tournée', 'Options de l’arrêt', 'Corriger l’adresse', 'Réoptimiser', 'Refine', 'Route options', 'Stop options', 'Correct address', 'Reoptimize', 'התאמה', 'אפשרויות מסלול', 'אפשרויות עצירה']) {
         await expect(run(page).getByRole('button', { name: title, exact: true })).toHaveCount(0);
       }
       await expect(run(page).getByRole('spinbutton')).toHaveCount(0);
       await expect(run(page).getByRole('menuitem')).toHaveCount(0);
-      await run(page).locator('summary').click();
-      await expect(run(page).locator('details')).toHaveAttribute('open', '');
-      await card(page, 2).locator('button[aria-expanded]').click();
+      const totalDuration = run(page).locator('details:not([data-testid="courier-planned-stops"])');
+      await totalDuration.locator('summary').click();
+      await expect(totalDuration).toHaveAttribute('open', '');
+      await showPlanned(page);
+      await card(page, 2).locator('button[aria-pressed]').click();
       await expect(card(page, 2).getByRole('link', { name: locale === 'he' ? 'התקשר' : locale === 'fr' ? 'Appeler' : 'Call', exact: true })).toHaveCount(0);
       expect(JSON.stringify(state.routes)).toBe(before);
       expect(state.writes).toEqual([]);
@@ -619,7 +641,7 @@ test('refreshing a saved route warning does not recalculate or write the plan', 
   Object.assign(state.routes[0], { routing_warning: 'quota_exceeded', needs_recalculation: true });
   const before = JSON.stringify(state.routes);
   await page.goto('/1/orders/courier-mode');
-  await expect(card(page)).toBeVisible();
+  await expect(planned(page)).toBeVisible();
   const reads = state.requests.filter(path => path.endsWith('/mine/all')).length;
   await run(page).getByRole('button', { name: 'Réessayer', exact: true }).click();
   await expect.poll(() => state.requests.filter(path => path.endsWith('/mine/all')).length).toBeGreaterThan(reads);
