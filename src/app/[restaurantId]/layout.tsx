@@ -1,5 +1,8 @@
 'use client';
 
+import Link from 'next/link';
+import { allowsModulePath } from '@/lib/module-navigation';
+
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
@@ -121,6 +124,23 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!isLoggedIn || !restaurant) return null;
+
+  if (restaurant.module_access && !restaurant.module_access.modules.length) {
+    return <main className="min-h-dvh px-4 py-8 sm:px-8">
+      {pageSlug === 'billing' ? children : <div className="mx-auto max-w-lg space-y-4">
+        <h1 className="text-2xl font-semibold">{t('foodyModuleStatus_' + restaurant.module_access.status)}</h1>
+        <p>{t('foodyModulePaymentAccess')}</p>
+        <Link className="btn-primary" href={`/${restaurantId}/billing`}>{t('billing')}</Link>
+      </div>}
+    </main>;
+  }
+
+  if (!allowsModulePath(restaurant.module_access, pathname)) {
+    return <main className="mx-auto max-w-lg space-y-4 px-4 py-8">
+      <h1 className="text-xl font-semibold">{t('foodyModuleUnavailable')}</h1>
+      <Link className="btn-secondary" href={`/${restaurantId}/dashboard`}>{t('foodyModuleOpenWorkspace')}</Link>
+    </main>;
+  }
 
   if (isFullscreen) {
     return (
@@ -253,6 +273,7 @@ function RestaurantShell({
         <Sidebar
           restaurantId={restaurantId}
           restaurantName={restaurant.name}
+          moduleAccess={restaurant.module_access}
           isOpen={sidebarOpen}
           onClose={closeSidebar}
         />

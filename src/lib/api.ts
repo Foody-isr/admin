@@ -140,6 +140,7 @@ export interface OrdersTableConfig {
 }
 
 export interface Restaurant {
+  module_access?: FoodyModuleAccess;
   id: number;
   owner_id: number;
   name: string;
@@ -2854,7 +2855,7 @@ export interface ValidateInviteResponse {
   valid: boolean;
   // Discriminates the setup flow: 'owner_onboarding' (full wizard) vs 'staff_setup'
   // (password + profile only). Older servers may omit this.
-  kind?: 'owner_onboarding' | 'staff_setup';
+  kind?: 'owner_onboarding' | 'staff_setup' | 'modular_onboarding';
   // Computed from current restaurant permissions, including existing invites.
   pos_pin_required?: boolean;
   user: { email: string; full_name: string; phone: string };
@@ -3064,10 +3065,10 @@ export async function getPosDownloads(): Promise<POSDownloads> {
 // ─── Restaurant ───────────────────────────────────────────────────────────────
 
 export async function getRestaurant(id: number): Promise<Restaurant> {
-  const data = await apiFetch<{ restaurant: Restaurant }>(
+  const data = await apiFetch<{ restaurant: Restaurant; module_access?: FoodyModuleAccess }>(
     `/api/v1/restaurants/${id}`, id
   );
-  return data.restaurant;
+  return data.module_access ? { ...data.restaurant, module_access: data.module_access } : data.restaurant;
 }
 
 /** Loads public navigation eligibility without blocking protected admin flows. */
@@ -11581,8 +11582,31 @@ export type FoodyBillingOffer = {
   id: number; version: number; title: string; includes: string; terms: string; start_date: string;
   monthly: FoodyBillingPrice; annual: FoodyBillingPrice;
 };
+export type FoodyModule = 'restaurant' | 'ordering' | 'kitchen';
+export type FoodySeatLimits = { pos: number; chef: number; kds: number };
+export type FoodyModuleAccess = {
+  status: 'pending' | 'trial' | 'active' | 'expired';
+  modules: FoodyModule[];
+  seats: FoodySeatLimits;
+  trial_ends_at?: string;
+};
+export type FoodyBillingOnboarding = {
+  mode: 'public' | 'private';
+  trial_days: number;
+  trial_allowed: FoodyModule[];
+  selection: FoodyModule[];
+  licences: FoodySeatLimits;
+  access: FoodyModuleAccess;
+  catalog: {
+    version: string;
+    currency: 'ILS';
+    extra_pos_minor: number;
+    products: { id: FoodyModule; name: Record<'en' | 'he' | 'fr', string>; monthly_minor: number; included: FoodySeatLimits }[];
+  };
+};
 export type FoodyBillingView = {
-  offer: FoodyBillingOffer;
+  offer: FoodyBillingOffer | null;
+  onboarding?: FoodyBillingOnboarding;
   accepted_offer: FoodyBillingOffer | null;
   agreement: { offer_id: number; cycle: FoodyBillingCycle; period_end: string; renews: boolean; card_last_four?: string } | null;
   payment: { offer_id: number; cycle: FoodyBillingCycle; status: 'creating' | 'pending' | 'review' | 'paid' | 'failed'; amount_minor: number; reference: string } | null;
@@ -11604,6 +11628,11 @@ function foodyBillingPath(restaurantId: number) {
 /** Return the authenticated owner's private offer, if available. */
 export function getFoodyBilling(rid: number, signal?: AbortSignal): Promise<FoodyBillingView> {
   return apiFetch(foodyBillingPath(rid), rid, { cache: 'no-store', signal });
+}
+
+/** Confirms the public selection or starts the private trial for the signed-in owner. */
+export function selectFoodyOnboarding(rid: number, input: { modules?: FoodyModule[]; extra_pos_licences?: number }): Promise<FoodyBillingView> {
+  return apiFetch(foodyBillingPath(rid) + '/onboarding', rid, { method: 'POST', body: JSON.stringify(input) });
 }
 
 /** Authorize a specific offer version and ask for the hosted checkout URL. */

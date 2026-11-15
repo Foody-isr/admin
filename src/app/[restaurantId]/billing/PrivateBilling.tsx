@@ -5,6 +5,7 @@ import { ApiError, getFoodyBilling, getFoodyBillingUsage, reconcileFoodyBilling,
   stopFoodyBillingRenewal, type FoodyBillingCycle, type FoodyBillingUsage, type FoodyBillingView } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Badge, Button, ConfirmDialog, PageHead, Section } from '@/components/ds';
+import { ModuleAccessSummary, ModuleOnboarding } from './ModuleOnboarding';
 
 type Availability = FoodyBillingView | 'loading' | 'error' | 'legacy';
 
@@ -26,7 +27,7 @@ export function FoodyBillingEntry({ rid, children }: { rid: number; children: Re
         // Ignore and strip gateway query fields; the server verifies its own claim.
         if (!request.signal.aborted) window.history.replaceState(window.history.state, '', window.location.pathname);
       }
-      if (!request.signal.aborted) setView(data?.offer?.id ? data : 'error');
+      if (!request.signal.aborted) setView(data?.onboarding || data?.offer?.id ? data : 'error');
     }).catch((error) => {
       if (request.signal.aborted) return;
       setView(error instanceof ApiError && (error.status === 404 || error.status === 403) ? 'legacy' : 'error');
@@ -38,6 +39,9 @@ export function FoodyBillingEntry({ rid, children }: { rid: number; children: Re
   if (view === 'error') return <div role="alert" className="mx-auto max-w-[980px] space-y-3 py-8">
     <p>{t('billingLoadError')}</p><Button onClick={() => { setView('loading'); setReload((n) => n + 1); }}>{t('retry')}</Button>
   </div>;
+  if (view.onboarding && (!view.offer || view.onboarding.trial_days > 0 && view.onboarding.access.status === 'pending' && !view.payment)) {
+    return <ModuleOnboarding restaurantId={rid} view={view} onConfirmed={setView} />;
+  }
   return <PrivateBilling rid={rid} initial={view} returnUnverified={returnUnverified} />;
 }
 
@@ -72,6 +76,7 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
   const money = (minor: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'ILS' }).format(minor / 100);
   const date = (value: string) => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'Asia/Jerusalem' }).format(new Date(value));
   const { offer, agreement, payment } = view;
+  if (!offer) return <p role="alert">{t('billingLoadError')}</p>;
   const open = !!payment && openStatus.has(payment.status);
   const amended = !!agreement && agreement.offer_id !== offer.id;
   const auto = !!agreement?.renews && view.monthly_enabled && !amended;
@@ -80,6 +85,7 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
   const reset = () => { setCycle(null); setAccept(false); setRenew(false); };
 
   async function action(kind: 'pay' | 'resume' | 'verify' | 'stop') {
+    if (!offer) return;
     if (lock.current) return;
     if (kind === 'pay' && (!canPay || !cycle || !accept || (cycle === 'monthly' && (!renew || !view.monthly_enabled)))) return;
     if (kind === 'resume' && (!view.can_resume || !payment)) return;
@@ -119,15 +125,16 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
   }
 
   return <div className="mx-auto max-w-[980px] space-y-6">
-    <PageHead title={t('billing')} desc={t('foodyPilotIntro')} />
+    <PageHead title={t('billing')} desc={t(view.onboarding ? 'foodyModuleOnboarding' : 'foodyPilotIntro')} />
+    {view.onboarding && <ModuleAccessSummary restaurantId={rid} onboarding={view.onboarding} />}
     <Section title={t('foodyPilotOffer')}>
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2"><Badge tone="warning">{t('foodyPilotSandbox')}</Badge>
           <span className="text-sm text-[var(--fg-muted)]">{t('foodyPilotVersion').replace('{version}', String(offer.version))}</span></div>
         <h2 className="text-2xl font-semibold" dir="auto">{offer.title}</h2>
         <p className="text-sm text-[var(--fg-muted)]">{t('foodyPilotAvailable').replace('{date}', date(offer.start_date + 'T12:00:00Z'))}</p>
-        <div><h3 className="text-sm font-semibold">{t('foodyPilotIncludes')}</h3><p className="whitespace-pre-wrap break-words text-sm" dir="auto">{offer.includes}</p></div>
-        <div><h3 className="text-sm font-semibold">{t('foodyPilotTerms')}</h3><p className="whitespace-pre-wrap break-words text-sm" dir="auto">{offer.terms}</p></div>
+        {!view.onboarding && <div><h3 className="text-sm font-semibold">{t('foodyPilotIncludes')}</h3><p className="whitespace-pre-wrap break-words text-sm" dir="auto">{offer.includes}</p></div>}
+        <div><h3 className="text-sm font-semibold">{t('foodyPilotTerms')}</h3><p className="whitespace-pre-wrap break-words text-sm" dir="auto">{view.onboarding?.mode === 'public' ? t('foodyModulePublicTerms') : offer.terms}</p></div>
         {agreement && <div className="space-y-2 rounded-lg border border-[var(--line)] p-3 text-sm">
           <p>{t('foodyPilotPaidUntil').replace('{date}', date(agreement.period_end))} · {t(agreement.cycle === 'monthly' ? 'foodyPilotMonthly' : 'foodyPilotAnnual')}
             {agreement.card_last_four && <> · <bdi>•••• {agreement.card_last_four}</bdi></>}
@@ -156,7 +163,7 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
           <fieldset disabled={busy} className="space-y-3">
             <legend className="mb-2 font-semibold">{t('foodyPilotChoose')}</legend>
             <div className="grid gap-3 sm:grid-cols-2">
-              {(['monthly', 'annual'] as const).map((choice) => {
+              {(['monthly', 'annual'] as const).filter(choice => offer[choice].total_minor > 0).map((choice) => {
                 const rate = offer[choice];
                 return <label key={choice} className={'space-y-1 rounded-lg border p-3 ' + (cycle === choice ? 'border-[var(--fg)]' : 'border-[var(--line)]')}>
                   <span className="flex items-center gap-2 font-semibold">

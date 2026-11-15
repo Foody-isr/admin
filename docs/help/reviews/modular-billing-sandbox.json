@@ -1,0 +1,118 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/layout.tsx",
+      "sha256": "f524f7e36b90dbb7b17677ee3d5073e71ac43b5c7517ce241e3ac6deea8acd98",
+      "baseSha256": "f0342c209eb9f9c7b11a42c1cd1b4183b369473cd2e3bdbef78428d59ed3bf92",
+      "features": [
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The layout changes apply only when the API returns a sandbox module scope. Existing navigation, role enforcement and transaction viewing retain their procedures."
+    },
+    {
+      "path": "src/app/login/page.tsx",
+      "sha256": "7e719f15edfbd9382a77cd7333e1ede9b18f5a1da6ed86b75bbc337c0d4df520",
+      "baseSha256": "560ee5d9867d9918bebea636f587d5c020bc3ebff86b3d2e842e78718af43fb1",
+      "features": [
+        "account-access"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The optional billing invitation destination is bounded to the authenticated user's assigned restaurant IDs. Standard sign-in, passkey enrollment and all public recovery procedures retain their flow."
+    },
+    {
+      "path": "src/app/setup-account/page.tsx",
+      "sha256": "fecc27258802401e95e3e9cf19b65186848ce61665a656b1d932b71cae28339d",
+      "baseSha256": "9b9cb9f2c22803f3563983e114c757061fefd011ca87bc030fc7b752c211bcda",
+      "features": [
+        "account-access"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The shortened flow applies to the new modular sandbox invitation kind. Existing staff setup, password entry, owner setup and POS configuration retain their steps."
+    },
+    {
+      "path": "src/components/Sidebar.tsx",
+      "sha256": "0d68ea711069299ec1a595aeffe493b0b9740f311ba7547abbb4404b596827f4",
+      "baseSha256": "a9932b4fcc2efdb38d58cd1c465917c1d5235808ee1ff27efe8e9234860c5de5",
+      "features": [
+        "global-search",
+        "payments-transactions",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new visibility filter applies only for explicit modular sandbox scope. Existing role-based search, activity, loyalty and transaction paths retain their navigation."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "c90ad727d70b38353ee6db63b8a13eb7abbb21f73f866c941af034a80fc6dcd2",
+      "baseSha256": "a26fdee37183f6adec504d47e27b245879be4601bf0b98f295e6879fe9b4d3d1",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new fields and optional calls describe modular sandbox enrolment and its catalogue. Existing public application requests and role-specific payloads keep their contracts."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "104b27dbda229e67c14994337c9217041d40f888f371946865563acbb719b979",
+      "baseSha256": "8dc6bbecd0742c31c7780dbf4919d492ea17839fab9e0befbb17cb9295f7c79f",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-journey",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only new modular sandbox billing labels were added. Existing public feature text, translated control labels and recovery messages retain the same strings."
+    },
+    {
+      "path": "src/components/Sidebar.tsx",
+      "sha256": "0d68ea711069299ec1a595aeffe493b0b9740f311ba7547abbb4404b596827f4",
+      "baseSha256": "a9932b4fcc2efdb38d58cd1c465917c1d5235808ee1ff27efe8e9234860c5de5",
+      "features": [
+        "pos-payments"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Sidebar visibility now includes the sandbox trial or purchased modules for explicitly enrolled restaurants. Operating POS payment controls and their existing role policy are unchanged."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "c90ad727d70b38353ee6db63b8a13eb7abbb21f73f866c941af034a80fc6dcd2",
+      "baseSha256": "a26fdee37183f6adec504d47e27b245879be4601bf0b98f295e6879fe9b4d3d1",
+      "features": [
+        "pos-payments"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The added DTOs and calls are for the development software billing ledger and account setup. POS checkout endpoints, payloads and confirmation remain the same."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "104b27dbda229e67c14994337c9217041d40f888f371946865563acbb719b979",
+      "baseSha256": "8dc6bbecd0742c31c7780dbf4919d492ea17839fab9e0befbb17cb9295f7c79f",
+      "features": [
+        "website-order-design",
+        "pos-behavior"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new FR/HE/EN strings cover software module billing and invitation states. They do not relabel any existing order-page settings or POS controls."
+    }
+  ]
+}
