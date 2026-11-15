@@ -1,0 +1,10 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "a26fdee37183f6adec504d47e27b245879be4601bf0b98f295e6879fe9b4d3d1",
+      "disposition": "no-user-impact",
+      "reason": "Reading the preparation directly from the existing detail response restores the procedure described in the French, Hebrew and English Preparations guides. Authorized staff use the existing restaurant-scoped editor to update the preparation and retry a failed load."
+    }
+  ]
+}

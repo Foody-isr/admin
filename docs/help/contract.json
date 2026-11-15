@@ -6618,7 +6618,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "6723ed8d65d0f7a629a3d0aff3a5678e0d38b6ebd9e0338afcd028438e2aaaad",
+      "sha256": "a26fdee37183f6adec504d47e27b245879be4601bf0b98f295e6879fe9b4d3d1",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
