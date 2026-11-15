@@ -213,7 +213,11 @@ export function createFixture({ empty = false, denied = false, fail = false, per
     if(p==='/api/v1/stock/daily-reports/today') return {json:{report:{id:1,restaurant_id:1,report_date:date,status:'open',sales_source:'pos',total_theoretical_cost:0,total_actual_cost:0,total_sales_revenue:0,total_waste_value:0,total_variance_value:0,food_cost_percent:0,went_well:'',went_wrong:'',to_improve:'',closed_by_id:null,closed_at:null,created_by_id:1,created_at:now.toISOString(),updated_at:now.toISOString(),items:[],sales:[]}}};
     if(p==='/api/v1/stock/daily-reports/1/kitchen-summary') return {json:{summary:{stocks:[],preparations:preps.map((p,i)=>({prep_item_id:p.id,name:p.name,unit:p.unit,target_qty:[12,8,40][i],produced_qty:p.quantity,waste_qty:0,remaining_qty:p.quantity})),unmapped_sales:0}}};
     if(p==='/api/v1/stock/forecast') return {json:{forecast:{target_date:date,day_of_week:String(now.getDay()),top_items:[],weeks_analyzed:0,sample_days:0}}};
-    if(/^\/api\/v1\/prep\/items\/\d+$/.test(p))return {json:{item:preps.find(i=>i.id===Number(p.split('/')[5]))}};
+    const prepDetail = p.match(/^\/api\/v1\/prep\/items\/(\d+)$/);
+    if (prepDetail) {
+      const item = preps.find(prep => prep.id === Number(prepDetail[1]));
+      return item ? { json: item } : { status: 404, json: { error: 'prep item not found' } };
+    }
     if(/^\/api\/v1\/prep\/items\/\d+\/ingredients$/.test(p))return {json:{ingredients:prepRecipes[Number(p.split('/')[5])]??[]}};
     if(/^\/api\/v1\/prep\/items\/\d+\/steps$/.test(p))return {json:{steps:prepSteps[Number(p.split('/')[5])]??[]}};
     if(p==='/api/v1/prep/items') return {json:{items:preps}};
