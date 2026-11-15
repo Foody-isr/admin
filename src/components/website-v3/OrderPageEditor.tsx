@@ -4,6 +4,7 @@ import type { MenuItem } from "@/lib/api";
 import { BooleanInput, ChoiceRow } from "@/components/ds/Selection";
 import { ColorStylePicker, openSiteColors, type SiteColorEditTarget } from "./ColorStylePicker";
 import {
+  resolveOrderCategoryShape,
   selectOrderColorStyle,
   selectOrderLayout,
   compactItemPresentation,
@@ -396,12 +397,15 @@ export function OrderPageEditor({
         <h3>{t("editorContent")}</h3>
         {toggle("sticky_categories", "editorOrderStickyCategories")}
         <p>{t("editorOrderStickyCategoriesHint")}</p>
-        {select("category_shape", "editorOrderCategoryStyle", serviceFirst ? "underline" : value.card_style === "filled" ? "pill" : "plain", [
-          ["plain", "editorOrderCategoryStylePlain"],
-          ["underline", "editorOrderCategoryStyleUnderline"],
-          ["rounded", "editorShapeRound"],
-          ["pill", "editorOrderShapePill"],
-        ])}
+        <label className="sqe-field">
+          {t("editorOrderCategoryStyle")}
+          <select value={resolveOrderCategoryShape(value)} onChange={event => set("category_shape", event.target.value)}>
+            <option value="plain">{t("editorOrderCategoryStylePlain")}</option>
+            <option value="underline">{t("editorOrderCategoryStyleUnderline")}</option>
+            <option value="rounded">{t("editorShapeRound")}</option>
+            <option value="pill">{t("editorOrderShapePill")}</option>
+          </select>
+        </label>
         <p>{t("editorOrderCategoryStyleHint")}</p>
         <details>
           <summary>{t("editorCategoryMenu")}</summary>
@@ -409,7 +413,7 @@ export function OrderPageEditor({
           {typography("category", "categoryBar")}
           {spacing("category_gap", "editorCategoryGap", 20, 80)}
           {editMenuColors("categories")}
-          <p>{t("editorOrderCategoryColorsHint")}</p>
+          {value.color_preset !== "wolt" && <p>{t("editorOrderCategoryColorsHint")}</p>}
         </details>
         {toggle("show_search", "editorOrderSearch", !serviceFirst)}
         {toggle("show_availability_filter", "editorOrderAvailabilityFilter", !serviceFirst)}

@@ -14,6 +14,8 @@ import {
   type SiteMenuColorRole,
 } from "@/lib/website-v3/site-colors";
 import { siteColorUsage, type ColorUsagePart } from "@/lib/website-v3/site-color-usage";
+import { resolveOrderCategoryShape } from "@/lib/website-v3/order-design";
+import { pageKey } from "@/lib/website-v3/types";
 import type {
   DraftConfigPayload,
   DraftPagePayload,
@@ -95,7 +97,17 @@ export function SiteColorsEditor({
     resolveId(target?.styleId),
   );
   const style = colors.styles.find((s) => s.id === selectedId)!;
-  const menu = resolveSiteMenuColors(style);
+  const usage = siteColorUsage(config, pages, sections, { color_styles: colors }, style.id);
+  const currentUsage = usage.find(value => value.key === previewPageKey);
+  const orderPages = pages.filter(page => page.type === "order");
+  const menuUsage = usage.find(value => value.parts.includes("menu"));
+  const orderPage = orderPages.find(page => pageKey(page) === previewPageKey)
+    ?? orderPages.find(page => pageKey(page) === menuUsage?.key)
+    ?? orderPages.find(page => page.is_default)
+    ?? orderPages[0];
+  const categoryShape = resolveOrderCategoryShape(orderPage?.appearance_overrides.website_order);
+  const categoryHasFill = categoryShape === "pill" || categoryShape === "rounded";
+  const menu = resolveSiteMenuColors(style, categoryHasFill);
   const item = resolveSiteItemColors(style);
   const itemDetails = useRef<HTMLDetailsElement>(null);
   const [itemOpen, setItemOpen] = useState(Boolean(target?.itemDetail));
@@ -292,8 +304,14 @@ export function SiteColorsEditor({
       )}
     </div>
   );
-  const usage = siteColorUsage(config, pages, sections, {color_styles: colors}, style.id);
-  const currentUsage = usage.find(value => value.key === previewPageKey);
+  const menuColorLabel = (role: SiteMenuColorRole) => {
+    if (role === "active_text" && categoryShape === "underline") return t("editorMenuColor_active_underline");
+    if (categoryShape === "rounded") {
+      if (role === "pill_background") return t("editorMenuColor_rounded_background");
+      if (role === "active_background") return t("editorMenuColor_rounded_active_background");
+    }
+    return t(`editorMenuColor_${role}`);
+  };
   const partLabels: Record<ColorUsagePart, string> = {
     header: t("editorHeaderAndNavigation"), info: t("editorRestaurantInformationBar"),
     item: t("editorItemView"), menu: t("editorItemList"), sections: t("editorColorUsageSections"),
@@ -439,10 +457,11 @@ export function SiteColorsEditor({
             >
               {t(group.label)}
             </summary>
-            {group.roles.map((role) =>
-              field(
+            {group.roles
+              .filter(role => categoryHasFill || (role !== "pill_background" && role !== "active_background"))
+              .map(role => field(
                 `menu.${role}`,
-                t(`editorMenuColor_${role}`),
+                menuColorLabel(role),
                 menu[role],
                 (color) => setMenu(role, color),
                 {
@@ -450,8 +469,7 @@ export function SiteColorsEditor({
                   onReset: () => setMenu(role),
                   transparent: menuColorAllowsTransparency(role),
                 },
-              ),
-            )}
+              ))}
           </details>
         ))}
       </details>

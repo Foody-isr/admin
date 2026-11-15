@@ -200,8 +200,8 @@ export function normalizeSiteMenuColors(
   );
 }
 
-/** Inherits authored menu colors exactly, without contrast-based replacements. */
-export function resolveSiteMenuColors(style: SiteColorStyle): SiteMenuColors {
+/** Preserves authored colors and resolves automatic active text against the painted surface. */
+export function resolveSiteMenuColors(style: SiteColorStyle, categoryHasFill = true): SiteMenuColors {
   const menu = normalizeSiteMenuColors(style.menu);
   const background = menu.background ?? style.background;
   const bar = menu.bar_background ?? background;
@@ -222,7 +222,7 @@ export function resolveSiteMenuColors(style: SiteColorStyle): SiteMenuColors {
     active_background: active,
     active_text:
       menu.active_text ??
-      siteContrastInk(active === "transparent" ? bar : active),
+      siteContrastInk(categoryHasFill && active !== "transparent" ? active : bar),
     card_background: card,
     card_title: title,
     card_price: menu.card_price ?? title,

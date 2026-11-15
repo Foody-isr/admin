@@ -12,7 +12,7 @@ test("category shapes, selected colors and long headings fit desktop and mobile"
   seed.sections = [];
   seed.config.nav_layout = { header: normalizeWebsiteHeader({ layout: "left", scroll: "sticky", fulfillment: { enabled: false } }) };
   const colors = normalizeSiteColors({});
-  colors.styles[0].menu = { bar_background: "#38271a", category_text: "#fae4af", active_background: "#2d1b08", active_text: "#fae4af" };
+  colors.styles[0].menu = { bar_background: "#38271a", category_text: "#fae4af", pill_background: "#634723", active_background: "#2d1b08", active_text: "#fae4af" };
   seed.config.custom_palette = { mode: "light", bg: "#f9dfae", surface: "#f9dfae", ink: "#2d1b08", accent: "#2d1b08", color_styles: colors };
   seed.config.category_banner_style = "text-block";
   const order = seed.pages.find(item => item.type === "order")!;
@@ -32,8 +32,10 @@ test("category shapes, selected colors and long headings fit desktop and mobile"
         const navigation = page.locator(".website-order-navigation");
         await expect(navigation).toHaveAttribute("data-shape", shape);
         const active = navigation.locator('nav a[aria-current="location"]');
+        const filled = shape === "pill" || shape === "rounded";
         await expect(active).toHaveCSS("color", "rgb(250, 228, 175)");
-        await expect(active).toHaveCSS("background-color", ["pill", "rounded"].includes(shape) ? "rgb(45, 27, 8)" : "rgba(0, 0, 0, 0)");
+        await expect(active).toHaveCSS("background-color", filled ? "rgb(45, 27, 8)" : "rgba(0, 0, 0, 0)");
+        await expect(navigation.locator('nav a:not([aria-current="location"])').first()).toHaveCSS("background-color", filled ? "rgb(99, 71, 35)" : "rgba(0, 0, 0, 0)");
         await expect(active).toHaveCSS("border-radius", shape === "pill" ? "999px" : shape === "rounded" ? "8px" : "0px");
         expect(await active.evaluate(el => getComputedStyle(el, "::after").content)).toBe(shape === "underline" ? '""' : "none");
         await expect(page.getByRole("tab", { name: "BASSARI" })).toHaveCSS("border-radius", "0px");

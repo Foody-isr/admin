@@ -1,3 +1,11 @@
+/** Resolves explicit and legacy category styles the same way as the storefront. */
+export function resolveOrderCategoryShape(value: Record<string, unknown> = {}) {
+  const shape = value.category_shape;
+  if (shape === "plain" || shape === "underline" || shape === "rounded" || shape === "pill") return shape;
+  if (value.choose_before_menu === true) return "underline";
+  return value.card_style === "filled" ? "pill" : "plain";
+}
+
 /** Selecting a shared style gives the whole menu one color source and restores its background. */
 export function selectOrderColorStyle(
   value: Record<string, unknown>,
