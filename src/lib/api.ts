@@ -7388,9 +7388,9 @@ export async function listPrepItems(
   return data.items ?? [];
 }
 
+/** Fetch the preparation details for the given restaurant. */
 export async function getPrepItem(restaurantId: number, id: number): Promise<PrepItem> {
-  const data = await apiFetch<{ item: PrepItem }>(`/api/v1/prep/items/${id}?restaurant_id=${restaurantId}`, restaurantId);
-  return data.item;
+  return apiFetch<PrepItem>(`/api/v1/prep/items/${id}?restaurant_id=${restaurantId}`, restaurantId);
 }
 
 export async function createPrepItem(restaurantId: number, input: PrepItemInput): Promise<PrepItem> {

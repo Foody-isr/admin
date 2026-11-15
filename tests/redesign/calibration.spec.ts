@@ -1835,6 +1835,10 @@ test('supplier email failure retains the draft and does not repeat a confirmed d
 
 async function installPreparations(page:Page,options:Parameters<typeof install>[1]={}) {
   const fixture=await install(page,{stockLibrary:true,...options});
+  await page.route('**/api/v1/restaurants/1/foody-billing', route => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    return route.fulfill({ status: 404, json: { error: 'foody_billing_not_found' } });
+  });
   Object.assign(fixture.preps[0],{cost_per_unit:12.34,prep_time_mins:20,reorder_threshold:15,updated_at:new Date().toISOString()});
   const recipes:Record<number,any[]>={1:[{id:11,prep_item_id:1,stock_item_id:1,quantity_needed:2,recipe_quantity:2000,recipe_unit:'g',stock_item:fixture.stock[0]}]};
   const steps:Record<number,any[]>={1:[{id:21,prep_item_id:1,step_number:1,instruction:'Cuire les tomates\nRemuer doucement.',duration_mins:15,image_url:'/brand/favicon.svg'}]};
@@ -1863,8 +1867,12 @@ async function installPreparations(page:Page,options:Parameters<typeof install>[
         return route.fulfill({json:result});
       }
       if(method==='DELETE'){fixture.preps.splice(fixture.preps.indexOf(item),1);return route.fulfill({json:{}});}
-      if(method==='PUT'){const {quantity,...rest}=body;Object.assign(item,rest);if(quantity>0)item.quantity=quantity;return route.fulfill({json:item});}
-      return route.fulfill({json:{item}});
+      if (method === 'PUT') {
+        const { quantity, ...rest } = body;
+        Object.assign(item, rest);
+        if (quantity > 0) item.quantity = quantity;
+      }
+      return route.fulfill({ json: item });
     }
     if(path==='categories'){if(method==='POST'){const category={id:2,color:'',image_url:'',sort_order:0,...body};categories.push(category);return route.fulfill({json:{category}});}return route.fulfill({json:{categories}});}
     if(path.match(/^categories\/\d+$/)){const category=categories.find(value=>value.id===Number(path.split('/')[1]))!;const oldName=category.name;Object.assign(category,body);fixture.preps.forEach(item=>{if(item.category===oldName)item.category=category.name;});return route.fulfill({json:{category}});}
@@ -1875,9 +1883,32 @@ async function installPreparations(page:Page,options:Parameters<typeof install>[
   return {fixture,recipes,steps,writes};
 }
 
-for(const variant of [{locale:'fr',theme:'light',width:375,height:812},{locale:'he',theme:'dark',width:1440,height:1000}])test(`preparation workspace and editor ${variant.locale}`,async({page},info)=>{
-  const {fixture,writes}=await installPreparations(page,variant);await page.setViewportSize(variant);await page.goto('/1/kitchen/prep');await expect(page.getByRole('button',{name:'Sauce tomate',exact:true})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);await page.screenshot({path:info.outputPath(`prep-list-${variant.locale}.png`),fullPage:true,animations:'disabled'});await page.getByRole('button',{name:'Sauce tomate',exact:true}).click();const editor=page.getByRole('dialog');await expect(editor.getByRole('button',{name:variant.locale==='fr'?'Mettre à jour':'עדכן',exact:true})).toBeEnabled();await page.screenshot({path:info.outputPath(`prep-details-${variant.locale}.png`),fullPage:true,animations:'disabled'});await editor.getByRole('tab',{name:variant.locale==='fr'?'Recette':'מתכון',exact:true}).click();await expect(editor.getByLabel(variant.locale==='fr'?'Étape 1':'שלב 1',{exact:true})).toHaveValue('Cuire les tomates');await page.screenshot({path:info.outputPath(`prep-recipe-${variant.locale}.png`),fullPage:true,animations:'disabled'});expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);expect(writes).toEqual([]);expect(fixture.unhandled).toEqual([]);
-});
+for (const variant of [
+  { locale: 'fr', theme: 'light', width: 375, height: 812 },
+  { locale: 'he', theme: 'dark', width: 1440, height: 1000 },
+]) {
+  test(`preparation workspace and editor ${variant.locale}`, async ({ page }, info) => {
+    const { fixture, writes } = await installPreparations(page, variant);
+    const isFrench = variant.locale === 'fr';
+    await page.setViewportSize(variant);
+    await page.goto('/1/kitchen/prep');
+    const preparation = page.getByRole('button', { name: 'Sauce tomate', exact: true });
+    await expect(preparation).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+    await page.screenshot({ path: info.outputPath(`prep-list-${variant.locale}.png`), fullPage: true, animations: 'disabled' });
+    await preparation.click();
+    const editor = page.getByRole('dialog');
+    await expect(editor.getByRole('button', { name: isFrench ? 'Mettre à jour' : 'עדכן', exact: true })).toBeEnabled();
+    await page.screenshot({ path: info.outputPath(`prep-details-${variant.locale}.png`), fullPage: true, animations: 'disabled' });
+    await editor.getByRole('tab', { name: isFrench ? 'Recette' : 'מתכון', exact: true }).click();
+    await expect(editor.getByLabel(isFrench ? 'Étape 1' : 'שלב 1', { exact: true })).toHaveValue('Cuire les tomates');
+    await expect(editor.getByLabel(isFrench ? 'Temps de préparation' : 'זמן הכנה', { exact: true })).toHaveValue('20');
+    await page.screenshot({ path: info.outputPath(`prep-recipe-${variant.locale}.png`), fullPage: true, animations: 'disabled' });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+    expect(writes).toEqual([]);
+    expect(fixture.unhandled).toEqual([]);
+  });
+}
 
 test('preparation recipe load error cannot overwrite instructions with an empty recipe',async({page})=>{
   const {fixture,writes}=await installPreparations(page);let fail=true;await page.route('**/api/v1/prep/items/1/steps',route=>fail?route.fulfill({status:503,json:{error:'Instructions indisponibles'}}):route.fallback());await page.goto('/1/kitchen/prep?edit=1&source=cost');const editor=page.getByRole('dialog');await expect(editor.getByRole('alert')).toContainText('Instructions indisponibles');await expect(editor.getByRole('button',{name:'Mettre à jour',exact:true})).toBeDisabled();await expect(page).toHaveURL(/source=cost/);fail=false;await editor.getByRole('button',{name:'Réessayer',exact:true}).click();await editor.getByRole('tab',{name:'Recette',exact:true}).click();await expect(editor.getByLabel('Étape 1',{exact:true})).toHaveValue('Cuire les tomates');expect(writes).toEqual([]);expect(fixture.unhandled).toEqual([]);
