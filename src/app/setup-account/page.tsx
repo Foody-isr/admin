@@ -103,10 +103,11 @@ function SetupAccountContent() {
   // restaurant elsewhere, so the presence of `restaurant` is not reliable.
   // Fall back to the legacy heuristic for older servers that omit `kind`.
   const isStaff = !!inviteData && (inviteData.kind ? inviteData.kind === 'staff_setup' : !inviteData.restaurant);
+  const modularInvite = inviteData?.kind === 'modular_onboarding';
   const requiresPOSCode = isStaff && inviteData?.pos_pin_required !== false;
   const STEPS = isStaff
     ? [t('stepPassword'), t('stepYourInfo'), ...(requiresPOSCode ? [t('stepPOSCode')] : [])]
-    : [t('stepPassword'), t('stepYourInfo'), t('stepRestaurant'), t('stepPOS')];
+    : modularInvite ? [t('stepPassword'), t('stepYourInfo')] : [t('stepPassword'), t('stepYourInfo'), t('stepRestaurant'), t('stepPOS')];
 
   // Validate token on mount
   useEffect(() => {
@@ -197,13 +198,19 @@ function SetupAccountContent() {
         full_name: fullName || undefined,
         phone: phone || undefined,
         // Staff invites carry no restaurant/POS setup — only owners do.
-        restaurant_name: isStaff ? undefined : restaurantName || undefined,
-        restaurant_slug: isStaff ? undefined : restaurantSlug || undefined,
-        restaurant_address: isStaff ? undefined : restaurantAddress || undefined,
-        restaurant_phone: isStaff ? undefined : restaurantPhone || undefined,
-        pos_platform: isStaff ? undefined : posPlatform,
+        restaurant_name: isStaff || modularInvite ? undefined : restaurantName || undefined,
+        restaurant_slug: isStaff || modularInvite ? undefined : restaurantSlug || undefined,
+        restaurant_address: isStaff || modularInvite ? undefined : restaurantAddress || undefined,
+        restaurant_phone: isStaff || modularInvite ? undefined : restaurantPhone || undefined,
+        pos_platform: isStaff || modularInvite ? undefined : posPlatform,
         pos_pin: requiresPOSCode ? posPin : undefined,
       });
+
+      if (modularInvite) {
+        const rid = inviteData?.restaurant?.id;
+        window.location.replace(rid && result.restaurant_ids.includes(rid) ? `/${rid}/billing` : '/select-restaurant');
+        return;
+      }
 
       // Determine where to redirect when user clicks "Go to Dashboard"
       if (result.restaurant_ids.length === 1) {

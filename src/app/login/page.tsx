@@ -20,6 +20,12 @@ const featureKeys = [
   'loginFeatureReports',
 ] as const;
 
+function invitedBillingPath(restaurantIds: number[]) {
+  const requested = new URLSearchParams(window.location.search).get('billing');
+  const id = requested && /^[1-9]\d*$/.test(requested) ? Number(requested) : null;
+  return id && restaurantIds.includes(id) ? `/${id}/billing` : null;
+}
+
 /** Two-step sign-in with the existing password and WebAuthn session contracts. */
 export default function LoginPage() {
   const router = useRouter();
@@ -43,7 +49,10 @@ export default function LoginPage() {
       logout();
       return;
     }
-    if (restaurantIds.length === 1) {
+    const billingPath = invitedBillingPath(restaurantIds);
+    if (billingPath) {
+      router.replace(billingPath);
+    } else if (restaurantIds.length === 1) {
       router.replace(restaurantHomePath(restaurantIds[0], user?.role ?? ''));
     } else if (restaurantIds.length > 1) {
       router.replace('/select-restaurant');
@@ -58,7 +67,7 @@ export default function LoginPage() {
 
   const routeAfterLogin = (restaurantIds: number[], role: string) => {
     if (restaurantIds.length === 0) setError(t('noRestaurantAssigned'));
-    else router.push(restaurantIds.length === 1 ? restaurantHomePath(restaurantIds[0], role) : '/select-restaurant');
+    else router.push(invitedBillingPath(restaurantIds) ?? (restaurantIds.length === 1 ? restaurantHomePath(restaurantIds[0], role) : '/select-restaurant'));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {

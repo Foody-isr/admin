@@ -1,5 +1,8 @@
 'use client';
 
+import type { FoodyModuleAccess } from '@/lib/api';
+import { allowsModulePath } from '@/lib/module-navigation';
+
 import Link from 'next/link';
 import { loyaltyCheckoutEnabled } from '@/lib/loyalty-checkout';
 import SupportLauncher from './help/SupportLauncher';
@@ -79,12 +82,13 @@ interface NavItem {
 interface SidebarProps {
   restaurantId: number;
   restaurantName?: string;
+  moduleAccess?: FoodyModuleAccess;
   isOpen: boolean;
   onClose: () => void;
 }
 
 /** Restaurant navigation with permission-scoped destinations and account access. */
-export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ restaurantId, restaurantName, moduleAccess, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
   const userId = useAuth().user?.id;
@@ -112,7 +116,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     const request = new AbortController();
     getFoodyBilling(restaurantId, request.signal)
       .then((view) => {
-        if (!request.signal.aborted) setPrivateBillingAccess(view.offer?.id ? billingScope : null);
+        if (!request.signal.aborted) setPrivateBillingAccess(view.offer?.id || view.onboarding ? billingScope : null);
       })
       .catch(() => {
         // Offer availability comes from the scoped API. Hide the link when it cannot confirm access.
@@ -271,11 +275,13 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   // section from becoming a dead link.
   const nav = (permissionsLoading ? [] : isCourierRoleName(roleName) ? courierNav : allNav)
     .filter((item) => !item.perm || hasAnyPermission(...item.perm))
-    .map((item) =>
-      item.subItems
-        ? { ...item, subItems: item.subItems.filter((s) => !s.perm || hasAnyPermission(...s.perm)) }
-        : item,
-    )
+    .filter(item => allowsModulePath(moduleAccess, item.href))
+    .map(item => ({
+      ...item,
+      subItems: item.subItems?.filter(s => (!s.perm || hasAnyPermission(...s.perm)) && allowsModulePath(moduleAccess, s.href)),
+      subGroups: item.subGroups?.map(group => ({ ...group, items: group.items.filter(s => allowsModulePath(moduleAccess, s.href)) }))
+        .filter(group => group.items.length > 0),
+    }))
     .filter((item) => (!item.subItems || item.subItems.length > 0) && (!item.subGroups || item.subGroups.length > 0));
 
   function getSubHrefs(item: NavItem): string[] {
