@@ -1,0 +1,27 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "8dc6bbecd0742c31c7780dbf4919d492ea17839fab9e0befbb17cb9295f7c79f",
+      "baseSha256": "a9eddf2185683358e18353a87a9d265adad7947ce273a93159f1b7e8679b3bd2",
+      "features": [
+        "customers-loyalty-program",
+        "customers-profiles",
+        "delivery-dispatch",
+        "delivery-zones",
+        "google-account-setup",
+        "menu-menus-and-groups",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-internal-sumit-checkout",
+        "payments-transactions",
+        "stancer-cash-guarantee",
+        "website-journey",
+        "website-sections",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The only changed translation keys label the site editor’s order category navigation colors. Each translation key and procedure belonging to the listed workflows is unchanged."
+    }
+  ]
+}

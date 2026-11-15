@@ -1,40 +1,13 @@
-import { test, expect, type FrameLocator, type Page } from "@playwright/test";
+import { test, expect, type APIRequestContext, type FrameLocator, type Page } from "@playwright/test";
 import type { DraftStatePayload } from "../../src/lib/website-v3/types";
-import { normalizeSiteColors } from "../../src/lib/website-v3/site-colors";
+import { normalizeSiteColors, type SiteColorStyle } from "../../src/lib/website-v3/site-colors";
 import { normalizeWebsiteHeader } from "../../src/lib/website-v3/header";
 
 // FOODY_MENU_TABS=1 runs two synthetic cartes through the real Web renderer.
 test("menu tabs stay separate from group styling in preview and published desktop/mobile pages", async ({ page, context, request }) => {
   test.skip(process.env.FOODY_MENU_TABS !== "1", "Requires the isolated two-menu fixture");
   test.setTimeout(480_000);
-  await page.addInitScript(() => {
-    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
-    localStorage.setItem("foody_restaurant_user", JSON.stringify({ id: 1, full_name: "Demo", role: "manager", email: "demo@foody.test" }));
-    localStorage.setItem("foody_restaurant_ids", "[1]");
-    localStorage.setItem("foody-admin-locale", "fr");
-  });
-  await context.route("**/*", route => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
-  const seed: DraftStatePayload = (await (await request.get("http://127.0.0.1:18081/api/v1/restaurants/1/website-draft")).json()).state;
-  seed.sections = [];
-  const colors = normalizeSiteColors({});
-  colors.styles[0].menu = { bar_background: "#2c1b05", category_text: "#cccccc", active_text: "#ffffff" };
-  seed.config.custom_palette = { mode: "light", bg: "#ffffff", surface: "#eeeeee", ink: "#111111", accent: "#222222", color_styles: colors };
-  for (const item of seed.pages) item.is_homepage = item.type === "order";
-  seed.config.nav_layout = { header: normalizeWebsiteHeader({ layout: "left", scroll: "sticky", fulfillment: { enabled: false } }) };
-  const order = seed.pages.find(item => item.type === "order")!;
-  order.settings.menu_ids = [1, 2];
-  order.appearance_overrides = { foody_renderer_version: 1, website_order: {
-    card_style: "filled", layout: "grid", columns: 2, category_shape: "pill",
-    show_banner: false, show_fulfillment: false, prompt_on_entry: false,
-    show_availability_filter: true,
-  } };
-  expect((await request.put("http://127.0.0.1:18081/api/v1/restaurants/1/website-draft", { data: seed })).ok()).toBe(true);
-  await request.post("http://127.0.0.1:18081/api/v1/restaurants/1/website-publish");
-  // Compile the preview route before the editor starts its bounded iframe handshake.
-  expect((await request.get("http://localhost:3000/r/atelier-foody?preview=1", { timeout: 120_000 })).ok()).toBe(true);
-  await page.goto("/1/website-v3");
-  await expect(page.getByRole("button", { name: "Liste des articles", exact: true })).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Liste des articles", exact: true }).click();
+  await openTwoMenuEditor(page, request, { bar_background: "#2c1b05", category_text: "#cccccc", active_text: "#ffffff" });
   await expect(page.getByText("Les cartes ont leurs propres onglets soulignés.", { exact: false })).toBeVisible();
   const preview = page.frameLocator("iframe");
   await expect(preview.getByRole("tab", { name: "BASSARI" })).toBeVisible({ timeout: 90_000 });
@@ -122,6 +95,101 @@ test("menu tabs stay separate from group styling in preview and published deskto
     await storefront.screenshot({ path: `test-results/website-editor/menu-tabs-${width}-${language}.png` });
   }
 });
+
+test("category color controls follow the chosen shape and keep stored backgrounds", async ({ page, request }) => {
+  test.skip(process.env.FOODY_MENU_TABS !== "1", "Requires the isolated two-menu fixture");
+  test.setTimeout(240_000);
+  const menuColors = {
+    bar_background: "#2c1b05",
+    category_text: "#cccccc",
+    pill_background: "#543c24",
+    active_background: "#ffffcc",
+  };
+  await openTwoMenuEditor(page, request, menuColors);
+  const preview = page.frameLocator("iframe");
+  const navigation = preview.locator(".website-order-navigation");
+  const activeCategory = navigation.locator('nav a[aria-current="location"]');
+  const shape = page.getByRole("combobox", { name: "Style du menu des catégories", exact: true });
+  const listEditor = page.getByRole("button", { name: "Liste des articles", exact: true });
+  const done = page.getByRole("button", { name: "Terminé", exact: true });
+  const openCategoryColors = async () => {
+    const summary = page.locator("summary").filter({ hasText: /^Menu des catégories$/ });
+    await summary.click();
+    await page.getByRole("button", { name: "Modifier les couleurs de ce style", exact: true }).click();
+  };
+  const categoryColors = page.locator('[data-menu-color-group="categories"]');
+  const activeText = categoryColors.locator('[data-color-role="menu.active_text"]');
+  const backgrounds = categoryColors.locator('[data-color-role="menu.pill_background"], [data-color-role="menu.active_background"]');
+  await expect(navigation).toHaveAttribute("data-shape", "pill");
+  await expect(activeCategory).toHaveCSS("color", "rgb(17, 17, 17)");
+
+  for (const [style, backgroundLabel] of [
+    ["pill", "Fond de la pastille sélectionnée"],
+    ["rounded", "Fond de la catégorie sélectionnée"],
+    ["plain", null],
+  ] as const) {
+    await shape.selectOption(style);
+    await openCategoryColors();
+    await expect(activeText.getByRole("button", { name: "Texte de la catégorie sélectionnée", exact: true })).toBeVisible();
+    await expect(backgrounds).toHaveCount(backgroundLabel ? 2 : 0);
+    if (backgroundLabel) {
+      await expect(categoryColors.getByRole("button", { name: backgroundLabel, exact: true })).toHaveCSS("background-color", "rgb(255, 255, 204)");
+    }
+    await done.click();
+    await listEditor.click();
+  }
+  await shape.selectOption("underline");
+  await expect(activeCategory).toHaveCSS("color", "rgb(255, 255, 255)");
+  await openCategoryColors();
+  const underline = activeText.getByRole("button", { name: "Texte et soulignement de la catégorie sélectionnée", exact: true });
+  await expect(backgrounds).toHaveCount(0);
+  await expect(underline).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await expect(categoryColors.getByRole("button", { name: "Texte des cartes", exact: true })).toBeVisible();
+  await underline.click();
+  await activeText.locator("input").fill("#f5cc88");
+  await activeText.locator("input").press("Enter");
+  await expect(activeCategory).toHaveCSS("color", "rgb(245, 204, 136)");
+  await expect.poll(() => activeCategory.evaluate(link => getComputedStyle(link, "::after").backgroundColor)).toBe("rgb(245, 204, 136)");
+
+  await expect.poll(async () => {
+    const response = await request.get("http://127.0.0.1:18081/api/v1/restaurants/1/website-draft");
+    return (await response.json()).state.config.custom_palette.color_styles.styles[0].menu;
+  }).toEqual({ ...menuColors, active_text: "#f5cc88" });
+  await page.reload();
+  await expect(navigation).toHaveAttribute("data-shape", "underline");
+  await expect(activeCategory).toHaveCSS("color", "rgb(245, 204, 136)");
+});
+
+async function openTwoMenuEditor(page: Page, request: APIRequestContext, menuColors: SiteColorStyle["menu"]) {
+  await page.addInitScript(() => {
+    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_user", JSON.stringify({ id: 1, full_name: "Demo", role: "manager", email: "demo@foody.test" }));
+    localStorage.setItem("foody_restaurant_ids", "[1]");
+    localStorage.setItem("foody-admin-locale", "fr");
+  });
+  await page.context().route("**/*", route => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
+  const seed: DraftStatePayload = (await (await request.get("http://127.0.0.1:18081/api/v1/restaurants/1/website-draft")).json()).state;
+  seed.sections = [];
+  const colors = normalizeSiteColors({});
+  colors.styles[0].menu = menuColors;
+  seed.config.custom_palette = { mode: "light", bg: "#ffffff", surface: "#eeeeee", ink: "#111111", accent: "#222222", color_styles: colors };
+  for (const item of seed.pages) item.is_homepage = item.type === "order";
+  seed.config.nav_layout = { header: normalizeWebsiteHeader({ layout: "left", scroll: "sticky", fulfillment: { enabled: false } }) };
+  const order = seed.pages.find(item => item.type === "order")!;
+  order.settings.menu_ids = [1, 2];
+  order.appearance_overrides = { foody_renderer_version: 1, website_order: {
+    card_style: "filled", layout: "grid", columns: 2, category_shape: "pill",
+    show_banner: false, show_fulfillment: false, prompt_on_entry: false,
+    show_availability_filter: true,
+  } };
+  expect((await request.put("http://127.0.0.1:18081/api/v1/restaurants/1/website-draft", { data: seed })).ok()).toBe(true);
+  await request.post("http://127.0.0.1:18081/api/v1/restaurants/1/website-publish");
+  // Compile the preview route before the editor starts its bounded iframe handshake.
+  expect((await request.get("http://localhost:3000/r/atelier-foody?preview=1", { timeout: 120_000 })).ok()).toBe(true);
+  await page.goto("/1/website-v3");
+  await expect(page.getByRole("button", { name: "Liste des articles", exact: true })).toBeVisible({ timeout: 60_000 });
+  await page.getByRole("button", { name: "Liste des articles", exact: true }).click();
+}
 
 async function assertMenuLevels(view: FrameLocator | Page, hebrew = false) {
   const tabs = view.getByRole("tablist");

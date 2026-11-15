@@ -479,10 +479,33 @@ test("information layout choices stay visible with either ordering permission st
 });
 
 
-test("site colors expose separate menu and category text fields", () => {
-  const markup = render(<SiteColorsEditor palette={{}} target={{styleId: "style-1", menuGroup: "categories"}} onChange={() => undefined} />);
-  assert.match(markup, /data-color-role="menu.menu_text"/);
-  assert.match(markup, /aria-label="Menu text"/);
-  assert.match(markup, /data-color-role="menu.category_text"/);
-  assert.match(markup, /aria-label="Category text"/);
+test("site colors follow the previewed category style and retain independent menu and category text fields", () => {
+  const cases = [
+    [{ card_style: "filled" }, "Selected category text", "Selected pill background"],
+    [{ choose_before_menu: true, card_style: "filled" }, "Selected category text and underline", null],
+    [{ category_shape: "underline" }, "Selected category text and underline", null],
+    [{ category_shape: "plain", card_style: "filled" }, "Selected category text", null],
+    [{ category_shape: "rounded" }, "Selected category text", "Selected category background"],
+    [{ category_shape: "pill" }, "Selected category text", "Selected pill background"],
+  ] as const;
+  const basePage = {
+    id: 1, type: "order", slug: "order", title: "Order", sort_order: 0,
+    nav_visible: true, is_homepage: true, is_default: true, seo: {},
+    settings: { menu_ids: [1] },
+    appearance_overrides: { website_order: { category_shape: "pill" } },
+  } satisfies DraftPagePayload;
+  for (const [design, activeLabel, backgroundLabel] of cases) {
+    const pages: DraftPagePayload[] = [
+      basePage,
+      { ...basePage, id: 2, is_default: false, is_homepage: false, appearance_overrides: { website_order: design } },
+    ];
+    const markup = render(<SiteColorsEditor palette={{}} pages={pages} previewPageKey="2"
+      target={{ styleId: "style-1", menuGroup: "categories" }} onChange={() => assert.fail("opening colors must not save")} />);
+    assert.match(markup, /aria-label="Menu text"/);
+    assert.match(markup, /aria-label="Category text"/);
+    assert.ok(markup.includes(`aria-label="${activeLabel}"`));
+    assert.equal(markup.includes('data-color-role="menu.pill_background"'), Boolean(backgroundLabel));
+    assert.equal(markup.includes('data-color-role="menu.active_background"'), Boolean(backgroundLabel));
+    if (backgroundLabel) assert.ok(markup.includes(`aria-label="${backgroundLabel}"`));
+  }
 });
