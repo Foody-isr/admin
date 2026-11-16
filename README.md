@@ -1840,3 +1840,23 @@ Pricing reads the same environment; Admin reviews purchased rights and paid
 additions. Employee accounts and physical POS devices use separate quotas.
 Accepted contracts and invitations retain their version. See the synchronized
 FR/HE/EN billing, staff and catalogue help for the sandbox test procedures.
+
+## Reviewed commercial grid — 16 November 2026
+
+The software catalogue uses three independent modules: Restaurant 590 ILS/month
+with 2 active POS devices, Orders 590 standalone, and Kitchen 890 with 1 chef and
+1 KDS. Restaurant + Orders is 990 with 2 devices; recommended Foody Integral is
+1,790 with 3 devices, 1 chef and 1 KDS. Additional active POS devices cost 149.
+All prices exclude VAT and are per site. Personal POS accounts are not charged
+per employee on these offers; historical named-user grants keep their rules.
+Restaurant includes the table-QR web interface; remote ordering remains Orders.
+Hardware, setup, payment services and options are separate.
+
+The API owns the versioned catalogue. Its reviewed seed is
+`foodyserver/internal/entitlements/offer-grid.json`; Landing keeps the identical
+marketing grid. In development, **Load reviewed software offers** prepares the
+Backoffice draft without publishing it or overwriting equipment/payment prices.
+Automatic bundles apply only to new exact-module selections and never remove
+features or capacity. Saved quotations, invitations, trials, negotiated prices
+and accepted grants retain their snapshots. Production activation requires the
+normal coordinated API/client release and catalogue review.

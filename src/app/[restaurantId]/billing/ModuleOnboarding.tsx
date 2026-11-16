@@ -84,7 +84,7 @@ export function ModuleOnboarding({ restaurantId, view, onConfirmed }: {
         </label>}
         {isPublic && editable && selectedModules.length > 0 && <LicenceInputs catalog={catalog} limits={preview.seats} capabilities={preview.capabilities} values={extras} onChange={setExtras} disabled={busy} />}
         {isPublic && <p className="text-sm font-semibold">
-          {t('foodyModuleTotal')} <bdi>{money(amount)}</bdi> {t('foodyModuleMonthlyHT')}
+          {preview.planName && <span className="block mb-1">{preview.planName[locale]}</span>}{t('foodyModuleTotal')} <bdi>{money(amount)}</bdi> {t('foodyModuleMonthlyHT')}
         </p>}
         {error && <p role="alert" className="text-sm text-[var(--danger-500)]">{t('foodyModuleSelectionError')}</p>}
         <Button type="submit" disabled={busy || isPublic && (!selectedModules.length || !validExtra)}>
@@ -107,8 +107,8 @@ export function ModuleAccessSummary({ restaurantId, onboarding }: { restaurantId
     {access.plan_name && <p className="font-semibold">{access.plan_name[locale]}</p>}
     <p>{t('foodyModuleSubscriptionIncludes')} {selected.map(product => product.name[locale]).join(', ')}</p>
     {access.status === 'trial' && <p>{t('foodyModuleTrialIncludes')} {enabled.map(product => product.name[locale]).join(', ')}</p>}
-    {(onboarding.licences.pos > 0 || onboarding.licences.chef > 0) && <p className="text-[var(--fg-muted)]">
-      {t('foodyModuleLicences').replace('{pos}', String(onboarding.licences.pos)).replace('{chef}', String(onboarding.licences.chef)).replace('{kds}', String(onboarding.licences.kds))}
+    {(onboarding.licences.pos > 0 || onboarding.licences.chef > 0 || (onboarding.licences.pos_devices ?? 0) > 0) && <p className="text-[var(--fg-muted)]">
+      {t(onboarding.licences.pos_users_unlimited ? 'foodyDeviceLicences' : 'foodyModuleLicences').replace('{pos}', String(onboarding.licences.pos_users_unlimited ? onboarding.licences.pos_devices ?? 0 : onboarding.licences.pos)).replace('{chef}', String(onboarding.licences.chef)).replace('{kds}', String(onboarding.licences.kds))}
     </p>}
     {(access.status === 'trial' || access.status === 'active') && (
       <a className="inline-flex min-h-11 items-center rounded-md font-semibold underline underline-offset-4" href={`/${restaurantId}/dashboard`}>

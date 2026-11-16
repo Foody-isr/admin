@@ -15,6 +15,7 @@ export function LicenceInputs({ catalog, limits, capabilities, values, onChange,
 }) {
   const { t, locale } = useI18n();
   return <div className="space-y-3">{extras.map(([key, rateID]) => {
+    if (key === 'pos' && limits.pos_users_unlimited) return null;
     const tariff = catalog.tariffs?.find(row => row.id === rateID);
     const rate = tariff ? tariff.amount_minor : (key === 'pos' ? catalog.extra_pos_minor : null);
     if ((key === 'pos' || key === 'pos_devices') && !['pos', 'cash_management', 'payment_terminals'].some(feature => capabilities.includes(feature))) return null;

@@ -42,7 +42,7 @@ export function LicenceCapacity({ rid, refreshKey }: { rid: number; refreshKey?:
   if (!state) return null;
   return <section aria-label={t('foodyLicenceTitle')} className="space-y-3 rounded-lg border border-[var(--line)] p-4">
     <div className="flex flex-wrap justify-between gap-2"><h2 className="text-sm font-semibold">{t('foodyLicenceTitle')}</h2>{isOwner && <Link className="text-sm font-semibold underline" href={`/${rid}/billing#add-licences`}>{t('foodyUpgradeAdd')}</Link>}</div>
-    <dl className="grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">{(Object.keys(state.used) as (keyof FoodyLicenceUsage)[]).map(key => <div key={key}><dt className="text-[var(--fg-muted)]">{t('foodyLicence_' + key)}</dt><dd className="font-medium">{state.limits[key] == null ? `${state.used[key]} · ${t('foodyLicenceUnlimited')}` : t('foodyLicenceUsed').replace('{used}', String(state.used[key])).replace('{limit}', String(state.limits[key]))}</dd></div>)}</dl>
+    <dl className="grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">{(Object.keys(state.used) as (keyof FoodyLicenceUsage)[]).map(key => <div key={key}><dt className="text-[var(--fg-muted)]">{t('foodyLicence_' + key)}</dt><dd className="font-medium">{(key === 'pos' && state.limits.pos_users_unlimited) || state.limits[key] == null ? `${state.used[key]} · ${t('foodyLicenceUnlimited')}` : t('foodyLicenceUsed').replace('{used}', String(state.used[key])).replace('{limit}', String(state.limits[key]))}</dd></div>)}</dl>
     <p className="text-xs text-[var(--fg-muted)]">{t('foodyLicenceHint')}</p>
   </section>;
 }

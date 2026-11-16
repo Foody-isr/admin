@@ -1,0 +1,49 @@
+{
+  "reason": "Scoped review of shared files for the software offer alignment; changed commercial procedures are updated in FR/HE/EN.",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "a1637097f2e60096e4669394b726ed6bb5a0bb0a5f5504afd7ed454009dc2624",
+      "baseSha256": "8a642d1a9d52d4a5d709c8bb037af1d76ee8404750d9e66b687881dff339be5b",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff only adds optional device-based POS and automatic/recommended plan fields to commercial response types and, in Backoffice, a read-only reviewed-catalogue getter behind the existing superadmin sandbox guard. No other API path, request body, authentication, payment or customer workflow changes. Commercial procedures are updated separately in all three languages."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "0057f10b49f6c465cac58aa0f7e7de3efa17d47284aaf2697149a3045aeaa551",
+      "baseSha256": "a810713d1aecf05b78be1e15d37c21ef60d9423ef1c674a4e8b8984e8d16164d",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff only changes billing labels from named employees to active POS devices and adds a device/chef/KDS summary in French, Hebrew and English. All other translations, operational actions, errors and permissions are unchanged. Billing and staff licence procedures have corresponding three-language updates."
+    }
+  ]
+}
