@@ -11593,7 +11593,7 @@ export type FoodyBillingOffer = {
   monthly: FoodyBillingPrice; annual: FoodyBillingPrice;
 };
 export type FoodyModule = 'restaurant' | 'ordering' | 'kitchen';
-export type FoodySeatLimits = { pos: number; chef: number; kds: number; employees?: number | null; pos_devices?: number | null };
+export type FoodySeatLimits = { pos_users_unlimited?: boolean; pos: number; chef: number; kds: number; employees?: number | null; pos_devices?: number | null };
 export type FoodyModuleAccess = {
   plan_id?: string;
   plan_name?: Record<'en' | 'fr' | 'he', string>;
@@ -11673,7 +11673,7 @@ export type FoodyCommercialCatalog = {
  capabilities?: {key:string;category:string}[];
  version: string; currency: 'ILS'; revision: number; minimum_trial_days: number; extra_pos_minor: number;
  products: {id: FoodyModule;name:Record<'en'|'fr'|'he',string>;monthly_minor:number;included:FoodySeatLimits;capabilities?:string[]}[];
- plans?: {id:string;name:Record<'en'|'fr'|'he',string>;modules:FoodyModule[];monthly_minor:number;included:FoodySeatLimits;capabilities?:string[];published:boolean}[];
+ plans?: {id:string;name:Record<'en'|'fr'|'he',string>;modules:FoodyModule[];monthly_minor:number;included:FoodySeatLimits;capabilities?:string[];published:boolean;automatic?:boolean;recommended?:boolean}[];
  tariffs?: {id:string;name:Record<'en'|'fr'|'he',string>;amount_minor:number|null;unit:string}[];
 };
 /** Loads the current public catalogue for a possible addition, without changing the accepted offer. */

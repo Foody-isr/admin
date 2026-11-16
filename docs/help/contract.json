@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "adfb160739a74f3fdbdc3fbac1682b540ee6f00f",
-  "documentationRevision": "76bfdbe93a13615c1a1a8dec2411d108bcff45ca58a029a1fdab2f5af6922f37",
+  "documentationRef": "c3c28d03dbb411d6c59c7addcb6c9c10e38f8cf9",
+  "documentationRevision": "26098240f904953fa61f7c671f9e081c77820d4b23800e8a87ed2df374843bde",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -50,15 +50,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/staff/invite-staff.mdx",
-          "sha256": "a80ee13c55774cb85ba839594e402a5f1ad51f6a36e480f995f9d977f5046b74"
+          "sha256": "31ce6533b1681b1304762edeaec29baa4fe7648618de3f381e665b0c87bd4cf6"
         },
         "fr": {
           "path": "src/content/help/fr/staff/invite-staff.mdx",
-          "sha256": "23357a2983e90c1812fade830be7502dcfd2c6829f93a7bd7169ef84ccc7a235"
+          "sha256": "ec64417ab37a4fd30f8ab2e6c8bb24f276af6ef36dccdb88db34c6917bc28ae0"
         },
         "he": {
           "path": "src/content/help/he/staff/invite-staff.mdx",
-          "sha256": "54e84368d91291e7f2f3701fb026caf6233a546927a405303ae769a216f15bb7"
+          "sha256": "7aec78253a357a2fbfd689aa6098054c239919bc753064843c947973a40e38e6"
         }
       }
     },
@@ -69,15 +69,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/staff/roles-and-permissions.mdx",
-          "sha256": "b34bd1372b98f580358da75551feefd806638e833aec7c233827d1aea5449936"
+          "sha256": "a22c9e7029abbfb37abc6b97998681aae564106d372013d6df12b2bf144a3105"
         },
         "fr": {
           "path": "src/content/help/fr/staff/roles-and-permissions.mdx",
-          "sha256": "2242b778a324004f55eeb32c1e209554bace7ef04c24b7a1690402251d69583b"
+          "sha256": "d538e6ec7a4006b1d617a0d537cdd1261f6cbb3a147b0b21d0600439ddfb72f8"
         },
         "he": {
           "path": "src/content/help/he/staff/roles-and-permissions.mdx",
-          "sha256": "073f9eacb2e2721ce7651b108aa89765eb2b60589ff4971d5e1f1d532a0d2c91"
+          "sha256": "599884eb6ec8b3aede18cc753c0cdc31e767a18657a9ee285ec43340941a2f68"
         }
       }
     },
@@ -145,15 +145,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/account/subscription.mdx",
-          "sha256": "31f054037f7948a05db7c69fceabf8b01b874619de1298883b2ec81e2f8600b4"
+          "sha256": "76858b5173037b8c6b61e65afeec14da1918e02ef01375f590489d6b0c306d6b"
         },
         "fr": {
           "path": "src/content/help/fr/account/subscription.mdx",
-          "sha256": "a38c625cc3afe6ec728dbe09677c2307465854a9e15e1e254a25ded006cad94a"
+          "sha256": "ab0dd6e44ebaf394a555b2a1697bf7c2ee87e565d5310edf53c18b972ad3e47d"
         },
         "he": {
           "path": "src/content/help/he/account/subscription.mdx",
-          "sha256": "1b59afb3d55040f4059b9cc5e9faacdb3b99235780615fe162fd8cdbe2bc4d50"
+          "sha256": "94e35dabe68ac6d0478789c49f6945d4933e3cbe353e8ff9ec6c612cef7365bc"
         }
       }
     },
@@ -164,15 +164,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/foody-billing-sandbox.md",
-          "sha256": "31c7945f40969cd433f4036cdfd71e1ab323da63ed613a1551d8b8abb2ba1fe9"
+          "sha256": "2a0c0d7c7fe615011cc34ba1c4ddaa05eaa31c05d78e68a3cbbe7218c0ce6040"
         },
         "fr": {
           "path": "docs/help/internal/fr/foody-billing-sandbox.md",
-          "sha256": "7e2b527674256e4eab7a95fddd58be41026237b3e8de457c3012e1c0dc9215e8"
+          "sha256": "1058c7878ccc05f74aadb7e073bf2614aa56f97d085304c1223fc4dc0b65f764"
         },
         "he": {
           "path": "docs/help/internal/he/foody-billing-sandbox.md",
-          "sha256": "ea160c51040e1d1980d9c47727bc464f54259fccff2c54a9d599574789edb3bc"
+          "sha256": "e3531a6fca37e871d24ee1f05043aa82bd24bbf513f6510bca9366e221dbca39"
         }
       }
     },
@@ -1228,15 +1228,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/split-bills.mdx",
-          "sha256": "cd5f17e6db77c30acc2ae5c04776bc85bd111954f5adfe42e904cc9c0127779a"
+          "sha256": "29c123a4102de807c93a8f06170a12105f445aae2fee608c9fefae01b69d5ff6"
         },
         "fr": {
           "path": "src/content/help/fr/orders/split-bills.mdx",
-          "sha256": "1b9727d9f96557852e3a336dcd04e7ae0965cdae05dc5d1e910857329941f532"
+          "sha256": "fe1dd33526aa51c4722277fccc2b45e95a8c152763ba4cc344710b7081fedf9a"
         },
         "he": {
           "path": "src/content/help/he/orders/split-bills.mdx",
-          "sha256": "c4411db2c1e5ce66d3e12c51c3b612251af3689dfa9f5409fabaad01937623fd"
+          "sha256": "4a6cf40dfed4c56b910579fef834f724d7fefa8d43c50672079f42f495e856f7"
         }
       }
     },
@@ -1684,15 +1684,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/offers-and-contact.mdx",
-          "sha256": "1eca55f651e593547260f99738b54fc98aa23eafa4d87c2e553d1bebe6d6ec28"
+          "sha256": "937e9d2e9165b35a735b3fd3fae9610fd4d29043ce3c2cc599c6d52920b4d227"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/offers-and-contact.mdx",
-          "sha256": "4aa055a433369e6e974fab0b87b1fb48358b4a2b5f087abc9b87513aa955590f"
+          "sha256": "d11a78ded5f35730a2e66169768209f19698830c435beb5d20e1d8af886821a7"
         },
         "he": {
           "path": "src/content/help/he/getting-started/offers-and-contact.mdx",
-          "sha256": "131be57de4a6d540b617591d8628af8ef2dba649a37cf70dc8c74471e6ef2f40"
+          "sha256": "b53d5b71cac7b4b95dcc4635120ebde0777e24a035a9fbf0eda600e5a9eb5908"
         }
       }
     },
@@ -1741,15 +1741,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/features-and-payments.md",
-          "sha256": "992ed13cdf3ed1d806d726d0a6bcbacf120641962c3367620fde870d5442f208"
+          "sha256": "24f361be381df0bbff904a1e697c2358679a2704813f764f1dd58a33802b13ce"
         },
         "fr": {
           "path": "docs/help/internal/fr/features-and-payments.md",
-          "sha256": "6d34d5ed5f44c2db16ca0ebbe4283c7cce5d664e5677163f7d8e501aa947a808"
+          "sha256": "9152e400b475be1966ad3104192814892e8da6bbd85839312219f047526ebe04"
         },
         "he": {
           "path": "docs/help/internal/he/features-and-payments.md",
-          "sha256": "32182b6a60932380d001f168e6f2d266c982df653342db2ab7dd95b411525e62"
+          "sha256": "f4a70343c43906398beac295287d4bf85bb8dc556b1d2ee749adb61a0db20a63"
         }
       }
     },
@@ -2159,15 +2159,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/commercial-documents.md",
-          "sha256": "c010e4ef41cd95899fe7d0522e1c8290f1b5e76d1e5a06c988ec47d8d81f1360"
+          "sha256": "214667442882de47d5d8b038e3cd6e95875f81ae652433db99f8310894fce961"
         },
         "fr": {
           "path": "docs/help/internal/fr/commercial-documents.md",
-          "sha256": "8cb852b483376da2c75f9cd2589bfe29e8c546abf083e1a8cb49ed3a376c227b"
+          "sha256": "3cec9a8456b3cf4a42f02f714bc68b2955d3d43a8b40af1c952ed3df323dddad"
         },
         "he": {
           "path": "docs/help/internal/he/commercial-documents.md",
-          "sha256": "56940a424f076d08518a8ff1821fbf470793f459dd95ba92b9f7c7de1505f85e"
+          "sha256": "0b3d59e6cfc3a9b28eb6485ea4fbd1a40194d8e592b7d73780db23abdf0281fd"
         }
       }
     }
@@ -2228,7 +2228,7 @@
       ]
     },
     "src/app/[restaurantId]/billing/ModuleOnboarding.tsx": {
-      "sha256": "4971f1c050fabb5b39c9a588580afd10725d6f959c476edf3469fc9d8d2b624d",
+      "sha256": "0eebcbf25e32e8a2a80ed410f37c46442752d742f8c69f17b669d697307ac884",
       "features": [
         "foody-billing-sandbox"
       ]
@@ -2240,7 +2240,7 @@
       ]
     },
     "src/app/[restaurantId]/billing/SubscriptionAdditions.tsx": {
-      "sha256": "c6be586308941d2cfc62802f184d1f6cfbf6ab47e31e8df4e61cc48e3b40521d",
+      "sha256": "b8b94e6d7c238855ef2319c4a288f4d3ece8287f75f160de5a822b99a91ba79a",
       "features": [
         "foody-billing-sandbox"
       ]
@@ -3940,7 +3940,7 @@
       ]
     },
     "src/components/billing/Entitlements.tsx": {
-      "sha256": "3d226c351a768d87d67e1ce4b7a0fb6257922ec144b9cde28e54e962f606a6d6",
+      "sha256": "8cebf588bbdeef6a21461a3d4c3a2f10ccbc2d827d92c770e15eb50f4b25b924",
       "features": [
         "billing"
       ]
@@ -6655,7 +6655,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "8a642d1a9d52d4a5d709c8bb037af1d76ee8404750d9e66b687881dff339be5b",
+      "sha256": "a1637097f2e60096e4669394b726ed6bb5a0bb0a5f5504afd7ed454009dc2624",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6710,7 +6710,7 @@
       ]
     },
     "src/lib/commercial-catalog.ts": {
-      "sha256": "7ed59e7189b745bedb3f0f6ad0c1b566c2a78865682e1c4c75da2129d8071b70",
+      "sha256": "113a512eee2ed153cc7fa28ff8bb12af8ebfbd15c5a86e5391fb979a49a44b22",
       "features": [
         "foody-billing-sandbox"
       ]
@@ -6865,7 +6865,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "a810713d1aecf05b78be1e15d37c21ef60d9423ef1c674a4e8b8984e8d16164d",
+      "sha256": "0057f10b49f6c465cac58aa0f7e7de3efa17d47284aaf2697149a3045aeaa551",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -8336,7 +8336,6 @@
       "labels": [
         "foodyModuleChoose",
         "foodyModuleExtraPOS",
-        "foodyModuleLicences",
         "foodyModuleMonthlyHT",
         "foodyModuleOnboarding",
         "foodyModuleOpenWorkspace",
