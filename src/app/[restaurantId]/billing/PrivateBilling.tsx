@@ -5,6 +5,7 @@ import { ApiError, getFoodyBilling, getFoodyBillingUsage, reconcileFoodyBilling,
   stopFoodyBillingRenewal, type FoodyBillingCycle, type FoodyBillingUsage, type FoodyBillingView } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Badge, Button, ConfirmDialog, PageHead, Section } from '@/components/ds';
+import { SubscriptionAdditions } from './SubscriptionAdditions';
 import { ModuleAccessSummary, ModuleOnboarding } from './ModuleOnboarding';
 
 type Availability = FoodyBillingView | 'loading' | 'error' | 'legacy';
@@ -79,6 +80,7 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
   if (!offer) return <p role="alert">{t('billingLoadError')}</p>;
   const open = !!payment && openStatus.has(payment.status);
   const amended = !!agreement && agreement.offer_id !== offer.id;
+  const upgrade = amended && offer.previous_offer_id === agreement?.offer_id && !!offer.upgrade_period_end;
   const auto = !!agreement?.renews && view.monthly_enabled && !amended;
   const canPay = view.due && view.checkout_enabled && !open && !auto;
   const price = cycle ? offer[cycle] : null;
@@ -98,6 +100,9 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
           accept_renewal: chosen === 'monthly', locale,
         });
         const url = new URL(result.checkout_url);
+        if (upgrade && (offer.upgrade_minor ?? 0) === 0 && url.origin === window.location.origin && url.pathname === `/${rid}/billing` && !url.search && !url.hash) {
+          const updated = await getFoodyBilling(rid); if (mounted.current) { setView(updated); reset(); } return;
+        }
         if (url.protocol !== 'https:' || !url.hostname.endsWith('.test-gsc.vfims.com') || url.username || url.password || url.port) {
           throw new Error('Invalid sandbox checkout link');
         }
@@ -108,7 +113,7 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
       }
     } catch (e) {
       if (!mounted.current) return;
-      setError(kind === 'pay' || kind === 'resume' ? 'foodyPilotCheckoutError' : kind === 'stop' ? 'foodyPilotStopError' : 'foodyPilotVerifyError');
+      setError(e instanceof ApiError && e.licence ? 'foodyLicenceExceeded' : kind === 'pay' || kind === 'resume' ? 'foodyPilotCheckoutError' : kind === 'stop' ? 'foodyPilotStopError' : 'foodyPilotVerifyError');
       // Re-read the durable attempt and current version after an unknown response.
       if (kind !== 'verify') {
         try {
@@ -131,7 +136,8 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2"><Badge tone="warning">{t('foodyPilotSandbox')}</Badge>
           <span className="text-sm text-[var(--fg-muted)]">{t('foodyPilotVersion').replace('{version}', String(offer.version))}</span></div>
-        <h2 className="text-2xl font-semibold" dir="auto">{offer.title}</h2>
+        <h2 id="foody-offer" className="text-2xl font-semibold" dir="auto">{offer.title}</h2>
+ {upgrade && <div className="space-y-2 rounded-lg border border-[var(--line)] p-4 text-sm"><p className="font-semibold">{t('foodyUpgradeDueNow').replace('{amount}', money(offer.upgrade_minor ?? 0))}</p><p>{t('foodyUpgradePeriod').replace('{date}', date(offer.upgrade_period_end!))}</p><p>{t('foodyUpgradeReviewHint')}</p>{offer.scope && <><p>{offer.scope.modules.map(id=>view.onboarding?.catalog.products.find(p=>p.id===id)?.name[locale]??id).join(', ')}</p><ul>{Object.entries(offer.scope.seats).filter(([,n])=>n!=null).map(([key,n])=><li key={key}>{t('foodyLicence_'+key)} · {n}</li>)}</ul></>}</div>}
         <p className="text-sm text-[var(--fg-muted)]">{t('foodyPilotAvailable').replace('{date}', date(offer.start_date + 'T12:00:00Z'))}</p>
         {!view.onboarding && <div><h3 className="text-sm font-semibold">{t('foodyPilotIncludes')}</h3><p className="whitespace-pre-wrap break-words text-sm" dir="auto">{offer.includes}</p></div>}
         <div><h3 className="text-sm font-semibold">{t('foodyPilotTerms')}</h3><p className="whitespace-pre-wrap break-words text-sm" dir="auto">{view.onboarding?.mode === 'public' ? t('foodyModulePublicTerms') : offer.terms}</p></div>
@@ -139,7 +145,7 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
           <p>{t('foodyPilotPaidUntil').replace('{date}', date(agreement.period_end))} · {t(agreement.cycle === 'monthly' ? 'foodyPilotMonthly' : 'foodyPilotAnnual')}
             {agreement.card_last_four && <> · <bdi>•••• {agreement.card_last_four}</bdi></>}
           </p>
-          {amended && <p>{t('foodyPilotAmended')}</p>}
+          {amended && <p>{t(upgrade ? 'foodyUpgradeNextPrice' : 'foodyPilotAmended')}</p>}
           {auto && <p>{t('foodyPilotNextDebit').replace('{date}', date(agreement.period_end)).replace('{total}', money((view.accepted_offer ?? offer).monthly.total_minor))}</p>}
           {agreement.cycle === 'monthly' && !agreement.renews && <p>{t('foodyPilotNoRenewal')}</p>}
           {amended && view.accepted_offer && <details><summary>{t('foodyPilotAcceptedTerms')}</summary>
@@ -163,7 +169,7 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
           <fieldset disabled={busy} className="space-y-3">
             <legend className="mb-2 font-semibold">{t('foodyPilotChoose')}</legend>
             <div className="grid gap-3 sm:grid-cols-2">
-              {(['monthly', 'annual'] as const).filter(choice => offer[choice].total_minor > 0).map((choice) => {
+              {(['monthly', 'annual'] as const).filter(choice => offer[choice].total_minor > 0 && (!upgrade || choice === offer.upgrade_cycle)).map((choice) => {
                 const rate = offer[choice];
                 return <label key={choice} className={'space-y-1 rounded-lg border p-3 ' + (cycle === choice ? 'border-[var(--fg)]' : 'border-[var(--line)]')}>
                   <span className="flex items-center gap-2 font-semibold">
@@ -186,6 +192,7 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
         </form>
       </div>
     </Section>
+    {view.onboarding?.access.enforced && <SubscriptionAdditions rid={rid} view={view} onPrepared={next => { setView(next); reset(); }} />}
     <Section title={t('foodyPilotUsage')}>
       <p className="text-sm text-[var(--fg-muted)]">{t('foodyPilotUsageHint')}</p>
       {usageError && <p role="status" className="mt-2 text-sm">{t('foodyPilotUsageUnavailable')}</p>}

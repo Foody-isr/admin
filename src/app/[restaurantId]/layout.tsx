@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { FeatureDeniedNotice, FeatureUpgrade } from '@/components/billing/Entitlements';
 import { allowsModulePath } from '@/lib/module-navigation';
 
 import { useEffect, useState, useCallback } from 'react';
@@ -136,16 +137,14 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!allowsModulePath(restaurant.module_access, pathname)) {
-    return <main className="mx-auto max-w-lg space-y-4 px-4 py-8">
-      <h1 className="text-xl font-semibold">{t('foodyModuleUnavailable')}</h1>
-      <Link className="btn-secondary" href={`/${restaurantId}/dashboard`}>{t('foodyModuleOpenWorkspace')}</Link>
-    </main>;
+    return <PermissionsProvider restaurantId={restaurantId}><FeatureUpgrade rid={restaurantId} access={restaurant.module_access!} path={pathname} /></PermissionsProvider>;
   }
 
   if (isFullscreen) {
     return (
       <PermissionsProvider restaurantId={restaurantId}>
         <WsProvider restaurantId={restaurantId}>
+          <FeatureDeniedNotice rid={restaurantId} access={restaurant.module_access} />
           <PushResync restaurantId={restaurantId} />
           {/* Fullscreen routes render their own chrome, so they still have to
               absorb the status-bar inset themselves (viewport-fit=cover). */}
@@ -161,6 +160,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   return (
     <PermissionsProvider restaurantId={restaurantId}>
       <WsProvider restaurantId={restaurantId}>
+          <FeatureDeniedNotice rid={restaurantId} access={restaurant.module_access} />
         <PushResync restaurantId={restaurantId} />
         <RestaurantExperience
           restaurant={restaurant}

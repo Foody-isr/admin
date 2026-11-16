@@ -1,6 +1,7 @@
 'use client';
 
 import ActionsDropdown from '@/components/common/ActionsDropdown';
+import { LicenceCapacity } from '@/components/billing/Entitlements';
 import { ListToolbar } from '@/components/data-table';
 import { ListFilterButton, ListStateFilter, ListFiltersDrawer } from '@/components/data-table/ListFilters';
 
@@ -110,6 +111,7 @@ export default function POSAccessCredentialsPage() {
       />
       <ListFiltersDrawer open={filterView !== null} initialView={filterView ?? 'index'} onClose={() => setFilterView(null)} filters={listFilters}
         onApply={values => { setSelectedGroups(values.group); setSelectedStatuses(values.status); }} />
+      <LicenceCapacity rid={Number(restaurantId)} />
       {error && <div role="alert" className="rounded-r-lg bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)] flex flex-wrap items-center justify-between gap-3"><span>{error}</span><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div>}
       {loading && <p role="status" className="py-12 text-center text-sm text-fg-secondary">{t('loading')}</p>}
 

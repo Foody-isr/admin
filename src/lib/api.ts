@@ -2435,6 +2435,8 @@ export async function refreshToken(): Promise<string | null> {
 export class ApiError extends Error {
   status: number;
   details?: string;
+  licence?: { resource: string; used: number; limit: number; required: number };
+  feature?: string;
   constructor(message: string, status: number, details?: string) {
     super(message);
     this.name = 'ApiError';
@@ -2628,7 +2630,13 @@ async function apiResponse(
     }
     const body = await res.json().catch(() => ({}));
     const detail = typeof body.details === 'string' ? body.details : undefined;
-    throw new ApiError(body.error || body.message || `API error ${res.status}`, res.status, detail);
+    const failure = new ApiError(body.error || body.message || `API error ${res.status}`, res.status, detail);
+    if (body.error === 'foody_licence_required' && body.licence && typeof body.licence.resource === 'string') failure.licence = body.licence;
+    if (body.error === 'foody_feature_required' && typeof body.feature === 'string') failure.feature = body.feature;
+    if (typeof window !== 'undefined' && restaurantId && failure.feature && !['GET', 'HEAD'].includes((options?.method ?? 'GET').toUpperCase())) {
+      window.dispatchEvent(new CustomEvent('foody-feature-denied', { detail: { restaurantId, feature: failure.feature } }));
+    }
+    throw failure;
   }
   return res;
 }
@@ -11580,11 +11588,20 @@ export type FoodyBillingCycle = 'monthly' | 'annual';
 export type FoodyBillingPrice = { net_minor: number; vat_minor: number; total_minor: number };
 export type FoodyBillingOffer = {
   id: number; version: number; title: string; includes: string; terms: string; start_date: string;
+ scope?: {modules:FoodyModule[];capabilities:string[];seats:FoodySeatLimits};
+  previous_offer_id?: number; upgrade_minor?: number; upgrade_period_end?: string; upgrade_cycle?: FoodyBillingCycle;
   monthly: FoodyBillingPrice; annual: FoodyBillingPrice;
 };
 export type FoodyModule = 'restaurant' | 'ordering' | 'kitchen';
-export type FoodySeatLimits = { pos: number; chef: number; kds: number };
+export type FoodySeatLimits = { pos: number; chef: number; kds: number; employees?: number | null; pos_devices?: number | null };
 export type FoodyModuleAccess = {
+  plan_id?: string;
+  plan_name?: Record<'en' | 'fr' | 'he', string>;
+ enforced?: boolean;
+ capabilities?: string[];
+ feature_paths?: Record<string, string>;
+ feature_names?: Record<string, Record<'en' | 'fr' | 'he', string>>;
+ available_offers?: { id: string; name: Record<'en' | 'fr' | 'he', string>; capabilities: string[]; monthly_minor: number }[];
   status: 'pending' | 'trial' | 'active' | 'expired';
   modules: FoodyModule[];
   seats: FoodySeatLimits;
@@ -11597,12 +11614,7 @@ export type FoodyBillingOnboarding = {
   selection: FoodyModule[];
   licences: FoodySeatLimits;
   access: FoodyModuleAccess;
-  catalog: {
-    version: string;
-    currency: 'ILS';
-    extra_pos_minor: number;
-    products: { id: FoodyModule; name: Record<'en' | 'he' | 'fr', string>; monthly_minor: number; included: FoodySeatLimits }[];
-  };
+  catalog: FoodyCommercialCatalog;
 };
 export type FoodyBillingView = {
   offer: FoodyBillingOffer | null;
@@ -11631,7 +11643,7 @@ export function getFoodyBilling(rid: number, signal?: AbortSignal): Promise<Food
 }
 
 /** Confirms the public selection or starts the private trial for the signed-in owner. */
-export function selectFoodyOnboarding(rid: number, input: { modules?: FoodyModule[]; extra_pos_licences?: number }): Promise<FoodyBillingView> {
+export function selectFoodyOnboarding(rid: number, input: { modules?: FoodyModule[]; plan_id?: string; extra_pos_licences?: number; extra_licences?: Record<string, number> }): Promise<FoodyBillingView> {
   return apiFetch(foodyBillingPath(rid) + '/onboarding', rid, { method: 'POST', body: JSON.stringify(input) });
 }
 
@@ -11656,3 +11668,18 @@ export function stopFoodyBillingRenewal(rid: number): Promise<FoodyBillingView> 
 export function getFoodyBillingUsage(rid: number, signal?: AbortSignal): Promise<FoodyBillingUsage> {
   return apiFetch(foodyBillingPath(rid) + '/usage', rid, { cache: 'no-store', signal });
 }
+
+export type FoodyCommercialCatalog = {
+ capabilities?: {key:string;category:string}[];
+ version: string; currency: 'ILS'; revision: number; minimum_trial_days: number; extra_pos_minor: number;
+ products: {id: FoodyModule;name:Record<'en'|'fr'|'he',string>;monthly_minor:number;included:FoodySeatLimits;capabilities?:string[]}[];
+ plans?: {id:string;name:Record<'en'|'fr'|'he',string>;modules:FoodyModule[];monthly_minor:number;included:FoodySeatLimits;capabilities?:string[];published:boolean}[];
+ tariffs?: {id:string;name:Record<'en'|'fr'|'he',string>;amount_minor:number|null;unit:string}[];
+};
+/** Loads the current public catalogue for a possible addition, without changing the accepted offer. */
+export function getFoodyCommercialCatalog(rid:number,signal?:AbortSignal):Promise<FoodyCommercialCatalog>{return apiFetch(foodyBillingPath(rid)+'/catalog',rid,{signal,cache:'no-store'});}
+/** Prepares an incremental offer for review. It grants no additional access before confirmed payment. */
+export function prepareFoodyUpgrade(rid:number,input:{catalog_version:string;modules?:FoodyModule[];plan_id?:string;extra_licences:Record<string,number>}):Promise<FoodyBillingView>{return apiFetch(foodyBillingPath(rid)+'/upgrade',rid,{method:'POST',body:JSON.stringify(input)});}
+/** Reads the same tenant-scoped counters used to check employee and POS-device limits. */
+export function getFoodyLicences(rid:number,signal?:AbortSignal):Promise<{used:FoodyLicenceUsage;limits:FoodySeatLimits}|null>{return apiFetch('/api/v1/restaurants/'+rid+'/licences',rid,{signal,cache:'no-store'});}
+export type FoodyLicenceUsage={employees:number;pos:number;chef:number;pos_devices:number;kds:number};

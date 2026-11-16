@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Lock } from 'lucide-react';
+import { LicenceDenied } from '@/components/billing/Entitlements';
 import { TeamEditor, TeamPageHeader, TeamSearch } from '@/components/team/TeamWorkspace';
 import { TeamPasscodesDrawer } from '@/components/team/TeamPasscodesDrawer';
 import { DataTable, DataTableHead, DataTableHeadCell, DataTableBody, DataTableRow, DataTableCell } from '@/components/data-table';
@@ -246,7 +247,7 @@ export default function RolesPage() {
               </section>;
             })}
           </div>
-          {error && <p role="alert" className="rounded-lg bg-[var(--danger-50)] p-4 text-[var(--danger-500)]">{error}</p>}
+          {error === 'foody_licence_required' ? <LicenceDenied rid={Number(restaurantId)} /> : error && <p role="alert" className="rounded-lg bg-[var(--danger-50)] p-4 text-[var(--danger-500)]">{error}</p>}
           {canManage && editingRole && !isDefault && <Button variant="danger" className="mt-6 justify-self-start" disabled={editingRole.user_count > 0 || saving} title={editingRole.user_count > 0 ? t('cannotDeleteWithUsers') : undefined} onClick={() => setDeleteTarget(editingRole)}>{t('deleteRole')}</Button>}
         </div>
       </TeamEditor>}

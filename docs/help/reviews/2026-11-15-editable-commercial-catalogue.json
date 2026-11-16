@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/layout.tsx",
+      "sha256": "7ecb0ab4cce135fa24a1684576e1b9e28027ffe88bcc8fd6f4e580f19991a625",
+      "baseSha256": "f524f7e36b90dbb7b17677ee3d5073e71ac43b5c7517ce241e3ac6deea8acd98",
+      "disposition": "no-user-impact",
+      "features": [
+        "payments-transactions"
+      ],
+      "reason": "The global access gate now explains a versioned plan denial and links the owner to billing, as documented in account and billing guides. The transaction-history reader, filters, details and immutable payment records are unchanged; this shared layout does not change their procedures."
+    },
+    {
+      "path": "src/components/Sidebar.tsx",
+      "sha256": "b6351013ea39c0d55f5e682654deff9b8205d2215ff16c6cc1251babf06cd5b3",
+      "baseSha256": "0d68ea711069299ec1a595aeffe493b0b9740f311ba7547abbb4404b596827f4",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-loyalty-program",
+        "global-search",
+        "payments-transactions",
+        "pos-payments"
+      ],
+      "reason": "Versioned missing-capability links remain visible with a lock and open the documented account/billing upgrade screen. The underlying payment, search, transaction-history and loyalty procedures and role requirements are unchanged. These feature guides are scoped out only for their domain workflows, not for the new global subscription gate."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "8a642d1a9d52d4a5d709c8bb037af1d76ee8404750d9e66b687881dff339be5b",
+      "baseSha256": "c90ad727d70b38353ee6db63b8a13eb7abbb21f73f866c941af034a80fc6dcd2",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "delivery-zones",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-internal-sumit-checkout",
+        "payments-how-payments-work",
+        "payments-transactions",
+        "pos-payments",
+        "stancer-cash-guarantee"
+      ],
+      "reason": "Only commercial catalogue/subscription/licence types and endpoints, plus structured feature/quota denial metadata, are added. Existing operational payment, menu, customer, photo, transaction and delivery-zone request/response payloads are unchanged. Account/billing/staff guides document the new upgrade and capacity messages."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "a6335cc2be8ab72fd93139e74a0b56624c2c6de584282ad0a0d9ba4ed82e9458",
+      "baseSha256": "104b27dbda229e67c14994337c9217041d40f888f371946865563acbb719b979",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-loyalty-program",
+        "customers-profiles",
+        "delivery-dispatch",
+        "delivery-zones",
+        "google-account-setup",
+        "menu-menus-and-groups",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-internal-sumit-checkout",
+        "payments-transactions",
+        "pos-behavior",
+        "stancer-cash-guarantee",
+        "website-journey",
+        "website-order-design",
+        "website-sections",
+        "whatsapp"
+      ],
+      "reason": "The diff adds only versioned billing, feature-lock, plan and licence labels in English, French and Hebrew. Existing translations for the scoped menu, website, payment, delivery, WhatsApp, Google, customer and POS procedures remain unchanged. New copy is covered by updated account, billing and staff guides."
+    }
+  ]
+}

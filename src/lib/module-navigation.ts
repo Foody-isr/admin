@@ -7,6 +7,8 @@ export function allowsModulePath(access: FoodyModuleAccess | undefined, href: st
   if (path === '/billing') return true;
   if (!access.modules.length) return false;
 
+  if (access.enforced) { const feature = requiredCapability(access, href); return !feature || !!access.capabilities?.includes(feature); }
+
   const restaurant = access.modules.includes('restaurant');
   const orders = access.modules.includes('ordering');
   const kitchen = access.modules.includes('kitchen');
@@ -18,4 +20,10 @@ export function allowsModulePath(access: FoodyModuleAccess | undefined, href: st
   if (at('/menu/menus') || at('/menu/pos-discounts')) return restaurant || orders;
   if (at('/marketing') || at('/settings/whatsapp')) return false;
   return true;
+}
+
+/** Finds the most specific product feature for an Admin destination. */
+export function requiredCapability(access: FoodyModuleAccess | undefined, href: string): string | undefined {
+ const path = href.replace(/^\/\d+(?=\/|$)/, '').split('?')[0];
+ return Object.entries(access?.feature_paths ?? {}).filter(([prefix])=>path===prefix||path.startsWith(prefix+'/')).sort(([a],[b])=>b.length-a.length)[0]?.[1];
 }
