@@ -19,6 +19,7 @@ import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme-context';
 import { API_URL, getFoodyBilling, getLowStockCount, getPrepLowStockCount } from '@/lib/api';
 import {
+  LockKeyhole,
   Home,
   CalendarDays,
   Menu as MenuIcon,
@@ -127,9 +128,9 @@ export default function Sidebar({ restaurantId, restaurantName, moduleAccess, is
 
   useEffect(() => {
     if (permissionsLoading || isCourierRoleName(roleName)) return;
-    getLowStockCount(restaurantId).then(setLowStockCount).catch(() => {});
-    getPrepLowStockCount(restaurantId).then(setLowPrepCount).catch(() => {});
-  }, [permissionsLoading, restaurantId, roleName]);
+    if (!moduleAccess?.enforced || moduleAccess.capabilities?.includes('stock_management')) getLowStockCount(restaurantId).then(setLowStockCount).catch(() => {});
+    if (!moduleAccess?.enforced || moduleAccess.capabilities?.includes('preparation')) getPrepLowStockCount(restaurantId).then(setLowPrepCount).catch(() => {});
+  }, [permissionsLoading, restaurantId, roleName, moduleAccess]);
 
   const base = `/${restaurantId}`;
   const isRtl = direction === 'rtl';
@@ -275,11 +276,11 @@ export default function Sidebar({ restaurantId, restaurantName, moduleAccess, is
   // section from becoming a dead link.
   const nav = (permissionsLoading ? [] : isCourierRoleName(roleName) ? courierNav : allNav)
     .filter((item) => !item.perm || hasAnyPermission(...item.perm))
-    .filter(item => allowsModulePath(moduleAccess, item.href))
+    .filter(item => (moduleAccess?.enforced || allowsModulePath(moduleAccess, item.href)))
     .map(item => ({
       ...item,
-      subItems: item.subItems?.filter(s => (!s.perm || hasAnyPermission(...s.perm)) && allowsModulePath(moduleAccess, s.href)),
-      subGroups: item.subGroups?.map(group => ({ ...group, items: group.items.filter(s => allowsModulePath(moduleAccess, s.href)) }))
+      subItems: item.subItems?.filter(s => (!s.perm || hasAnyPermission(...s.perm)) && (moduleAccess?.enforced || allowsModulePath(moduleAccess, s.href))),
+      subGroups: item.subGroups?.map(group => ({ ...group, items: group.items.filter(s => (moduleAccess?.enforced || allowsModulePath(moduleAccess, s.href))) }))
         .filter(group => group.items.length > 0),
     }))
     .filter((item) => (!item.subItems || item.subItems.length > 0) && (!item.subGroups || item.subGroups.length > 0));
@@ -410,6 +411,7 @@ export default function Sidebar({ restaurantId, restaurantName, moduleAccess, is
                   >
                     <item.icon aria-hidden className="size-5 shrink-0" />
                     {!collapsed && <span className="flex-1 truncate">{t(item.labelKey)}</span>}
+                    {!allowsModulePath(moduleAccess, getNavHref(item)) && <LockKeyhole aria-label={t('foodyUpgradeTitle')} className="size-3.5 shrink-0 text-[var(--fg-muted)]" />}
                     {item.labelKey === 'orders' && !collapsed && (
                       <span
                         className={`w-2 h-2 rounded-full shrink-0 ${
@@ -441,7 +443,7 @@ export default function Sidebar({ restaurantId, restaurantName, moduleAccess, is
                         </button>
                         {groupExpanded && <div id={`nav-${groupKey}`} className="ps-3">
                           {group.items.map(sub => <SubLink key={sub.href} href={sub.href} label={t(sub.labelKey)}
-                            active={isSettingsDestinationActive(pathname, sub)} desktopOnly={sub.desktopOnly} onClick={onClose} />)}
+                            locked={!allowsModulePath(moduleAccess, sub.href)} active={isSettingsDestinationActive(pathname, sub)} desktopOnly={sub.desktopOnly} onClick={onClose} />)}
                         </div>}
                       </div>;
                     })}
@@ -452,6 +454,7 @@ export default function Sidebar({ restaurantId, restaurantName, moduleAccess, is
                           key={sub.href}
                           href={sub.href}
                           label={t(sub.labelKey)}
+                          locked={!allowsModulePath(moduleAccess, sub.href)}
                           badge={sub.badge}
                           active={active}
                           desktopOnly={sub.desktopOnly}
@@ -510,6 +513,7 @@ function SubLink({
   href,
   label,
   badge,
+  locked,
   active,
   desktopOnly,
   onClick,
@@ -517,6 +521,7 @@ function SubLink({
   href: string;
   label: string;
   badge?: number;
+  locked?: boolean;
   active: boolean;
   desktopOnly?: boolean;
   onClick?: () => void;
@@ -529,6 +534,7 @@ function SubLink({
       className={`restaurant-nav-sub justify-between ${desktopOnly ? 'max-lg:hidden' : ''}`}
     >
       <span className="truncate">{label}</span>
+      {locked && <LockKeyhole aria-hidden className="size-3.5 shrink-0 text-[var(--fg-muted)]" />}
       {badge !== undefined && badge > 0 && (
         <span
           className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-r-full min-w-[18px] text-center ${

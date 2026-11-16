@@ -1831,3 +1831,12 @@ The restaurant Transactions destination requires payments.view or payments.manag
 ## Configurable production and delivery intake (local preparation)
 
 Compatible API migration 288 adds an independent Products already prepared counter and receiving-date validity in a saved article’s Stock & availability section. Apply saves only that counter with its current revision; conflicts retain input and require Reload current stock. Delivery zones advertise order-deadline support before exposing day-offset/time controls. Empty/default policies retain existing behavior. These settings are restaurant-owned and do not configure Lovely or other tenants automatically.
+
+## Versioned plans and licence quotas (development)
+
+The matching migration 320/API provides editable public modules, composed plans,
+prices and categorized capabilities. Backoffice publishes a revision; Landing
+Pricing reads the same environment; Admin reviews purchased rights and paid
+additions. Employee accounts and physical POS devices use separate quotas.
+Accepted contracts and invitations retain their version. See the synchronized
+FR/HE/EN billing, staff and catalogue help for the sandbox test procedures.

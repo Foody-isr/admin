@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { LicenceCapacity, LicenceDenied } from '@/components/billing/Entitlements';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import { ListFilterButton, ListFiltersDrawer } from '@/components/data-table/ListFilters';
 
@@ -221,6 +222,7 @@ export default function StaffPage() {
         <Button className="team-secondary" variant="secondary" onClick={exportStaff} disabled={!!pageError || !filteredStaff.length}>{t('export')}</Button>
         {canManage && <Button disabled={!!pageError || roles.length === 0} onClick={() => { setFormError(''); setInviteOpen(true); }}>{t('teamAddEmployee')}</Button>}
       </TeamPageHeader>
+      <LicenceCapacity rid={rid} refreshKey={staff.length} />
       <section className="team-toolbar" aria-label={t('listTools')}>
         <TeamSearch value={search} onChange={setSearch} label={t('search')} />
         <ListFilterButton label={t('teamJob')} value={selectedRoles.size || undefined} onClick={() => setFilterView('role')} />
@@ -248,7 +250,7 @@ export default function StaffPage() {
         </div>
       )}
 
-      {actionError && !selectedMember && <p role="alert" className="rounded-r-lg bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)]">{actionError}</p>}
+      {actionError === 'foody_licence_required' ? <LicenceDenied rid={rid} /> : actionError && !selectedMember && <p role="alert" className="rounded-r-lg bg-[var(--danger-50)] p-4 text-sm text-[var(--danger-500)]">{actionError}</p>}
       {!pageError && staff.length === 0 && <p className="py-12 text-center text-sm text-fg-secondary">{t('noStaffYet')}</p>}
       {staff.length > 0 && filteredStaff.length === 0 && <p role="status" className="py-12 text-center text-sm text-fg-secondary">{t('listNoMatches')}</p>}
       {!pageError && <DataTable className="team-table team-members-table">
@@ -322,7 +324,7 @@ export default function StaffPage() {
               {roles.map(role => <option key={role.id} value={role.id}>{roleDisplayName(t, role.name, role.is_system_default)}</option>)}
             </select></label>
           </div>
-          {formError && <p role="alert" className="rounded-lg bg-[var(--danger-50)] p-4 text-[var(--danger-500)]">{formError}</p>}
+          {formError === 'foody_licence_required' ? <LicenceDenied rid={rid} /> : formError && <p role="alert" className="rounded-lg bg-[var(--danger-50)] p-4 text-[var(--danger-500)]">{formError}</p>}
         </form>
       </TeamEditor>}
 
