@@ -1,5 +1,6 @@
 import type { Order, OrderWhatsAppPreview } from '@/lib/api';
 import type { RecapLocale } from './whatsapp-recap';
+import { stripPhoneFormatting } from '../phone-format';
 
 export type WhatsAppChannel = 'business' | 'app';
 export type WhatsAppMessageKind = OrderWhatsAppPreview['kind'] | 'receipt';
@@ -8,6 +9,7 @@ export interface WhatsAppRecipient {
   order: Order;
   state: 'loading' | 'ready' | 'unavailable' | 'sending' | 'stale';
   preview?: OrderWhatsAppPreview;
+  unavailableReason?: 'invalid_phone';
   opened?: boolean;
 }
 
@@ -24,7 +26,7 @@ export function scopeWhatsAppOrders(orders: Order[], restaurantId: number): Orde
 
 /** Mirror the API's supported phone normalization for editable app handoffs. */
 export function whatsappPhone(value: string | undefined): string {
-  let phone = (value ?? '').trim().replace(/^whatsapp:/, '').replace(/[\s()\-]/g, '');
+  let phone = stripPhoneFormatting(value ?? '').replace(/^whatsapp:/, '').replace(/[()\-]/g, '');
   if (phone.startsWith('00')) phone = `+${phone.slice(2)}`;
   if (/^05\d{8}$/.test(phone)) phone = `+972${phone.slice(1)}`;
   if (phone.startsWith('972')) phone = `+${phone}`;

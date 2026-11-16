@@ -22,6 +22,12 @@ test('only an unblocked unclaimed preview is sendable', () => {
 test('app handoff normalizes supported international phones and rejects malformed values', () => {
   for (const phone of ['050-123-4567', '972501234567', '00972501234567', 'whatsapp:+972 (50) 123-4567']) assert.equal(whatsappPhone(phone), '+972501234567');
   assert.equal(whatsappPhone('+33 6 12 34 56 78'), '+33612345678');
+  assert.equal(whatsappPhone('\u202a+33\u00a06\u00a012\u00a034\u00a056\u00a078\u202c'), '+33612345678');
+  assert.equal(whatsappPhone('\u2066+1\u202f202\u200b555\u20600123\u2069'), '+12025550123');
+  assert.equal(whatsappPhone('\ufeff\u061c050\u200e-234-5678\u200f'), '+972502345678');
+  assert.equal(whatsappPhone('\u202awhatsapp:+972 (50) 234-5678\u202c'), '+972502345678');
+  assert.equal(whatsappPhone('+39 02 3661 8300'), '+390236618300');
+  for (const phone of ['\u202acall +33612345678\u202c', '+33612345678/+12025550123', '++33612345678', '\u200b\u202a\u202c']) assert.equal(whatsappPhone(phone), '');
   for (const phone of ['', '12', '+012345678', 'customer501234567', '0501234567 ext 2', '+972+501234567', undefined]) assert.equal(whatsappPhone(phone), '');
 });
 
