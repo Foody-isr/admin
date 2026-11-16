@@ -1,0 +1,49 @@
+{
+  "files": [
+    {
+      "path": "src/lib/customer-phone.ts",
+      "sha256": "4da2b589bfee90fa1028e0d29badced2b60ddf2932121676f370cd26c2380184",
+      "baseSha256": "7b467568201d228c66ed3df8dcf93b63e522f825f84a11ad99a72dc931778103",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This source change only normalizes invisible phone formatting and reports invalid WhatsApp destinations. Its affected customer, guest and WhatsApp procedures are reviewed in three languages; the other classified feature workflows and configuration remain unchanged."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "a810713d1aecf05b78be1e15d37c21ef60d9423ef1c674a4e8b8984e8d16164d",
+      "baseSha256": "a6335cc2be8ab72fd93139e74a0b56624c2c6de584282ad0a0d9ba4ed82e9458",
+      "features": [
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the invalid WhatsApp recipient label and recovery text are added in French, Hebrew and English. All other classified feature controls and translations are unchanged; WhatsApp and customer procedures are updated separately."
+    },
+    {
+      "path": "src/lib/orders/whatsapp-composer.ts",
+      "sha256": "81bf093ecb48750b3180190f2ada1c45624e54ce9555ea5555961c75044b26b9",
+      "baseSha256": "ebeab26b35bcecbf061878199755fbf1cc0afa01c6d3a2434873204a522494cc",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This source change only normalizes invisible phone formatting and reports invalid WhatsApp destinations. Its affected customer, guest and WhatsApp procedures are reviewed in three languages; the other classified feature workflows and configuration remain unchanged."
+    }
+  ]
+}

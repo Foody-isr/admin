@@ -1,9 +1,12 @@
 import { parsePhoneNumberFromString } from 'libphonenumber-js/core';
 import metadata from 'libphonenumber-js/metadata.max.json';
+import { stripPhoneFormatting } from './phone-format';
 
 /** Validate the whole input and return E.164, without asserting WhatsApp registration. */
 export function normalizeCustomerPhone(value: string, callingCode = '+972'): string | null {
-  const input = value.trim();
+  const raw = value.trim();
+  if (raw.length > 80) return null;
+  const input = stripPhoneFormatting(raw);
   if (!input || input.length > 80 || !/^[+0-9\s().-]+$/.test(input)) return null;
   let compact = input.replace(/[\s().-]/g, '');
   if (compact.startsWith('00')) compact = '+' + compact.slice(2);

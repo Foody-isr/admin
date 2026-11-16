@@ -116,7 +116,8 @@ export function OrderWhatsAppComposer(props: Props) {
             }
           } else {
             const saved = await getOrder(restaurantId, order.id);
-            if (saved.restaurant_id !== restaurantId || !whatsappPhone(saved.customer_whatsapp_phone ?? saved.customer_phone)) throw new Error('Unavailable recipient');
+            if (saved.restaurant_id !== restaurantId) throw new Error('Unavailable recipient');
+            if (!whatsappPhone(saved.customer_whatsapp_phone ?? saved.customer_phone)) throw new Error('whatsapp_recipient_invalid');
             const locale = resolveRecapLocale(saved.customer_locale, restaurantDefaultLocale);
             const body = savedTemplates.find(template => template.key === kind && template.locale === locale)?.body;
             let message: string;
@@ -135,8 +136,9 @@ export function OrderWhatsAppComposer(props: Props) {
               setRows(old => old.map(row => row.order.id === order.id ? { order: saved, state: 'ready' } : row));
             }
           }
-        } catch {
-          if (valid()) setRows(old => old.map(row => row.order.id === order.id ? { ...row, state: 'unavailable', preview: previous.find(item => item.order.id === order.id)?.preview } : row));
+        } catch (cause) {
+          const unavailableReason = cause instanceof Error && cause.message === 'whatsapp_recipient_invalid' ? 'invalid_phone' as const : undefined;
+          if (valid()) setRows(old => old.map(row => row.order.id === order.id ? { ...row, state: 'unavailable', unavailableReason, preview: previous.find(item => item.order.id === order.id)?.preview } : row));
         }
       }
     };
@@ -245,7 +247,7 @@ export function OrderWhatsAppComposer(props: Props) {
   };
   const status = (row: WhatsAppRecipient) => {
     if (row.state === 'loading') return t('loading');
-    if (row.state === 'unavailable') return t('wcUnavailable');
+    if (row.state === 'unavailable') return t(row.unavailableReason === 'invalid_phone' ? 'wcInvalidPhone' : 'wcUnavailable');
     if (row.state === 'stale') return t('wcReviewAgain');
     if (row.state === 'sending') return t('orderMessageSending');
     if (channel === 'app') return t(row.opened ? 'wcOpened' : 'deliveryWhatsAppReady');
@@ -305,7 +307,7 @@ export function OrderWhatsAppComposer(props: Props) {
             </button>)}
           </div>
           {error && <p role="alert" className={styles.notice}>{error}</p>}
-          {active?.state === 'unavailable' && <div role="alert" className={styles.notice}><strong>{t('wcUnavailable')}</strong><p>{t(channel === 'business' ? 'waOrderPreviewFailed' : 'wcAppUnavailable')}</p></div>}
+          {active?.state === 'unavailable' && <div role="alert" className={styles.notice}><strong>{status(active)}</strong><p>{t(active.unavailableReason === 'invalid_phone' ? 'wcInvalidPhoneHelp' : channel === 'business' ? 'waOrderPreviewFailed' : 'wcAppUnavailable')}</p></div>}
           {active?.state === 'stale' && <p role="alert" className={styles.notice}>{t('wcChanged')}</p>}
           {active?.state === 'loading' && <p role="status" className={styles.loading}>{t('loading')}</p>}
           {active && active.state !== 'loading' && message && <section className={styles.message} aria-label={t('waOrderExactPreview')}>

@@ -14,7 +14,7 @@ async function install(page: Page, lostResponse = false, meta = false, completed
   Object.assign(fixture.orders[0], { ...(completed ? { status: 'delivered', received_at: new Date().toISOString(), completed_at: new Date().toISOString() } : {}), order_type: 'delivery', customer_phone: '+972500000000', courier_name: 'Livreur démo', courier_phone: '+972500000001', scheduled_for: new Date(Date.now() + 86400000).toISOString(), scheduled_pickup_window_start: '10:45', scheduled_pickup_window_end: '12:15' });
   const writes: Array<{ path: string; body: unknown; restaurant?: string }> = [];
   if (options.pending) fixture.orders[0].status = 'pending_review';
-  const control = { status: 'ready', kind: 'order_recap', history: [] as OrderWhatsAppHistoryEntry[], blocked: [] as BlockedOrderWhatsAppAutomation[], blockedTotal: 0, historyError: false, unavailable: new Set<number>(), notDue: new Set<number>(), changed: new Set<number>(), nextCursor: '', older: [] as OrderWhatsAppHistoryEntry[], reads: [] as string[] };
+  const control = { status: 'ready', kind: 'order_recap', history: [] as OrderWhatsAppHistoryEntry[], blocked: [] as BlockedOrderWhatsAppAutomation[], blockedTotal: 0, historyError: false, unavailable: new Set<number>(), invalidPhones: new Set<number>(), notDue: new Set<number>(), changed: new Set<number>(), nextCursor: '', older: [] as OrderWhatsAppHistoryEntry[], reads: [] as string[] };
   await page.addInitScript(locale => {
     localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Équipe démo', role: 'owner' }));
@@ -40,6 +40,7 @@ async function install(page: Page, lostResponse = false, meta = false, completed
       writes.push({ path, body, restaurant });
       const orderId = Number(path.split('/').at(-2));
       if (path.endsWith('/send') && control.changed.has(orderId)) return route.fulfill({ status: 409, json: { error: 'whatsapp_preview_changed', details: { status: 'changed' } } });
+      if (path.endsWith('/preview') && control.invalidPhones.has(orderId)) return route.fulfill({ status: 422, json: { error: 'whatsapp_recipient_invalid' } });
       if (path.endsWith('/preview') && control.unavailable.has(orderId)) return route.fulfill({ status: 422, json: { error: 'whatsapp_preview_unavailable' } });
       if (path.endsWith('/preview')) {
         control.kind = body.kind;
@@ -62,6 +63,46 @@ async function confirmation(page: Page, restaurant = 1) {
   await expect(drawer.getByRole('textbox')).toBeVisible();
   return drawer;
 }
+
+for (const copy of [
+  { locale: 'fr', open: 'Envoyer un message WhatsApp', title: 'Message WhatsApp', invalid: 'Numéro de téléphone invalide', help: 'indicatif pays', app: 'Application WhatsApp', send: 'Envoyer 0 messages', handoff: 'Ouvrir WhatsApp' },
+  { locale: 'en', open: 'Send a WhatsApp message', title: 'WhatsApp message', invalid: 'Invalid phone number', help: 'country code', app: 'WhatsApp app', send: 'Send 0 messages', handoff: 'Open WhatsApp' },
+  { locale: 'he', open: 'שליחת הודעת WhatsApp', title: 'הודעת WhatsApp', invalid: 'מספר טלפון לא תקין', help: 'קידומת מדינה', app: 'אפליקציית WhatsApp', send: 'שליחת 0 הודעות', handoff: 'פתיחת וואטסאפ' },
+]) test(`invalid phone explains recovery in Business and app modes (${copy.locale})`, async ({ page }, info) => {
+  const state = await install(page, false, true, false, { locale: copy.locale });
+  state.control.invalidPhones.add(1048);
+  state.fixture.orders[0].customer_phone = '+33 invalid';
+  await page.goto('/1/orders/1048');
+  await page.getByRole('button', { name: copy.open, exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: copy.title, exact: true });
+  await expect(drawer.getByRole('alert')).toContainText(copy.invalid);
+  await expect(drawer.getByRole('alert')).toContainText(copy.help);
+  await expect(drawer.getByRole('button', { name: copy.send, exact: true })).toBeDisabled();
+  await page.screenshot({ path: info.outputPath(`invalid-whatsapp-phone-${copy.locale}.png`), animations: 'disabled' });
+  await drawer.getByRole('radio', { name: copy.app, exact: true }).check();
+  await expect(drawer.getByRole('alert')).toContainText(copy.invalid);
+  await expect(drawer.getByRole('button', { name: copy.handoff, exact: true })).toBeDisabled();
+  expect(state.writes.filter(row => row.path.endsWith('/send'))).toHaveLength(0);
+});
+
+test('app preview cleans a saved clipboard phone and refresh clears an invalid-phone error', async ({ page }) => {
+  const state = await install(page, false, true);
+  const drawer = await confirmation(page);
+  state.fixture.orders[0].customer_phone = '+33 invalid';
+  await drawer.getByRole('radio', { name: 'Application WhatsApp', exact: true }).check();
+  await expect(drawer.getByRole('alert')).toContainText('Numéro de téléphone invalide');
+  state.fixture.orders[0].customer_phone = '\u202a+33\u00a06\u00a012\u00a034\u00a056\u00a078\u202c';
+  await drawer.getByRole('button', { name: 'Actualiser', exact: true }).click();
+  await expect(drawer.getByRole('textbox')).toBeEditable();
+  await expect(drawer.getByRole('alert')).toHaveCount(0);
+  await page.evaluate(() => {
+    window.open = () => ({ opener: null, location: { replace(url: string) { (window as unknown as { appHandoff: string }).appHandoff = url; } } }) as unknown as Window;
+  });
+  await drawer.getByRole('button', { name: 'Ouvrir WhatsApp', exact: true }).click();
+  const url = await page.evaluate(() => (window as unknown as { appHandoff: string }).appHandoff);
+  expect(new URL(url).searchParams.get('phone')).toBe('33612345678');
+  expect(state.writes.filter(row => row.path.endsWith('/send'))).toHaveLength(0);
+});
 
 test('reviews exact Twilio content and sends only the scoped preview identity', async ({ page }, info) => {
   const state = await install(page);

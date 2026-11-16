@@ -3,6 +3,25 @@ import { createFixture } from './fixtures.mjs';
 
 const names=['Client démo — réception de l’équipe','לקוח לדוגמה · Beta','Gamma démo'];
 const phones=['0500000001','0500000002','0500000003'];
+
+test('customers saved clipboard phone is valid and saves its canonical destination', async ({page}) => {
+ const state=await installCustomers(page);
+ const pasted='\u202a+33\u00a06\u00a012\u00a034\u00a056\u00a078\u202c';
+ const original=state.profiles.get(phones[1])!;
+ state.customers[1].customer_phone=pasted;
+ state.customers[1].phones=[pasted];
+ state.profiles.set(pasted,{...original,phone:pasted,phones:[{phone:pasted,is_whatsapp:true}],whatsapp_phone:pasted});
+ await page.goto('/1/customers');
+ await expect(page.getByRole('row').filter({hasText:names[1]})).not.toContainText('Téléphone invalide');
+ await page.getByRole('button',{name:`Modifier le client · ${names[1]}`,exact:true}).click();
+ const phone=editor(page).getByRole('textbox',{name:'Téléphone principal',exact:true});
+ await expect(phone).toHaveValue('+33612345678');
+ await expect(phone).not.toHaveAttribute('aria-invalid','true');
+ await editor(page).getByRole('button',{name:'Enregistrer',exact:true}).click();
+ await expect(editor(page)).toHaveCount(0);
+ expect(writesOf(state,'/profile','PUT')).toHaveLength(1);
+ expect(writesOf(state,'/profile','PUT')[0].body.phones).toEqual([{original_phone:pasted,phone:'+33612345678',is_whatsapp:true}]);
+});
 async function installCustomers(page:Page,options:{locale?:string;theme?:string;readOnly?:boolean;empty?:boolean}={}) {
  const fixtureOptions={empty:false,permissions:options.readOnly?['customers.view']:undefined};
  const fixture=createFixture(fixtureOptions);
