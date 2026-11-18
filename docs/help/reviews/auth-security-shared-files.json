@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "reviewedAt": "2026-11-18",
-  "documentationRef": "WORKSPACE",
+  "documentationRef": "510d49efa3ec9ee2a25f16ac4429858105dc05df",
   "files": [
     {
       "path": "src/lib/api.ts",
@@ -10,6 +10,7 @@
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
+        "payments-how-payments-work",
         "delivery-zones",
         "pos-payments",
         "shared-runtime",
@@ -25,8 +26,8 @@
     },
     {
       "path": "src/lib/i18n.tsx",
-      "sha256": "887eae740178de5e082cd48d0f67b4c3e04d50b34d6c99d5931f859b06b6feb4",
-      "baseSha256": "00cd48ac9a57d7b404e190731f0b91b43797465f9fa2ac302301574bfa8dcd35",
+      "sha256": "e84acf387d4902b15941617cdccfa08a4012b507c89e2b437bfff4b08069992c",
+      "baseSha256": "e5aed64b0f727f74d76f854b831bffa78eac89148ccf8cb3ac04ecbc4efcd893",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
