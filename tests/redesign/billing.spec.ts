@@ -145,10 +145,10 @@ test('production owner navigation uses the scoped Foody billing response', async
   expect(['localhost', '127.0.0.1']).toContain(local.hostname);
   await install(page);
   // Serve the local application at the production origin. All API calls stay in fixtures.
-  await page.context().route('https://api.foody-pos.co.il/**', route => route.abort());
+  await page.context().route(/^https:\/\/(api|admin)\.foody-pos\.co\.il\//, route => route.abort());
   await page.route('https://admin.foody-pos.co.il/**', async route => {
     const { pathname, search } = new URL(route.request().url());
-    if (route.request().method() !== 'GET' || pathname.startsWith('/api/')) return route.abort();
+    if (route.request().method() !== 'GET' || pathname.startsWith('/api/') || new URLSearchParams(search).has('_rsc')) return route.abort();
     await route.fulfill({ response: await page.request.get(new URL(pathname + search, local).href, { maxRedirects: 0 }) });
   });
   await page.route('**/api/v1/restaurants/1/foody-billing', route => route.fulfill({ json: { offer: { id: 7 } } }));
@@ -158,4 +158,5 @@ test('production owner navigation uses the scoped Foody billing response', async
   await page.goto('https://admin.foody-pos.co.il/2/dashboard');
   await openAccountNavigation(page);
   await expect(nav.getByRole('link', { name: 'Facturation', exact: true })).toHaveCount(0);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
