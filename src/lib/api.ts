@@ -1,4 +1,5 @@
 import { checkedLoyaltyProgramState, checkedProgramAck, type PendingLoyaltyProgram } from './loyalty-program';
+import { isMFAChallenge, requireCompleteAuth, type MFAReply, type MFAPrompt, type MFAResponse } from './mfa';
 // Foody Admin API client — restaurant owner/manager portal
 // Calls foodyserver at /api/v1/* using JWT auth.
 
@@ -2829,12 +2830,14 @@ export async function login(
   email: string,
   password: string,
   remember = true,
+  mfa?: MFAPrompt,
 ): Promise<LoginResponse> {
-  const data = await apiFetch<{ token: string; user: User }>('/api/v1/auth/login', undefined, {
+  const reply = await apiFetch<MFAReply>('/api/v1/auth/login', undefined, {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
 
+  const data = await resolveMFASignIn(reply, mfa);
   // Decode JWT to get restaurant_ids from claims
   const claims = parseJwtClaims(data.token);
   const restaurantIds: number[] = (claims?.restaurant_ids as number[]) ?? [];
@@ -2930,12 +2933,13 @@ export async function setupAccount(input: {
   restaurant_phone?: string;
   pos_platform?: string;
   pos_pin?: string;
-}): Promise<LoginResponse> {
-  const data = await apiFetch<{ token: string; user: User }>('/api/v1/auth/setup-account', undefined, {
+}, mfa?: MFAPrompt): Promise<LoginResponse> {
+  const reply = await apiFetch<MFAReply>('/api/v1/auth/setup-account', undefined, {
     method: 'POST',
     body: JSON.stringify(input),
   });
 
+  const data = await resolveMFASignIn(reply, mfa);
   // Store auth just like login
   const claims = parseJwtClaims(data.token);
   const restaurantIds: number[] = (claims?.restaurant_ids as number[]) ?? [];
@@ -3030,18 +3034,19 @@ export async function registerPasskey(name: string): Promise<PasskeyCredential> 
 
 /** Password-less, usernameless sign-in: the device offers the passkeys for this
  *  site and the user picks one with Face ID — no email needed. */
-export async function loginWithPasskey(remember = true): Promise<LoginResponse> {
+export async function loginWithPasskey(remember = true, mfa?: MFAPrompt): Promise<LoginResponse> {
   const begin = await apiFetch<{ options: { publicKey: PasskeyAuthOptions }; session_id: string }>(
     '/api/v1/auth/webauthn/login/begin',
     undefined,
     { method: 'POST' },
   );
   const assertion = await startAuthentication({ optionsJSON: begin.options.publicKey });
-  const data = await apiFetch<{ token: string; user: User }>(
+  const reply = await apiFetch<MFAReply>(
     `/api/v1/auth/webauthn/login/finish?session_id=${encodeURIComponent(begin.session_id)}`,
     undefined,
     { method: 'POST', body: JSON.stringify(assertion) },
   );
+  const data = await resolveMFASignIn(reply, mfa);
   const claims = parseJwtClaims(data.token);
   const restaurantIds: number[] = (claims?.restaurant_ids as number[]) ?? [];
   if (!canAccessAdmin(data.user, restaurantIds)) {
@@ -11696,3 +11701,30 @@ export function prepareFoodyUpgrade(rid:number,input:{catalog_version:string;mod
 /** Reads the same tenant-scoped counters used to check employee and POS-device limits. */
 export function getFoodyLicences(rid:number,signal?:AbortSignal):Promise<{used:FoodyLicenceUsage;limits:FoodySeatLimits}|null>{return apiFetch('/api/v1/restaurants/'+rid+'/licences',rid,{signal,cache:'no-store'});}
 export type FoodyLicenceUsage={employees:number;pos:number;chef:number;pos_devices:number;kds:number};
+/** Completes a second-factor challenge before the normal session persistence. */
+async function resolveMFASignIn(reply: MFAReply, prompt?: MFAPrompt, baseURL = API_URL): Promise<MFAResponse> {
+  if (!isMFAChallenge(reply)) return requireCompleteAuth(reply);
+  if (!prompt || !reply.challenge) throw new Error('Second-factor sign-in required');
+  return prompt(reply, async (code) => {
+    const response = await fetch(`${baseURL}/api/v1/auth/mfa/verify`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challenge: reply.challenge, code }),
+      credentials: 'omit', cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) throw new Error('Second-factor verification failed');
+    return requireCompleteAuth(await response.json() as MFAReply);
+  });
+}
+
+/** Returns the current activation and MFA state without secrets. */
+export function getAuthSecurityStatus(): Promise<{ enabled: boolean; mfa_verified: boolean }> {
+  return apiFetch('/api/v1/auth/security');
+}
+/** Confirms a replacement before overwriting the stored session. */
+export async function replaceAuthenticator(password: string, prompt: MFAPrompt): Promise<void> {
+  const remember = typeof window !== 'undefined' && localStorage.getItem(TOKEN_KEY) !== null;
+  const reply = await apiFetch<MFAReply>('/api/v1/auth/mfa/replace', undefined, { method: 'POST', body: JSON.stringify({ password }) });
+  const data = await resolveMFASignIn(reply, prompt);
+  const ids = (parseJwtClaims(data.token)?.restaurant_ids as number[]) ?? [];
+  persistSession(data.token, data.user, ids, remember);
+}

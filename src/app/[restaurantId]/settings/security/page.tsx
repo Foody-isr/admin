@@ -1,4 +1,5 @@
 'use client';
+import { MFASettings } from '@/components/MFASettings';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Fingerprint, ShieldCheck, Trash2 } from 'lucide-react';
@@ -106,6 +107,7 @@ export default function SecuritySettingsPage() {
 
   return <div className="max-w-4xl space-y-6">
     <PageHead title={t('securitySettings')} desc={t('securitySettingsDesc')} />
+    <MFASettings />
     <Section title={<span className="flex items-center gap-2"><Fingerprint aria-hidden="true" className="size-5" />{t('passkeysTitle')}</span>} desc={t('passkeysDesc')}>
       {loading ? <p role="status" className="py-6 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : loadError ? <div role="alert" className="space-y-3">
         <p className="text-sm text-[var(--danger-500)]">{loadError}</p>

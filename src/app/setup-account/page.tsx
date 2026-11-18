@@ -1,5 +1,7 @@
 'use client';
 
+import { useMFA } from '@/components/MFAChallenge';
+
 import { PasswordField } from '@/components/PasswordField';
 import { Tablet, Monitor, LayoutGrid } from 'lucide-react';
 
@@ -59,6 +61,7 @@ export default function SetupAccountPage() {
 }
 
 function SetupAccountContent() {
+  const mfa = useMFA();
   const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -204,7 +207,7 @@ function SetupAccountContent() {
         restaurant_phone: isStaff || modularInvite ? undefined : restaurantPhone || undefined,
         pos_platform: isStaff || modularInvite ? undefined : posPlatform,
         pos_pin: requiresPOSCode ? posPin : undefined,
-      });
+      }, mfa.prompt);
 
       if (modularInvite) {
         const rid = inviteData?.restaurant?.id;
@@ -231,6 +234,7 @@ function SetupAccountContent() {
       setSuccess(true);
     } catch (err: unknown) {
       const key = setupErrorKey(err);
+      if (err instanceof Error && err.message === 'Sign-in cancelled') { setError(t('mfaSetupResume')); return; }
       setError(key ? t(key === 'setupPOSCodeInvalid' && !requiresPOSCode ? 'setupPermissionsChanged' : key) : err instanceof Error ? err.message : t('accountSetupFailed'));
     } finally {
       setLoading(false);
@@ -355,6 +359,7 @@ function SetupAccountContent() {
   // ─── Wizard ────────────────────────────────────────────────────────
   return (
     <AccessShell>
+      {mfa.view}
       <div className="w-full max-w-lg">
         {/* Logo */}
         <div className="flex justify-center mb-6">
