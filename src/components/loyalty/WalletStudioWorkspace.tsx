@@ -11,14 +11,15 @@ import {
   Tab, Tabs, TabsContent, TabsList,
 } from '@/components/ds';
 import {
-  ApiError, generateWalletStudioTest, getStoredUser, getWalletStudio, saveWalletStudio,
+  ApiError, generateWalletStudioTest, getStoredUser, getWalletStudio, publishWalletStudio, saveWalletStudio,
   type WalletStudioDesign, type WalletStudioState,
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useI18n } from '@/lib/i18n';
+import { RUNTIME_WEB_URL } from '@/lib/runtime-origins';
 
 type Draft = { background: string; foreground: string; logo: string | null; banner: string | null };
-type Action = 'save' | 'generate' | 'image';
+type Action = 'save' | 'publish' | 'generate' | 'image';
 const isColor = (value: string) => /^#[0-9a-f]{6}$/i.test(value);
 const testBarcode = 'FOODY-WALLET-STUDIO-TEST';
 
@@ -80,6 +81,12 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
   const valid = !!draft && isColor(draft.background) && isColor(draft.foreground);
   const stale = error === 'walletStudioConflict';
   const canSave = state?.can_edit && valid && (dirty || state.design.revision === 0) && !stale;
+  const publishedRevision = state?.published_revision;
+  const publicationStatus = !publishedRevision ? 'walletStudioUnpublishedStatus'
+    : publishedRevision === state?.design.revision ? 'walletStudioPublishedStatus' : 'walletStudioChangesToPublish';
+  const customerPage = `${RUNTIME_WEB_URL}/r/${rid}/account/loyalty`;
+  const canPublish = state?.can_edit && state.program && publishedRevision !== undefined &&
+    state.design.revision > publishedRevision && !dirty && !stale;
 
   useEffect(() => {
     const request = new AbortController();
@@ -135,10 +142,10 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
         setError('loyaltyProgramForbidden');
       } else if (failure instanceof ApiError && failure.message === 'loyalty_conflict') {
         setError('walletStudioConflict');
-      } else if (mode === 'image' || failure instanceof ApiError && [400, 413, 415].includes(failure.status)) {
+      } else if (mode === 'image' || mode === 'save' && failure instanceof ApiError && [400, 413, 415].includes(failure.status)) {
         setError('walletStudioImageError');
       } else {
-        setError(mode === 'generate' ? 'walletStudioSignError' : 'walletStudioSaveError');
+        setError(mode === 'publish' ? 'walletStudioPublishError' : mode === 'generate' ? 'walletStudioSignError' : 'walletStudioSaveError');
       }
     } finally {
       operation.current = null;
@@ -178,6 +185,25 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
       setPassURL(URL.createObjectURL(pass));
       setMessage('walletStudioReady');
     });
+  }
+
+  function publish() {
+    if (!state || !canPublish) return;
+    void perform('publish', async (signal) => {
+      const revision = await publishWalletStudio(rid, state.design.revision, signal);
+      if (signal.aborted) return;
+      setState({ ...state, published_revision: revision });
+      setMessage('walletStudioPublishedMessage');
+    });
+  }
+
+  async function copyCustomerLink() {
+    try {
+      await navigator.clipboard.writeText(customerPage);
+      setMessage('copied');
+    } catch {
+      setMessage('walletStudioCopyFailed');
+    }
   }
 
   return (
@@ -225,6 +251,41 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
                 {!state.can_edit && <p className="mt-4 text-sm text-[var(--fg-muted)]">{t('walletStudioReadOnly')}</p>}
               </CardBody>
             </Card>
+            {publishedRevision !== undefined && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t('walletStudioPublication')}</CardTitle>
+                  <Badge tone={publishedRevision > 0 ? 'success' : 'neutral'}>
+                    {t(publicationStatus)}
+                  </Badge>
+                </CardHeader>
+                <CardBody className="space-y-4">
+                  <p className="text-sm text-[var(--fg-muted)]">
+                    {t(!state.program ? 'walletStudioPublishNeedsProgram' : dirty || !state.design.revision ? 'walletStudioPublishSave' : 'walletStudioCustomerCardHelp')}
+                  </p>
+                  {state.program?.enabled === false && (
+                    <p className="text-sm text-[var(--fg-muted)]">{t('walletStudioActiveRequired')}</p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {state.can_edit && (
+                      <Button variant="secondary" disabled={!canPublish || !!action} onClick={publish}>
+                        {t(action === 'publish' ? 'walletStudioPublishing' : 'walletStudioPublish')}
+                      </Button>
+                    )}
+                    {state.program && (
+                      <>
+                        <Button variant="ghost" onClick={copyCustomerLink} disabled={!!action}>{t('walletStudioCopyLink')}</Button>
+                        <Button variant="ghost" asChild>
+                          <a href={customerPage} target="_blank" rel="noopener noreferrer">
+                            {t('walletStudioOpenCustomerPage')}
+                          </a>
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </CardBody>
+              </Card>
+            )}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Smartphone size={18} aria-hidden="true" />{t('walletStudioTestCard')}</CardTitle>

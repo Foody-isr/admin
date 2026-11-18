@@ -1,0 +1,44 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "51279ed9bcdf20fc564432e00dffb9890910101b2a6f48418111850a5f29c45e",
+      "baseSha256": "a1637097f2e60096e4669394b726ed6bb5a0bb0a5f5504afd7ed454009dc2624",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events"
+      ],
+      "reason": "The API client diff adds the Wallet Studio publication call and two fields to the Wallet Studio response type."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "00cd48ac9a57d7b404e190731f0b91b43797465f9fa2ac302301574bfa8dcd35",
+      "baseSha256": "0057f10b49f6c465cac58aa0f7e7de3efa17d47284aaf2697149a3045aeaa551",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "reason": "The added translation keys belong to Wallet Studio publication, program status and enrollment link controls."
+    }
+  ]
+}
