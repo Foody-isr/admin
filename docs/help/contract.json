@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "50bcd2951e65abb8259ea4233b6cc9720f14c8de",
+  "documentationRef": "6a018200c791eb83a48bebdf4e2bab0afd005c6c",
   "documentationRevision": "a4f6a1c8db9199e25916be91959793179d32b58a4a4290c9e68bfe42d2a1799c",
   "articles": {
     "getting-started/first-login": {
@@ -3565,7 +3565,7 @@
       ]
     },
     "src/app/[restaurantId]/settings/security/page.tsx": {
-      "sha256": "688414c2cb951a4b6281df4dc2eeed9c60b0360cf1bf574f1ea3486835d089d7",
+      "sha256": "31c46f60b748b0ed4ea3956e845182afd9d4c61b47cdcf0f7372f3e11d6c650b",
       "features": [
         "account-security"
       ]
@@ -3747,7 +3747,7 @@
       ]
     },
     "src/app/login/page.tsx": {
-      "sha256": "7e719f15edfbd9382a77cd7333e1ede9b18f5a1da6ed86b75bbc337c0d4df520",
+      "sha256": "97ccb64c8046faddd6cdbbf331f3e70f40544fe6ed95ddacfb3a6c0c096d7098",
       "features": [
         "account-access"
       ]
@@ -3771,7 +3771,7 @@
       ]
     },
     "src/app/setup-account/page.tsx": {
-      "sha256": "fecc27258802401e95e3e9cf19b65186848ce61665a656b1d932b71cae28339d",
+      "sha256": "4ab5942925fe881316bd0e96c5279e8de3c60497f933440b29ff796ca4fbe839",
       "features": [
         "account-access"
       ]
@@ -3812,6 +3812,18 @@
       "sha256": "386ae9a82cf03908469694c2d4e5a91750c5874cae892cd510cd17eb394eb9b9",
       "features": [
         "account-access"
+      ]
+    },
+    "src/components/MFAChallenge.tsx": {
+      "sha256": "8064625e927b62765a479732ce33b037c9a4cbc1d4a885a11a941a995f4b065d",
+      "features": [
+        "account-security"
+      ]
+    },
+    "src/components/MFASettings.tsx": {
+      "sha256": "ee9714a76634707518e157da37711f33a83bc0edad2ca7fe52a7d12a16c00ab4",
+      "features": [
+        "account-security"
       ]
     },
     "src/components/MenuGroupPicker.tsx": {
@@ -6662,7 +6674,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "774c3c659ad50bbc122d40112023757f12f358e0674b29ba978c66a4b2fd4c10",
+      "sha256": "f3692fbe3e299a5a1ae482b8ae23ef379184512407b7272cd34125a8216791d3",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6872,7 +6884,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "1022dac1da313507bb2e5b929c9c4661fea082844b077779081827eb540b36db",
+      "sha256": "d8cbb9f785d4a5f93163cc2f0541060cfa6d518fff8edb7706211a0d50535abc",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -7029,6 +7041,13 @@
     "src/lib/meta-sdk.ts": {
       "sha256": "f8caf3bd3d103d832b736e39fc3b5a228e51b2e8647066eb256e72b617dea119",
       "features": [
+        "shared-runtime"
+      ]
+    },
+    "src/lib/mfa.ts": {
+      "sha256": "0812332d44c18af45a4b4672f931f80d2053b786acad53ad2a846bc6b183abc8",
+      "features": [
+        "account-security",
         "shared-runtime"
       ]
     },
@@ -15261,6 +15280,7 @@
         "goToLogin",
         "invalidInvitation",
         "loading",
+        "mfaSetupResume",
         "minCharsPlaceholder",
         "passwordRequired",
         "passwordsMismatch",
@@ -15358,6 +15378,43 @@
         "idleDescription",
         "idleDismiss",
         "idleTitle"
+      ],
+      "actions": []
+    },
+    {
+      "id": "foodyadmin:src/components/MFAChallenge.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/MFAChallenge.tsx",
+      "line": 1,
+      "features": [
+        "account-security"
+      ],
+      "labels": [
+        "mfaCancel",
+        "mfaCode",
+        "mfaEnroll",
+        "mfaFailed",
+        "mfaPinEnroll"
+      ],
+      "actions": [
+        "submit"
+      ]
+    },
+    {
+      "id": "foodyadmin:src/components/MFASettings.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/MFASettings.tsx",
+      "line": 1,
+      "features": [
+        "account-security"
+      ],
+      "labels": [
+        "mfaFailed",
+        "mfaPassword",
+        "mfaReplaced",
+        "mfaSettingsHint",
+        "mfaSettingsTitle",
+        "mfaUnavailable"
       ],
       "actions": []
     },

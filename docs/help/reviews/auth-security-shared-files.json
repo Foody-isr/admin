@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-18",
+  "documentationRef": "510d49efa3ec9ee2a25f16ac4429858105dc05df",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "854d51c69f2b12eba336f332097af848300cba99586360a149f18375ff1b5770",
+      "baseSha256": "51279ed9bcdf20fc564432e00dffb9890910101b2a6f48418111850a5f29c45e",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed diff adds only the conditional authenticator sign-in, replacement and recovery flow and its FR/HE/EN copy. The listed unrelated features selected by broad shared-file rules keep their requests, labels and behavior. User-visible authentication changes are documented in account access/security and staff-device procedures in all three languages."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "e84acf387d4902b15941617cdccfa08a4012b507c89e2b437bfff4b08069992c",
+      "baseSha256": "e5aed64b0f727f74d76f854b831bffa78eac89148ccf8cb3ac04ecbc4efcd893",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed diff adds only the conditional authenticator sign-in, replacement and recovery flow and its FR/HE/EN copy. The listed unrelated features selected by broad shared-file rules keep their requests, labels and behavior. User-visible authentication changes are documented in account access/security and staff-device procedures in all three languages."
+    }
+  ]
+}
