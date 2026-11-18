@@ -42,6 +42,19 @@
       ],
       "disposition": "no-user-impact",
       "reason": "Only the annual mandate description and consent label in subscription checkout changed. Other features match this shared translation file but their controls and messages retain their previous wording."
+    },
+    {
+      "path": "src/components/Sidebar.tsx",
+      "sha256": "f79d12ef5019e151a577c55742b05d1e81bee0311f77a0f01ea5ffa912dcd2c0",
+      "baseSha256": "b6351013ea39c0d55f5e682654deff9b8205d2215ff16c6cc1251babf06cd5b3",
+      "features": [
+        "pos-payments",
+        "global-search",
+        "payments-transactions",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the owner Billing link now follows the restaurant-scoped subscription response on the production API. The other sidebar destinations, roles and permissions keep their existing navigation behavior."
     }
   ]
 }

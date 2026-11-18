@@ -17,7 +17,7 @@ import { usePermissions } from '@/lib/permissions-context';
 import { useWs } from '@/lib/ws-context';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme-context';
-import { API_URL, getFoodyBilling, getLowStockCount, getPrepLowStockCount } from '@/lib/api';
+import { getFoodyBilling, getLowStockCount, getPrepLowStockCount } from '@/lib/api';
 import {
   LockKeyhole,
   Home,
@@ -105,7 +105,7 @@ export default function Sidebar({ restaurantId, restaurantName, moduleAccess, is
   const [privateBillingAccess, setPrivateBillingAccess] = useState<string | null>(null);
   const [expansion, setExpansion] = useState<{ pathname: string; overrides: Record<string, boolean> }>({ pathname, overrides: {} });
   const overrides = expansion.pathname === pathname ? expansion.overrides : {};
-  const billingScope = !permissionsLoading && isOwner && userId && API_URL !== 'https://api.foody-pos.co.il'
+  const billingScope = !permissionsLoading && isOwner && userId
     ? `${restaurantId}:${userId}`
     : null;
   const settingsGroups = visibleSettingsNavigation(
