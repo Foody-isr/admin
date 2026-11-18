@@ -1,6 +1,6 @@
 # Inventaire FoodyAdmin
 
-Audit initial du 4 octobre 2026 : 102 types de routes. Périmètre utilisateur actualisé : 91 routes produit actives, 7 reportées (Traiteur6 et Tournées), 2 éditeurs retirés (Website/V2), 2 aperçus internes conservés hors périmètre produit. Base `bd3b4d9a` (origin/develop). Les routes dynamiques sont regroupées par type.
+Audit initial du 4 octobre 2026 : 102 types de routes. Périmètre utilisateur actualisé : 92 routes produit actives, 6 reportées (Traiteur), 2 éditeurs retirés (Website/V2), 2 aperçus internes conservés hors périmètre produit. Base `bd3b4d9a` (origin/develop). Les routes dynamiques sont regroupées par type.
 
 Les cinq étapes sont distinctes : **I** inventorié, **C** conçu, **M** implémenté, **F** testé fonctionnellement, **V** inspecté visuellement. ◐ signifie partiel, avec un périmètre explicitement décrit ci-dessous. Une propagation de tokens seule ne valide pas M/F/V. Les imports, overlays, états et contrôles locaux sont détaillés dans `surfaces.json`.
 
@@ -24,7 +24,6 @@ Routes restaurant : AuthProvider → RestaurantGuard → PermissionsProvider →
 | `/[restaurantId]/chain/branches` | `src/app/[restaurantId]/chain/branches/page.tsx` | ChainEditor, Modal, ConfirmDialog | ✓ | ✓ | ◐ | ◐ | ◐ |
 | `/[restaurantId]/customers` | `src/app/[restaurantId]/customers/page.tsx` | DataTable, DataTableBody, DataTableCell, DataTableHead, DataTableHeadCell, DataTableHeadSpacerCell, DataTableRow, DataTableSelectAllCell, DataTableSelectCell, MergeCustomersModal | ✓ | ✓ | ✓ | ◐ | ◐ |
 | `/[restaurantId]/dashboard` | `src/app/[restaurantId]/dashboard/page.tsx` | TopSellersPanel | ✓ | ✓ | ◐ | ◐ | ◐ |
-| `/[restaurantId]/delivery/tours` | `src/app/[restaurantId]/delivery/tours/page.tsx` | DataTable, DataTableBody, DataTableCell, DataTableHead, DataTableHeadCell, DataTableRow | ✓ | — | — | — | — | Reporté par utilisateur. |
 | `/[restaurantId]/kitchen/availability` | `src/app/[restaurantId]/kitchen/availability/page.tsx` | Voir composants/imports | ✓ | ✓ | ◐ | ◐ | ◐ |
 | `/[restaurantId]/kitchen/daily-operations` | `src/app/[restaurantId]/kitchen/daily-operations/page.tsx` | DailyProductionModal, DailyReceiptModal, DeliveryImportModal, KitchenDrawer, NextServicePanel, QuantityEntryDrawer, QuickReceiveModal, QuickSalesModal, SalesImportModal | ✓ | ✓ | ◐ | ◐ | ◐ |
 | `/[restaurantId]/kitchen/data` | `src/app/[restaurantId]/kitchen/data/page.tsx` | Voir composants/imports | ✓ | ✓ | ✓ | ✓ | ◐ |
@@ -59,8 +58,8 @@ Routes restaurant : AuthProvider → RestaurantGuard → PermissionsProvider →
 | `/[restaurantId]/menu/rotation` | `src/app/[restaurantId]/menu/rotation/page.tsx` | Voir composants/imports | ✓ | ✓ | ✓ | ◐ | ◐ |
 | `/[restaurantId]/orders/[orderId]` | `src/app/[restaurantId]/orders/[orderId]/page.tsx` | Voir composants/imports | ✓ | ✓ | ◐ | ◐ | ◐ |
 | `/[restaurantId]/orders/all` | `src/app/[restaurantId]/orders/all/page.tsx` | CancelOrderDialog, ConfirmDialog, ConfirmWeightsModal, CorrectPaymentMethodDialog, DataTable, DataTableBody, DataTableCell, DataTableHead, DataTableHeadCell, DataTableRow, EditCustomerDialog, EditOrderDrawer, OrderDetailModal, OrdersTableConfig, OrdersTableSkeleton, OverridePaymentDialog, OverrideStatusDialog, TakePaymentDialog | ✓ | ✓ | ◐ | ◐ | ◐ |
-| `/[restaurantId]/orders/courier-mode` | `src/app/[restaurantId]/orders/courier-mode/page.tsx` | Voir composants/imports | ✓ | — | — | — | — |
-| `/[restaurantId]/orders/deliveries` | `src/app/[restaurantId]/orders/deliveries/page.tsx` | Voir composants/imports | ✓ | — | — | — | — |
+| `/[restaurantId]/orders/courier-mode` | `src/app/[restaurantId]/orders/courier-mode/page.tsx` | Feuille de route et carte | ✓ | ✓ | ✓ | ✓ | ✓ | Aperçu mobile daté, liste des arrêts, carte, départ confirmé le jour prévu et ouverture de l’arrêt en cours. |
+| `/[restaurantId]/orders/deliveries` | `src/app/[restaurantId]/orders/deliveries/page.tsx` | Répartition, ajout à une tournée et carte | ✓ | ✓ | ✓ | ✓ | ✓ | File à planifier, recherche bilingue, point confirmé, ajout dans une tournée existante, récupération du départ et historique. |
 | `/[restaurantId]/orders/new` | `src/app/[restaurantId]/orders/new/page.tsx` | NewOrderCheckoutDrawer, NewOrderComboModal, NewOrderItemModal | ✓ | ✓ | ◐ | ◐ | ◐ |
 | `/[restaurantId]/orders` | `src/app/[restaurantId]/orders/page.tsx` | Voir composants/imports | ✓ | ✓ | ✓ | ✓ | ◐ |
 | `/[restaurantId]/orders/production` | `src/app/[restaurantId]/orders/production/page.tsx` | Voir composants/imports | ✓ | — | — | — | — |
@@ -78,7 +77,8 @@ Routes restaurant : AuthProvider → RestaurantGuard → PermissionsProvider →
 | `/[restaurantId]/settings/ai-assistant` | `src/app/[restaurantId]/settings/ai-assistant/page.tsx` | Voir composants/imports | ✓ | ✓ | ◐ | ◐ | ◐ |
 | `/[restaurantId]/settings/branding` | `src/app/[restaurantId]/settings/branding/page.tsx` | Voir composants/imports | ✓ | ✓ | ✓ | ◐ | ◐ |
 | `/[restaurantId]/settings/cibus` | `src/app/[restaurantId]/settings/cibus/page.tsx` | Voir composants/imports | ✓ | ✓ | ✓ | ◐ | ◐ |
-| `/[restaurantId]/settings/delivery` | `src/app/[restaurantId]/settings/delivery/page.tsx` | Voir composants/imports | ✓ | ✓ | ✓ | ✓ | ✓ | Zones, cartes, minimum séparé, reprise et permissions ; 27 scénarios compilés (lot74). |
+| `/[restaurantId]/settings/delivery` | `src/app/[restaurantId]/settings/delivery/page.tsx` | Zones, éditeur et carte | ✓ | ✓ | ✓ | ✓ | ✓ | Répertoire des zones, tarif et état de chaque zone, couverture et horaires dépliables, filtres, carte et minimum indépendant. |
+| `/[restaurantId]/settings/delivery/maps` | `src/app/[restaurantId]/settings/delivery/maps/page.tsx` | Consommation et choix de service | ✓ | ✓ | ✓ | ✓ | ✓ | Service actif, choix du fournisseur, consommation Google et Geoapify, quotas et tarifs. |
 | `/[restaurantId]/settings/devices` | `src/app/[restaurantId]/settings/devices/page.tsx` | ConfirmDialog, DeviceDrawerContent, Modal | ✓ | ✓ | ✓ | ✓ | ✓ | Inventaire mobile/RTL, détails C2, filtres/tri/colonnes/pagination, permissions cumulatives, brouillons/polling, actions partielles et récupération. 22 scénarios compilés ; limites matérielles et concurrence dans devices-audit.md. |
 | `/[restaurantId]/settings/language` | `src/app/[restaurantId]/settings/language/page.tsx` | TranslationReviewTable | ✓ | ✓ | ◐ | ◐ | ◐ |
 | `/[restaurantId]/settings/message-templates` | `src/app/[restaurantId]/settings/message-templates/page.tsx` | TemplateEditor | ✓ | ✓ | ◐ | ◐ | ◐ |

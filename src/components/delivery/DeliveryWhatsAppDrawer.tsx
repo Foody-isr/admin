@@ -1,18 +1,18 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { MessageCircleIcon, RefreshCwIcon } from 'lucide-react';
 import { Badge, Button, Drawer, EmptyState } from '@/components/ds';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { ApiError, previewOrderWhatsApp, sendOrderWhatsApp, type OrderWhatsAppPreview } from '@/lib/api';
+import { ApiError, previewOrderWhatsApp, sendOrderWhatsApp, type OrderWhatsAppPreview, type StaffMember } from '@/lib/api';
 import type { DeliveryRoute } from '@/lib/delivery';
 import { isOpenDeliveryRoute, isPendingDeliveryStop } from '@/lib/delivery-planning';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 
-interface Recipient { orderId: number; name: string }
+interface Recipient { orderId: number; name: string; routeId: number; routeNumber: number; courierId: number }
 interface Row extends Recipient { state: 'loading' | 'ready' | 'failed' | 'sending'; preview?: OrderWhatsAppPreview }
 
 function sendable(row: Row): boolean {
@@ -20,8 +20,8 @@ function sendable(row: Row): boolean {
 }
 
 /** Reviews server-rendered route reminders, then sends individually or for the selected date. */
-export function DeliveryWhatsAppDrawer({ open, onOpenChange, restaurantId, date, routes, orderId }: {
-  open: boolean; onOpenChange: (open: boolean) => void; restaurantId: number; date: string; routes: DeliveryRoute[]; orderId?: number;
+export function DeliveryWhatsAppDrawer({ open, onOpenChange, restaurantId, date, routes, couriers, orderId }: {
+  open: boolean; onOpenChange: (open: boolean) => void; restaurantId: number; date: string; routes: DeliveryRoute[]; couriers: ReadonlyMap<number, StaffMember>; orderId?: number;
 }) {
   const { t, locale } = useI18n();
   const params = useParams();
@@ -29,9 +29,13 @@ export function DeliveryWhatsAppDrawer({ open, onOpenChange, restaurantId, date,
   const allowed = Number(params.restaurantId) === restaurantId && hasAnyPermission('orders.manage');
   const recipients = useMemo(() => {
     const seen = new Set<number>();
-    return routes.filter(route => route.date.slice(0, 10) === date && isOpenDeliveryRoute(route)).flatMap(route => route.stops)
-      .filter(stop => isPendingDeliveryStop(stop) && (!orderId || orderId === stop.order_id) && !seen.has(stop.order_id) && Boolean(seen.add(stop.order_id)))
-      .map(stop => ({ orderId: stop.order_id, name: stop.customer_name }));
+    return routes.filter(route => route.date.slice(0, 10) === date && isOpenDeliveryRoute(route)).flatMap((route, index) =>
+      route.stops.slice().sort((first, second) => first.sequence - second.sequence).flatMap(stop => {
+        if (!isPendingDeliveryStop(stop) || (orderId && orderId !== stop.order_id) || seen.has(stop.order_id)) return [];
+        seen.add(stop.order_id);
+        return [{ orderId: stop.order_id, name: stop.customer_name, routeId: route.id, routeNumber: index + 1, courierId: route.courier_id }];
+      })
+    );
   }, [routes, date, orderId]);
   const signature = useMemo(() => JSON.stringify([restaurantId, date, orderId, routes], (key, value) => key === 'route_geometry' ? undefined : value), [restaurantId, date, orderId, routes]);
   const currentSignature = useRef(signature);
@@ -138,7 +142,11 @@ export function DeliveryWhatsAppDrawer({ open, onOpenChange, restaurantId, date,
         {rows.map((row, index) => {
           const preview = row.preview;
           const status = row.state === 'sending' ? 'sending' : preview?.send_blocked_reason === 'not_due' ? 'not_due' : preview?.previous_status ?? preview?.status;
-          return <section key={row.orderId} aria-label={`${row.name} #${row.orderId}`} className="space-y-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-4">
+          return <Fragment key={row.orderId}>
+            {!orderId && (index === 0 || row.routeId !== rows[index - 1].routeId) && <h3 className="flex flex-wrap items-baseline gap-2 border-b border-[var(--line)] pb-2 pt-2 text-fs-md font-semibold">
+              {t('mapsRoute')} {row.routeNumber}<bdi className="text-fs-sm font-normal text-[var(--fg-muted)]">{couriers.get(row.courierId)?.full_name}</bdi>
+            </h3>}
+            <section aria-label={`${row.name} #${row.orderId}`} className="space-y-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div><p className="text-fs-sm font-semibold">{row.name}</p><p className="text-fs-xs text-[var(--fg-muted)]">#{row.orderId}</p></div>
               {status && <Badge tone={['accepted', 'sent', 'delivered', 'read'].includes(status) ? 'success' : ['unknown', 'failed'].includes(status) ? 'warning' : 'neutral'}>{t(statusLabels[status] ?? 'deliveryWhatsAppUnknown')}</Badge>}
@@ -156,7 +164,7 @@ export function DeliveryWhatsAppDrawer({ open, onOpenChange, restaurantId, date,
               </details>
               {!orderId && sendable(row) && <Button variant="secondary" disabled={busy || loading || stale} onClick={() => void send([row])}>{t('deliveryWhatsAppSendOne')}</Button>}
             </>}
-          </section>;
+          </section></Fragment>;
         })}
         <p className="text-fs-xs leading-relaxed text-[var(--fg-muted)]">{t('deliveryWhatsAppEvidence')}</p>
       </div>

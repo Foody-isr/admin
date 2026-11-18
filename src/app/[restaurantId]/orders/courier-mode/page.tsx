@@ -35,6 +35,7 @@ function SelectedCourierMode({ rid }: { rid: number }) {
   return (
     <div className={styles.preview}>
       <div className={styles.courierPicker}>
+        <h1 className={`sr-only sm:not-sr-only ${styles.previewTitle}`}>{t('courierMode')}</h1>
         <label htmlFor="courier-mode-selection">{t('courierViewAs')}</label>
         <select
           id="courier-mode-selection"

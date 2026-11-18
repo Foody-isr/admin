@@ -1,5 +1,6 @@
 import { expect, test, type Page, type WebSocketRoute } from '@playwright/test';
 import { createFixture } from './fixtures.mjs';
+import { demoTiles } from './fixtures/delivery-map';
 import type { DeliveryRoute, RouteStop } from '../../src/lib/delivery';
 
 const day = '2026-10-12';
@@ -170,6 +171,16 @@ for (const mode of ['coordinates', 'canonical text', 'unlocated Google address',
   });
 }
 
+async function openMap(page: Page) {
+  const toggle = page.getByRole('button', { name: /^(Carte|מפה|Map)$/ });
+  await toggle.click();
+}
+
+async function openSettings(page: Page) {
+  const details = page.locator('details').filter({ has: page.getByText('Réglages de la tournée', { exact: true }) }).first();
+  if (await details.getAttribute('open') === null) await details.locator('summary').click();
+}
+
 test('dispatch shows the stop awaiting a result, preserves reports, and sends a scoped reminder', async ({ page }) => {
   const state = await install(page);
   state.routes[0].status = 'active';
@@ -195,12 +206,11 @@ test('dispatch shows the stop awaiting a result, preserves reports, and sends a 
 test('planner separates completed deliveries from work and preserves history', async ({ page }, info) => {
   const state = await install(page);
   await page.goto('/1/orders/deliveries');
-  await expect(page.getByRole('heading', { name: 'Livraisons', exact: true })).toBeVisible();
-  await expect(page.locator('[data-page-actions]').getByRole('link', { name: 'Cartes et itinéraires', exact: true })).toHaveAttribute('href', '/1/settings/delivery/maps');
-  await expect(page.locator('[data-page-actions]').getByRole('link', { name: 'Cartes et itinéraires', exact: true })).toHaveAttribute('data-variant', 'secondary');
+  await expect(page.getByRole('heading', { name: 'Répartition', exact: true })).toBeVisible();
   await expect(page.getByText('1 sur 3 livrés', { exact: true })).toBeVisible();
   await expect(page.getByText('Client démo 1', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Client démo 4', { exact: true })).toHaveCount(0);
+  await openMap(page);
   await expect(page.locator('.leaflet-container')).toBeVisible();
   await expect(page.locator('.foody-stop-pin')).toHaveCount(2);
   await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(2);
@@ -247,12 +257,11 @@ test('mobile stop details and map stay usable without horizontal overflow', asyn
   await install(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/1/orders/deliveries');
-  await expect(page.locator('[data-page-actions]').getByRole('link', { name: 'Cartes et itinéraires', exact: true })).toBeVisible();
   await page.getByRole('button', { name: /2 Rue de démonstration/ }).click();
   await expect(page.getByRole('button', { name: 'Corriger l’adresse', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath('delivery-planner-fr-mobile.png'), animations: 'disabled', fullPage: true });
-  await page.getByRole('button', { name: 'Carte', exact: true }).click();
+  await openMap(page);
   await expect(page.locator('.leaflet-container')).toBeVisible();
   await page.getByRole('button', { name: 'Liste', exact: true }).click();
   await expect(page.getByText('1 sur 3 livrés', { exact: true })).toBeVisible();
@@ -271,10 +280,10 @@ test('a changed itinerary hides stale totals and can still be unassigned', async
   expect(state.writes).toEqual([{ path: '/api/v1/delivery/routes/1', rid: '1' }]);
 });
 
-test('three zones assigned to two couriers send two complete allocations', async ({ page }) => {
+test('three zones group bilingual city variants and send two complete allocations', async ({ page }) => {
   const state = await install(page);
   state.routes = [];
-  state.candidates = ['Zone A', 'Zone B', 'Zone C'].map((city, index) => ({
+  state.candidates = ['Tel Aviv', 'Zone B', 'Zone C', 'תל אביב-יפו', 'tel-aviv yafo'].map((city, index) => ({
     id: 2001 + index, restaurant_id: 1, order_type: 'delivery', status: 'in_kitchen',
     customer_name: `Client démo ${index}`, delivery_address: '1 Rue de démonstration', delivery_city: city,
   }));
@@ -283,7 +292,9 @@ test('three zones assigned to two couriers send two complete allocations', async
   await page.getByRole('checkbox', { name: 'Tout sélectionner', exact: true }).check();
   await page.getByRole('button', { name: 'Répartir entre les livreurs', exact: true }).first().click();
   await page.getByRole('radio', { name: /Par zone/ }).click();
-  await page.locator('label').filter({ hasText: 'Zone A' }).getByRole('combobox').selectOption('1');
+  const telAviv = page.locator('label').filter({ hasText: 'Tel Aviv' });
+  await expect(telAviv).toContainText('3');
+  await telAviv.getByRole('combobox').selectOption('1');
   await page.locator('label').filter({ hasText: 'Zone B' }).getByRole('combobox').selectOption('1');
   await page.locator('label').filter({ hasText: 'Zone C' }).getByRole('combobox').selectOption('2');
   const courierSettings = page.getByRole('group', { name: 'Livreur démo', exact: true });
@@ -291,11 +302,11 @@ test('three zones assigned to two couriers send two complete allocations', async
   await courierSettings.getByRole('combobox', { name: 'Destination finale' }).fill('Herzl 10, Netanya');
   await page.getByRole('textbox', { name: 'Marge du créneau communiqué au client' }).fill('1:30');
   const request = page.waitForRequest(request => request.url().includes('/delivery/routes/plan') && request.method() === 'POST');
-  await page.getByRole('button', { name: 'Planifier 3 livraisons', exact: true }).click();
+  await page.getByRole('button', { name: 'Planifier 5 livraisons', exact: true }).click();
   const submitted = await request;
   expect(submitted.headers()['x-restaurant-id']).toBe('1');
   expect(submitted.postDataJSON().assignments).toEqual([
-    { courier_id: 1, order_ids: [2001, 2002] },
+    { courier_id: 1, order_ids: [2001, 2002, 2004, 2005] },
     { courier_id: 2, order_ids: [2003] },
   ]);
   expect(submitted.postDataJSON().courier_ids).toEqual([1, 2]);
@@ -330,6 +341,7 @@ test('an existing route can disable saved order deadlines and retain the choice'
     return intercepted.fulfill({ json: { route: state.routes[0] } });
   });
   await page.goto('/1/orders/deliveries');
+  await openSettings(page);
   await expect(page.getByText('Créneaux des commandes respectés', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Modifier', exact: true }).click();
   const choice = page.getByRole('switch', { name: 'Respecter les créneaux des commandes', exact: true });
@@ -339,6 +351,7 @@ test('an existing route can disable saved order deadlines and retain the choice'
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
   await expect.poll(() => saved?.respect_order_windows).toBe(false);
   await expect(page.getByText('Horaires calculés par la tournée', { exact: true })).toBeVisible();
+  await openSettings(page);
   await page.getByRole('button', { name: 'Modifier', exact: true }).click();
   await expect(choice).not.toBeChecked();
 });
@@ -357,7 +370,7 @@ test('an accidental departure can return to a draft before unassignment', async 
   await page.goto('/1/orders/deliveries');
   await page.getByRole('button', { name: 'Annuler le départ', exact: true }).click();
   const dialog = page.getByRole('alertdialog');
-  await expect(dialog).toContainText('2 arrêts non commencés');
+  await expect(dialog).toContainText('2 arrêts en attente');
   await expect(dialog).toContainText('En préparation');
   await expect(dialog).toContainText('messages déjà envoyés');
   await dialog.getByRole('button', { name: 'Annuler', exact: true }).click();
@@ -376,7 +389,7 @@ for (const progress of ['arrived', 'delivered', 'skipped'] as const) test(`depar
   const state = await install(page);
   state.routes = [route(1, [stop(2, progress), stop(3)], 'active')];
   await page.goto('/1/orders/deliveries');
-  await expect(page.getByRole('heading', { name: 'Livraisons', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Répartition', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Annuler le départ', exact: true })).toHaveCount(0);
 });
 
@@ -407,10 +420,11 @@ test('Hebrew departure reset remains restaurant scoped', async ({ page }) => {
 test('Hebrew dark mode keeps requests scoped to the active restaurant', async ({ page }, info) => {
   const state = await install(page, 'he');
   await page.goto('/2/orders/deliveries');
-  await expect(page.getByRole('heading', { name: 'משלוחים', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'שיבוץ משלוחים', exact: true })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   await expect(page.getByText('1 מתוך 3 נמסרו', { exact: true })).toBeVisible();
   await expect(page.getByText('08:15–08:30', { exact: true })).toHaveAttribute('dir', 'ltr');
+  await openMap(page);
   await expect(page.locator('.leaflet-container')).toBeVisible();
   await page.screenshot({ path: info.outputPath('delivery-planner-he-dark.png'), animations: 'disabled' });
   expect(state.reads.every(read => read.rid === '2')).toBe(true);
@@ -438,6 +452,7 @@ test('a road quota retains known positions and does not label pending lookups as
   await expect(page.getByText('Le quota du service de localisation est atteint. Réessayez plus tard. Vos tournées existantes sont conservées.', { exact: true })).toBeVisible();
   await expect(page.getByText('Position temporairement indisponible — vérifiez le service cartographique', { exact: true })).toBeVisible();
   await expect(page.getByText('Position introuvable — exclue du calcul du trajet', { exact: true })).toHaveCount(0);
+  await openMap(page);
   await expect(page.locator('.foody-stop-pin')).toHaveCount(1);
   await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /2 Rue de démonstration/ })).toBeVisible();
@@ -449,6 +464,7 @@ test('legend highlights distinct routes assigned to the same courier', async ({ 
   const state = await install(page);
   state.routes = [{ ...route(39, [stop(2)]), courier_id: 1 }, { ...route(40, [stop(3)]), courier_id: 1 }];
   await page.goto('/1/orders/deliveries');
+  await openMap(page);
   const legend = page.getByLabel('Tournées sur la carte');
   await expect(legend).toBeVisible();
   const first = legend.getByRole('button', { name: 'Livreur démo · Tournée 1', exact: true });
@@ -477,6 +493,7 @@ test('map quota switch hides Google content and automatically returns after rese
  const state = await install(page); state.mapProvider = 'google';
  state.routes = [{ ...route(1, [{ ...stop(2), coordinate_provider: 'google' }]), routing_provider: 'google', start_lat: 32.0, start_lng: 34.0, end_lat: 32.3, end_lng: 34.3 }];
  await page.goto('/1/orders/deliveries');
+  await openMap(page);
  await expect(page.locator('.leaflet-control-attribution')).toContainText('Synthetic map data');
  await expect(page.locator('.foody-stop-pin')).toHaveCount(1);
  await expect(page.locator('.leaflet-marker-icon')).toHaveCount(3);
@@ -529,6 +546,7 @@ test('changing a route to another delivery day shows a localized rejection', asy
   state.routes = [route(1, [stop(2)])];
   await page.route('**/api/v1/delivery/routes/1/settings**', intercepted => intercepted.fulfill({ status: 400, json: { error: 'delivery date differs from route date' } }));
   await page.goto('/1/orders/deliveries');
+  await openSettings(page);
   await page.getByRole('button', { name: 'Modifier', exact: true }).click();
   await page.getByLabel('Départ prévu', { exact: true }).fill('2026-10-19T08:00');
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
@@ -554,6 +572,7 @@ test('a city selection is retained once and can be saved as the final destinatio
     return intercepted.fulfill({ json: { route: state.routes[0] } });
   });
   await page.goto('/1/orders/deliveries');
+  await openSettings(page);
   await page.getByRole('button', { name: 'Modifier', exact: true }).click();
   const field = page.getByRole('combobox', { name: 'Destination finale', exact: true });
   await field.fill('Raanana');
@@ -567,6 +586,7 @@ test('a city selection is retained once and can be saved as the final destinatio
   expect(searches).toBe(searched);
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
   await expect.poll(() => saved?.end_address).toBe("Ra'anana, Israel");
+  await openSettings(page);
   await page.getByRole('button', { name: 'Modifier', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Destination finale', exact: true })).toHaveValue("Ra'anana, Israel");
 });
@@ -606,6 +626,7 @@ test('dispatcher identifies missing and stale GPS and moves the courier without 
   const state = await install(page);
   state.routes[0].status = 'active';
   await page.goto('/1/orders/deliveries');
+  await openMap(page);
   await expect(page.getByText('Aucune position du livreur reçue. Vérifiez la localisation sur son téléphone.')).toBeVisible();
   await expect.poll(() => Boolean(state.socket)).toBe(true);
   const updated_at = await page.evaluate(() => new Date().toISOString());
@@ -624,4 +645,105 @@ test('dispatcher identifies missing and stale GPS and moves the courier without 
   await expect(page.getByRole('tooltip', { name: 'Position ancienne du livreur', exact: true })).toBeVisible();
   await expect(page.getByText(/Position ancienne du livreur — dernière réception/)).toBeVisible();
   expect(state.writes).toHaveLength(0);
+});
+
+test('dispatcher pins an unassigned delivery and inserts it before a saved stop', async ({ page }, info) => {
+  const state = await install(page);
+  state.routes = [route(1, [stop(1), stop(2)])];
+  const order = { id: 2009, restaurant_id: 1, order_type: 'delivery', status: 'accepted', customer_name: 'Client test',
+    delivery_address: '12 rue Démo', delivery_city: 'תל אביב-יפו', scheduled_for: day };
+  state.candidates = [order];
+  await page.route('**/api/v1/orders/2009?**', request => request.fulfill({ json: { order } }));
+  let correction: any;
+  await page.route('**/api/v1/orders/2009/customer-details?**', request => {
+    correction = request.request().postDataJSON();
+    return request.fulfill({ json: { order: { ...order, ...correction } } });
+  });
+  const geocodes: string[] = [];
+  page.on('request', request => { if (request.url().includes('/public/geocode?')) geocodes.push(request.url()); });
+  await page.goto('/1/orders/deliveries');
+  await page.getByRole('button', { name: 'Corriger l’adresse #2009' }).click();
+  const editor = page.getByRole('dialog', { name: 'Modifier le client' });
+  await editor.getByRole('button', { name: 'Saisir l’adresse manuellement' }).click();
+  const point = editor.getByRole('textbox', { name: /Point GPS/ });
+  await point.fill('500, 34');
+  await expect(editor.getByRole('button', { name: 'Enregistrer' })).toBeDisabled();
+  await point.fill('32.08, 34.78');
+  await expect(editor.getByRole('link', { name: 'Vérifier ce point dans Google Maps' })).toHaveAttribute('href', /query=32.08%2C34.78/);
+  await page.screenshot({ path: info.outputPath('confirmed-delivery-point.png'), animations: 'disabled' });
+  await editor.getByRole('button', { name: 'Enregistrer' }).click();
+  await expect(editor).toHaveCount(0);
+  expect(correction).toMatchObject({ delivery_pin_confirmed: true, delivery_latitude: 32.08, delivery_longitude: 34.78, delivery_city: 'תל אביב-יפו' });
+  expect(geocodes).toEqual([]);
+  await page.getByRole('button', { name: 'Ajouter à une tournée' }).click();
+  const insert = page.getByRole('dialog', { name: 'Ajouter à une tournée' });
+  await insert.getByRole('combobox', { name: 'Position de l’arrêt' }).selectOption('2');
+  const sequence = page.getByRole('region', { name: 'Ordre des arrêts après insertion' });
+  await expect(sequence.getByRole('listitem')).toHaveCount(3);
+  await expect(sequence.getByText('Nouvel arrêt')).toBeVisible();
+  await page.screenshot({ path: info.outputPath('insert-planned-delivery.png'), animations: 'disabled' });
+  await page.route('**/api/v1/delivery/routes/1/insert-stop?**', request => {
+    expect(request.request().headers()['x-restaurant-id']).toBe('1');
+    expect(request.request().postDataJSON()).toEqual({ order_id: 2009, before_stop_id: 2 });
+    state.routes[0].stops.splice(1, 0, { ...stop(9), order_id: 2009, sequence: 2 });
+    state.candidates = [];
+    return request.fulfill({ json: { route: state.routes[0] } });
+  });
+  await insert.getByRole('button', { name: 'Ajouter la livraison' }).click();
+  await expect(page.getByRole('status').filter({ hasText: '2009' })).toContainText('tournée nº 1');
+  expect(state.writes).toEqual([]);
+});
+
+test('a manager can undo a departure when only navigation was opened', async ({ page }) => {
+  const state = await install(page);
+  const pending = { ...stop(1), navigation_started_at: day + 'T09:00:00Z' };
+  state.routes = [route(1, [pending, stop(2)], 'active')];
+  await page.goto('/1/orders/deliveries');
+  await page.getByRole('button', { name: 'Annuler le départ', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Confirmer' }).click();
+  await expect.poll(() => state.writes.map(write => write.path)).toEqual(['/api/v1/delivery/routes/1/reset-departure']);
+});
+
+test('bilingual dispatch filters retain selections and change service days independently of search', async ({ page }, info) => {
+  const state = await install(page);
+  await demoTiles(page);
+  state.routes[0] = route(1, [
+    stop(1), { ...stop(2), lat: 32.062, lng: 34.772 }, { ...stop(3), lat: 32.095, lng: 34.805 },
+  ]);
+  state.routes[1] = route(2, [stop(4, 'delivered')], 'completed');
+  state.candidates = ['תל אביב-יפו', 'Haïfa'].map((city, index) => ({
+    id: 2040 + index, restaurant_id: 1, order_type: 'delivery', status: 'in_kitchen',
+    customer_name: ['Isa Démo', 'Léa Démo'][index], delivery_address: '10 Rue exemple', delivery_city: city,
+  }));
+  await page.goto('/1/orders/deliveries');
+  const queue = page.getByRole('searchbox', { name: /Rechercher une commande/ });
+  const routes = page.getByRole('searchbox', { name: /Rechercher un livreur/ });
+  const select = page.getByRole('checkbox', { name: 'Tout sélectionner', exact: true });
+  await expect(page.getByText('Léa Démo', { exact: true })).toBeVisible();
+  await expect(page.getByText('Client démo 2', { exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath('delivery-dispatch-workspace-fr.png'), animations: 'disabled' });
+  await queue.fill('Tel-Aviv Yafo');
+  await expect(page.getByText('Isa Démo', { exact: true })).toBeVisible();
+  await expect(page.getByText('Léa Démo', { exact: true })).toHaveCount(0);
+  await expect(select).toBeChecked();
+  await select.click();
+  await expect(select).not.toBeChecked();
+  await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
+  await expect(select).not.toBeChecked();
+  await queue.fill('חיפה');
+  await expect(select).toBeChecked();
+  await expect(page.getByText('Léa Démo', { exact: true })).toBeVisible();
+  await queue.fill('Isa');
+  await expect(select).not.toBeChecked();
+  await routes.fill('1003');
+  await expect(page.getByText('Client démo 3', { exact: true })).toBeVisible();
+  await expect(page.getByText('Client démo 2', { exact: true })).toHaveCount(0);
+  await routes.fill('aucun arrêt');
+  await page.getByRole('button', { name: 'Effacer les filtres' }).click();
+  await expect(page.getByText('Client démo 2', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Jour suivant' }).click();
+  await expect(page.getByLabel('Date des tournées', { exact: true })).toHaveValue('2026-10-13');
+  await page.getByRole('button', { name: 'Jour précédent' }).click();
+  await expect(page.getByLabel('Date des tournées', { exact: true })).toHaveValue(day);
+  expect(state.writes).toEqual([]);
 });

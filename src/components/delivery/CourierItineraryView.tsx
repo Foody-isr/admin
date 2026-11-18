@@ -20,6 +20,7 @@ import {
   type RouteStop,
 } from '@/lib/delivery';
 import {
+  isFutureDeliveryRoute,
   deliveryRoutingError,
   deliveryRouteWarning,
   deliveryLocationWarning,
@@ -234,6 +235,7 @@ function CourierRouteView({
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewMap, setPreviewMap] = useState(false);
   const [panelHeight, setPanelHeight] = useState(56);
   const [selectionRequest, setSelectionRequest] = useState(0);
   const [selectedStopId, setSelectedStopId] = useState<number | null>(null);
@@ -363,6 +365,11 @@ function CourierRouteView({
     }
   }
 
+  const futureRoute = isFutureDeliveryRoute(route, new Date(now));
+  const serviceDay = new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })
+    .format(new Date(route.date.slice(0, 10) + 'T12:00:00Z'));
+  const needsAddressReview = unresolvedStops.length > 0 || navigationUnverified.length > 0;
+
   const startNow = (stop: RouteStop | null) =>
     withBusy(async () => {
       setRoute(await startRoute(rid, route.id, courierId));
@@ -381,12 +388,9 @@ function CourierRouteView({
     }, stop ? 'courierNavigationFailed' : 'deliveryPlanFailed');
 
   const onStart = (stop: RouteStop | null = null) => {
-    if (unresolvedStops.length > 0 || navigationUnverified.length > 0) {
-      setStartNavigationStop(stop);
-      setStartConfirmOpen(true);
-      return;
-    }
-    void startNow(stop);
+    if (futureRoute || !canStart) return;
+    setStartNavigationStop(stop);
+    setStartConfirmOpen(true);
   };
 
   const onOpenStop = (stop: RouteStop) =>
@@ -493,6 +497,7 @@ function CourierRouteView({
 
   return (
     <div
+      data-preview={route.status === 'draft'} data-preview-map={previewMap}
       className={styles.routeView}
       style={
         {
@@ -574,17 +579,24 @@ function CourierRouteView({
           }}
         />
         <div className={styles.summary}>
+          {route.status === 'draft' && <div className={styles.previewBar}>
+            <span><RouteIcon aria-hidden />{t('courierRoutePreview')}</span>
+            <Button variant="secondary" size="sm" aria-pressed={previewMap} onClick={() => setPreviewMap(value => !value)}>
+              {t(previewMap ? 'deliveryPlanShowList' : 'deliveryPlanShowMap')}
+            </Button>
+          </div>}
           <div className={styles.summaryLine}>
             <div className={styles.summaryText}>
               <p>
                 <strong>
-                  {finish
+                  {route.status === 'draft' ? serviceDay : finish
                     ? `${t('courierEstimatedFinish')} ${finish}`
-                    : t(route.status === 'active' ? 'routeStatusActive' : 'routeStatusDraft')}
+                    : t('routeStatusActive')}
                 </strong>
               </p>
               <p>
-                {stops.length} {t('deliveryPlanStops')}
+                {route.status === 'draft' && departureTime && <>{t('courierPlannedDeparture')} <bdi>{departureTime}</bdi> · </>}{stops.length} {t('deliveryPlanStops')}
+                {route.status === 'draft' && finish && <> · {t('courierEstimatedFinish')} {finish}</>}
                 {!route.needs_recalculation && route.total_distance_m > 0 && (
                   <>
                     {' '}
@@ -734,7 +746,7 @@ function CourierRouteView({
             />
           )}
           {plannedStops.length > 0 && (
-            <details className={styles.plannedStops} ref={plannedRef} data-testid="courier-planned-stops">
+            <details className={styles.plannedStops} open={route.status === 'draft'} ref={plannedRef} data-testid="courier-planned-stops">
               <summary>
                 <LockKeyholeIcon aria-hidden="true" />
                 <span>{t('courierViewPlannedStops')}</span>
@@ -781,6 +793,9 @@ function CourierRouteView({
           {stops.length === 0 && <NoStopsCard t={t} />}
         </div>
         <div className={styles.dock} data-testid="courier-action-dock">
+          {route.status === 'draft' && futureRoute && <p role="status" className={styles.futureStart}>
+            <LockKeyholeIcon aria-hidden />{t('courierFutureDeparture').replace('{day}', serviceDay)}
+          </p>}
           {actionStop && route.status === 'active' && (
             <div className={styles.dockTop}>
               <p>{t(awaitingResult ? 'courierCurrentDelivery' : 'courierSelectedStop')} {String(actionStop.sequence).padStart(2, '0')}</p>
@@ -791,12 +806,12 @@ function CourierRouteView({
             {route.status === 'draft' ? (
               <>
                 <Button variant="primary" size="lg"
-                  disabled={busy || !canStart || navigationLoading || !currentStop}
+                  disabled={busy || !canStart || futureRoute || navigationLoading || !currentStop}
                   onClick={() => onStart()} aria-label={t('startRoute')}>
                   {t('courierStartAction')}
                 </Button>
                 <Button variant="secondary" size="lg"
-                  disabled={busy || !canStart || navigationLoading || !currentStop}
+                  disabled={busy || !canStart || futureRoute || navigationLoading || !currentStop}
                   onClick={() => onStart(currentStop)}>
                   <RouteIcon />
                   {t('courierStartAndNavigate')}
@@ -840,7 +855,7 @@ function CourierRouteView({
             ) : null}
           </div>
           {awaitingResult && <p role="status" className="mt-2 text-fs-xs text-[var(--fg-subtle)]">{t('courierAwaitingResult')}</p>}
-          {route.status === 'draft' && !canStart && (
+          {route.status === 'draft' && !futureRoute && !canStart && (
             <p className="mt-2 text-fs-xs text-[var(--fg-subtle)]">
               {t('courierFinishCurrentRoute')}
             </p>
@@ -868,12 +883,10 @@ function CourierRouteView({
       <ConfirmDialog
         open={startConfirmOpen}
         onOpenChange={setStartConfirmOpen}
-        title={t('navigationUnverifiedTitle')}
-        description={t('navigationReviewBeforeStart').replace(
-          '{count}',
-          String(navigationUnverified.length)
-        )}
-        confirmLabel={t('startAnyway')}
+        title={t('courierConfirmDeparture')}
+        description={<>{t('courierConfirmDepartureBody').replace('{day}', serviceDay)}
+          {needsAddressReview && <span className="mt-2 block">{t('navigationReviewBeforeStart').replace('{count}', String(navigationUnverified.length))}</span>}</>}
+        confirmLabel={t(needsAddressReview ? 'startAnyway' : 'courierConfirmDeparture')}
         cancelLabel={t('back')}
         onConfirm={() => {
           setStartConfirmOpen(false);

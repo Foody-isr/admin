@@ -9,6 +9,14 @@ export function deliveryMatchesRouteDate(order: Pick<Order, 'scheduled_for'>, da
   return !order.scheduled_for || order.scheduled_for.slice(0, 10) === date.slice(0, 10);
 }
 
+/** A scheduled route becomes startable on its civil day in the restaurant timezone. */
+export function isFutureDeliveryRoute(route: Pick<DeliveryRoute, 'date' | 'timezone'>, now: Date): boolean {
+  const today = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: route.timezone || 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(now);
+  return route.date.slice(0, 10) > today;
+}
+
 /** Format a duration in seconds, including an explicitly measured zero. */
 export function formatDeliveryDuration(seconds: number, t: (key: string) => string): string {
   const minutes = Math.round(seconds / 60);
@@ -86,6 +94,8 @@ export function buildDeliveryEtaMessage(
 export function deliveryRoutingError(error: unknown, t: (key: string) => string): string | null {
   const message = error instanceof Error ? error.message : '';
   const key = ({
+    'planned route or delivery changed': 'deliveryInsertionChanged',
+    'route departure day has not arrived': 'courierFutureStartError',
     'delivery date differs from route date': 'deliveryRouteDateMismatch',
     'location service quota exceeded': 'deliveryRoutingQuota',
     'routing service unavailable': 'deliveryRoutingUnavailable',

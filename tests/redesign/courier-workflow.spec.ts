@@ -1,5 +1,6 @@
 import { expect, test, type Page, type WebSocketRoute } from '@playwright/test';
 import { createFixture } from './fixtures.mjs';
+import { demoTiles } from './fixtures/delivery-map';
 import type { DeliveryRoute, RouteStop } from '../../src/lib/delivery';
 
 const stop = (id: number): RouteStop => ({ id, order_id: 1000 + id, sequence: id, status: 'pending', customer_name: `Client démo ${id}`, customer_phone: '+972500000000', address: 'Yoram Kaniuk 1', city: 'Tel Aviv', lat: 32.07, lng: 34.79, eta_seconds: id * 600, distance_from_prev_m: 1000, total_amount: 90, needs_geocode: false });
@@ -204,9 +205,8 @@ test('courier sees order numbers and switches routes before departure without ad
   await page.getByRole('combobox', { name: 'Choisir une tournée' }).selectOption('1');
   await expect(page.getByRole('tab')).toHaveCount(0);
   await expect(planned(page).getByText('Voir les arrêts prévus')).toBeVisible();
-  await expect(card(page)).toBeHidden();
-  await showPlanned(page);
   await expect(card(page)).toBeVisible();
+  await expect(planned(page)).toHaveAttribute('open', '');
   await expect(card(page)).toContainText('#1001');
   await expect(card(page).getByRole('link', { name: 'Appeler', exact: true })).toHaveCount(0);
   await expect(run(page).getByText('Yoram Kaniuk 1')).toHaveCount(0);
@@ -224,6 +224,7 @@ test('start then deliver directly without requiring the arrived action', async (
   const initialNavigationChecks = state.requests.filter(path => path === '/api/v1/delivery/routes/1/my-navigation-check').length;
   expect(initialNavigationChecks).toBeGreaterThan(0);
   await run(page).getByRole('button', { name: 'Démarrer la tournée', exact: true }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Confirmer le départ' }).click();
   await expect(card(page)).toBeHidden();
   await openStop(page);
   await run(page).getByTestId('courier-action-dock').getByRole('button', { name: 'Marquer livrée', exact: true }).click();
@@ -256,6 +257,7 @@ test('draft navigation reveals one address and survives reload until a stop resu
   await page.goto('/1/orders/deliveries');
   await expect(card(page).getByRole('button', { name: 'Choisir une application de navigation' })).toHaveCount(0);
   await run(page).getByRole('button', { name: 'Démarrer et ouvrir Waze' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Confirmer le départ' }).click();
   await expect.poll(() => state.externalNavigation.length).toBe(1);
   const url = new URL(state.externalNavigation[0]);
   expect(url.searchParams.get('ll')).toBe('32.07,34.79');
@@ -360,23 +362,6 @@ function useDemoRoute(state: Awaited<ReturnType<typeof install>>) {
   state.routes[1].stops = [{ ...stop(8), sequence: 1 }];
 }
 
-// Deterministic illustrated tiles: no production map, customer data or paid API calls.
-async function demoTiles(page: Page) {
-  await page.route('**/api/v1/public/delivery/map/**', async intercepted => {
-    const match = new URL(intercepted.request().url()).pathname.match(/\/(\d+)\/(\d+)\/(\d+)\.png$/);
-    if (!match) return intercepted.fallback();
-    const [, z, tx, ty] = match.map(Number), world = 256 * 2 ** z;
-    const point = (lat: number, lng: number) => { const sin = Math.sin(lat * Math.PI / 180); return [(lng + 180) / 360 * world - tx * 256, (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * world - ty * 256]; };
-    const project = (points: Array<[number, number]>) => points.map(([lat, lng]) => point(lat, lng).join(',')).join(' ');
-    const coast = project([[31.7, 34.7], [32.02, 34.745], [32.09, 34.765], [32.16, 34.792], [32.4, 34.825]]);
-    let streets = '';
-    for (let lat = 31.98; lat <= 32.25; lat += 0.008) streets += `<polyline points="${project([[lat, 34.74], [lat + 0.01, 34.92]])}" fill="none" stroke="#fff" stroke-width="3"/>`;
-    for (let lng = 34.75; lng <= 34.94; lng += 0.009) streets += `<polyline points="${project([[31.98, lng], [32.25, lng + 0.02]])}" fill="none" stroke="#fff" stroke-width="3"/>`;
-    const labels = ([[32.08, 34.806, 'Tel Aviv'], [32.018, 34.796, 'Holon'], [32.175, 34.85, 'Ra’anana']] as const).map(([lat, lng, label]) => { const [x, y] = point(lat, lng); return `<text x="${x}" y="${y}" font-family="Arial" font-size="15" fill="#69746e">${label}</text>`; }).join('');
-    return intercepted.fulfill({ contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#f0f0e7"/>${streets}<polygon points="-10000,-10000 -10000,10000 ${coast}" fill="#b9dce9"/>${labels}</svg>` });
-  });
-}
-
 test('mobile map, search and adjustable panel keep the departure actions visible', async ({ page }, info) => {
   const state = await install(page); useDemoRoute(state); await demoTiles(page);
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/1/orders/deliveries');
@@ -399,6 +384,7 @@ test('mobile map, search and adjustable panel keep the departure actions visible
   await run(page).getByRole('searchbox', { name: 'Rechercher un arrêt' }).fill('');
   await card(page, 7).getByRole('button', { name: /Sélectionner l’arrêt/ }).click();
   await expect(card(page, 7).getByRole('button', { name: /Sélectionner l’arrêt/ })).toHaveAttribute('aria-pressed', 'true');
+  await run(page).getByRole('button', { name: 'Carte', exact: true }).click();
   const grip = run(page).getByRole('slider', { name: 'Ajuster la hauteur de la liste' });
   await grip.focus(); await grip.press('End'); await expect(grip).toHaveAttribute('aria-valuenow', '86');
   await expect(dock.getByRole('button', { name: 'Démarrer la tournée', exact: true })).toBeInViewport();
@@ -514,6 +500,7 @@ for (const role of ['owner', 'superadmin'] as const) {
     await page.getByRole('combobox', { name: 'Voir comme livreur' }).selectOption('92');
     await expect(planned(page, 2)).toBeVisible();
     await run(page, 2).getByRole('button', { name: 'Démarrer la tournée', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Confirmer le départ' }).click();
     await openStop(page, 2);
     await run(page, 2).getByTestId('courier-action-dock').getByRole('button', { name: 'Marquer livrée', exact: true }).click();
     await expect.poll(() => state.routes[1].stops[0].status).toBe('delivered');
@@ -855,3 +842,30 @@ for (const locale of ['fr', 'he']) {
     expect(state.errors).toEqual([]);
   });
 }
+
+test('Friday route can be reviewed on Thursday and only departs after confirmation on Friday', async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.clock.install({ time: new Date('2026-11-19T19:00:00Z') });
+  const state = await install(page);
+  useDemoRoute(state);
+  state.routes = [{ ...state.routes[0], date: '2026-11-20', timezone: 'Asia/Jerusalem', planned_departure_at: '2026-11-20T10:00:00+02:00' }];
+  await page.goto('/1/orders/deliveries');
+  const start = run(page).getByRole('button', { name: 'Démarrer la tournée', exact: true });
+  await expect(start).toBeDisabled();
+  await expect(run(page).getByRole('button', { name: 'Démarrer et ouvrir Waze' })).toBeDisabled();
+  await expect(run(page).getByText(/Le départ sera possible le vendredi/)).toBeVisible();
+  await expect(planned(page)).toHaveAttribute('open', '');
+  await expect(card(page)).toBeVisible();
+  await page.screenshot({ path: info.outputPath('courier-fr-future.png'), animations: 'disabled' });
+  expect(state.writes).toEqual([]);
+  await page.clock.setSystemTime(new Date('2026-11-19T22:01:00Z'));
+  await page.clock.fastForward(16000);
+  await start.click();
+  const confirmation = page.getByRole('alertdialog');
+  await expect(confirmation).toContainText('vendredi');
+  await confirmation.getByRole('button', { name: 'Retour' }).click();
+  expect(state.writes).toEqual([]);
+  await start.click();
+  await confirmation.getByRole('button', { name: 'Confirmer le départ' }).click();
+  await expect.poll(() => state.writes.map(w => w.path)).toEqual(['/api/v1/delivery/routes/1/start']);
+});
