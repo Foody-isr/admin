@@ -73,7 +73,8 @@ test('billing malformed subscription never exposes change actions', async ({ pag
   const state = await install(page); state.control.subscription = null; await page.goto('/1/billing'); await expect(page.locator('main [role=alert]')).toContainText('Impossible de charger'); await expect(upgrade(page)).toHaveCount(0); expect(state.writes).toHaveLength(0);
 });
 
-test('the owner can open a private offer from Account, accept the monthly mandate and verify the return', async ({ page }) => {
+for (const [cycle, renewal] of [['monthly', true], ['annual', true], ['annual', false]] as const) {
+test(`the owner can pay a private ${cycle} offer with renewal ${renewal} and verify the return`, async ({ page }) => {
   const state = await install(page);
   const checkoutCalls: unknown[] = [];
   let verifications = 0;
@@ -83,10 +84,10 @@ test('the owner can open a private offer from Account, accept the monthly mandat
     start_date: '2026-11-09', monthly: { net_minor: 33898, vat_minor: 6102, total_minor: 40000 },
     annual: { net_minor: 386441, vat_minor: 69559, total_minor: 456000 },
   };
-  const pending = { offer_id: 7, cycle: 'monthly', status: 'pending', amount_minor: 40000, reference: 'FB-synthetic' };
+  const pending = { offer_id: 7, cycle, accept_renewal: renewal, status: 'pending', amount_minor: offer[cycle].total_minor, reference: 'FB-synthetic' };
   const initial = {
     offer, accepted_offer: null, agreement: null, payment: null,
-    checkout_enabled: true, monthly_enabled: true, due: true, can_resume: false,
+    checkout_enabled: true, monthly_enabled: true, annual_renewal_enabled: true, due: true, can_resume: false,
   };
   await page.route('**/api/v1/restaurants/1/foody-billing**', async (route) => {
     const url = new URL(route.request().url());
@@ -100,7 +101,7 @@ test('the owner can open a private offer from Account, accept the monthly mandat
     if (url.pathname.endsWith('/reconcile')) {
       verifications++;
       return route.fulfill({ json: { ...initial, due: false, accepted_offer: offer,
-        agreement: { offer_id: 7, cycle: 'monthly', period_end: '2026-12-09T10:00:00Z', renews: true },
+        agreement: { offer_id: 7, cycle, period_end: cycle === 'annual' ? '2027-11-09T10:00:00Z' : '2026-12-09T10:00:00Z', renews: renewal },
         payment: { ...pending, status: 'paid' } } });
     }
     return route.fulfill({ json: { ...initial, payment: started ? pending : null } });
@@ -115,15 +116,18 @@ test('the owner can open a private offer from Account, accept the monthly mandat
   await expect(page.getByRole('heading', { name: 'Offre pilote démo' })).toBeVisible();
   await expect(page.getByText('Transcriptions de stock OpenAI')).toBeVisible();
   await expect(upgrade(page)).toHaveCount(0);
-  await page.getByRole('radio', { name: /^Mensuel/ }).check();
+  await page.getByRole('radio', { name: cycle === 'monthly' ? /^Mensuel/ : /^Annuel/ }).check();
   const pay = page.getByRole('button', { name: 'Continuer vers Verifone' });
   await expect(pay).toBeDisabled();
   await page.getByRole('checkbox', { name: /J’accepte cette version/ }).check();
-  await expect(pay).toBeDisabled();
-  await page.getByRole('checkbox', { name: /J’autorise Foody/ }).check();
+  const mandate = page.getByRole('checkbox', { name: /J’autorise Foody/ });
+  await expect(mandate).not.toBeChecked();
+  if (cycle === 'monthly') await expect(pay).toBeDisabled();
+  else { await expect(pay).toBeEnabled(); await expect(mandate).toHaveAccessibleName(/12 mois/); }
+  if (renewal) await mandate.check();
   await pay.click();
   await expect(page.getByText('Sandbox checkout fixture')).toBeVisible();
-  expect(checkoutCalls).toEqual([{ offer_id: 7, cycle: 'monthly', accept_terms: true, accept_renewal: true, locale: 'fr' }]);
+  expect(checkoutCalls).toEqual([{ offer_id: 7, cycle, accept_terms: true, accept_renewal: renewal, locale: 'fr' }]);
   await page.goto('/1/billing?foody_billing_return=1');
   await expect(page.getByText(/Paiement de test confirmé/)).toBeVisible();
   expect(verifications).toBe(1);
@@ -134,3 +138,4 @@ test('the owner can open a private offer from Account, accept the monthly mandat
   await openAccountNavigation(page);
   await expect(billing).toHaveCount(0);
 });
+}

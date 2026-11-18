@@ -81,15 +81,16 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
   const open = !!payment && openStatus.has(payment.status);
   const amended = !!agreement && agreement.offer_id !== offer.id;
   const upgrade = amended && offer.previous_offer_id === agreement?.offer_id && !!offer.upgrade_period_end;
-  const auto = !!agreement?.renews && view.monthly_enabled && !amended;
-  const canPay = view.due && view.checkout_enabled && !open && !auto;
+  const freeUpgrade = upgrade && offer.upgrade_minor === 0;
+  const auto = !!agreement?.renews && (agreement.cycle === 'annual' ? view.annual_renewal_enabled : view.monthly_enabled) && (!amended || upgrade);
+  const canPay = view.due && view.checkout_enabled && !open && (!auto || upgrade);
   const price = cycle ? offer[cycle] : null;
   const reset = () => { setCycle(null); setAccept(false); setRenew(false); };
 
   async function action(kind: 'pay' | 'resume' | 'verify' | 'stop') {
     if (!offer) return;
     if (lock.current) return;
-    if (kind === 'pay' && (!canPay || !cycle || !accept || (cycle === 'monthly' && (!renew || !view.monthly_enabled)))) return;
+    if (kind === 'pay' && (!canPay || !cycle || !accept || (cycle === 'monthly' && ((!freeUpgrade && !renew) || !view.monthly_enabled)))) return;
     if (kind === 'resume' && (!view.can_resume || !payment)) return;
     lock.current = true; setBusy(true); setError(''); setConfirmStop(false);
     try {
@@ -97,7 +98,8 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
         const chosen = kind === 'resume' ? payment!.cycle : cycle!;
         const result = await startFoodyBillingCheckout(rid, {
           offer_id: kind === 'resume' ? payment!.offer_id : offer.id, cycle: chosen, accept_terms: true,
-          accept_renewal: chosen === 'monthly', locale,
+          accept_renewal: kind === 'resume' ? (chosen === 'monthly' || !!payment?.accept_renewal)
+            : freeUpgrade ? (chosen === 'monthly' || !!agreement?.renews) : renew, locale,
         });
         const url = new URL(result.checkout_url);
         if (upgrade && (offer.upgrade_minor ?? 0) === 0 && url.origin === window.location.origin && url.pathname === `/${rid}/billing` && !url.search && !url.hash) {
@@ -146,8 +148,8 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
             {agreement.card_last_four && <> · <bdi>•••• {agreement.card_last_four}</bdi></>}
           </p>
           {amended && <p>{t(upgrade ? 'foodyUpgradeNextPrice' : 'foodyPilotAmended')}</p>}
-          {auto && <p>{t('foodyPilotNextDebit').replace('{date}', date(agreement.period_end)).replace('{total}', money((view.accepted_offer ?? offer).monthly.total_minor))}</p>}
-          {agreement.cycle === 'monthly' && !agreement.renews && <p>{t('foodyPilotNoRenewal')}</p>}
+          {auto && <p>{t('foodyPilotNextDebit').replace('{date}', date(agreement.period_end)).replace('{total}', money((view.accepted_offer ?? offer)[agreement.cycle].total_minor))}</p>}
+          {!agreement.renews && <p>{t('foodyPilotNoRenewal')}</p>}
           {amended && view.accepted_offer && <details><summary>{t('foodyPilotAcceptedTerms')}</summary>
             <p className="whitespace-pre-wrap break-words" dir="auto">{view.accepted_offer.includes}</p>
             <p className="whitespace-pre-wrap break-words" dir="auto">{view.accepted_offer.terms}</p>
@@ -179,14 +181,14 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
                   </span>
                   <span className="block font-semibold"><bdi>{money(rate.total_minor)}</bdi> <span className="text-sm font-normal">{t('foodyPilotGross')}</span></span>
                   <span className="block text-sm text-[var(--fg-muted)]"><bdi>{money(rate.net_minor)}</bdi> {t('foodyPilotNet')} + <bdi>{money(rate.vat_minor)}</bdi> {t('foodyPilotVAT')}</span>
-                  <span className="block text-sm">{t(choice === 'monthly' ? 'foodyPilotMonthlyNote' : 'foodyPilotAnnualNote')}</span>
+                  <span className="block text-sm">{t(choice === 'monthly' ? 'foodyPilotMonthlyNote' : view.annual_renewal_enabled ? 'foodyPilotAnnualOptional' : 'foodyPilotAnnualNote')}</span>
                 </label>;
               })}
             </div>
             {canPay && cycle && price && <>
               <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={accept} onChange={(e) => setAccept(e.target.checked)} />{t('foodyPilotAccept')}</label>
-              {cycle === 'monthly' && <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={renew} onChange={(e) => setRenew(e.target.checked)} />{t('foodyPilotAuthorize').replace('{total}', money(price.total_minor))}</label>}
-              <Button type="submit" disabled={busy || !accept || cycle === 'monthly' && !renew}>{t('foodyPilotPay')}</Button>
+              {!freeUpgrade && (cycle === 'monthly' || view.annual_renewal_enabled) && <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={renew} onChange={(e) => setRenew(e.target.checked)} />{t(cycle === 'monthly' ? 'foodyPilotAuthorize' : 'foodyPilotAuthorizeAnnual').replace('{total}', money(price.total_minor))}</label>}
+              <Button type="submit" disabled={busy || !accept || cycle === 'monthly' && !freeUpgrade && !renew}>{t('foodyPilotPay')}</Button>
             </>}
           </fieldset>
         </form>

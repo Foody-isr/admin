@@ -11634,9 +11634,10 @@ export type FoodyBillingView = {
   onboarding?: FoodyBillingOnboarding;
   accepted_offer: FoodyBillingOffer | null;
   agreement: { offer_id: number; cycle: FoodyBillingCycle; period_end: string; renews: boolean; card_last_four?: string } | null;
-  payment: { offer_id: number; cycle: FoodyBillingCycle; status: 'creating' | 'pending' | 'review' | 'paid' | 'failed'; amount_minor: number; reference: string } | null;
+  payment: { offer_id: number; cycle: FoodyBillingCycle; accept_renewal?: boolean; status: 'creating' | 'pending' | 'review' | 'paid' | 'failed'; amount_minor: number; reference: string } | null;
   checkout_enabled: boolean;
   monthly_enabled: boolean;
+  annual_renewal_enabled?: boolean;
   due: boolean;
   can_resume: boolean;
 };
