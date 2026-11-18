@@ -9,7 +9,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test $(find src -type f \\( -name '*.test.ts' -o -name '*.test.tsx' \\))",
-    "test:dependencies": "node --test scripts/braces-security.test.cjs",
+    "test:dependencies": "node --test scripts/braces-security.test.cjs scripts/check-npm-audit.test.mjs",
     "test:e2e:website-v3": "playwright test tests/website-v3",
     "test:e2e:website-v3:ui": "playwright test tests/website-v3 --ui",
     "check:i18n": "node scripts/check-i18n.cjs",
