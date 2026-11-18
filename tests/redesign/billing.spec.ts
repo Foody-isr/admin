@@ -19,7 +19,7 @@ async function install(page: Page, options: { locale?: string; scopedRole?: stri
     }
     const result = fixture.response(request.url(), method, body, Number(restaurant) || 1); return route.fulfill({ json: result.json ?? {}, status: result.status ?? 200 });
   });
-  await page.route('**/*', route => ['localhost', '127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
+  await page.route('**/*', route => (['localhost', '127.0.0.1'].includes(new URL(route.request().url()).hostname) || route.request().url().startsWith('https://api.foody-pos.co.il/api/v1/')) ? route.fallback() : route.abort());
   return { control, writes, fixture };
 }
 const upgrade = (page: Page) => page.getByRole('button', { name: 'Passer à Premium', exact: true });
@@ -139,3 +139,23 @@ test(`the owner can pay a private ${cycle} offer with renewal ${renewal} and ver
   await expect(billing).toHaveCount(0);
 });
 }
+
+test('production owner navigation uses the scoped Foody billing response', async ({ page, baseURL }) => {
+  const local = new URL(baseURL!);
+  expect(['localhost', '127.0.0.1']).toContain(local.hostname);
+  await install(page);
+  // Serve the local application at the production origin. All API calls stay in fixtures.
+  await page.context().route('https://api.foody-pos.co.il/**', route => route.abort());
+  await page.route('https://admin.foody-pos.co.il/**', async route => {
+    const { pathname, search } = new URL(route.request().url());
+    if (route.request().method() !== 'GET' || pathname.startsWith('/api/')) return route.abort();
+    await route.fulfill({ response: await page.request.get(new URL(pathname + search, local).href, { maxRedirects: 0 }) });
+  });
+  await page.route('**/api/v1/restaurants/1/foody-billing', route => route.fulfill({ json: { offer: { id: 7 } } }));
+  await page.goto('https://admin.foody-pos.co.il/1/dashboard');
+  const nav = await openAccountNavigation(page);
+  await expect(nav.getByRole('link', { name: 'Facturation', exact: true })).toHaveAttribute('href', '/1/billing');
+  await page.goto('https://admin.foody-pos.co.il/2/dashboard');
+  await openAccountNavigation(page);
+  await expect(nav.getByRole('link', { name: 'Facturation', exact: true })).toHaveCount(0);
+});

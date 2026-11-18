@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "73509bcdb0478e0ef279c084e26669a27009fff8",
+  "documentationRef": "50bcd2951e65abb8259ea4233b6cc9720f14c8de",
   "documentationRevision": "a4f6a1c8db9199e25916be91959793179d32b58a4a4290c9e68bfe42d2a1799c",
   "articles": {
     "getting-started/first-login": {
@@ -3877,8 +3877,9 @@
       ]
     },
     "src/components/Sidebar.tsx": {
-      "sha256": "7ef6c6e1b5815b0c3c0b865419d48808e747215cbe404aedcd747672d6b5f61a",
+      "sha256": "da2693b60973265d5a850b70f536da4f24a3d0053dd135e72eef42d0496ffeb2",
       "features": [
+        "billing",
         "pos-payments",
         "global-search",
         "payments-transactions",
@@ -15490,6 +15491,7 @@
       "source": "src/components/Sidebar.tsx",
       "line": 1,
       "features": [
+        "billing",
         "pos-payments",
         "global-search",
         "payments-transactions",
