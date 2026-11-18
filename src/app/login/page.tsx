@@ -1,5 +1,7 @@
 'use client';
 
+import { useMFA } from '@/components/MFAChallenge';
+
 import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowUpRight, KeyRound, UserRound } from 'lucide-react';
@@ -29,6 +31,7 @@ function invitedBillingPath(restaurantIds: number[]) {
 /** Two-step sign-in with the existing password and WebAuthn session contracts. */
 export default function LoginPage() {
   const router = useRouter();
+  const mfa = useMFA();
   const { t, locale, setLocale } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -82,7 +85,7 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      const { restaurant_ids, user } = await login(email, password, remember);
+      const { restaurant_ids, user } = await login(email, password, remember, mfa.prompt);
       routeAfterLogin(restaurant_ids, user.role);
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : t('loginFailed'));
@@ -96,7 +99,7 @@ export default function LoginPage() {
     setError('');
     setPasskeyLoading(true);
     try {
-      const { restaurant_ids, user } = await loginWithPasskey(remember);
+      const { restaurant_ids, user } = await loginWithPasskey(remember, mfa.prompt);
       routeAfterLogin(restaurant_ids, user.role);
     } catch (reason: unknown) {
       const name = (reason as { name?: string })?.name;
@@ -115,6 +118,7 @@ export default function LoginPage() {
 
   return (
     <main className={styles.page}>
+      {mfa.view}
       <section className={styles.authPanel} aria-labelledby="login-heading">
         <div className={styles.brand}><FoodyLogo variant="lockup" width={90} /></div>
         <div className={styles.formContent}>
