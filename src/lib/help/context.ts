@@ -2,7 +2,7 @@
 export function supportTopicForPath(pathname: string): string {
   const [, , area, section] = pathname.split('/');
   if (area === 'loyalty' && section === 'program') return 'customers';
-  if (area === 'delivery' || area === 'settings' && section === 'delivery') return 'delivery';
+  if ((area === 'orders' && (section === 'deliveries' || section === 'courier-mode')) || (area === 'settings' && section === 'delivery')) return 'delivery';
   return ({ menu: 'menu', kitchen: 'kitchen', orders: 'orders', website: 'website-qr', 'website-v3': 'website-qr',
     staff: 'staff', team: 'staff', analytics: 'analytics', reports: 'analytics', settings: 'settings',
     tables: 'tables-floors', restaurant: 'tables-floors', clients: 'customers', customers: 'customers', promotions: 'marketing', catering: 'catering', chain: 'chains', billing: 'account', calendar: 'orders', dashboard: 'getting-started' } as Record<string, string>)[area] || '';

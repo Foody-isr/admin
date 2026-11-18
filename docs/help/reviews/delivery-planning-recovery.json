@@ -1,0 +1,95 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/layout.tsx",
+      "baseSha256": "7ecb0ab4cce135fa24a1684576e1b9e28027ffe88bcc8fd6f4e580f19991a625",
+      "features": [
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The restaurant shell mounts delivery navigation only on the four delivery paths and gives the courier preview its available viewport height. The transactions page uses the standard shell and its existing navigation.",
+      "sha256": "637e44b1753b363714649f4f3c6c6235fcd33db250164736ce22c07b0e64cb0e"
+    },
+    {
+      "path": "src/components/Sidebar.tsx",
+      "baseSha256": "da2693b60973265d5a850b70f536da4f24a3d0053dd135e72eef42d0496ffeb2",
+      "sha256": "0759fd73c159e7ac556dd17041c9eb948e50999137d25e212087d6188cff750f",
+      "features": [
+        "billing",
+        "customers-loyalty-program",
+        "global-search",
+        "payments-transactions",
+        "pos-payments"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The sidebar groups the four delivery destinations under Deliveries. Billing, global search, payments, transactions and loyalty retain their destinations and visibility checks."
+    },
+    {
+      "path": "src/components/settings/SettingsBreadcrumb.tsx",
+      "baseSha256": "746f8b98a559c2f47ae1db8ae022b52eb75834ef6a58c34c131bad0353cc9b36",
+      "sha256": "fea68a30b6dc6d378b202f8ae87348928171b60c5281baed9b1e6b5369f952f2",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The two delivery settings URLs use the delivery navigation instead of the general settings breadcrumb. Other settings routes still render their original breadcrumb and the delivery guides cover the new paths."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "baseSha256": "774c3c659ad50bbc122d40112023757f12f358e0674b29ba978c66a4b2fd4c10",
+      "sha256": "f744a55562a606fab51bbb3f7c99d3663add8f4f2569c2d13cc20a17beaa4d8c",
+      "features": [
+        "customers-profiles",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-events",
+        "orders-internal-sumit-checkout",
+        "payments-transactions",
+        "pos-payments",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The Admin client adds fields for a confirmed delivery point and removes the retired sales-tour methods. The profile, catalogue, event, payment and transaction methods retain their existing fields and calls."
+    },
+    {
+      "path": "src/lib/help/context.ts",
+      "baseSha256": "817f96edca821cd0042977e692665f3d2c4ce6072411c0e96b0e4653eb816bee",
+      "sha256": "4cae70396e1cf614aae9b87dbc28daa1a55febbb3436f44a3e23667cd3d8fe30",
+      "features": [
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only delivery URLs map to a different Help topic. The loyalty URL matcher and the loyalty guide destination are unchanged."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "baseSha256": "1022dac1da313507bb2e5b929c9c4661fea082844b077779081827eb540b36db",
+      "sha256": "50f10c7fc10ff674651d8c895d3e76e12e578c1b9723cb11dcfee2271be7a208",
+      "features": [
+        "customers-loyalty-program",
+        "customers-profiles",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-internal-sumit-checkout",
+        "payments-transactions",
+        "pos-behavior",
+        "stancer-cash-guarantee",
+        "website-journey",
+        "website-order-design",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The changed locale entries label delivery planning, courier actions, zone coverage and map usage, and remove the old sales-tour labels. Labels used in the listed customer, catalogue, website, POS and payment flows remain in place."
+    },
+    {
+      "path": "src/lib/orders/table-columns.tsx",
+      "baseSha256": "87b9d4402ba9447a19536ff1e73b8a362aef26a6044568c8c999b9109ac53cfc",
+      "sha256": "63daee40c827d75bded15a04cc0bfad48b482e2e7a58fe88cbfdcf81baf7969f",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The table no longer offers the historical sales-tour column. Event order columns and the event detail link retain their original data and actions."
+    }
+  ]
+}

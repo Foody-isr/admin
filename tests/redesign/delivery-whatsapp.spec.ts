@@ -42,7 +42,10 @@ async function install(page: Page, locale = 'fr') {
       state.previews[id] = { ...preview(id), status: 'accepted', send_blocked_reason: 'already_attempted', previous_status: 'accepted' };
       return intercepted.fulfill({ json: { status: 'accepted' } });
     }
-    if (path === '/api/v1/delivery/routes') return intercepted.fulfill({ json: { routes: state.routes } });
+    if (path === '/api/v1/delivery/routes') {
+      const routes = url.searchParams.get('scope') === 'open' ? state.routes : state.routes.filter(route => route.date === url.searchParams.get('date'));
+      return intercepted.fulfill({ json: { routes } });
+    }
     if (path === '/api/v1/orders') return intercepted.fulfill({ json: { orders: [], total: 0 } });
     if (/\/restaurants\/\d+\/staff$/.test(path)) return intercepted.fulfill({ json: { staff: [{ id: 1, full_name: 'Livreur démo 1', role: 'courier' }, { id: 2, full_name: 'Livreur démo 2', role: 'courier' }] } });
     if (path === '/api/v1/public/delivery/map-config') return intercepted.fulfill({ json: { provider: 'geoapify', tile_url: '/api/v1/public/delivery/map/light/{z}/{x}/{y}.png' } });
@@ -70,6 +73,8 @@ test('previews cover every courier on the selected date without sending and show
   await expect(drawer.getByText('À envoyer : 3 / 3', { exact: true })).toBeVisible();
   await expect(drawer.getByRole('textbox', { name: 'Aperçu du message pour Client démo 1001', exact: true })).toHaveValue(preview(1001).message);
   await expect(drawer.getByRole('textbox').first()).toHaveAttribute('readonly', '');
+  await expect(drawer.getByRole('heading', { name: /Tournée 1.*Livreur démo 1/ })).toBeVisible();
+  await expect(drawer.getByRole('heading', { name: /Tournée 2.*Livreur démo 2/ })).toBeVisible();
   await expect(drawer.getByRole('link', { name: 'Configurer l’envoi automatique dans Parcours de commande', exact: true })).toHaveAttribute('href', '/1/settings/orders/workflow');
   expect(Array.from(new Set(state.previewWrites)).sort()).toEqual([1001, 1002, 1003]);
   expect(state.sends).toEqual([]);
@@ -189,4 +194,34 @@ test('a route change during submission stops the queued clients after the in-fli
  finish();
  await expect(drawer.getByRole('button',{name:'Actualiser les aperçus',exact:true})).toBeEnabled();
  expect(state.sends.map(row=>row.id)).toEqual([1001]);
+});
+
+test('switching days waits for the new routes before preparing any reminders', async ({ page }) => {
+  const state = await install(page);
+  state.routes.push({ ...route(5, [1010]), date: '2026-10-22' });
+  await page.goto('/1/orders/deliveries');
+  const reminders = page.getByRole('button', { name: 'Rappels WhatsApp', exact: true, disabled: false });
+  await expect(reminders).toBeVisible();
+  let release!: () => void, requested!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  const started = new Promise<void>(resolve => { requested = resolve; });
+  await page.route('**/api/v1/delivery/routes?**', async request => {
+    if (new URL(request.request().url()).searchParams.get('date') === day) {
+      requested();
+      await pending;
+    }
+    return request.fallback();
+  });
+  try {
+    await page.getByLabel('Date des tournées', { exact: true }).fill(day);
+    await started;
+    await expect(reminders).toHaveCount(0);
+    expect(state.previewWrites).toEqual([]);
+  } finally {
+    release();
+  }
+  await reminders.click();
+  await expect(page.getByRole('dialog')).toContainText('À envoyer : 3 / 3');
+  expect(state.previewWrites.sort()).toEqual([1001, 1002, 1003]);
+  expect(state.sends).toEqual([]);
 });

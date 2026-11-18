@@ -196,13 +196,6 @@ export const ORDER_COLUMNS: OrderColumn[] = [
     cellClassName: 'text-fg-secondary',
     render: (order) => order.courier_name || null,
   },
-  {
-    key: 'tour',
-    labelKey: 'tourColumn',
-    defaultVisible: false,
-    cellClassName: 'text-fg-secondary',
-    render: (order) => order.tour?.name || null,
-  },
 ];
 
 export type ResolvedOrderColumn = Resolved<OrderColumn>;

@@ -1045,6 +1045,8 @@ export interface Order {
   tour?: { id: number; name: string; delivery_date?: string } | null;
   delivery_address?: string;
   delivery_city?: string;
+  delivery_latitude?: number | null;
+  delivery_longitude?: number | null;
   delivery_floor?: string;
   delivery_apt?: string;
   delivery_entry_code?: string; // building entry code ("code immeuble" / digicode)
@@ -5262,6 +5264,8 @@ export interface OrderCustomerDetailsInput {
   delivery_apt?: string;
   delivery_entry_code?: string;
   delivery_notes?: string;
+  /** True when staff explicitly supplies the destination pin for this address. */
+  delivery_pin_confirmed?: boolean;
   /** Verified map coordinates; both values must be supplied together. */
   delivery_latitude?: number;
   delivery_longitude?: number;
@@ -10034,9 +10038,7 @@ export interface DeliveryZone {
   delivery_fee?: number | null;
   /** Minimum cart subtotal to deliver here. null/undefined = use the global minimum_order_delivery. */
   min_order?: number | null;
-  /** True for a zone that exists only to serve a delivery tour. Such a zone is
-   *  invisible to the classic delivery path, so the city stays undeliverable
-   *  outside a tour. */
+  /** Historical sales-zone marker returned by older API versions. */
   tour_only?: boolean;
   created_at: string;
 }
@@ -10056,9 +10058,6 @@ export interface DeliveryZoneInput {
   cities?: string[];
   delivery_fee?: number | null;
   min_order?: number | null;
-  /** Omit to leave the flag untouched on update (the server reads it as a
-   *  pointer). Send true when creating the zone that backs a delivery tour. */
-  tour_only?: boolean;
 }
 
 /** Load the restaurant delivery-zone inventory without masking invalid responses. */
@@ -10092,98 +10091,6 @@ export async function updateDeliveryZone(restaurantId: number, id: number, input
 export async function deleteDeliveryZone(restaurantId: number, id: number, expectedUpdatedAt?: string): Promise<void> {
   await apiFetch<void>(
     `/api/v1/delivery/zones/${id}?restaurant_id=${restaurantId}${expectedUpdatedAt ? `&expected_updated_at=${encodeURIComponent(expectedUpdatedAt)}` : ''}`, restaurantId,
-    { method: 'DELETE' }
-  );
-}
-
-// --- Delivery Tours ---
-//
-// A tour is one delivery round to an extended zone on a given day, served with
-// its own carte. The zone (tour_only) and the menu (web_enabled = false) are
-// reusable; the tour is the throwaway instance. While its [opens_at, cutoff_at]
-// window is open and it is published, its carte shows up as an extra tab on the
-// customer site.
-//
-// The server enforces both invariants and answers 400 otherwise: the zone must
-// be tour_only AND active, the menu must NOT be web_enabled. Callers must only
-// ever offer the user zones and cartes that satisfy them.
-
-export interface DeliveryTour {
-  id: number;
-  restaurant_id: number;
-  name: string;
-  /** URL-safe slug, unique per restaurant, generated from the name at creation
-   *  and stable across renames. The tour's dedicated public link is
-   *  /r/<restaurant-slug>/tournee/<slug>. */
-  slug: string;
-  zone_id: number;
-  zone?: DeliveryZone;
-  menu_id: number;
-  menu?: { id: number; name: string };
-  /** RFC3339 timestamp at UTC midnight, NOT "YYYY-MM-DD". Read the calendar day
-   *  off the first 10 characters; `new Date(...)` shifts it a day in any
-   *  negative-offset timezone. */
-  delivery_date: string;
-  /** RFC3339. Ordering opens at this instant. */
-  opens_at: string;
-  /** RFC3339. Ordering closes at this instant. Always after opens_at. */
-  cutoff_at: string;
-  /** Announced delivery window, "HH:MM". null = no window announced. */
-  delivery_start?: string | null;
-  delivery_end?: string | null;
-  /** Overrides the zone's fee. null = fall back to the zone. */
-  delivery_fee?: number | null;
-  /** Overrides the zone's minimum. null = fall back to the zone, then the global. */
-  min_order?: number | null;
-  require_prepayment: boolean;
-  is_published: boolean;
-  created_at: string;
-}
-
-export interface DeliveryTourInput {
-  name: string;
-  zone_id: number;
-  menu_id: number;
-  /** "YYYY-MM-DD" — the server rejects anything else. */
-  delivery_date: string;
-  opens_at: string; // RFC3339
-  cutoff_at: string; // RFC3339, must be after opens_at
-  /** "HH:MM" — REQUIRED, and the server enforces it: a tour with no announced
-   *  window produces orders whose scheduled pickup window is NULL, which the
-   *  scheduled-order activator (`window_start <= now`) can never select. Those
-   *  orders would stay in "Programmées" forever and never reach the kitchen. */
-  delivery_start: string;
-  delivery_end: string; // "HH:MM", must be after delivery_start
-  delivery_fee?: number | null;
-  min_order?: number | null;
-  require_prepayment: boolean;
-  is_published: boolean;
-}
-
-export async function getDeliveryTours(restaurantId: number): Promise<DeliveryTour[]> {
-  const data = await apiFetch<{ tours: DeliveryTour[] }>(
-    `/api/v1/delivery/tours?restaurant_id=${restaurantId}`, restaurantId
-  );
-  return data.tours ?? [];
-}
-
-export async function createDeliveryTour(restaurantId: number, input: DeliveryTourInput): Promise<DeliveryTour> {
-  return apiFetch<DeliveryTour>(
-    `/api/v1/delivery/tours?restaurant_id=${restaurantId}`, restaurantId,
-    { method: 'POST', body: JSON.stringify(input) }
-  );
-}
-
-export async function updateDeliveryTour(restaurantId: number, id: number, input: DeliveryTourInput): Promise<DeliveryTour> {
-  return apiFetch<DeliveryTour>(
-    `/api/v1/delivery/tours/${id}?restaurant_id=${restaurantId}`, restaurantId,
-    { method: 'PUT', body: JSON.stringify(input) }
-  );
-}
-
-export async function deleteDeliveryTour(restaurantId: number, id: number): Promise<void> {
-  await apiFetch<void>(
-    `/api/v1/delivery/tours/${id}?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'DELETE' }
   );
 }

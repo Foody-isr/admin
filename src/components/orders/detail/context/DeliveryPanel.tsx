@@ -12,8 +12,6 @@
 // assigns whole tours; a per-order assign here would be a second, weaker source
 // of truth for the same decision.
 
-import { TruckIcon } from 'lucide-react';
-import { Badge } from '@/components/ds';
 import type { Order } from '@/lib/api';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
 import type { CustomFieldAnswer } from '@/lib/orders/checkout-fields';
@@ -21,28 +19,7 @@ import { formatTime } from '@/lib/orders/order-time';
 import { ContextRow } from '../primitives/ContextBlock';
 import styles from '../order-detail.module.css';
 
-function TourBadge({ order, t }: { order: Order; t: (k: string) => string }) {
-  if (!order.tour?.name) return null;
-  let date: string | null = null;
-  try {
-    date = order.tour.delivery_date
-      ? new Date(order.tour.delivery_date).toLocaleDateString([], { day: '2-digit', month: 'short' })
-      : null;
-  } catch {
-    date = null;
-  }
-  return (
-    <ContextRow label={t('deliveryTour')}>
-      <Badge tone="info">
-        <TruckIcon className="w-3 h-3" />
-        {order.tour.name}
-        {date && <span className="num opacity-70">{date}</span>}
-      </Badge>
-    </ContextRow>
-  );
-}
-
-/** Fulfillment facts retain address, custom answers, courier and tour details. */
+/** Fulfillment facts retain address, custom answers, courier details. */
 export function DeliveryPanel({
   order,
   customFields,
@@ -76,7 +53,7 @@ export function DeliveryPanel({
   // screen staff should not have to scroll on the word "Aucun coursier".
   // Nothing here is actionable — assignment happens on the dispatcher — so an
   // empty courier block was pure furniture.
-  const hasCourierInfo = Boolean(order.courier_name || order.tour?.name);
+  const hasCourierInfo = Boolean(order.courier_name);
   // customFields is in the gate, not just the body: an order whose building
   // code is the ONLY address detail typed would otherwise lose it entirely.
   const hasAddressBlock = Boolean(addr || notes || customFields.length > 0);
@@ -99,7 +76,6 @@ export function DeliveryPanel({
           </> : t('courierNone')}
         </ContextRow>
         {order.courier_name && order.courier_assigned_at && <ContextRow label={t('courierAssignedAt')}>{formatTime(order.courier_assigned_at)}</ContextRow>}
-        <TourBadge order={order} t={t} />
       </>}
     </div>
   );
