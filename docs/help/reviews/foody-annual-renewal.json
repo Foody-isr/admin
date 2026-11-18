@@ -38,7 +38,8 @@
         "menu-product-photos",
         "orders-internal-sumit-checkout",
         "stancer-cash-guarantee",
-        "payments-transactions"
+        "payments-transactions",
+        "customers-loyalty-program"
       ],
       "disposition": "no-user-impact",
       "reason": "Only the annual mandate description and consent label in subscription checkout changed. Other features match this shared translation file but their controls and messages retain their previous wording."
