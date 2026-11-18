@@ -16,7 +16,7 @@ import {
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useI18n } from '@/lib/i18n';
-import { RUNTIME_WEB_URL } from '@/lib/runtime-origins';
+import { loyaltyCustomerPage } from '@/lib/loyalty-program';
 
 type Draft = { background: string; foreground: string; logo: string | null; banner: string | null };
 type Action = 'save' | 'publish' | 'generate' | 'image';
@@ -84,7 +84,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
   const publishedRevision = state?.published_revision;
   const publicationStatus = !publishedRevision ? 'walletStudioUnpublishedStatus'
     : publishedRevision === state?.design.revision ? 'walletStudioPublishedStatus' : 'walletStudioChangesToPublish';
-  const customerPage = `${RUNTIME_WEB_URL}/r/${rid}/account/loyalty`;
+  const customerPage = loyaltyCustomerPage(rid);
   const canPublish = state?.can_edit && state.program && publishedRevision !== undefined &&
     state.design.revision > publishedRevision && !dirty && !stale;
 
