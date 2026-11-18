@@ -4,8 +4,9 @@ import { createFixture } from '../redesign/fixtures.mjs';
 async function studio(page: Page, locale: 'fr' | 'he' = 'fr', canSign = true) {
   const fixtureOptions = { empty: false, permissions: ['settings.view', 'settings.edit'] };
   const fixture = createFixture(fixtureOptions);
-  const writes: { method: string; data: { expected_revision: number; background_color?: string; logo_png?: string; banner_png?: string } }[] = [];
+  const writes: { method: string; path: string; data: { expected_revision: number; background_color?: string; logo_png?: string; banner_png?: string } }[] = [];
   let design = { revision: 0, background_color: '#FFFFFF', foreground_color: '#15292F', logo_png: null, banner_png: null };
+  let publishedRevision = 0;
   await page.addInitScript((lang) => {
     localStorage.setItem('foody_restaurant_token', 'isolated-wallet-studio');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Synthetic operator', role: 'owner' }));
@@ -24,15 +25,21 @@ async function studio(page: Page, locale: 'fr' | 'he' = 'fr', canSign = true) {
       expect(req.headers()['authorization']).toBe('Bearer isolated-wallet-studio');
       if (req.method() === 'GET') return route.fulfill({ json: {
         restaurant_id: rid, restaurant_name: 'Bella Italia', can_edit: true, can_sign_test: canSign, design,
-        program: { mode: 'visits', threshold: 2, names: { en: 'Bella rewards', fr: 'Les habitués de Bella', he: 'מועדון Bella' } },
+        published_revision: publishedRevision,
+        program: { enabled: true, mode: 'visits', threshold: 2, names: { en: 'Bella rewards', fr: 'Les habitués de Bella', he: 'מועדון Bella' } },
       } });
       const data = req.postDataJSON();
-      writes.push({ method: req.method(), data });
+      writes.push({ method: req.method(), path, data });
       if (req.method() === 'PUT') {
         const { expected_revision, ...artwork } = data;
         if (expected_revision !== design.revision) return route.fulfill({ status: 409, json: { error: 'loyalty_conflict' } });
         design = { ...artwork, revision: expected_revision + 1 };
         return route.fulfill({ json: design });
+      }
+      if (path.endsWith('/publish')) {
+        if (data.expected_revision !== design.revision) return route.fulfill({ status: 409, json: { error: 'loyalty_conflict' } });
+        publishedRevision = design.revision;
+        return route.fulfill({ json: { published_revision: publishedRevision } });
       }
       expect(path).toBe('/api/v1/loyalty/wallet-studio/apple-test');
       return route.fulfill({ contentType: 'application/vnd.apple.pkpass', body: 'synthetic archive from the test API' });
@@ -48,7 +55,9 @@ test('edits both previews, saves Bella artwork and downloads the saved Apple tes
   const writes = await studio(page);
   await expect(page.getByRole('heading', { name: 'Studio Wallet', exact: true })).toBeVisible();
   const generate = page.getByRole('button', { name: 'Générer une carte de test Apple' });
+  const publish = page.getByRole('button', { name: 'Publier le visuel' });
   await expect(generate).toBeDisabled();
+  await expect(publish).toBeDisabled();
   await page.getByLabel('Couleur du fond', { exact: true }).fill('#234F43');
   await page.getByLabel('Couleur du texte', { exact: true }).fill('#FFF2DB');
   const assets = await page.evaluate(() => {
@@ -95,6 +104,8 @@ test('edits both previews, saves Bella artwork and downloads the saved Apple tes
   await page.screenshot({ path: info.outputPath('bella-google.png'), fullPage: true, animations: 'disabled' });
   await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
   await expect(page.getByText('Brouillon enregistré.', { exact: true })).toBeVisible();
+  await expect(page.getByText('À publier', { exact: true })).toBeVisible();
+  expect(writes).toHaveLength(1);
   expect(writes[0].data).toMatchObject({ expected_revision: 0, background_color: '#234F43', logo_png: assets.logo, banner_png: assets.banner });
   await page.reload();
   await expect(page.getByLabel('Couleur du fond', { exact: true })).toHaveValue('#234F43');
@@ -102,7 +113,23 @@ test('edits both previews, saves Bella artwork and downloads the saved Apple tes
   const download = page.waitForEvent('download');
   await page.getByRole('link', { name: 'Télécharger le .pkpass' }).click();
   expect((await download).suggestedFilename()).toBe('foody-wallet-test.pkpass');
-  expect(writes[1]).toEqual({ method: 'POST', data: { expected_revision: 1 } });
+  expect(writes[1]).toEqual({ method: 'POST', path: '/api/v1/loyalty/wallet-studio/apple-test', data: { expected_revision: 1 } });
+  await publish.click();
+  await expect(page.getByText('Visuel de la carte publié.', { exact: true })).toBeVisible();
+  expect(writes[2]).toEqual({ method: 'POST', path: '/api/v1/loyalty/wallet-studio/publish', data: { expected_revision: 1 } });
+  await expect(page.getByRole('link', { name: 'Ouvrir la page Fidélité client' })).toHaveAttribute('href', /\/r\/1\/account\/loyalty$/);
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.getByRole('button', { name: 'Copier le lien d’adhésion' }).click();
+  await expect(page.getByText('Copié', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/\/r\/1\/account\/loyalty$/);
+  await page.reload();
+  await expect(page.getByText('Publié', { exact: true })).toBeVisible();
+  await expect(publish).toBeDisabled();
+  await page.getByLabel('Couleur du fond', { exact: true }).fill('#123456');
+  await expect(publish).toBeDisabled();
+  await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
+  await expect(publish).toBeEnabled();
+  await expect(page.getByText('Modifications à publier', { exact: true })).toBeVisible();
 });
 
 test('shows the preview in Hebrew on mobile when Apple signing is unavailable', async ({ page }, info) => {

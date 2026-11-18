@@ -29,7 +29,9 @@ jobs:
       - name: Verify patched dependency behavior
         run: npm run test:dependencies
       - name: Reject high-severity dependency vulnerabilities
-        run: npm audit --audit-level=high
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-npm-audit.mjs
       - run: npm run lint
       - run: npm run typecheck
       - name: Checkout guest web renderer contract

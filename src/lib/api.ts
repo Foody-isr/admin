@@ -2518,8 +2518,9 @@ export interface WalletStudioState {
   restaurant_name: string;
   can_edit: boolean;
   can_sign_test: boolean;
+  published_revision?: number;
   design: WalletStudioDesign;
-  program: { mode: LoyaltyRules['mode']; threshold: number; names: Record<'en' | 'fr' | 'he', string> } | null;
+  program: { enabled?: boolean; mode: LoyaltyRules['mode']; threshold: number; names: Record<'en' | 'fr' | 'he', string> } | null;
 }
 
 const walletStudioPath = '/api/v1/loyalty/wallet-studio';
@@ -2535,6 +2536,18 @@ export function saveWalletStudio(rid: number, revision: number, artwork: WalletS
     method: 'PUT', cache: 'no-store', signal,
     body: JSON.stringify({ expected_revision: revision, ...artwork }),
   });
+}
+
+/** Publish the specified saved design for eligible customer Wallet passes. */
+export async function publishWalletStudio(rid: number, revision: number, signal?: AbortSignal): Promise<number> {
+  const result = await apiFetch<{ published_revision: number }>(`${walletStudioPath}/publish`, rid, {
+    method: 'POST', cache: 'no-store', signal,
+    body: JSON.stringify({ expected_revision: revision }),
+  });
+  if (result?.published_revision !== revision) {
+    throw new ApiError('wallet_studio_invalid_publication', 502);
+  }
+  return result.published_revision;
 }
 
 /** Request the native archive without putting staff credentials in a URL. */
