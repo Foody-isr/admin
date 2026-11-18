@@ -349,33 +349,6 @@
     }
   },
   {
-    "route": "/[restaurantId]/delivery/tours",
-    "file": "src/app/[restaurantId]/delivery/tours/page.tsx",
-    "components": [
-      "@/components/data-table/DataTable",
-      "@/components/ds"
-    ],
-    "overlays": [
-      "DataTable",
-      "DataTableBody",
-      "DataTableCell",
-      "DataTableHead",
-      "DataTableHeadCell",
-      "DataTableRow"
-    ],
-    "permissionChecks": [
-      "'orders.manage'"
-    ],
-    "states": [
-      "error",
-      "loading",
-      "saving",
-      "shows"
-    ],
-    "status": "deferred",
-    "scopeDecision": "Reporté explicitement par utilisateur ; hors périmètre de la passe courante."
-  },
-  {
     "route": "/[restaurantId]/kitchen/availability",
     "file": "src/app/[restaurantId]/kitchen/availability/page.tsx",
     "components": [
@@ -1527,7 +1500,14 @@
     "overlays": [],
     "permissionChecks": [],
     "states": [],
-    "status": "inventoried"
+    "status": "partial",
+    "redesign": {
+      "designed": "✓",
+      "implemented": "✓",
+      "functional": "✓",
+      "visual": "✓",
+      "scope": "Aperçu mobile daté, liste des arrêts, carte, départ confirmé le jour prévu et ouverture de l’arrêt en cours."
+    }
   },
   {
     "route": "/[restaurantId]/orders/deliveries",
@@ -1541,7 +1521,14 @@
       "'orders.manage'"
     ],
     "states": [],
-    "status": "inventoried"
+    "status": "partial",
+    "redesign": {
+      "designed": "✓",
+      "implemented": "✓",
+      "functional": "✓",
+      "visual": "✓",
+      "scope": "File à planifier, recherche bilingue, point confirmé, ajout dans une tournée existante, récupération du départ et historique."
+    }
   },
   {
     "route": "/[restaurantId]/orders/new",
@@ -1962,7 +1949,38 @@
       "implemented": "✓",
       "functional": "✓",
       "visual": "✓",
-      "scope": "Zones classique/ville/polygone/rayon, origine sauvegardée, minimum indépendant, cartes, permissions, gardes et reprise GET. 27 scénarios compilés dans le lot74 ; voir delivery-zones-audit.md."
+      "scope": "Répertoire des zones, tarif et état de chaque zone, couverture et horaires dépliables, filtres, carte et minimum indépendant."
+    }
+  },
+  {
+    "route": "/[restaurantId]/settings/delivery/maps",
+    "file": "src/app/[restaurantId]/settings/delivery/maps/page.tsx",
+    "components": [
+      "@/components/ds"
+    ],
+    "overlays": [
+      "Drawer",
+      "ConfirmDialog"
+    ],
+    "permissionChecks": [
+      "settings.view",
+      "settings.edit",
+      "orders.manage"
+    ],
+    "states": [
+      "loading",
+      "noPermission",
+      "error",
+      "saving",
+      "quotaReached"
+    ],
+    "status": "partial",
+    "redesign": {
+      "designed": "✓",
+      "implemented": "✓",
+      "functional": "✓",
+      "visual": "✓",
+      "scope": "Service actif, choix du fournisseur, consommation Google et Geoapify, quotas et tarifs."
     }
   },
   {

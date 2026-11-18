@@ -25,6 +25,7 @@ import { SearchShortcutProvider } from '@/lib/search-shortcut';
 import SearchModal from '@/components/search/SearchModal';
 import { getRestaurant, Restaurant } from '@/lib/api';
 import { isCourierRoleName } from '@/lib/courier-access';
+import { DeliveryNavigation } from '@/components/delivery/DeliveryNavigation';
 import { CourierShell } from '@/components/delivery/CourierShell';
 
 // Slugs that map to an existing translation key in i18n.tsx. Anything not listed
@@ -254,6 +255,8 @@ function RestaurantShell({
   isRtl: boolean;
   pageName: string;
 }) {
+  const pathname = usePathname();
+  const courierPreview = pathname === `/${restaurantId}/orders/courier-mode`;
   const { collapsed } = useSidebar();
   const desktop = useDesktopNavigation();
   const { t } = useI18n();
@@ -287,10 +290,11 @@ function RestaurantShell({
             onToggleSidebar={toggleSidebar}
           />}
           <div id="workspace-content" tabIndex={-1}
-            className="min-w-0 px-4 pt-6 pb-[max(var(--s-6),var(--safe-bottom))] sm:px-6 lg:px-8 lg:pt-8"
+            className={`min-w-0 px-4 pt-6 pb-[max(var(--s-6),var(--safe-bottom))] sm:px-6 lg:px-8 lg:pt-8 ${courierPreview ? "flex h-[calc(100dvh-var(--topbar-total-h))] flex-col lg:h-dvh" : ""}`}
           >
             <SettingsBreadcrumb restaurantId={restaurantId} />
-            {children}
+            <DeliveryNavigation rid={restaurantId} pathname={pathname} access={restaurant.module_access} />
+            {courierPreview ? <div className="min-h-0 flex-1 [--courier-height:100%]">{children}</div> : children}
           </div>
         </main>
       </div>

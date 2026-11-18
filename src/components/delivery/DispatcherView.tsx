@@ -4,6 +4,8 @@ import { DeliveryWhatsAppDrawer } from '@/components/delivery/DeliveryWhatsAppDr
 import { DeliveryDuration } from '@/components/delivery/DeliveryDuration';
 import { CourierLocationStatus } from '@/components/delivery/CourierLocationStatus';
 import { CustomerWindowField, parseCustomerWindowMinutes } from '@/components/delivery/CustomerWindowField';
+import { InsertDeliveryDrawer } from '@/components/delivery/InsertDeliveryDrawer';
+import { deliveryCityKey, matchesDeliverySearch } from '@/lib/route-address';
 import { RouteAddressField } from '@/components/delivery/RouteAddressField';
 import { StopServiceField, validStopServiceMinutes } from '@/components/delivery/StopServiceField';
 import { OrderWindowField } from '@/components/delivery/OrderWindowField';
@@ -17,14 +19,19 @@ import {
   ArrowRightLeftIcon,
   BellIcon,
   CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  SearchIcon,
   ListIcon,
   MapIcon,
   MapPinIcon,
   MessageCircleIcon,
   PencilIcon,
+  ListPlusIcon,
   RefreshCwIcon,
   RouteIcon,
   Settings2Icon,
+  CalendarDaysIcon,
   SparklesIcon,
   Undo2Icon,
   UserIcon,
@@ -141,9 +148,10 @@ function routeStatusTone(status: DeliveryRoute['status']): 'neutral' | 'success'
 
 
 interface RouteRibbonProps {
+  routeNumber: number;
+  stopQuery: string;
   route: DeliveryRoute;
   location?: CourierLocationDTO;
-  routeNumber: number;
   courier?: StaffMember;
   color: string;
   locale: string;
@@ -163,9 +171,10 @@ interface RouteRibbonProps {
 }
 
 function RouteRibbon({
+  routeNumber,
+  stopQuery,
   route,
   location,
-  routeNumber,
   courier,
   color,
   locale,
@@ -186,14 +195,16 @@ function RouteRibbon({
   const delivered = route.stops.filter((stop) => stop.status === 'delivered').length;
   const pending = route.stops.filter(isPendingDeliveryStop);
   const unresolved = pending.filter((stop) => stop.needs_geocode).length;
-  const ordered = [...(history ? route.stops : pending)].sort((a, b) => a.sequence - b.sequence);
+  const ordered = (history ? route.stops : pending)
+    .filter(stop => matchesDeliverySearch(stopQuery, stop.order_id, stop.customer_name, stop.address, stop.city))
+    .sort((a, b) => a.sequence - b.sequence);
   const progress = route.stops.length > 0 ? (delivered / route.stops.length) * 100 : 0;
-  const canResetDeparture = route.status === 'active' && route.stops.length > 0 && route.stops.every((stop) => stop.status === 'pending' && !stop.navigation_started_at);
+  const canResetDeparture = route.status === 'active' && route.stops.length > 0 && route.stops.every((stop) => stop.status === 'pending' && !stop.issue_reason);
   const courierInk = `color-mix(in srgb, ${color} 40%, var(--fg))`;
 
   return (
     <Card className="overflow-hidden shadow-none">
-      <CardHeader className="px-4 py-3">
+      <CardHeader className="border-s-[3px] px-4 py-3" style={{ borderInlineStartColor: color }}>
         <button type="button" onClick={onSelectCourier} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-r-md text-start focus-visible:outline-none focus-visible:shadow-ring">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-r-md bg-[var(--surface-2)]" style={{ color: courierInk }}><UserIcon className="h-5 w-5" /></span>
           <span className="min-w-0">
@@ -243,63 +254,6 @@ function RouteRibbon({
           </div>
         </div>
 
-        <div className="mb-2">
-          <RouteSettingsEditor
-            route={route}
-            locale={locale}
-            disabled={busy || route.status !== 'draft'}
-            onSave={onSaveSettings}
-            t={t}
-          />
-        </div>
-
-        {!history && (route.status === 'draft' || canResetDeparture || (route.status === 'active' && route.needs_recalculation)) && (
-          <div className="mb-2 flex flex-wrap items-center justify-end gap-1.5 border-b border-[var(--line)] pb-2">
-            {(route.status === 'draft' || route.needs_recalculation) && <Button
-              type="button"
-              variant="secondary"
-              disabled={busy || route.stops.length === 0}
-              onClick={onOptimize}
-              title={t('deliveryPlanRecalculate')}
-            >
-              <RefreshCwIcon className={busy ? 'animate-spin' : undefined} />
-              {t('deliveryPlanRecalculate')}
-            </Button>}
-            {canResetDeparture && <Button
-              type="button"
-              variant="secondary"
-              disabled={busy}
-              onClick={onResetDeparture}
-            >
-              <Undo2Icon />
-              {t('deliveryPlanResetDeparture')}
-            </Button>}
-            {route.status === 'draft' && <Button
-              type="button"
-              variant="ghost"
-              disabled={busy}
-              onClick={onCancel}
-              className="text-[var(--danger-500)] hover:text-[var(--danger-500)]"
-              title={t('deliveryPlanUnassignRoute')}
-            >
-              <Undo2Icon />
-              {t('deliveryPlanUnassignRoute')}
-            </Button>}
-          </div>
-        )}
-
-        {!history && pending.length > 0 && (
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={onRemind} disabled={busy || reminder?.state === 'sending'}>
-              <BellIcon />{t('courierSendReminder')}
-            </Button>
-            {reminder && reminder.state !== 'sending' && (
-              <span role="status" className="text-fs-xs text-[var(--fg-muted)]">
-                {t(reminder.state === 'sent' ? 'courierReminderSent' : reminder.state === 'none' ? 'courierReminderNotAccepted' : 'courierReminderFailed')}
-              </span>
-            )}
-          </div>
-        )}
         <div className="overflow-hidden rounded-r-lg border border-[var(--line)]">
           <div className="flex flex-col">
             {ordered.map((stop, index) => {
@@ -382,6 +336,66 @@ function RouteRibbon({
             })}
           </div>
         </div>
+        <section aria-label={t('deliveryDispatchRouteActions')} className="mt-3 border-t border-[var(--line)] pt-3">
+        <details className="mb-2 rounded-r-md border border-[var(--line)] px-3">
+          <summary className="cursor-pointer py-2.5 text-fs-sm font-medium"><Settings2Icon aria-hidden className="me-2 inline size-4" />{t('dispatchRouteSettings')}</summary>
+          <RouteSettingsEditor
+            route={route}
+            locale={locale}
+            disabled={busy || route.status !== 'draft'}
+            onSave={onSaveSettings}
+            t={t}
+          />
+        </details>
+
+        {!history && (route.status === 'draft' || canResetDeparture || (route.status === 'active' && route.needs_recalculation)) && (
+          <div className="mb-2 flex flex-wrap items-center justify-end gap-1.5 border-b border-[var(--line)] pb-2">
+            {(route.status === 'draft' || route.needs_recalculation) && <Button
+              type="button"
+              variant="secondary"
+              disabled={busy || route.stops.length === 0}
+              onClick={onOptimize}
+              title={t('deliveryPlanRecalculate')}
+            >
+              <RefreshCwIcon className={busy ? 'animate-spin' : undefined} />
+              {t('deliveryPlanRecalculate')}
+            </Button>}
+            {canResetDeparture && <Button
+              type="button"
+              variant="secondary"
+              disabled={busy}
+              onClick={onResetDeparture}
+            >
+              <Undo2Icon />
+              {t('deliveryPlanResetDeparture')}
+            </Button>}
+            {route.status === 'draft' && <Button
+              type="button"
+              variant="ghost"
+              disabled={busy}
+              onClick={onCancel}
+              className="text-[var(--danger-500)] hover:text-[var(--danger-500)]"
+              title={t('deliveryPlanUnassignRoute')}
+            >
+              <Undo2Icon />
+              {t('deliveryPlanUnassignRoute')}
+            </Button>}
+          </div>
+        )}
+
+        {!history && pending.length > 0 && (
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={onRemind} disabled={busy || reminder?.state === 'sending'}>
+              <BellIcon />{t('courierSendReminder')}
+            </Button>
+            {reminder && reminder.state !== 'sending' && (
+              <span role="status" className="text-fs-xs text-[var(--fg-muted)]">
+                {t(reminder.state === 'sent' ? 'courierReminderSent' : reminder.state === 'none' ? 'courierReminderNotAccepted' : 'courierReminderFailed')}
+              </span>
+            )}
+          </div>
+        )}
+        </section>
       </CardBody>
     </Card>
   );
@@ -398,11 +412,14 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [messageTarget, setMessageTarget] = useState<{ orderId?: number } | null>(null);
   const [view, setView] = useState<'open' | 'history'>('open');
   const [showMap, setShowMap] = useState(false);
+  const [queueQuery, setQueueQuery] = useState('');
+  const [routeQuery, setRouteQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [openRoutes, setOpenRoutes] = useState<DeliveryRoute[]>([]);
   const [livePositions, setLivePositions] = useState<Map<number, CourierLocationDTO>>(new Map());
   const [ready, setReady] = useState<Order[]>([]);
   const [couriers, setCouriers] = useState<StaffMember[]>([]);
+  const pickedScope = useRef('');
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [distributionMode, setDistributionMode] = useState<DistributionMode>('smart');
   const [plannerOpen, setPlannerOpen] = useState(false);
@@ -426,7 +443,10 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [routeBusy, setRouteBusy] = useState<number | null>(null);
   const [reminders, setReminders] = useState<Record<number, RouteRibbonProps['reminder']>>({});
   const remindersInFlight = useRef(new Set<number>());
-  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [editingOrder, setEditingOrder] = useState<{ order: Order; routeId?: number } | null>(null);
+  const [insertingOrder, setInsertingOrder] = useState<Order | null>(null);
+  const [inserted, setInserted] = useState('');
+  useEffect(() => { setEditingOrder(null); setInsertingOrder(null); setInserted(''); setMessageTarget(null); }, [rid, planningDate]);
   const [addressEditorLoading, setAddressEditorLoading] = useState(false);
   const [undoAction, setUndoAction] = useState<
     | { kind: 'route'; routeId: number; stopCount: number }
@@ -475,7 +495,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
       if (!initialPlanResolved.current) {
         initialPlanResolved.current = true;
         const candidateOrderIds = new Set(candidateRows.orders.map((order) => order.id));
-        const relatedOpenRoute = managerOpenRouteRows.find((route) =>
+        const relatedOpenRoute = managerOpenRouteRows.find(route => route.status === 'active') ?? managerOpenRouteRows.find((route) =>
           route.stops.some((stop) => candidateOrderIds.has(stop.order_id)),
         );
         if (!managerRouteRows.some(isOpenDeliveryRoute) && relatedOpenRoute) {
@@ -492,11 +512,11 @@ export default function DispatcherView({ rid }: { rid: number }) {
       setReady(candidateRows.orders);
       setCouriers(courierRows);
       const visibleDate = visibleRoutes[0]?.date ?? departure.slice(0, 10);
-      setPicked((current) => {
-        const availableIds = new Set(available.filter(order => deliveryMatchesRouteDate(order, visibleDate)).map((order) => order.id));
-        const retained = new Set(Array.from(current).filter((id) => availableIds.has(id)));
-        return current.size === 0 ? availableIds : retained;
-      });
+      const scope = [rid, visibleDate.slice(0, 10)].join(':');
+      const firstLoadForDay = pickedScope.current !== scope;
+      pickedScope.current = scope;
+      const availableIds = new Set(available.filter(order => deliveryMatchesRouteDate(order, visibleDate)).map(order => order.id));
+      setPicked(current => firstLoadForDay ? availableIds : new Set(Array.from(current).filter(id => availableIds.has(id))));
       setPlannerCouriers((current) => {
         const activeCourierIds = new Set(
           visibleRoutes.filter((route) => route.status === 'active').map((route) => route.courier_id),
@@ -621,14 +641,23 @@ export default function DispatcherView({ rid }: { rid: number }) {
     [unplannedOrders, picked],
   );
   const selectedZones = useMemo(
-    () => Array.from(new Set(selectedOrders.map((order) => deliveryZone(order, t('deliveryPlanUnknownZone'))))),
+    () => {
+      const zones = new Map<string, { key: string; label: string; count: number }>();
+      for (const order of selectedOrders) {
+        const key = deliveryCityKey(order.delivery_city ?? '');
+        const zone = zones.get(key);
+        if (zone) zone.count++;
+        else zones.set(key, { key, label: deliveryZone(order, t('deliveryPlanUnknownZone')), count: 1 });
+      }
+      return Array.from(zones.values());
+    },
     [selectedOrders, t],
   );
 
   useEffect(() => {
     setZoneCouriers((current) => {
       const next = new Map<string, number>();
-      selectedZones.forEach((zone, index) => {
+      selectedZones.forEach(({ key: zone }, index) => {
         const currentCourier = current.get(zone);
         const fallback = planningCouriers[index % Math.max(planningCouriers.length, 1)]?.id;
         if (currentCourier && planningCouriers.some((courier) => courier.id === currentCourier)) {
@@ -682,14 +711,22 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const reportedIssues = dayRoutes.flatMap((route) =>
     route.stops.flatMap((stop) => stop.issue_reason ? [{ route, stop, reason: stop.issue_reason }] : []),
   );
-  const allPicked = unplannedOrders.length > 0 && picked.size === unplannedOrders.length;
+  const visibleOrders = unplannedOrders.filter(order => matchesDeliverySearch(queueQuery, order.id, order.customer_name, order.delivery_address, order.delivery_city));
+  const allPicked = visibleOrders.length > 0 && visibleOrders.every(order => picked.has(order.id));
   const toggleOrder = (id: number) => setPicked((current) => {
     if (openRouteByOrderId.has(id)) return current;
     const next = new Set(current);
     next.has(id) ? next.delete(id) : next.add(id);
     return next;
   });
-  const toggleAll = () => setPicked(allPicked ? new Set() : new Set(unplannedOrders.map((order) => order.id)));
+  const toggleAll = () => setPicked(current => {
+    const next = new Set(current);
+    for (const order of visibleOrders) {
+      if (allPicked) next.delete(order.id);
+      else next.add(order.id);
+    }
+    return next;
+  });
   const toggleCourier = (id: number) => setPlannerCouriers((current) => {
     const next = new Set(current);
     next.has(id) ? next.delete(id) : next.add(id);
@@ -706,13 +743,13 @@ export default function DispatcherView({ rid }: { rid: number }) {
     let selectedCourierIds = Array.from(plannerCouriers);
 
     if (distributionMode === 'zone') {
-      if (selectedZones.some((zone) => !zoneCouriers.get(zone))) {
+      if (selectedZones.some(({ key }) => !zoneCouriers.get(key))) {
         setError(t('deliveryPlanMissingAssignments'));
         return;
       }
       const grouped = new Map<number, number[]>();
       selectedOrders.forEach((order) => {
-        const courierId = zoneCouriers.get(deliveryZone(order, t('deliveryPlanUnknownZone')));
+        const courierId = zoneCouriers.get(deliveryCityKey(order.delivery_city ?? ''));
         if (!courierId) return;
         grouped.set(courierId, [...(grouped.get(courierId) ?? []), order.id]);
       });
@@ -806,12 +843,11 @@ export default function DispatcherView({ rid }: { rid: number }) {
     }
   };
 
-  const openAddressEditor = async () => {
-    if (!selectedEntry) return;
+  const openAddressEditor = async (orderId: number, routeId?: number) => {
     setAddressEditorLoading(true);
     try {
       setError(null);
-      setEditingOrder(await getOrder(rid, selectedEntry.stop.order_id));
+      setEditingOrder({ order: await getOrder(rid, orderId), routeId });
     } catch (cause) {
       setError((cause as Error)?.message || t('couldNotLoad'));
     } finally {
@@ -820,30 +856,33 @@ export default function DispatcherView({ rid }: { rid: number }) {
   };
 
   const saveAddressCorrection = async (input: OrderCustomerDetailsInput, selectedFromGoogle: boolean) => {
-    if (!editingOrder || selectedEntry?.stop.order_id !== editingOrder.id) throw new Error(t('couldNotSave'));
+    if (!editingOrder) throw new Error(t('couldNotSave'));
     let position = input.delivery_latitude != null && input.delivery_longitude != null
       ? { lat: input.delivery_latitude, lng: input.delivery_longitude } : undefined;
-    if (!position) {
+    const { order, routeId } = editingOrder;
+    const keepPoint = !position && !selectedFromGoogle && order.delivery_latitude != null && order.delivery_longitude != null &&
+      input.delivery_address === order.delivery_address && input.delivery_city === order.delivery_city;
+    if (!position && !keepPoint) {
       const result = await geocodeAddress(rid, input.delivery_address ?? '', input.delivery_city);
       if (result.found && result.lat != null && result.lng != null) {
         position = { lat: result.lat, lng: result.lng };
       } else if (!selectedFromGoogle) {
-        throw new Error(t('addressVerificationFailed'));
+        throw new Error(t(result.unavailable ? 'deliveryLookupUnavailable' : 'addressVerificationFailed'));
       }
     }
-    await updateOrderCustomerDetails(rid, editingOrder.id, {
+    await updateOrderCustomerDetails(rid, order.id, {
       ...input,
       delivery_latitude: position?.lat,
       delivery_longitude: position?.lng,
     });
-    if (!position) {
+    if (!position && !keepPoint) {
       await load();
       setError(t('deliveryAddressSavedUnlocated'));
       return;
     }
     let routingError: string | null = null;
     try {
-      await optimizeRoute(rid, selectedEntry.route.id);
+      if (routeId && !keepPoint) await optimizeRoute(rid, routeId);
     } catch (cause) {
       routingError = deliveryRoutingError(cause, t) ?? t('deliveryPlanRecalculateFailed');
     }
@@ -897,10 +936,40 @@ export default function DispatcherView({ rid }: { rid: number }) {
     apt: selectedEntry.stop.delivery_apt,
     entryCode: selectedEntry.stop.delivery_entry_code,
   }, t) : null;
+  const visibleRoutes = routes.flatMap((route, index) => {
+    const number = index + 1;
+    const match = matchesDeliverySearch(routeQuery, courierById.get(route.courier_id)?.full_name, `${t('mapsRoute')} ${number}`);
+    const stops = view === 'history' ? route.stops : route.stops.filter(isPendingDeliveryStop);
+    return match || stops.some(stop => matchesDeliverySearch(routeQuery, stop.order_id, stop.customer_name, stop.address, stop.city))
+      ? [{ route, number, stopQuery: match ? '' : routeQuery }] : [];
+  });
+  const visibleRouteIds = new Set(visibleRoutes.map(({ route }) => route.id));
+  const changeDay = (day: string) => {
+    if (!day || day === planningDate) return;
+    initialPlanResolved.current = true;
+    ++loadRequestId.current;
+    setLoading(true);
+    setRoutes([]);
+    setReady([]);
+    setPicked(new Set());
+    setSelectedStopId(null);
+    setSelectedCourier(null);
+    setSelectedRoute(null);
+    setQueueQuery('');
+    setRouteQuery('');
+    setDeparture(`${day}T${(departure || defaultDepartureValue()).slice(11)}`);
+  };
+  const stepDay = (offset: number) => {
+    const date = new Date((planningDate || defaultDepartureValue().slice(0, 10)) + 'T12:00:00Z');
+    date.setUTCDate(date.getUTCDate() + offset);
+    changeDay(date.toISOString().slice(0, 10));
+  };
+  const insertRoutes = routes.flatMap((route, index) => route.status === 'draft' && routePlanningDate(route) === planningDate
+    ? [{ route, number: index + 1 }] : []);
   const movableRoutes = selectedEntry
     ? routes.filter((route) => route.id !== selectedEntry.route.id && route.status === 'draft' && route.date.slice(0, 10) === selectedEntry.route.date.slice(0, 10))
     : [];
-  const endpointCouriers = planningCouriers.filter(courier => distributionMode === 'smart' ? plannerCouriers.has(courier.id) : distributionMode === 'zone' ? selectedZones.some(zone => zoneCouriers.get(zone) === courier.id) : selectedOrders.some(order => manualCouriers.get(order.id) === courier.id));
+  const endpointCouriers = planningCouriers.filter(courier => distributionMode === 'smart' ? plannerCouriers.has(courier.id) : distributionMode === 'zone' ? selectedZones.some(({ key }) => zoneCouriers.get(key) === courier.id) : selectedOrders.some(order => manualCouriers.get(order.id) === courier.id));
   const savedCourierEndpoints = (id: number) => {
     const existing = dayRoutes.find(route => route.courier_id === id && route.status === 'draft' && route.date.slice(0, 10) === departure.slice(0, 10));
     const courier = couriers.find(member => member.id === id);
@@ -919,7 +988,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
     distributionMode === 'smart'
       ? plannerCouriers.size > 0
       : distributionMode === 'zone'
-        ? selectedZones.length > 0 && selectedZones.every((zone) => Boolean(zoneCouriers.get(zone)))
+        ? selectedZones.length > 0 && selectedZones.every(({ key }) => Boolean(zoneCouriers.get(key)))
         : selectedOrders.length > 0 && selectedOrders.every((order) => Boolean(manualCouriers.get(order.id)))
   );
   const routeCountLabel = t(routes.length === 1 ? 'deliveryPlanRouteCountOne' : 'deliveryPlanRouteCountMany')
@@ -942,12 +1011,10 @@ export default function DispatcherView({ rid }: { rid: number }) {
         </div>
       )}
 
-      <PageHead className="mb-0" title={t('deliveries')} desc={t('deliveryPlanWorkspaceIntro')} actions={
+      <PageHead className="mb-0" title={t('deliveryNavDispatch')} actions={
         <>
-          {view === 'open' && dayRoutes.some(route => isOpenDeliveryRoute(route) && route.stops.some(isPendingDeliveryStop)) && <Button variant="secondary" onClick={() => setMessageTarget({})}><MessageCircleIcon />{t('deliveryWhatsAppTitle')}</Button>}
-          <Button variant="secondary" asChild><Link href={`/${rid}/settings/delivery/maps`}><Settings2Icon aria-hidden />{t('mapsTitle')}</Link></Button>
+          {view === 'open' && dayRoutes.some(route => routePlanningDate(route) === planningDate && isOpenDeliveryRoute(route) && route.stops.some(isPendingDeliveryStop)) && <Button variant="secondary" disabled={loading} onClick={() => setMessageTarget({})}><MessageCircleIcon />{t('deliveryWhatsAppTitle')}</Button>}
           <Button variant="secondary" icon aria-label={t('refresh')} disabled={loading} onClick={() => void load()}><RefreshCwIcon className={loading ? 'animate-spin' : undefined} /></Button>
-          {view === 'open' && unplannedOrders.length > 0 && <Button disabled={picked.size === 0} onClick={() => setPlannerOpen(true)}>{t('deliveryPlanStepTwo')}</Button>}
         </>
       } />
 
@@ -968,41 +1035,49 @@ export default function DispatcherView({ rid }: { rid: number }) {
           </ul>
         </section>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
-        <Tabs value={view} onValueChange={(value) => { setView(value as 'open' | 'history'); setSelectedStopId(null); setSelectedCourier(null); }}>
+      {inserted && <p role="status" className="flex items-center gap-2 text-fs-sm"><CheckIcon className="h-4 w-4" />{inserted}</p>}
+      <section className="overflow-hidden rounded-r-xl border border-[var(--line)] bg-[var(--surface)]" aria-labelledby="dispatch-service-day">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3 sm:px-5">
+          <div className="flex items-center gap-3">
+            <CalendarDaysIcon aria-hidden className="size-6 shrink-0 text-[var(--info-500)]" />
+            <h2 id="dispatch-service-day" className="text-fs-xl font-semibold tracking-tight first-letter:uppercase">{new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date((planningDate || defaultDepartureValue().slice(0, 10)) + 'T12:00:00Z'))}</h2>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" icon aria-label={t('previousDay')} onClick={() => stepDay(-1)}><ChevronLeftIcon className="rtl:rotate-180" /></Button>
+            <Input type="date" aria-label={t('deliveryPlanDate')} className="min-h-11 w-auto" value={planningDate} onChange={event => changeDay(event.target.value)} />
+            <Button variant="ghost" icon aria-label={t('nextDay')} onClick={() => stepDay(1)}><ChevronRightIcon className="rtl:rotate-180" /></Button>
+          </div>
+        </div>
+        <dl className="grid grid-cols-2 gap-px bg-[var(--line)] sm:grid-cols-4">
+          {[
+            { label: 'dispatchWaiting', count: unplannedOrders.length },
+            { label: 'dispatchDepartures', count: dayRoutes.filter(route => route.status === 'draft' && isOpenDeliveryRoute(route)).length },
+            { label: 'dispatchOnRoad', count: dayRoutes.filter(route => route.status === 'active' && isOpenDeliveryRoute(route)).length },
+            { label: 'dispatchDelivered', count: dayRoutes.reduce((total, route) => total + route.stops.filter(stop => stop.status === 'delivered').length, 0) },
+          ].map(({ label, count }) => <div key={label} className="flex items-baseline justify-between gap-2 bg-[var(--surface)] px-4 py-3 sm:px-5">
+            <dt className="text-fs-sm text-[var(--fg-muted)]">{t(label)}</dt><dd className="num text-fs-xl font-semibold">{loading ? '—' : count}</dd>
+          </div>)}
+        </dl>
+      </section>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Tabs value={view} onValueChange={(value) => { setView(value as 'open' | 'history'); setRouteQuery(''); setSelectedRoute(null); setSelectedStopId(null); setSelectedCourier(null); }}>
           <TabsList aria-label={t('deliveries')}>
             <Tab value="open">{t('deliveryPlanInProgress')} <span className="num">{dayRoutes.filter(isOpenDeliveryRoute).length}</span></Tab>
             <Tab value="history">{t('deliveryPlanHistory')} <span className="num">{dayRoutes.filter((route) => route.stops.length > 0 && !isOpenDeliveryRoute(route)).length}</span></Tab>
           </TabsList>
         </Tabs>
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-fs-sm text-[var(--fg-muted)]">
-            {t('deliveryPlanDate')}
-            <Input type="date" className="w-auto min-h-11" value={departure.slice(0, 10)} onChange={(event) => {
-              if (!event.target.value) return;
-              initialPlanResolved.current = true;
-              setSelectedStopId(null);
-              setSelectedCourier(null);
-              setDeparture(`${event.target.value}T${departure.slice(11)}`);
-            }} />
-          </label>
-          {routes.length > 0 && <Button className="xl:hidden" variant="secondary" aria-pressed={showMap} onClick={() => setShowMap((current) => !current)}>
-            {showMap ? <ListIcon /> : <MapIcon />}{t(showMap ? 'deliveryPlanShowList' : 'deliveryPlanShowMap')}
-          </Button>}
-        </div>
+        {routes.length > 0 && <Button variant="secondary" aria-pressed={showMap} onClick={() => setShowMap(current => !current)}>
+          {showMap ? <ListIcon /> : <MapIcon />}{t(showMap ? 'deliveryPlanShowList' : 'deliveryPlanShowMap')}
+        </Button>}
       </div>
-
-      <div
-        className={`grid min-h-0 grid-cols-1 gap-4 xl:min-h-[480px] ${routes.length > 0 ? 'xl:h-[calc(100dvh-300px)]' : ''} ${
-          view === 'open' && unplannedOrders.length > 0
-            ? routes.length > 0 ? 'xl:grid-cols-[minmax(230px,0.65fr)_minmax(340px,1fr)_minmax(0,1.25fr)]' : 'lg:grid-cols-[minmax(280px,0.7fr)_minmax(0,1.3fr)]'
-            : routes.length > 0 ? 'xl:grid-cols-[minmax(360px,0.9fr)_minmax(0,1.5fr)]' : ''
-        }`}
-      >
-        {view === 'open' && unplannedOrders.length > 0 && (
+      <div className={`grid min-h-0 grid-cols-1 items-start gap-4 ${
+        showMap && routes.length ? 'xl:grid-cols-[minmax(330px,0.7fr)_minmax(0,1.3fr)]'
+          : view === 'open' && unplannedOrders.length ? 'lg:grid-cols-[minmax(280px,0.64fr)_minmax(0,1.36fr)]' : ''
+      }`}>
+        {view === 'open' && unplannedOrders.length > 0 && (!showMap || !routes.length) && (
           <section className={`${showMap && routes.length > 0 ? 'hidden xl:flex' : 'flex'} min-h-0 flex-col overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]`}>
             <div className="flex items-start gap-3 border-b border-[var(--line)] px-3 py-3">
-              <Checkbox checked={allPicked} onCheckedChange={toggleAll} aria-label={t('selectAll')} className="mt-0.5" />
+              <Checkbox checked={allPicked || (visibleOrders.some(order => picked.has(order.id)) ? 'indeterminate' : false)} disabled={!visibleOrders.length} onCheckedChange={toggleAll} aria-label={t('selectAll')} className="mt-0.5" />
               <div className="min-w-0 flex-1">
                 <h2 className="text-fs-md font-semibold text-[var(--fg)]">{t('deliveryPlanUnplanned').replace('{count}', String(unplannedOrders.length))}</h2>
                 <p className="mt-0.5 text-fs-xs text-[var(--fg-subtle)]">
@@ -1013,8 +1088,13 @@ export default function DispatcherView({ rid }: { rid: number }) {
               </div>
             </div>
 
+            <label className="relative mx-3 my-2 block">
+              <SearchIcon aria-hidden className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]" />
+              <Input type="search" className="ps-9" value={queueQuery} aria-label={t('deliveryQueueSearch')} placeholder={t('deliveryQueueSearchShort')} onChange={event => setQueueQuery(event.target.value)} />
+            </label>
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {unplannedOrders.map((order) => {
+              {!visibleOrders.length && <EmptyState icon={<SearchIcon />} title={t('noResults')} action={<Button variant="ghost" onClick={() => setQueueQuery('')}>{t('deliveryFiltersClear')}</Button>} />}
+              {visibleOrders.map((order) => {
                 const address = formatDeliveryAddress({
                   address: order.delivery_address,
                   city: order.delivery_city,
@@ -1049,6 +1129,16 @@ export default function DispatcherView({ rid }: { rid: number }) {
                       <Badge className="mt-2" tone={order.status === 'ready_for_delivery' ? 'success' : 'warning'}>
                         {localizeStatus(order.status, t)}
                       </Badge>
+                      <span className="mt-2 flex flex-wrap items-center gap-1" onClick={event => event.stopPropagation()}>
+                        {insertRoutes.length > 0 && <Button size="sm" variant="secondary" disabled={loading}
+                          onClick={() => { setInserted(''); setInsertingOrder(order); }}>
+                          <ListPlusIcon />{t('deliveryInsertTitle')}
+                        </Button>}
+                        <Button size="sm" variant="ghost" disabled={addressEditorLoading} onClick={() => void openAddressEditor(order.id)}
+                          aria-label={`${t('correctAddress')} #${order.id}`} title={t('correctAddress')}>
+                          <PencilIcon /><span>{t('correctAddress')}</span>
+                        </Button>
+                      </span>
                     </span>
                   </div>
                 );
@@ -1075,15 +1165,23 @@ export default function DispatcherView({ rid }: { rid: number }) {
             {routes.length > 0 && <Badge tone="neutral">{routes.length}</Badge>}
           </div>
 
+          {routes.length > 0 && <label className="relative mx-3 mt-2 block">
+            <SearchIcon aria-hidden className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]" />
+            <Input type="search" className="ps-9" value={routeQuery} aria-label={t('deliveryRouteSearch')} placeholder={t('deliveryRouteSearchShort')}
+              onChange={event => { setRouteQuery(event.target.value); setSelectedRoute(null); setSelectedCourier(null); setSelectedStopId(null); }} />
+          </label>}
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
             {routes.length === 0 ? (
               <EmptyState icon={view === 'history' ? <CheckIcon /> : <RouteIcon />} title={t(loading ? 'loading' : view === 'history' ? 'deliveryPlanNoHistory' : 'deliveryPlanNoActiveRoutes')} desc={loading ? undefined : t(view === 'history' ? 'deliveryPlanHistoryHint' : 'deliveryPlanActiveHint')} />
-            ) : routes.map((route, index) => (
+            ) : !visibleRoutes.length ? (
+              <EmptyState icon={<SearchIcon />} title={t('noResults')} action={<Button variant="ghost" onClick={() => setRouteQuery('')}>{t('deliveryFiltersClear')}</Button>} />
+            ) : visibleRoutes.map(({ route, number, stopQuery }) => (
               <RouteRibbon
+                routeNumber={number}
+                stopQuery={stopQuery}
                 key={route.id}
                 route={route}
                 location={livePositions.get(route.courier_id)}
-                routeNumber={index + 1}
                 courier={courierById.get(route.courier_id)}
                 color={routeColorMap.get(route.id) ?? colorFor(0)}
                 locale={locale}
@@ -1110,12 +1208,12 @@ export default function DispatcherView({ rid }: { rid: number }) {
           </div>
         </section>
 
-        {routes.length > 0 && <div className="relative min-h-0">
-          <div className={`${showMap ? 'block' : 'hidden'} xl:block h-[420px] xl:h-full`}>
+        {routes.length > 0 && (showMap || selectedEntry) && <div className={showMap ? "relative min-w-0 xl:sticky xl:top-4" : "fixed inset-x-3 bottom-4 z-40 mx-auto max-w-lg"}>
+          {showMap && <div className="h-[min(65dvh,640px)] min-h-[320px]">
           <DeliveryMap
             restaurantId={rid}
-            routes={layers}
-            couriers={courierMarkers}
+            routes={routeQuery ? layers.filter(layer => layer.routeId != null && visibleRouteIds.has(layer.routeId)) : layers}
+            couriers={routeQuery ? courierMarkers.filter(marker => visibleRoutes.some(({ route }) => route.courier_id === marker.courierId)) : courierMarkers}
             highlightCourierId={selectedCourier}
             highlightRouteId={selectedRoute}
             onRouteSelect={id => { setSelectedRoute(id); setSelectedCourier(null); setSelectedStopId(null); }}
@@ -1128,10 +1226,10 @@ export default function DispatcherView({ rid }: { rid: number }) {
             }}
             className="h-full overflow-hidden rounded-r-lg border border-[var(--line)]"
           />
-          </div>
+          </div>}
 
           {selectedEntry && editingOrder === null && (
-            <div className="relative mt-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-4 xl:absolute xl:bottom-4 xl:left-4 xl:right-4 xl:z-[500] xl:mt-0 xl:max-w-md xl:shadow-3">
+            <div className="relative mt-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-4 max-h-[65dvh] overflow-y-auto shadow-3">
               <div className="mb-3 flex items-start gap-3">
                 <span
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-fs-sm font-bold text-white"
@@ -1180,7 +1278,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
                     <Link href={orderDetailPath(rid, selectedEntry.stop.order_id)}>{t('courierReviewOrder')}</Link>
                   </Button>
                 )}
-                {view === 'open' && <Button variant="secondary" disabled={addressEditorLoading} onClick={() => void openAddressEditor()}>
+                {view === 'open' && <Button variant="secondary" disabled={addressEditorLoading} onClick={() => void openAddressEditor(selectedEntry.stop.order_id, selectedEntry.route.id)}>
                   <PencilIcon />
                   {t('correctAddress')}
                 </Button>}
@@ -1306,12 +1404,12 @@ export default function DispatcherView({ rid }: { rid: number }) {
 
           {distributionMode === 'zone' && (
             <div className="space-y-2">
-              {selectedZones.map((zone) => (
+              {selectedZones.map(({ key: zone, label, count }) => (
                 <label key={zone} className="grid grid-cols-1 items-center gap-3 rounded-r-md border border-[var(--line)] p-3 sm:grid-cols-[minmax(0,1fr)_minmax(180px,0.8fr)]">
                   <span className="min-w-0">
-                    <span className="block truncate text-fs-sm font-medium text-[var(--fg)]">{zone}</span>
+                    <span className="block truncate text-fs-sm font-medium text-[var(--fg)]">{label}</span>
                     <span className="text-fs-xs text-[var(--fg-subtle)]">
-                      {t('deliveryPlanZoneCount').replace('{count}', String(selectedOrders.filter((order) => deliveryZone(order, t('deliveryPlanUnknownZone')) === zone).length))}
+                      {t('deliveryPlanZoneCount').replace('{count}', String(count))}
                     </span>
                   </span>
                   <Select value={zoneCouriers.get(zone) ?? ''} onChange={(event) => setZoneCouriers((current) => new Map(current).set(zone, Number(event.target.value)))}>
@@ -1342,11 +1440,19 @@ export default function DispatcherView({ rid }: { rid: number }) {
         </div>
       </Drawer>
 
+      {insertingOrder && <InsertDeliveryDrawer restaurantId={rid} order={insertingOrder} routes={insertRoutes} couriers={courierById}
+        onClose={() => setInsertingOrder(null)} onRefresh={load} onSaved={(route, number) => {
+          setInserted(t('deliveryInsertSaved').replace('{order}', String(insertingOrder.id)).replace('{route}', String(number)));
+          setInsertingOrder(null);
+          setSelectedRoute(route.id);
+          void load();
+        }} />}
       <EditCustomerDialog
+        allowMapPin
         restaurantId={rid}
         open={editingOrder !== null}
         onOpenChange={(open) => { if (!open) setEditingOrder(null); }}
-        order={editingOrder}
+        order={editingOrder?.order ?? null}
         onConfirm={saveAddressCorrection}
       />
 
@@ -1376,7 +1482,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      {messageTarget && <DeliveryWhatsAppDrawer key={`${rid}:${departure.slice(0, 10)}:${messageTarget.orderId ?? 'all'}`} open onOpenChange={open => { if (!open) setMessageTarget(null); }} restaurantId={rid} date={departure.slice(0, 10)} routes={dayRoutes} orderId={messageTarget.orderId} />}
+      {messageTarget && <DeliveryWhatsAppDrawer key={`${rid}:${departure.slice(0, 10)}:${messageTarget.orderId ?? 'all'}`} open onOpenChange={open => { if (!open) setMessageTarget(null); }} restaurantId={rid} date={departure.slice(0, 10)} routes={dayRoutes} couriers={courierById} orderId={messageTarget.orderId} />}
     </div>
   );
 }

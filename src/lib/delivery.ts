@@ -169,6 +169,15 @@ export async function markStopDelivered(restaurantId: number, routeId: number, s
   return data.route;
 }
 
+/** Insert a delivery at a specific position in an existing draft. */
+export async function insertPlannedStop(restaurantId: number, routeId: number, orderId: number, beforeStopId?: number): Promise<DeliveryRoute> {
+  const data = await apiFetch<{ route: DeliveryRoute }>(
+    `/api/v1/delivery/routes/${routeId}/insert-stop?${q(restaurantId)}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ order_id: orderId, before_stop_id: beforeStopId }) },
+  );
+  return data.route;
+}
+
 /** Manager action: return one pending stop to the unplanned delivery pool. */
 export async function unassignRouteStop(restaurantId: number, routeId: number, stopId: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(

@@ -1,6 +1,7 @@
 'use client';
 
 import type { FoodyModuleAccess } from '@/lib/api';
+import { deliveryDestinations, isDeliveryPage } from '@/lib/delivery-navigation';
 import { allowsModulePath } from '@/lib/module-navigation';
 
 import Link from 'next/link';
@@ -133,6 +134,7 @@ export default function Sidebar({ restaurantId, restaurantName, moduleAccess, is
   }, [permissionsLoading, restaurantId, roleName, moduleAccess]);
 
   const base = `/${restaurantId}`;
+  const deliveryHome = deliveryDestinations(restaurantId, moduleAccess, hasAnyPermission)[0];
   const isRtl = direction === 'rtl';
 
   function toggleKey(key: string, expanded: boolean) {
@@ -182,15 +184,10 @@ export default function Sidebar({ restaurantId, restaurantName, moduleAccess, is
       clickHref: `${base}/orders/all`,
       subItems: [
         { href: `${base}/orders/all`, labelKey: 'orders' },
-        { href: `${base}/orders/deliveries`, labelKey: 'deliveries' },
-        {
-          href: `${base}/orders/courier-mode`,
-          labelKey: 'courierMode',
-          perm: ['orders.manage'],
-        },
         { href: `${base}/orders/production`, labelKey: 'productionTitle' },
       ],
     },
+    ...(deliveryHome ? [{ href: base + deliveryHome.path, labelKey: 'deliveries', icon: Truck }] : []),
     { href: `${base}/transactions`, labelKey: 'transactions', icon: ReceiptText, perm: ['payments.view', 'payments.manage'] },
     ...(loyaltyCheckoutEnabled ? [{ href: `${base}/loyalty/checkouts`, labelKey: 'loyaltyCheckoutNav', icon: ClipboardList, perm: ['payments.view', 'payments.manage'] }] : []),
     {
@@ -250,7 +247,7 @@ export default function Sidebar({ restaurantId, restaurantName, moduleAccess, is
       href: `${base}/settings`,
       labelKey: 'settings',
       icon: Settings,
-      subGroups: settingsGroups,
+      subGroups: settingsGroups.map(group => ({ ...group, items: group.items.filter(item => !isDeliveryPage(item.href)) })),
     },
     {
       href: `${base}/website-v3`,
@@ -298,6 +295,7 @@ export default function Sidebar({ restaurantId, restaurantName, moduleAccess, is
   }
 
   function isItemActive(item: NavItem): boolean {
+    if (isDeliveryPage(pathname)) return item.labelKey === 'deliveries';
     if (isPathActive(item.href)) return true;
     return getSubHrefs(item).some(isPathActive);
   }

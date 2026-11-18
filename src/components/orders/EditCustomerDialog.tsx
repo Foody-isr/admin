@@ -10,10 +10,12 @@ import { CustomerDeliveryFields, EMPTY_DELIVERY, type CustomerDeliveryValue } fr
 import { RouteAddressField } from '@/components/delivery/RouteAddressField';
 import type { AddressSuggestion } from '@/lib/delivery';
 import { checkoutStepCopy } from '@/lib/orders/checkout-step-copy';
+import { parseDeliveryPin } from '@/lib/delivery-address';
 import { formatRouteAddress } from '@/lib/route-address';
 
 interface EditCustomerDialogProps {
   restaurantId: number;
+  allowMapPin?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** The order whose customer is being corrected — supplies the prefill values. */
@@ -22,7 +24,7 @@ interface EditCustomerDialogProps {
 }
 
 /** Corrects the customer details on an existing order from Orders or Deliveries. */
-export function EditCustomerDialog({ restaurantId, open, onOpenChange, order, onConfirm }: EditCustomerDialogProps) {
+export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, onOpenChange, order, onConfirm }: EditCustomerDialogProps) {
   const { locale, t } = useI18n();
   const copy = checkoutStepCopy[locale];
   const isDelivery = order?.order_type === 'delivery';
@@ -33,6 +35,9 @@ export function EditCustomerDialog({ restaurantId, open, onOpenChange, order, on
   const [delivery, setDelivery] = useState<CustomerDeliveryValue>(EMPTY_DELIVERY);
   const [addressQuery, setAddressQuery] = useState<string | null>(null);
   const [manualAddress, setManualAddress] = useState(false);
+  const [pinText, setPinText] = useState('');
+  const pin = parseDeliveryPin(pinText);
+  const invalidPin = !!pinText.trim() && !pin;
   const [addressResolving, setAddressResolving] = useState(false);
   const [addressSelection, setAddressSelection] = useState<{ position?: { lat: number; lng: number } }>();
   const [submitting, setSubmitting] = useState(false);
@@ -52,6 +57,7 @@ export function EditCustomerDialog({ restaurantId, open, onOpenChange, order, on
     });
     setAddressQuery(null);
     setManualAddress(false);
+    setPinText('');
     setAddressResolving(false);
     setAddressSelection(undefined);
     setSubmitting(false);
@@ -60,13 +66,14 @@ export function EditCustomerDialog({ restaurantId, open, onOpenChange, order, on
 
   const addressComplete = addressQuery === null && delivery.address.trim() !== '' && delivery.city.trim() !== '';
   const showAddressHint = !manualAddress && !addressComplete;
-  const canConfirm = !!order && name.trim() !== '' && !submitting &&
+  const canConfirm = !!order && name.trim() !== '' && !submitting && !invalidPin &&
     (!isDelivery || (addressComplete && !addressResolving));
 
   const changeDelivery = (patch: Partial<CustomerDeliveryValue>) => {
     setDelivery(previous => ({ ...previous, ...patch }));
     if (patch.address !== undefined || patch.city !== undefined) {
       setAddressSelection(undefined);
+      setPinText('');
       setSubmitError('');
     }
   };
@@ -90,6 +97,7 @@ export function EditCustomerDialog({ restaurantId, open, onOpenChange, order, on
     if (!manualAddress && addressQuery !== null) changeDelivery({ address: addressQuery, city: '' });
     setAddressQuery(null);
     setManualAddress(!manualAddress);
+    setPinText('');
     setSubmitError('');
   };
 
@@ -111,7 +119,11 @@ export function EditCustomerDialog({ restaurantId, open, onOpenChange, order, on
         input.delivery_apt = delivery.apt.trim();
         input.delivery_entry_code = delivery.entryCode.trim();
         input.delivery_notes = delivery.deliveryNotes.trim();
-        if (addressSelection?.position) {
+        if (manualAddress && pin) {
+          input.delivery_latitude = pin.lat;
+          input.delivery_longitude = pin.lng;
+          input.delivery_pin_confirmed = true;
+        } else if (addressSelection?.position) {
           input.delivery_latitude = addressSelection.position.lat;
           input.delivery_longitude = addressSelection.position.lng;
         }
@@ -166,6 +178,9 @@ export function EditCustomerDialog({ restaurantId, open, onOpenChange, order, on
 
               {isDelivery && (
                 <div className="flex flex-col gap-[var(--s-3)] rounded-r-md border border-[var(--line)] p-[var(--s-4)]">
+                  <Button type="button" variant="ghost" size="sm" className="self-start" onClick={toggleAddressEntry} disabled={submitting}>
+                    {manualAddress ? copy.addressSearch : copy.addressManual}
+                  </Button>
                   <CustomerDeliveryFields
                     value={delivery}
                     onChange={changeDelivery}
@@ -187,11 +202,26 @@ export function EditCustomerDialog({ restaurantId, open, onOpenChange, order, on
                     )}
                     underAddress={<>
                       {showAddressHint && <p id={addressHintId} className="text-fs-xs text-[var(--fg-muted)]">{copy.addressSearchHint}</p>}
-                      <Button type="button" variant="ghost" size="sm" className="self-start" onClick={toggleAddressEntry} disabled={submitting}>
-                        {manualAddress ? copy.addressSearch : copy.addressManual}
-                      </Button>
+
                     </>}
                   />
+                  {allowMapPin && manualAddress && (
+                    <div className="space-y-2 border-t border-[var(--line)] pt-3">
+                      <Field label={t('deliveryPinLabel')}>
+                        <Input dir="ltr" value={pinText} placeholder="32.0853, 34.7818" disabled={submitting}
+                          aria-invalid={invalidPin} aria-describedby={addressHintId}
+                          onChange={event => { setPinText(event.target.value); setSubmitError(''); }} />
+                      </Field>
+                      <p id={addressHintId} className="text-fs-xs text-[var(--fg-muted)]">
+                        {t(invalidPin ? 'deliveryPinInvalid' : 'deliveryPinHint')}
+                      </p>
+                      {(pin || delivery.address.trim()) && (
+                        <a className="inline-flex min-h-9 items-center text-fs-sm font-medium underline"
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pin ? `${pin.lat},${pin.lng}` : formatRouteAddress(delivery))}`}
+                          target="_blank" rel="noreferrer">{t(pin ? 'deliveryPinPreview' : 'deliveryPinSearch')}</a>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

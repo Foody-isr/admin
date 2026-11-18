@@ -1,3 +1,6 @@
+import { formatRouteAddress } from './route-address';
+import { validZoneCoordinate } from './delivery-zone-state';
+
 // Single source of truth for how a delivery address is rendered across the
 // admin. The Clients table column, the order-detail drawer and the deliveries
 // dispatcher all format the same fields the same way through this helper, so
@@ -28,7 +31,7 @@ export function formatDeliveryAddress(
   opts?: { compact?: boolean },
 ): { line1: string; line2: string } | null {
   const clean = (s?: string | null) => (s ?? '').trim();
-  const line1 = [clean(p.address), clean(p.city)].filter(Boolean).join(', ');
+  const line1 = formatRouteAddress({ address: clean(p.address), city: clean(p.city) });
   const codeLabel = opts?.compact ? t('code') : t('buildingCode');
   const line2 = [
     clean(p.floor) ? `${t('floor')} ${clean(p.floor)}` : '',
@@ -41,4 +44,12 @@ export function formatDeliveryAddress(
   // Guard against an empty first line if only unit info exists.
   if (!line1) return { line1: line2, line2: '' };
   return { line1, line2 };
+}
+
+/** Parse the decimal latitude and longitude copied from a map pin. */
+export function parseDeliveryPin(value: string): { lat: number; lng: number } | null {
+  const pair = /^([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)$/.exec(value.trim());
+  if (!pair) return null;
+  const point = { lat: Number(pair[1]), lng: Number(pair[2]) };
+  return validZoneCoordinate(point) && (point.lat !== 0 || point.lng !== 0) ? point : null;
 }
