@@ -1,0 +1,61 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "f3692fbe3e299a5a1ae482b8ae23ef379184512407b7272cd34125a8216791d3",
+      "baseSha256": "854d51c69f2b12eba336f332097af848300cba99586360a149f18375ff1b5770",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the Foody CST subscription types and renewal endpoint changed. The shared transport and other administrative, authentication and order workflows retain their previous contracts."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "d8cbb9f785d4a5f93163cc2f0541060cfa6d518fff8edb7706211a0d50535abc",
+      "baseSha256": "e84acf387d4902b15941617cdccfa08a4012b507c89e2b437bfff4b08069992c",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the annual mandate description and consent label in subscription checkout changed. Other features match this shared translation file but their controls and messages retain their previous wording."
+    },
+    {
+      "path": "src/components/Sidebar.tsx",
+      "sha256": "da2693b60973265d5a850b70f536da4f24a3d0053dd135e72eef42d0496ffeb2",
+      "baseSha256": "7ef6c6e1b5815b0c3c0b865419d48808e747215cbe404aedcd747672d6b5f61a",
+      "features": [
+        "pos-payments",
+        "global-search",
+        "payments-transactions",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the owner Billing link now follows the restaurant-scoped subscription response on the production API. The other sidebar destinations, roles and permissions keep their existing navigation behavior."
+    }
+  ]
+}
