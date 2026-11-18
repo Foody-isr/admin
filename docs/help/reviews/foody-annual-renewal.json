@@ -1,0 +1,47 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "774c3c659ad50bbc122d40112023757f12f358e0674b29ba978c66a4b2fd4c10",
+      "baseSha256": "51279ed9bcdf20fc564432e00dffb9890910101b2a6f48418111850a5f29c45e",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the Foody CST subscription types and renewal endpoint changed. The shared transport and other administrative, authentication and order workflows retain their previous contracts."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "1022dac1da313507bb2e5b929c9c4661fea082844b077779081827eb540b36db",
+      "baseSha256": "e5aed64b0f727f74d76f854b831bffa78eac89148ccf8cb3ac04ecbc4efcd893",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the annual mandate description and consent label in subscription checkout changed. Other features match this shared translation file but their controls and messages retain their previous wording."
+    }
+  ]
+}
