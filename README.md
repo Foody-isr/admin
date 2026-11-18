@@ -87,8 +87,9 @@ The `/[restaurantId]/loyalty/checkouts` workspace is hidden unless the Admin bui
 
 ## Restaurant loyalty program
 
-**Loyalty program** is available to users with the restaurant's settings permissions.
-An authorized manager configures points or visits and a discount or free item.
+**Customers → Loyalty program** shows the saved earning rule, reward and enrollment status.
+Managers with settings edit permission can change the rules and maintain the enrollment texts in three languages.
+**Wallet Studio** manages card artwork. **Customers → Discounts** manages promotional codes.
 Saving with **Program active** enables that restaurant's program and customer
 enrollment. An unconfigured restaurant has no active program. Deploy the
 compatible API before Admin and Web. Apple and Google Wallet keep independent

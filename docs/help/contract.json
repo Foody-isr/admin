@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "5e506475808169b87d39ac623f4d1c9a6b5d2379",
-  "documentationRevision": "a54bb321c76f9c003ac29852c4ef9df7be2c03f02d482050df2a02c50fbff969",
+  "documentationRef": "2d0ba3825c6445cc515b5c01cd0d12d4a6ba1fc8",
+  "documentationRevision": "df3ad78e9122a7c0cd103c85627f8f5a616888f733bea3ab2309a1ab13ec05ef",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -126,15 +126,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/marketing/promotions.mdx",
-          "sha256": "20267066afa50d9dcb991f00b6745bbafa95f84a3805620f61f1fe030a352f7f"
+          "sha256": "ed98fce643edf03228880e50ce7f562a027d17fc30f57f9f4c0c582d7a715550"
         },
         "fr": {
           "path": "src/content/help/fr/marketing/promotions.mdx",
-          "sha256": "a9761a99888403d2d2fc3ee21a115762f1ef7e456acba4457b3aa1e5f8adfa1f"
+          "sha256": "f9685bf39fc819186c72a3ddf383e82140acb79aabf96a6e23745681cc470b68"
         },
         "he": {
           "path": "src/content/help/he/marketing/promotions.mdx",
-          "sha256": "5563211d05890f90b728ca3b4d3f2324eab239c25302d5933b3d8259691d7c11"
+          "sha256": "b7a1436fce2af43d326ee6933585f474b04a566872d8173def692f49aaa3959e"
         }
       }
     },
@@ -2121,15 +2121,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/customers/loyalty-program.mdx",
-          "sha256": "5a6edf1e73ecb2e79156bf48f4a4cd9758698f6e749052ca844d1be7c16f93e0"
+          "sha256": "20c48eab1a27c66968e67d70a93efeda94b1cd8942213810123a161ae5e54372"
         },
         "fr": {
           "path": "src/content/help/fr/customers/loyalty-program.mdx",
-          "sha256": "97ea8e11d6132d6ee92f64b1c6731a0b07834ce336b222ec2805f8a2cf15f6ee"
+          "sha256": "4255f7e71867469db8d01a7cb6d56bcd4edcaf018df50bef8bf0e9e22a3a10b7"
         },
         "he": {
           "path": "src/content/help/he/customers/loyalty-program.mdx",
-          "sha256": "cf9a55080ce2943b6e5b4192ff0e86314871d119b281b13c7790ba1694437234"
+          "sha256": "f8ccc3de5bd996db7ed52898c117fbf54486d11c8aa27017696fcc1978028065"
         }
       }
     },
@@ -2140,15 +2140,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/wallet-studio.md",
-          "sha256": "05433387d26c9317be668b832a96cc20ab29a3ccebc94fa34736f4bad163bbdc"
+          "sha256": "888c42f25f411986057551b92e57e9addbfd56910bffc20bc416acb8448d32ac"
         },
         "fr": {
           "path": "docs/help/internal/fr/wallet-studio.md",
-          "sha256": "7f7e191fe3c2cc8c2c78540eccf4d5102fd9eaa04e057c2ab5767dec0e5fc75d"
+          "sha256": "2a503ff24791e5c9fba7fa2b276dd8dae392587bd7bf837b0b30e50e45642203"
         },
         "he": {
           "path": "docs/help/internal/he/wallet-studio.md",
-          "sha256": "de17fc2249cc929765163c8ce453111a9d047f8bb88b9d5b98d114686aabf10d"
+          "sha256": "5ccbf088b2f44446eadf2c8d3c4c30071ee476bbec3965293637aead2dbe8b03"
         }
       }
     },
@@ -3877,7 +3877,7 @@
       ]
     },
     "src/components/Sidebar.tsx": {
-      "sha256": "f79d12ef5019e151a577c55742b05d1e81bee0311f77a0f01ea5ffa912dcd2c0",
+      "sha256": "da2693b60973265d5a850b70f536da4f24a3d0053dd135e72eef42d0496ffeb2",
       "features": [
         "billing",
         "pos-payments",
@@ -4544,15 +4544,21 @@
         "shared-runtime"
       ]
     },
+    "src/components/loyalty/LoyaltyProgramOverview.tsx": {
+      "sha256": "9f554e8eb22dc8c9166d42c486b9ee3c49709e4e3aefe3731d73a4831f4c0c28",
+      "features": [
+        "customers-loyalty-program"
+      ]
+    },
     "src/components/loyalty/LoyaltyProgramWorkspace.tsx": {
-      "sha256": "85df81d58617a06f318cb38ab68dedbeb220cd158f157118c01b0a4cda60a80c",
+      "sha256": "842b1c2286d7a28dd80cb065be66773e0488482d978ec538779d3dd943d11bdc",
       "features": [
         "customers-loyalty-program",
         "customers-wallet-studio"
       ]
     },
     "src/components/loyalty/WalletStudioWorkspace.tsx": {
-      "sha256": "8998118c5b803247de4d649a87085ef5882f24eb909843a6c3ce3ce984d9c794",
+      "sha256": "ed83ec57014432588719082a03678f25c8f9a2cbe20127867e7afa8f3250ede7",
       "features": [
         "customers-wallet-studio"
       ]
@@ -6866,7 +6872,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "a950e54728c6d5adeb86ae0663fda3f9c7fc5a4b396cbb0a13a8fab9734e244d",
+      "sha256": "1022dac1da313507bb2e5b929c9c4661fea082844b077779081827eb540b36db",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -6955,7 +6961,7 @@
       ]
     },
     "src/lib/loyalty-program.ts": {
-      "sha256": "c82596cad91917c78f858d5c06d7fb05f8f7b9ec7a01565e3dae8178744aca2b",
+      "sha256": "ec226d2b797ce98859d07a9def7feb148cbc0bed6573db152a71965323433b2a",
       "features": [
         "shared-runtime",
         "customers-loyalty-program"
@@ -17490,6 +17496,37 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/loyalty/LoyaltyProgramOverview.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/loyalty/LoyaltyProgramOverview.tsx",
+      "line": 1,
+      "features": [
+        "customers-loyalty-program"
+      ],
+      "labels": [
+        "loyaltyProgramAfter",
+        "loyaltyProgramCard",
+        "loyaltyProgramContent",
+        "loyaltyProgramDiscountValue",
+        "loyaltyProgramEarnSpend",
+        "loyaltyProgramEarnVisit",
+        "loyaltyProgramItem",
+        "loyaltyProgramMinimum",
+        "loyaltyProgramNoExpiry",
+        "loyaltyProgramNoMinimum",
+        "loyaltyProgramNotConfigured",
+        "loyaltyProgramOverview",
+        "loyaltyProgramRewardValidity",
+        "loyaltyProgramRules",
+        "loyaltyProgramStartHint",
+        "loyaltyProgramStudioHint",
+        "loyaltyProgramTitle",
+        "walletStudioOpenCustomerPage",
+        "walletStudioTitle"
+      ],
+      "actions": []
+    },
+    {
       "id": "foodyadmin:src/components/loyalty/LoyaltyProgramWorkspace.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/loyalty/LoyaltyProgramWorkspace.tsx",
@@ -17505,48 +17542,54 @@
         "loyaltyProgramAmount",
         "loyaltyProgramCatalogError",
         "loyaltyProgramChoose",
+        "loyaltyProgramCompleteTexts",
         "loyaltyProgramContent",
         "loyaltyProgramCurrencyChanged",
         "loyaltyProgramEarn",
+        "loyaltyProgramEarnVisit",
         "loyaltyProgramEnabled",
         "loyaltyProgramEnabledHint",
         "loyaltyProgramExtras",
         "loyaltyProgramFixed",
         "loyaltyProgramForbidden",
         "loyaltyProgramIdentityLocked",
-        "loyaltyProgramIncomplete",
-        "loyaltyProgramIntro",
         "loyaltyProgramItem",
+        "loyaltyProgramLanguagesFilled",
         "loyaltyProgramMinimum",
         "loyaltyProgramMinimumHint",
         "loyaltyProgramMode",
         "loyaltyProgramName",
-        "loyaltyProgramNotConfigured",
+        "loyaltyProgramOverview",
         "loyaltyProgramPending",
         "loyaltyProgramPoints",
+        "loyaltyProgramPointsHint",
         "loyaltyProgramProduct",
+        "loyaltyProgramPromoHint",
         "loyaltyProgramReadOnly",
         "loyaltyProgramReward",
         "loyaltyProgramRewardType",
+        "loyaltyProgramRules",
         "loyaltyProgramSpend",
         "loyaltyProgramStorage",
         "loyaltyProgramTerms",
         "loyaltyProgramTermsHint",
+        "loyaltyProgramTermsTab",
         "loyaltyProgramTermsVersion",
-        "loyaltyProgramThreshold",
         "loyaltyProgramTitle",
         "loyaltyProgramUnavailableItem",
         "loyaltyProgramUnits",
         "loyaltyProgramValidity",
         "loyaltyProgramValidityHint",
         "loyaltyProgramVariant",
-        "loyaltyProgramVisits",
-        "walletStudioTitle"
+        "loyaltyProgramVisits"
       ],
       "actions": [
         "load",
         "loadError",
-        "submit"
+        "openOverview",
+        "refreshed",
+        "submit",
+        "updateContent"
       ]
     },
     {

@@ -1,12 +1,26 @@
 {
   "files": [
     {
+      "path": "src/components/Sidebar.tsx",
+      "sha256": "da2693b60973265d5a850b70f536da4f24a3d0053dd135e72eef42d0496ffeb2",
+      "baseSha256": "7ef6c6e1b5815b0c3c0b865419d48808e747215cbe404aedcd747672d6b5f61a",
+      "features": [
+        "pos-payments",
+        "global-search",
+        "payments-transactions",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The owner Billing link follows the subscription offer for the selected restaurant. The rest of the navigation keeps its existing roles and destinations."
+    },
+    {
       "path": "src/lib/api.ts",
       "sha256": "774c3c659ad50bbc122d40112023757f12f358e0674b29ba978c66a4b2fd4c10",
       "baseSha256": "51279ed9bcdf20fc564432e00dffb9890910101b2a6f48418111850a5f29c45e",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
+        "payments-how-payments-work",
         "delivery-zones",
         "pos-payments",
         "menu-product-photos",
@@ -20,8 +34,8 @@
     },
     {
       "path": "src/lib/i18n.tsx",
-      "sha256": "a950e54728c6d5adeb86ae0663fda3f9c7fc5a4b396cbb0a13a8fab9734e244d",
-      "baseSha256": "00cd48ac9a57d7b404e190731f0b91b43797465f9fa2ac302301574bfa8dcd35",
+      "sha256": "1022dac1da313507bb2e5b929c9c4661fea082844b077779081827eb540b36db",
+      "baseSha256": "e5aed64b0f727f74d76f854b831bffa78eac89148ccf8cb3ac04ecbc4efcd893",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -42,19 +56,6 @@
       ],
       "disposition": "no-user-impact",
       "reason": "Only the annual mandate description and consent label in subscription checkout changed. Other features match this shared translation file but their controls and messages retain their previous wording."
-    },
-    {
-      "path": "src/components/Sidebar.tsx",
-      "sha256": "f79d12ef5019e151a577c55742b05d1e81bee0311f77a0f01ea5ffa912dcd2c0",
-      "baseSha256": "b6351013ea39c0d55f5e682654deff9b8205d2215ff16c6cc1251babf06cd5b3",
-      "features": [
-        "pos-payments",
-        "global-search",
-        "payments-transactions",
-        "customers-loyalty-program"
-      ],
-      "disposition": "no-user-impact",
-      "reason": "Only the owner Billing link now follows the restaurant-scoped subscription response on the production API. The other sidebar destinations, roles and permissions keep their existing navigation behavior."
     }
   ]
 }

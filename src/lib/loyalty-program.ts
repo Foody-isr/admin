@@ -1,4 +1,10 @@
 import type { LoyaltyProgram, LoyaltyProgramInput, LoyaltyProgramState, LoyaltyRules } from './api';
+import { RUNTIME_WEB_URL } from './runtime-origins';
+
+/** URL of this restaurant's customer loyalty page on the matching storefront. */
+export function loyaltyCustomerPage(restaurantId: number): string {
+  return `${RUNTIME_WEB_URL}/r/${restaurantId}/account/loyalty`;
+}
 
 export const loyaltyLanguages = ['en', 'fr', 'he'] as const;
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;

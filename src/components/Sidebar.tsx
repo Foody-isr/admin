@@ -192,7 +192,6 @@ export default function Sidebar({ restaurantId, restaurantName, moduleAccess, is
       ],
     },
     { href: `${base}/transactions`, labelKey: 'transactions', icon: ReceiptText, perm: ['payments.view', 'payments.manage'] },
-    { href: `${base}/loyalty/program`, labelKey: 'loyaltyProgramTitle', icon: ClipboardList, perm: ['settings.view', 'settings.edit'] },
     ...(loyaltyCheckoutEnabled ? [{ href: `${base}/loyalty/checkouts`, labelKey: 'loyaltyCheckoutNav', icon: ClipboardList, perm: ['payments.view', 'payments.manage'] }] : []),
     {
       // Everything aimed at the customer lives here: who they are, and what we
@@ -201,9 +200,10 @@ export default function Sidebar({ restaurantId, restaurantName, moduleAccess, is
       href: `${base}/customers`,
       labelKey: 'customers',
       icon: Users,
-      perm: ['customers.view', 'customers.manage', 'discounts.view', 'discounts.edit'],
+      perm: ['customers.view', 'customers.manage', 'settings.view', 'settings.edit', 'discounts.view', 'discounts.edit'],
       subItems: [
         { href: `${base}/customers`, labelKey: 'customers', perm: ['customers.view', 'customers.manage'] },
+        { href: `${base}/loyalty/program`, labelKey: 'loyaltyProgramTitle', perm: ['settings.view', 'settings.edit'] },
         { href: `${base}/marketing/discounts`, labelKey: 'discounts', perm: ['discounts.view', 'discounts.edit'] },
       ],
     },
@@ -276,7 +276,8 @@ export default function Sidebar({ restaurantId, restaurantName, moduleAccess, is
   // section from becoming a dead link.
   const nav = (permissionsLoading ? [] : isCourierRoleName(roleName) ? courierNav : allNav)
     .filter((item) => !item.perm || hasAnyPermission(...item.perm))
-    .filter(item => (moduleAccess?.enforced || allowsModulePath(moduleAccess, item.href)))
+    // Customers groups independently gated customer, loyalty and discount routes.
+    .filter(item => item.labelKey === 'customers' || moduleAccess?.enforced || allowsModulePath(moduleAccess, item.href))
     .map(item => ({
       ...item,
       subItems: item.subItems?.filter(s => (!s.perm || hasAnyPermission(...s.perm)) && (moduleAccess?.enforced || allowsModulePath(moduleAccess, s.href))),
