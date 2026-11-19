@@ -6,7 +6,7 @@ async function install(page: Page, options: { locale?: string; readonly?: boolea
   const control = { fail: !!options.fail, stale: false, events: [{ id: 'closure-fixture', title: 'Travaux de cuisine', kind: 'closure', start_date: '2026-10-20', end_date: '2026-10-25', all_day: true, start_time: '', end_time: '', location: '', notes: 'Notes internes de démonstration', closed_services: ['pickup', 'delivery'], updated_at: '2026-10-14T09:00:00Z' }] as any[], writes: [] as any[] };
   await page.clock.setFixedTime(new Date('2026-10-14T12:00:00Z'));
   await page.addInitScript(({ locale, readonly }) => {
-    localStorage.setItem('foody_restaurant_token', 'isolated-calendar-fixture');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Équipe démo', role: readonly ? 'manager' : 'owner', email: 'demo@foody.test' }));
     localStorage.setItem('foody_restaurant_ids', '[1,2]'); localStorage.setItem('foody-admin-locale', locale); localStorage.setItem('foody_admin_theme', 'light');
   }, { locale: options.locale ?? 'fr', readonly: options.readonly ?? false });

@@ -8,7 +8,7 @@ async function studio(page: Page, locale: 'fr' | 'he' = 'fr', canSign = true) {
   let design = { revision: 0, background_color: '#FFFFFF', foreground_color: '#15292F', logo_png: null, banner_png: null };
   let publishedRevision = 0;
   await page.addInitScript((lang) => {
-    localStorage.setItem('foody_restaurant_token', 'isolated-wallet-studio');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Synthetic operator', role: 'owner' }));
     localStorage.setItem('foody_restaurant_ids', '[1]');
     localStorage.setItem('foody-admin-locale', lang);
@@ -22,7 +22,7 @@ async function studio(page: Page, locale: 'fr' | 'he' = 'fr', canSign = true) {
     const rid = Number(req.headers()['x-restaurant-id']);
     if (path.startsWith('/api/v1/loyalty/wallet-studio')) {
       expect(rid).toBe(1);
-      expect(req.headers()['authorization']).toBe('Bearer isolated-wallet-studio');
+      expect(req.headers()['authorization']).toBe('Bearer fp1p.e30.fixture.00');
       if (req.method() === 'GET') return route.fulfill({ json: {
         restaurant_id: rid, restaurant_name: 'Bella Italia', can_edit: true, can_sign_test: canSign, design,
         published_revision: publishedRevision,

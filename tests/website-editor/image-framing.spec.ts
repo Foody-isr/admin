@@ -37,7 +37,7 @@ test("modal photo and responsive framing survive autosave, reload and publicatio
 }) => {
   test.setTimeout(240_000);
   await page.addInitScript(() => {
-    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_portal_session", "fp1p.e30.fixture.00");
     localStorage.setItem(
       "foody_restaurant_user",
       JSON.stringify({
@@ -238,7 +238,7 @@ test("header pan and zoom remain separate on mobile; gallery framing survives a 
 }) => {
   test.setTimeout(240_000);
   await page.addInitScript(() => {
-    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_portal_session", "fp1p.e30.fixture.00");
     localStorage.setItem(
       "foody_restaurant_user",
       JSON.stringify({

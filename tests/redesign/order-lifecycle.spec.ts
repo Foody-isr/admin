@@ -11,7 +11,7 @@ for (const variant of [
   Object.assign(order, { order_type: variant.type, status: 'in_kitchen', payment_status: 'paid', balance_due: 0 });
   const actions: string[] = [];
   await page.addInitScript(locale => {
-    localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Synthetic', role: 'owner' }));
     localStorage.setItem('foody_restaurant_ids', '[1]');
     localStorage.setItem('foody-admin-locale', locale);
@@ -46,7 +46,7 @@ test('advertised unavailable facts show Retry and cannot expose financial legacy
   const order = fixture.orders[0];
   Object.assign(order, { status: 'in_kitchen', payment_status: 'pending', lifecycle: null });
   await page.addInitScript(() => {
-    localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Synthetic', role: 'owner' }));
     localStorage.setItem('foody_restaurant_ids', '[1]');
     localStorage.setItem('foody-admin-locale', 'fr');
@@ -88,7 +88,7 @@ test('v1 pending retains existing payment controls while an authorization grants
   };
   Object.assign(order, { status: 'accepted', payment_status: 'pending', lifecycle: projection });
   await page.addInitScript(() => {
-    localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Synthetic', role: 'owner' }));
     localStorage.setItem('foody_restaurant_ids', '[1]');
     localStorage.setItem('foody-admin-locale', 'fr');

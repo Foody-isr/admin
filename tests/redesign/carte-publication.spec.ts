@@ -60,7 +60,7 @@ async function install(page: Page, locale = "fr", full = false, permissions?: st
   });
   await page.addInitScript(
     ({ locale }) => {
-      localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+      localStorage.setItem("foody_restaurant_portal_session", "fp1p.e30.fixture.00");
       localStorage.setItem(
         "foody_restaurant_user",
         JSON.stringify({

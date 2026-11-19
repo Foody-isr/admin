@@ -20,7 +20,7 @@ async function install(page: Page, options: { locale?: string; permissions?: str
   const faults = { restaurant: 0, extract: 0, preview: 0, confirm: 0, extractDelay: 0, previewDelay: 0, confirmDelay: 0 };
   const state = { payload: structuredClone(extraction) as unknown, carteId: 1, confirmGate: null as Promise<void> | null };
   await page.addInitScript(({ locale }) => {
-    localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Équipe démo', role: 'owner', email: 'demo@foody.test' }));
     localStorage.setItem('foody_restaurant_ids', '[1,2]');
     localStorage.setItem('foody-admin-locale', locale);

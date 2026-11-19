@@ -69,7 +69,7 @@ for (const remember of [true, false]) test(`password sign-in remembers session: 
   await page.getByLabel('Keep me signed in').setChecked(remember);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL('/select-restaurant');
-  expect(await page.evaluate(() => ({ local: !!localStorage.getItem('foody_restaurant_token'), session: !!sessionStorage.getItem('foody_restaurant_token') }))).toEqual({ local: remember, session: !remember });
+  expect(await page.evaluate(() => ({ local: !!localStorage.getItem('foody_restaurant_portal_session'), session: !!sessionStorage.getItem('foody_restaurant_portal_session') }))).toEqual({ local: remember, session: !remember });
 });
 
 test('passkey failure leaves email and password sign-in available', async ({ page }) => {

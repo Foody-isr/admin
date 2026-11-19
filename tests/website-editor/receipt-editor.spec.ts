@@ -9,7 +9,7 @@ test("receipt inherits the menu theme and its edits survive preview, reload and 
 }) => {
   test.setTimeout(240_000);
   await page.addInitScript(() => {
-    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_portal_session", "fp1p.e30.fixture.00");
     localStorage.setItem(
       "foody_restaurant_user",
       JSON.stringify({
@@ -373,7 +373,7 @@ test("receipt links keep a non-default order page theme within the receipt resta
 
 test("sign-in invitation survives editor draft and publication", async ({ page, request, context }) => {
  test.setTimeout(180_000);
- await page.addInitScript(() => { localStorage.setItem('foody_restaurant_token','isolated-ui-fixture'); localStorage.setItem('foody_restaurant_user',JSON.stringify({ id: 1, role: 'owner', full_name: 'Demo' })); localStorage.setItem('foody_restaurant_ids','[1]'); localStorage.setItem('foody-admin-locale','fr'); });
+ await page.addInitScript(() => { localStorage.setItem('foody_restaurant_portal_session','fp1p.e30.fixture.00'); localStorage.setItem('foody_restaurant_user',JSON.stringify({ id: 1, role: 'owner', full_name: 'Demo' })); localStorage.setItem('foody_restaurant_ids','[1]'); localStorage.setItem('foody-admin-locale','fr'); });
  await context.route('**/*', route => ['localhost','127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
  const draft = async () => (await (await request.get('http://127.0.0.1:18081/api/v1/restaurants/1/website-draft')).json()).state;
  const seed = await draft(); seed.sections = []; for (const item of seed.pages) item.is_homepage = item.type === 'order'; seed.config.checkout_config = { ...(seed.config.checkout_config ?? {}), offer_sign_in: true };

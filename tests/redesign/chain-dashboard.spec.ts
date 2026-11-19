@@ -8,7 +8,7 @@ async function install(page: Page, options: { locale?: string; auth?: boolean } 
   const state = { branches: [...branches], failOverview: false, malformed: false, failTotal: false, failBranch: false, failCurrency: false, mixed: false, euro: false, zero: false, monthGate: null as Promise<void> | null, branchGate: null as Promise<void> | null, reads: [] as { path: string; range: string | null; chain: string | null; rid?: string }[], writes: [] as string[], errors: [] as string[] };
   page.on('pageerror', error => state.errors.push(error.message));
   await page.addInitScript(({ locale, auth }) => {
-    if (auth) { localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture'); localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, role: 'manager', full_name: 'Équipe démo', email: 'demo@foody.test' })); localStorage.setItem('foody_restaurant_ids', '[1,2]'); }
+    if (auth) { localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00'); localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, role: 'manager', full_name: 'Équipe démo', email: 'demo@foody.test' })); localStorage.setItem('foody_restaurant_ids', '[1,2]'); }
     localStorage.setItem('foody-admin-locale', locale); localStorage.setItem('foody_admin_theme', locale === 'he' ? 'dark' : 'light');
   }, { locale: options.locale ?? 'fr', auth: options.auth !== false });
   await page.route('**/api/v1/**', async route => {

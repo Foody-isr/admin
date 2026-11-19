@@ -5,7 +5,7 @@ async function install(page: Page, options: { locale?: string; permissions?: str
   const fixtureOptions = { empty: false, permissions: options.permissions };
   const fixture = createFixture(fixtureOptions);
   await page.addInitScript(({ locale, dark }) => {
-    localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Équipe démo', role: 'owner', email: 'demo@foody.test' }));
     localStorage.setItem('foody_restaurant_ids', '[1,2]');
     localStorage.setItem('foody-admin-locale', locale);

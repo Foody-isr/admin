@@ -16,7 +16,7 @@ async function install(page: Page, lostResponse = false, meta = false, completed
   if (options.pending) fixture.orders[0].status = 'pending_review';
   const control = { status: 'ready', kind: 'order_recap', history: [] as OrderWhatsAppHistoryEntry[], blocked: [] as BlockedOrderWhatsAppAutomation[], blockedTotal: 0, historyError: false, unavailable: new Set<number>(), invalidPhones: new Set<number>(), notDue: new Set<number>(), changed: new Set<number>(), nextCursor: '', older: [] as OrderWhatsAppHistoryEntry[], reads: [] as string[] };
   await page.addInitScript(locale => {
-    localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Équipe démo', role: 'owner' }));
     localStorage.setItem('foody_restaurant_ids', '[1,2]');
     localStorage.setItem('foody-admin-locale', locale);

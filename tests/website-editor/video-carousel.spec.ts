@@ -8,7 +8,7 @@ const videoUrl = "http://127.0.0.1:18081/__reel-fixture/clip.mp4";
 test("responsive reel previews save in the editor and preserve the direct item link", async ({ page, context, request }, testInfo) => {
   test.setTimeout(180_000);
   await page.addInitScript(() => {
-    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_portal_session", "fp1p.e30.fixture.00");
     localStorage.setItem("foody_restaurant_user", JSON.stringify({ id: 1, full_name: "Demo", role: "manager", email: "demo@foody.test" }));
     localStorage.setItem("foody_restaurant_ids", "[1]");
     localStorage.setItem("foody-admin-locale", "fr");

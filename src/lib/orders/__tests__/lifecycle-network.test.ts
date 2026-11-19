@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { captureLifecycleActor, submitLifecycleV2, verifyLifecycleV2, LifecycleOperationApiError } from '../../api';
 import type { LifecycleCommand } from '../lifecycle-operations';
-class Storage { values=new Map<string,string>(); getItem(key:string){return this.values.get(key)??null} setItem(key:string,value:string){this.values.set(key,value)} }
+class Storage { removeItem(key:string){this.values.delete(key)} values=new Map<string,string>(); getItem(key:string){return this.values.get(key)??null} setItem(key:string,value:string){this.values.set(key,value)} }
 const storage=new Storage();
 function login(id:number,epoch=1) {
- const token=['synthetic',Buffer.from(JSON.stringify({sub:'user-auth',user_id:id,iat:epoch,exp:4102444800})).toString('base64url'),'signature'].join('.');
- storage.setItem('foody_restaurant_token',token);storage.setItem('foody_restaurant_user',JSON.stringify({id,role:'owner'}));
+ const token=['fp1p',Buffer.from(JSON.stringify({sub:'user-auth',user_id:id,iat:epoch,exp:4102444800})).toString('base64url'),'fixture','00'].join('.');
+ storage.setItem('foody_restaurant_portal_session',token);storage.setItem('foody_restaurant_user',JSON.stringify({id,role:'owner'}));
 }
 const command:LifecycleCommand={request_id:'00000000-0000-4000-8000-000000000001',scope:{kind:'order',id:'7'},expected_revision:'a'.repeat(64),action:'serve',unit_keys:['hu_'+'1'.repeat(64)]};
 const keys=['window','fetch','localStorage','sessionStorage'] as const;

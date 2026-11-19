@@ -89,11 +89,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
-  const logout = useCallback(() => {
-    apiLogout();
+  const logout = useCallback(async () => {
+    const clearing = apiLogout();
     setUserState(null);
     setRestaurantIds([]);
-    window.location.href = '/login';
+    try { await clearing; } finally { window.location.href = '/login'; }
   }, []);
 
   const setUser = useCallback((u: User, rids: number[]) => {

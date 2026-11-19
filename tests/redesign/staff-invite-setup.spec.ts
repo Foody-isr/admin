@@ -37,7 +37,7 @@ for (const locale of ['fr', 'he', 'en'] as const) {
     await expect(page.locator('.card a[href="/login"]')).toBeVisible();
     await expect(page.getByRole('status')).toContainText({ fr: 'Votre compte est prêt', he: 'החשבון שלך מוכן', en: 'Your account is ready' }[locale]!);
     expect(payloads).toEqual([{ token: 'staff-demo', password: 'synthetic-password', full_name: 'Équipe démo' }]);
-    expect(await page.evaluate(() => localStorage.getItem('foody_restaurant_token'))).toBeNull();
+    expect(await page.evaluate(() => localStorage.getItem('foody_restaurant_portal_session'))).toBeNull();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   });
 }
@@ -98,7 +98,7 @@ test('staff profile shows that a courier POS code is not required', async ({ pag
   const { fixture } = await install(page, false);
   Object.assign(fixture.staff[1], { role: 'courier', role_name: 'Courier', pos_pin_required: false });
   await page.addInitScript(() => {
-    localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Équipe démo', role: 'owner', email: 'demo@foody.test' }));
     localStorage.setItem('foody_restaurant_ids', '[1,2]');
   });
