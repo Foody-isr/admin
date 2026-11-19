@@ -1,0 +1,48 @@
+{
+  "files": [
+    {
+      "path": "src/components/orders/EditCustomerDialog.tsx",
+      "baseSha256": "174b72cdba814b0ca09803efd838b77e0895abc6559fa77d8acb0e98a3328f94",
+      "sha256": "ab6bfaab1f151b68eb5f55f0a3c04813d7a1a6800cb8857a731f2cb92fec278b",
+      "features": [
+        "orders-managing-orders"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Choosing a delivery street now completes the postal correction and offers an optional building number. Other order types and order editing controls continue to use their existing flows."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "baseSha256": "8b0ca33f3abf6ee61613b21ca88f740932fc4d36a04dde77e87a02221ca418de",
+      "sha256": "dbab045bc64a426c71d7af715a5b4da6af1161d3d7c6143cce96c2e63a1c7095",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The added translations describe a selected delivery street and its optional building number. Other labels keep their existing translations."
+    },
+    {
+      "path": "src/lib/route-address.ts",
+      "baseSha256": "7f72f663f3dac69bea061bf11180504b8a88fe112581fa27bf92b5ffc30f0c4b",
+      "sha256": "9180c8acd667989792c23b7f49d6a602136855fedf8e52338bbdef86dcd2a84c",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Street and city matching is used to retain a building number during an address correction. City aliases also apply to dispatch search. Other operations keep their documented behavior."
+    }
+  ]
+}
