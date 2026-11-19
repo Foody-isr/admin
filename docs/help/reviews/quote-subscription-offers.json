@@ -1,0 +1,54 @@
+{
+  "reviewedAt": "2026-11-19",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "47481b6977a28a22c5931ba2ab40531abaf29f8a8a54bdeee302368bbd03fc94",
+      "baseSha256": "f744a55562a606fab51bbb3f7c99d3663add8f4f2569c2d13cc20a17beaa4d8c",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "delivery-dispatch",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only private subscription offer details and the sandbox payment handoff change in the restaurant billing screen. Other API consumers, navigation and translation keys keep their existing actions and permissions."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "acf84c8cfb455f62393fc74ed413d75e85ee4392bbe836a8bea4f3634cd7436e",
+      "baseSha256": "50f10c7fc10ff674651d8c895d3e76e12e578c1b9723cb11dcfee2271be7a208",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only private subscription offer details and the sandbox payment handoff change in the restaurant billing screen. Other API consumers, navigation and translation keys keep their existing actions and permissions."
+    }
+  ]
+}
