@@ -11560,12 +11560,13 @@ export type FoodyBillingView = {
   onboarding?: FoodyBillingOnboarding;
   accepted_offer: FoodyBillingOffer | null;
   agreement: { offer_id: number; cycle: FoodyBillingCycle; period_end: string; renews: boolean; card_last_four?: string } | null;
-  payment: { offer_id: number; cycle: FoodyBillingCycle; accept_renewal?: boolean; status: 'creating' | 'pending' | 'review' | 'paid' | 'failed'; amount_minor: number; reference: string } | null;
+  payment: { id: number; offer_id: number; cycle: FoodyBillingCycle; accept_renewal?: boolean; status: 'creating' | 'pending' | 'review' | 'paid' | 'failed'; amount_minor: number; reference: string } | null;
   checkout_enabled: boolean;
   monthly_enabled: boolean;
   annual_renewal_enabled?: boolean;
   due: boolean;
   can_resume: boolean;
+  can_pay_registered_card?: boolean;
 };
 
 export type FoodyBillingUsage = {
@@ -11597,6 +11598,13 @@ export function startFoodyBillingCheckout(rid: number, input: {
 /** Read back an existing attempt without initiating a payment. */
 export function reconcileFoodyBilling(rid: number, signal?: AbortSignal): Promise<FoodyBillingView> {
   return apiFetch(foodyBillingPath(rid) + '/reconcile', rid, { method: 'POST', signal });
+}
+
+/** Pay the accepted amount with the card verified for this specific attempt. */
+export function payFoodyBillingRegisteredCard(rid: number, paymentId: number): Promise<FoodyBillingView> {
+  return apiFetch(foodyBillingPath(rid) + '/pay-registered-card', rid, {
+    method: 'POST', body: JSON.stringify({ payment_id: paymentId }),
+  });
 }
 
 /** Stop subsequent monthly debits while keeping the paid period. */
