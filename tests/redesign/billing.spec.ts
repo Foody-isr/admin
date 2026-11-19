@@ -140,6 +140,47 @@ test(`the owner can pay a private ${cycle} offer with renewal ${renewal} and ver
 });
 }
 
+test('a CST card registration waits for the owner to pay the full subscription amount', async ({ page }) => {
+  await install(page);
+  const offer = {
+    id: 7, version: 1, title: 'Offre de test', includes: 'Logiciel', terms: 'Conditions de test', start_date: '2026-11-09',
+    monthly: { net_minor: 50000, vat_minor: 9000, total_minor: 59000 },
+    annual: { net_minor: 550000, vat_minor: 99000, total_minor: 649000 },
+  };
+  const payment = { id: 8, offer_id: offer.id, cycle: 'monthly', reference: 'FB-test', amount_minor: 59000 };
+  let registered = false;
+  let paid = false;
+  const charges: unknown[] = [];
+  await page.route('**/api/v1/restaurants/1/foody-billing**', async (route) => {
+    const { pathname } = new URL(route.request().url());
+    if (pathname.endsWith('/usage')) return route.fulfill({ json: { month: '2026-11', observed: {}, quotas: null } });
+    if (pathname.endsWith('/reconcile')) registered = true;
+    else if (pathname.endsWith('/pay-registered-card')) {
+      expect(route.request().method()).toBe('POST');
+      charges.push(route.request().postDataJSON());
+      paid = true;
+    } else expect(route.request().method()).toBe('GET');
+    return route.fulfill({ json: {
+      offer, accepted_offer: paid ? offer : null,
+      agreement: paid ? { offer_id: offer.id, cycle: 'monthly', period_end: '2026-12-09T10:00:00Z', renews: true } : null,
+      payment: { ...payment, status: paid ? 'paid' : 'pending' },
+      checkout_enabled: true, monthly_enabled: true, due: !paid, can_resume: !registered, can_pay_registered_card: registered && !paid,
+    } });
+  });
+  await page.goto('/1/billing');
+  await page.getByRole('button', { name: 'Vérifier le statut du paiement' }).click();
+  const pay = page.getByRole('button', { name: /Payer 590,00\s*₪ avec la carte vérifiée/ });
+  await expect(pay).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reprendre le paiement Verifone' })).toHaveCount(0);
+  await page.reload();
+  await expect(pay).toBeVisible();
+  expect(charges).toHaveLength(0);
+  await pay.click();
+  await expect(page.getByText(/Paiement de test confirmé/)).toBeVisible();
+  await expect(pay).toHaveCount(0);
+  expect(charges).toEqual([{ payment_id: 8 }]);
+});
+
 test('production owner navigation uses the scoped Foody billing response', async ({ page, baseURL }) => {
   const local = new URL(baseURL!);
   expect(['localhost', '127.0.0.1']).toContain(local.hostname);
