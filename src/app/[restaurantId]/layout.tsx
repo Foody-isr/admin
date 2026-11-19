@@ -7,6 +7,7 @@ import { allowsModulePath } from '@/lib/module-navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { RestaurantTimezone } from '@/lib/restaurant-timezone-context';
 import { PermissionsProvider, usePermissions } from '@/lib/permissions-context';
 import { WsProvider } from '@/lib/ws-context';
 import { useIdleTimeout } from '@/lib/use-idle-timeout';
@@ -172,7 +173,9 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
           isRtl={isRtl}
           pageName={pageName}
         >
-          <PermissionRouteGuard>{children}</PermissionRouteGuard>
+          <RestaurantTimezone.Provider value={restaurant.timezone || 'Asia/Jerusalem'}>
+            <PermissionRouteGuard>{children}</PermissionRouteGuard>
+          </RestaurantTimezone.Provider>
         </RestaurantExperience>
         {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
       </WsProvider>
