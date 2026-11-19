@@ -252,6 +252,63 @@ for (const locale of ['fr', 'he'] as const) {
   });
 }
 
+for (const locale of ['fr', 'he'] as const) {
+  test(`staff can save an unnumbered Google street in ${locale} with the selected city`, async ({ page }) => {
+    const state = await install(page, locale);
+    const street = 'שדרת הדגמה';
+    const city = 'נתניה';
+    const order = { id: 1002, restaurant_id: 1, order_type: 'delivery', customer_name: 'Demo',
+      delivery_address: 'Example Avenue 14', delivery_city: 'Netanya', delivery_entry_code: 'test entry', delivery_floor: '0' };
+    const stops = state.routes[0].stops.map(stop => stop.id);
+    let saved: Record<string, unknown> | undefined;
+    let recalculated = 0;
+    await page.route('**/api/v1/orders/1002?**', req => req.fulfill({ json: { order } }));
+    await page.route('**/api/v1/public/address-autocomplete?**', req => req.fulfill({ json: { suggestions: [
+      { id: 'street-choice', kind: 'prediction', address: street, city: city + ', ישראל', lookup_token: 'fixture-street' },
+    ] } }));
+    await page.route('**/api/v1/public/address-autocomplete/resolve?**', req => req.fulfill({ json: { suggestion: {
+      id: 'route', kind: 'street', address: street, street, city, lat: 31, lng: 35,
+    } } }));
+    await page.route('**/api/v1/public/geocode?**', req => req.fulfill({ json: { found: false } }));
+    await page.route('**/api/v1/orders/1002/customer-details?**', req => {
+      saved = req.request().postDataJSON();
+      return req.fulfill({ json: { order: { ...order, ...saved } } });
+    });
+    await page.route('**/api/v1/delivery/routes/1/optimize?**', req => {
+      recalculated++;
+      return req.fulfill({ json: { route: state.routes[0] } });
+    });
+    await page.goto('/1/orders/deliveries');
+    await page.getByRole('button', { name: /2 Rue de démonstration/ }).click();
+    await page.getByRole('button', { name: locale === 'he' ? 'תיקון כתובת' : 'Corriger l’adresse', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    const input = dialog.getByRole('combobox');
+    await input.fill(street);
+    const result = dialog.getByRole('option', { name: new RegExp(street) });
+    await expect(result).toBeVisible();
+    if (locale === 'he') await input.press('Enter');
+    else await result.click();
+    await expect(input).toHaveValue(street + ', ' + city);
+    await expect(dialog.getByRole('listbox')).toHaveCount(0);
+    const save = dialog.getByRole('button', { name: locale === 'he' ? 'שמור' : 'Enregistrer', exact: true });
+    await expect(save).toBeEnabled();
+    const number = dialog.getByRole('textbox', { name: locale === 'he' ? /מספר בית/ : /Numéro de rue/ });
+    await expect(number).toHaveValue('');
+    if (locale === 'fr') {
+      await dialog.getByRole('button', { name: 'Reprendre le n° 14 de la commande' }).click();
+      await expect(number).toHaveValue('14');
+    }
+    await save.click();
+    await expect(dialog).toHaveCount(0);
+    expect(saved).toMatchObject({ delivery_address: locale === 'fr' ? street + ' 14' : street,
+      delivery_city: city, delivery_floor: '0', delivery_entry_code: 'test entry' });
+    expect(saved).not.toHaveProperty('delivery_latitude');
+    expect(saved).not.toHaveProperty('delivery_longitude');
+    expect(recalculated).toBe(1);
+    expect(state.routes[0].stops.map(stop => stop.id)).toEqual(stops);
+  });
+}
+
 async function openMap(page: Page) {
   const toggle = page.getByRole('button', { name: /^(Carte|מפה|Map)$/ });
   await toggle.click();

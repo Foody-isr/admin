@@ -6,7 +6,8 @@ const municipalitySpellings = Object.entries({
   telavivyafo: 'telaviv', telavivjaffa: 'telaviv', telavivyaffo: 'telaviv',
   תלאביב: 'telaviv', תלאביביפו: 'telaviv',
   ירושלים: 'jerusalem', חיפה: 'haifa', נתניה: 'netanya', netania: 'netanya',
-  רעננה: 'raanana', הרצליה: 'herzliya', herzlia: 'herzliya',
+  רעננה: 'raanana', הרצליה: 'herzliya', herzlia: 'herzliya', herzlya: 'herzliya', hertzlia: 'herzliya', hertzliya: 'herzliya', herzeliya: 'herzliya', hzrzlya: 'herzliya',
+  גבעתשמואל: 'givatshmuel', guivatshmuel: 'givatshmuel',
   רמתגן: 'ramatgan', בתים: 'batyam', חולון: 'holon', אשדוד: 'ashdod',
   אשקלון: 'ashkelon', פתחתקווה: 'petahtikva', petahtiqwa: 'petahtikva',
   ראשוןלציון: 'rishonlezion', rishonletsion: 'rishonlezion',
@@ -36,6 +37,23 @@ export function formatRouteAddress({ address, city }: { address: string; city: s
 const houseNumber = String.raw`\p{Nd}+(?:[-/–]\p{Nd}+)?(?:\s?(?:[a-zא-ת]|bis|ter))?`;
 const numberFirst = new RegExp(`^(${houseNumber})[ ,]+(.+)$`, 'iu');
 const numberLast = new RegExp(`^(.+?)[ ,]+(${houseNumber})$`, 'iu');
+
+/** Separate an existing house number so it can be reviewed when staff choose a street. */
+export function streetBuilding(address: string): { street: string; number: string; first: boolean } | undefined {
+  const text = address.trim();
+  const leading = numberFirst.exec(text);
+  if (leading) return { street: leading[2], number: leading[1], first: true };
+  const trailing = numberLast.exec(text);
+  if (trailing) return { street: trailing[1], number: trailing[2], first: false };
+}
+
+/** Restore the number only when the old and newly chosen street and city match. */
+export function numberForSelectedStreet(address: string, city: string, chosen: AddressSuggestion) {
+  const building = streetBuilding(address);
+  if (building && deliveryCityKey(city) === deliveryCityKey(chosen.city) &&
+      [chosen.address, chosen.street].some(label => label && normalizedText(label) === normalizedText(building.street))) return building.number;
+  return '';
+}
 
 /** Recover the numbered postal label staff picked when Details only identifies its street. */
 export function selectedNumberedAddress(prediction: AddressSuggestion, details: AddressSuggestion): AddressSuggestion | undefined {
