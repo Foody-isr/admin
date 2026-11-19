@@ -1,0 +1,70 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/layout.tsx",
+      "baseSha256": "637e44b1753b363714649f4f3c6c6235fcd33db250164736ce22c07b0e64cb0e",
+      "sha256": "b407181fab9746fefe978ed7110fdf5005f0de58cb78906fd8bb3da76ad4790c",
+      "features": [
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The restaurant layout supplies its existing timezone to delivery planning. Other workspaces retain their permissions, navigation and operations."
+    },
+    {
+      "path": "src/lib/delivery-planning.ts",
+      "baseSha256": "bc0f7f5f04bcca403c316fe701994fc7c4ce052e4d91e0e5e33c17a725caf89e",
+      "sha256": "0b35fbe240ec3234e2ec6dc5bf3661c5032dae2e11100da89f8dae8ef46e1259",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "These changes apply to the manager’s dispatch date and mistaken-incident review. The other classified workflows retain their existing actions and permissions."
+    },
+    {
+      "path": "src/lib/delivery.ts",
+      "baseSha256": "e37994147a42634c092ae4a8985b4520c0744f208a63bceec588624f97733d95",
+      "sha256": "1f5ed528c1c03255bc763a908e1b098af4a6043301ea0c14e56deba03b451264",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "These changes apply to the manager’s dispatch date and mistaken-incident review. The other classified workflows retain their existing actions and permissions."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "baseSha256": "e2dac60e2c248ca205ddab3c4d98b50831653b7509608ee56902e6da73dd2ebd",
+      "sha256": "d44c1c11f556591968ad92e43adc22968fcdf8179f8144a81764aed0d2746ba6",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only labels for selecting the dispatch day and reviewing mistaken delivery reports changed. Other translated controls and their behavior are unchanged."
+    },
+    {
+      "path": "src/lib/restaurant-timezone-context.ts",
+      "baseSha256": null,
+      "sha256": "322df20c52eb6fd9d8022a15cd38348879e546e1f774bc2063cf00e492849552",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The changed source supplies restaurant-local delivery planning and the review of a mistaken departure. Other classified procedures and access rules remain unchanged."
+    }
+  ]
+}

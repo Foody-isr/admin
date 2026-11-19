@@ -704,6 +704,54 @@ test('a manager can undo a departure when only navigation was opened', async ({ 
   await expect.poll(() => state.writes.map(write => write.path)).toEqual(['/api/v1/delivery/routes/1/reset-departure']);
 });
 
+test('dispatch opens today with an old active route and links to the next planned day', async ({ page }) => {
+  const state = await install(page);
+  state.routes = [
+    { ...route(1, [stop(1)], 'active'), date: '2026-08-21' },
+    { ...route(2, [stop(2)]), date: '2026-10-16' },
+  ];
+  await page.goto('/1/orders/deliveries');
+  const date = page.getByLabel('Date des tournées', { exact: true });
+  await expect(page.getByRole('button', { name: /Prochain jour planifié/ })).toBeVisible();
+  await expect(date).toHaveValue(day);
+  expect(state.reads.some(read => read.date === '2026-08-21')).toBe(false);
+  await page.getByRole('button', { name: /Prochain jour planifié/ }).click();
+  await expect(date).toHaveValue('2026-10-16');
+  await expect(page).toHaveURL(/date=2026-10-16/);
+  await page.reload();
+  await expect(date).toHaveValue('2026-10-16');
+  await page.getByRole('button', { name: "Aujourd'hui" }).click();
+  await expect(date).toHaveValue(day);
+  expect(state.writes).toEqual([]);
+});
+
+test('a manager reviews the exact mistaken report before restoring all stops', async ({ page }) => {
+  const state = await install(page);
+  const started = day + 'T09:00:00Z', reported = day + 'T09:04:00Z';
+  const skipped: RouteStop = { ...stop(1, 'skipped'), issue_reason: 'other', issue_review_at: reported };
+  state.routes = [{ ...route(1, [skipped, stop(2)], 'active'), started_at: started }];
+  let attempts = 0;
+  await page.route('**/api/v1/delivery/routes/1/reset-departure?**', request => {
+    expect(request.request().postDataJSON()).toEqual({ started_at: started, issues: [{ stop_id: 1, reason: 'other', reported_at: reported }] });
+    attempts++;
+    state.routes = [route(1, [stop(1), stop(2)])];
+    return request.fulfill({ json: { route: state.routes[0] } });
+  });
+  await page.goto('/1/orders/deliveries');
+  const reset = page.getByRole('button', { name: 'Annuler le départ', exact: true });
+  await reset.click();
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toContainText('#1001');
+  await expect(dialog).toContainText('Autre problème');
+  await dialog.getByRole('button', { name: 'Annuler', exact: true }).click();
+  expect(attempts).toBe(0);
+  await reset.click();
+  await dialog.getByRole('button', { name: 'Corriger les signalements et annuler le départ' }).click();
+  await expect(page.getByText('Départ annulé. Le livreur et l’ordre des arrêts sont conservés.')).toBeVisible();
+  await expect(reset).toHaveCount(0);
+  expect(attempts).toBe(1);
+});
+
 test('bilingual dispatch filters retain selections and change service days independently of search', async ({ page }, info) => {
   const state = await install(page);
   await demoTiles(page);

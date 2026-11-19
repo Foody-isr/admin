@@ -19,6 +19,7 @@ export interface RouteStop {
   navigation_started_at?: string;
   destination_locked?: boolean;
   issue_reason?: DeliveryIssueReason;
+  issue_review_at?: string;
   customer_name: string;
   customer_phone: string;
   address: string;
@@ -290,12 +291,15 @@ export async function changeRouteCourier(
   return data.route;
 }
 
-/** Undo an accidental departure before any stop has begun; keep the assignment. */
-export async function resetRouteDeparture(restaurantId: number, routeId: number): Promise<DeliveryRoute> {
+/** Undo a departure and only the exact mistaken reports reviewed by the manager. */
+export async function resetRouteDeparture(restaurantId: number, routeId: number, startedAt: string | null | undefined, stops: RouteStop[]): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(
     `/api/v1/delivery/routes/${routeId}/reset-departure?${q(restaurantId)}`,
     restaurantId,
-    { method: 'POST' },
+    { method: 'POST', body: JSON.stringify({
+      started_at: startedAt,
+      issues: stops.map(stop => ({ stop_id: stop.id, reason: stop.issue_reason, reported_at: stop.issue_review_at })),
+    }) },
   );
   return data.route;
 }
