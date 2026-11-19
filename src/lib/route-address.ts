@@ -1,3 +1,5 @@
+import type { AddressSuggestion } from './delivery';
+
 // Only whole municipality names share a key. A district or a similar name stays separate.
 const citySeparators = new RegExp('[^\\p{L}\\p{N}]', 'gu');
 const municipalitySpellings = Object.entries({
@@ -27,6 +29,29 @@ export function formatRouteAddress({ address, city }: { address: string; city: s
   const text = address.trim(), locality = city.trim();
   if (!locality || text.split(',').some(part => deliveryCityKey(part) === deliveryCityKey(locality))) return text;
   return [text, locality].filter(Boolean).join(', ');
+}
+
+// Accept a building number only when the rest of the chosen label matches the
+// provider's street. A number in the search query or the street name is insufficient.
+const houseNumber = String.raw`\p{Nd}+(?:[-/–]\p{Nd}+)?(?:\s?(?:[a-zא-ת]|bis|ter))?`;
+const numberFirst = new RegExp(`^(${houseNumber})[ ,]+(.+)$`, 'iu');
+const numberLast = new RegExp(`^(.+?)[ ,]+(${houseNumber})$`, 'iu');
+
+/** Recover the numbered postal label staff picked when Details only identifies its street. */
+export function selectedNumberedAddress(prediction: AddressSuggestion, details: AddressSuggestion): AddressSuggestion | undefined {
+  const street = details.street?.trim();
+  const city = details.city.trim();
+  const address = prediction.address.trim();
+  if (!prediction.lookup_token || !street || !city ||
+      deliveryCityKey(prediction.city.split(',')[0]) !== deliveryCityKey(city)) return;
+  const streetKey = normalizedText(street);
+  const leading = numberFirst.exec(address);
+  const trailing = numberLast.exec(address);
+  const number = leading && normalizedText(leading[2]) === streetKey ? leading[1]
+    : trailing && normalizedText(trailing[1]) === streetKey ? trailing[2] : undefined;
+  if (!number || details.house_number?.trim().toLowerCase() === number.toLowerCase()) return;
+  // A street centre or a point returned for another number cannot locate this building.
+  return { id: prediction.id, address, city, street, house_number: number };
 }
 
 /** Search displayed delivery fields, including equivalent spellings of a city. */
