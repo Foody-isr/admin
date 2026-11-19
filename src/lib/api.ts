@@ -11512,6 +11512,7 @@ export async function setPreparedStock(rid: number, itemId: number, quantity: nu
 export type FoodyBillingCycle = 'monthly' | 'annual';
 export type FoodyBillingPrice = { net_minor: number; vat_minor: number; total_minor: number };
 export type FoodyBillingOffer = {
+  commercial_source?: { kind: string; valid_until?: string };
   id: number; version: number; title: string; includes: string; terms: string; start_date: string;
  scope?: {modules:FoodyModule[];capabilities:string[];seats:FoodySeatLimits};
   previous_offer_id?: number; upgrade_minor?: number; upgrade_period_end?: string; upgrade_cycle?: FoodyBillingCycle;
