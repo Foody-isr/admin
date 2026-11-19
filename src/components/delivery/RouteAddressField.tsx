@@ -6,11 +6,13 @@ import { Input } from '@/components/ds';
 import { autocompleteRouteAddress, resolveRouteAddress, type AddressSuggestion } from '@/lib/delivery';
 
 /** Search and select an endpoint using the restaurant's existing address provider. */
-export function RouteAddressField({ restaurantId, locale, label, placeholder, value, onChange, onSelectAddress, onReviewAddress, onResolvingChange, inputProps, disabled, t }: {
+export function RouteAddressField({ restaurantId, locale, label, placeholder, value, onChange, onSelectAddress, onReviewAddress, onSelectStreet, onResolvingChange, inputProps, disabled, t }: {
   restaurantId: number; locale: string; label: string; placeholder?: string; value: string;
   onChange: (value: string) => void; onResolvingChange?: (resolving: boolean) => void; disabled?: boolean; t: (key: string) => string;
   /** Receives a complete address and its city separately. Partial suggestions stay in the search field. */
   onSelectAddress?: (suggestion: AddressSuggestion) => void;
+  /** Accepts the street explicitly picked by staff, even when it has no building point. */
+  onSelectStreet?: (suggestion: AddressSuggestion) => void;
   /** Lets a staff editor review the label that was clicked if Details cannot confirm it. */
   onReviewAddress?: (prediction: AddressSuggestion) => void;
   inputProps?: Pick<InputHTMLAttributes<HTMLInputElement>, 'id' | 'aria-label' | 'aria-invalid' | 'aria-describedby'>;
@@ -72,6 +74,16 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
       if (resolved.kind === 'street' || (onSelectAddress && !completeAddress)) {
         if (onReviewAddress && /\d/.test(suggestion.address) && suggestion.address.trim() !== resolved.street?.trim()) {
           onReviewAddress(suggestion); return;
+        }
+        if (onSelectStreet && resolved.kind === 'street' && resolved.city.trim()) {
+          const chosen: AddressSuggestion = {
+            id: suggestion.id, kind: 'street', address: suggestion.address.trim() || resolved.address,
+            street: resolved.street, city: resolved.city,
+          };
+          selection.current = formatRouteAddress(chosen);
+          setFocused(false);
+          onSelectStreet(chosen);
+          return;
         }
         onChange(address); return;
       }
