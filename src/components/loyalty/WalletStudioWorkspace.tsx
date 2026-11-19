@@ -461,10 +461,8 @@ function Preview({ platform, state, draft, onFrame }: { platform: WalletPlatform
   const banner = (draft.original ?? draft.banner);
   const frame = draft.layout ?? legacyLayout;
   const overlay = apple && !counterBelow && <div className="pointer-events-none absolute inset-0 px-4 py-3">{progressFields}</div>;
-  const bannerElement = banner && (draft.layout || onFrame ? <FramedWalletBanner source={banner} platform={platform} frame={walletFrame(frame, platform)} onFrame={onFrame}>{overlay}</FramedWalletBanner>
-    : <div className={'relative overflow-hidden ' + (apple ? 'aspect-[375/144]' : 'aspect-[1032/336]')}>
-      <Image unoptimized loading="eager" src={banner} alt={t('walletStudioBanner')} fill className="object-cover" />{overlay}
-    </div>);
+  const bannerElement = banner && <FramedWalletBanner source={banner} platform={platform} legacy={!draft.layout}
+    frame={walletFrame(frame, platform)} onFrame={onFrame}>{overlay}</FramedWalletBanner>;
   return (
     <div data-wallet-preview={platform} className="mx-auto max-w-[23rem] overflow-hidden rounded-[1.35rem] border border-black/10 shadow-2"
       style={{ backgroundColor: background, color: apple ? text : googleText }}>
@@ -482,10 +480,10 @@ function Preview({ platform, state, draft, onFrame }: { platform: WalletPlatform
         {apple && <span className="max-w-[45%] text-end text-xs font-medium">{t('walletStudioTestCard')}</span>}
       </div>
       {apple && bannerElement ? bannerElement : <div className="px-4 pb-2">{progressFields}</div>}
-      <div className="flex flex-wrap justify-between gap-2 px-4 py-3 text-xs">
+      <div className={(counterBelow ? 'grid grid-cols-[auto_minmax(0,1fr)_minmax(0,0.8fr)]' : 'flex flex-wrap justify-between') + ' gap-3 px-4 py-3 text-xs'}>
         {counterBelow && progressFields}
         {apple && <span className="break-words font-medium">{title}</span>}
-        <span>{t('walletStudioThreshold')} <b className="tabular-nums">{threshold}</b></span>
+        <span>{t('walletStudioThreshold')} <b className={counterBelow ? 'block text-lg leading-tight tabular-nums' : 'tabular-nums'}>{threshold}</b></span>
       </div>
       {!apple && bannerElement}
       <div className="flex flex-col items-center gap-2 p-4">

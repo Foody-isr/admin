@@ -58,13 +58,13 @@ export function WalletBannerControls({ layout, platform, onPlatform, onChange, o
 }
 
 /** Preview and drag the full source using the same rectangle as the exported PNG. */
-export function FramedWalletBanner({ source, frame, platform, onFrame, children }: {
-  source: string; frame: ImageFrame; platform: WalletPlatform; onFrame?: (f: ImageFrame) => void; children?: ReactNode;
+export function FramedWalletBanner({ source, frame, platform, legacy, onFrame, children }: {
+  source: string; frame: ImageFrame; platform: WalletPlatform; legacy?: boolean; onFrame?: (f: ImageFrame) => void; children?: ReactNode;
 }) {
   const { t } = useI18n();
   const [natural, setNatural] = useState({ width: 0, height: 0 });
   const drag = useRef<{ id: number; left: number; top: number; dx: number; dy: number; frame: ImageFrame } | null>(null);
-  const { width, height } = walletBannerSize[platform];
+  const { width, height } = legacy && platform === 'google' ? { width: 1032, height: 336 } : walletBannerSize[platform];
   const rect = imageFrameRect(width, height, natural.width, natural.height, frame);
   const pan = (start: number, delta: number, free: number) =>
     Math.abs(free) < 0.5 ? start : Math.round(Math.max(0, Math.min(100, start + 100 * delta / free)));
