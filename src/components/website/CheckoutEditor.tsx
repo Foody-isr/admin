@@ -280,14 +280,12 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
               description={placesAvailable
                 ? t('addressAutocompleteDescription')
                 : t('addressAutocompleteUnavailable')}
-              disabled={!placesAvailable && !form.address_autocomplete}
             >
               <Toggle
                 title={t("addressAutocompleteTitle")}
                 checked={!!form.address_autocomplete}
                 onChange={setAutocomplete}
-                disabled={!placesAvailable && !form.address_autocomplete}
-              />
+                />
             </Row>
           )}
         </section>

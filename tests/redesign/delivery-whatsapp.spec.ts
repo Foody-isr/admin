@@ -5,7 +5,7 @@ import type { OrderWhatsAppPreview } from '../../src/lib/api';
 
 const day = '2026-10-23';
 const route = (id: number, orders: number[]): DeliveryRoute => ({
-  id, restaurant_id: 1, courier_id: id, date: day, status: 'draft', routing_provider: 'geoapify',
+  id, restaurant_id: 1, courier_id: id, date: day, status: 'draft', routing_provider: 'google',
   planned_departure_at: `${day}T08:00:00+03:00`, total_distance_m: 1000, est_duration_s: 1800,
   customer_window_minutes: 90,
   stops: orders.map((orderId, index) => ({ id: orderId, order_id: orderId, sequence: index + 1, status: 'pending', customer_name: `Client démo ${orderId}`, customer_phone: '+12025550123', address: '1 Rue de démonstration', city: 'Ville démo', distance_from_prev_m: 500, eta_seconds: 1800, total_amount: 100, needs_geocode: false, lat: 32.1, lng: 34.1 })),
@@ -48,7 +48,8 @@ async function install(page: Page, locale = 'fr') {
     }
     if (path === '/api/v1/orders') return intercepted.fulfill({ json: { orders: [], total: 0 } });
     if (/\/restaurants\/\d+\/staff$/.test(path)) return intercepted.fulfill({ json: { staff: [{ id: 1, full_name: 'Livreur démo 1', role: 'courier' }, { id: 2, full_name: 'Livreur démo 2', role: 'courier' }] } });
-    if (path === '/api/v1/public/delivery/map-config') return intercepted.fulfill({ json: { provider: 'geoapify', tile_url: '/api/v1/public/delivery/map/light/{z}/{x}/{y}.png' } });
+    if (path === '/api/v1/public/delivery/map-viewport') return intercepted.fulfill({json:{copyright:'Synthetic map data'}});
+    if (path === '/api/v1/public/delivery/map-config') return intercepted.fulfill({ json: { provider: 'google', tile_url: '/api/v1/public/delivery/map/google/{z}/{x}/{y}.png' } });
     if (path.includes('/public/delivery/map/')) return intercepted.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"/>' });
     const response = fixture.response(request.url(), request.method(), request.postDataJSON() ?? {}, Number(rid) || 1);
     return intercepted.fulfill({ status: response.status ?? 200, json: response.json ?? {} });

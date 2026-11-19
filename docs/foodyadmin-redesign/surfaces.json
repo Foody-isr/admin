@@ -1953,37 +1953,6 @@
     }
   },
   {
-    "route": "/[restaurantId]/settings/delivery/maps",
-    "file": "src/app/[restaurantId]/settings/delivery/maps/page.tsx",
-    "components": [
-      "@/components/ds"
-    ],
-    "overlays": [
-      "Drawer",
-      "ConfirmDialog"
-    ],
-    "permissionChecks": [
-      "settings.view",
-      "settings.edit",
-      "orders.manage"
-    ],
-    "states": [
-      "loading",
-      "noPermission",
-      "error",
-      "saving",
-      "quotaReached"
-    ],
-    "status": "partial",
-    "redesign": {
-      "designed": "✓",
-      "implemented": "✓",
-      "functional": "✓",
-      "visual": "✓",
-      "scope": "Service actif, choix du fournisseur, consommation Google et Geoapify, quotas et tarifs."
-    }
-  },
-  {
     "route": "/[restaurantId]/settings/devices",
     "file": "src/app/[restaurantId]/settings/devices/page.tsx",
     "components": [

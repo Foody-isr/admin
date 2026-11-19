@@ -416,7 +416,7 @@ test('deposit errors stay in payment and open the exact field', async ({ page })
 
 test('manual delivery entry recovers from unavailable suggestions and accepts a free zone', async ({ page }) => {
   const state = await install(page, false);
-  await page.route('**/public/address-autocomplete?*', route => route.fulfill({ status: 503, json: { error: 'address_lookup_unavailable' } }));
+  await page.route('**/delivery/address-autocomplete?*', route => route.fulfill({ status: 503, json: { error: 'address_lookup_unavailable' } }));
   await page.route('**/public/delivery/check?*', route => route.fulfill({ json: { deliverable: true, resolved: true, delivery_fee: new URL(route.request().url()).searchParams.get('address') === 'Zone gratuite' ? 0 : 25 } }));
   const panel = await checkout(page);
   await panel.getByRole('radio', { name: 'Livraison', exact: true }).check();
@@ -527,12 +527,12 @@ test('a Google suggestion sets the street and city, and editing it discards the 
   const street = { id: 'street', kind: 'street', address: 'Rue Démo', city: 'Ville Démo', street: 'Rue Démo', house_number: '' };
   const first = { id: 'first', address: '12 rue Démo', city: 'Ville Démo', street: 'rue Démo', house_number: '12', lat: 32.08, lng: 34.78 };
   const second = { id: 'second', address: '24 rue Démo', city: 'Autre Ville', street: 'rue Démo', house_number: '24' };
-  await page.route('**/public/address-autocomplete?*', route => {
+  await page.route('**/delivery/address-autocomplete?*', route => {
     const query = route.request().postDataJSON().text;
     const result = query.startsWith('12') ? first : query.startsWith('24') ? second : street;
     return route.fulfill({ json: { suggestions: [{ id: result.id, kind: 'prediction', address: result.address, city: result.city, lookup_token: result.id }] } });
   });
-  await page.route('**/public/address-autocomplete/resolve?*', route => {
+  await page.route('**/delivery/address-autocomplete/resolve?*', route => {
     const token = route.request().postDataJSON().lookup_token;
     const result = token === first.id ? first : token === second.id ? second : street;
     return route.fulfill({ json: { suggestion: result } });

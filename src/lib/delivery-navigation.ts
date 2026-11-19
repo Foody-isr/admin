@@ -5,7 +5,6 @@ const pages = [
   { path: '/orders/deliveries', label: 'deliveryNavDispatch', permissions: ['orders.manage'] },
   { path: '/orders/courier-mode', label: 'courierMode', permissions: ['orders.manage'] },
   { path: '/settings/delivery', label: 'deliveryNavZones', permissions: ['orders.manage', 'settings.view', 'settings.edit'] },
-  { path: '/settings/delivery/maps', label: 'deliveryNavMaps', permissions: ['orders.manage', 'settings.view', 'settings.edit'] },
 ] as const;
 
 /** Recognizes pages which share the restaurant's Deliveries navigation. */

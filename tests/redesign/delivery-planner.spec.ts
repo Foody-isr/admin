@@ -15,7 +15,7 @@ const stop = (id: number, status: RouteStop['status'] = 'pending'): RouteStop =>
 });
 const route = (id: number, stops: RouteStop[], status: DeliveryRoute['status'] = 'draft'): DeliveryRoute => ({
   id, restaurant_id: 1, courier_id: id, date: day, status, stops,
-  routing_provider: 'geoapify', route_geometry: stops.map(stop => ({ order_id: stop.order_id, path: [[32.07,34.79],[32.07,stop.lng!],[stop.lat!,stop.lng!]] })),
+  routing_provider: 'google', route_geometry: stops.map(stop => ({ order_id: stop.order_id, path: [[32.07,34.79],[32.07,stop.lng!],[stop.lat!,stop.lng!]] })),
   planned_departure_at: `${day}T08:00:00+03:00`, total_distance_m: 8000, est_duration_s: 2400,
 });
 
@@ -30,7 +30,7 @@ async function install(page: Page, locale = 'fr') {
     routes: [route(1, [stop(1, 'delivered'), stop(2), stop(3)]), route(2, [stop(4, 'delivered')])],
     couriers: [{ id: 1, full_name: 'Livreur démo', role: 'courier', courier_default_end_address: '' }, { id: 2, full_name: 'Livreuse démo', role: 'courier', courier_default_end_address: '' }],
     candidates: [] as object[], writes: [] as { path: string; rid?: string }[],
-    reads: [] as { date: string | null; rid?: string }[], tiles: [] as string[], mapProvider: 'geoapify', failUndo: false, failRouting: false,
+    reads: [] as { date: string | null; rid?: string }[], tiles: [] as string[], failUndo: false, failRouting: false,
   };
   await page.routeWebSocket('**/ws?**', socket => { state.socket = socket; });
   await page.addInitScript(({ locale }) => {
@@ -43,7 +43,7 @@ async function install(page: Page, locale = 'fr') {
   await page.route('**/api/v1/**', async intercepted => {
     const request = intercepted.request(), url = new URL(request.url()), path = url.pathname;
     const rid = request.headers()['x-restaurant-id'];
-    if (path === '/api/v1/public/delivery/map-config') return intercepted.fulfill({ json: { provider: state.mapProvider, tile_url: `/api/v1/public/delivery/map/${state.mapProvider === 'google' ? 'google' : '{style}'}/{z}/{x}/{y}.png?restaurant_id=${rid}` } });
+    if (path === '/api/v1/public/delivery/map-config') return intercepted.fulfill({ json: { provider: 'google', tile_url: `/api/v1/public/delivery/map/google/{z}/{x}/{y}.png?restaurant_id=${rid}` } });
     if (path === '/api/v1/public/delivery/map-viewport') return intercepted.fulfill({ json: { copyright: 'Synthetic map data ©2026' } });
     if (path.startsWith('/api/v1/public/delivery/map/')) { state.tiles.push(request.url()); return intercepted.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#edf0ee"/><path d="M0 80H256M90 0V256" stroke="#cbd0cd" stroke-width="8"/></svg>' }); }
     if (path === '/api/v1/users/me') return intercepted.fulfill({ json: { role_name: 'Manager', permissions: ['orders.manage', 'settings.view'], user: { id: 1, role: 'manager' } } });
@@ -74,7 +74,6 @@ async function install(page: Page, locale = 'fr') {
   await page.route('**/*', intercepted => {
     const url = new URL(intercepted.request().url());
     if (['localhost', '127.0.0.1'].includes(url.hostname) || url.pathname.startsWith('/api/v1/')) return intercepted.fallback();
-    if (url.hostname.endsWith('.tile.openstreetmap.org')) return intercepted.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#f0f1f2"/><path d="M0 70H256M80 0V256M180 0V256" stroke="#d7dadd" stroke-width="6"/></svg>' });
     return intercepted.abort();
   });
   return state;
@@ -97,12 +96,12 @@ for (const mode of ['coordinates', 'canonical text', 'unlocated Google address',
     const geocodes: { address: string | null; city: string | null }[] = [];
     let correction: Record<string, unknown> | undefined;
     await page.route('**/api/v1/orders/1002?**', request => request.fulfill({ json: { order } }));
-    await page.route('**/api/v1/public/address-autocomplete?**', async request => {
+    await page.route('**/api/v1/delivery/address-autocomplete?**', async request => {
       const url = new URL(request.request().url());
       expect(url.searchParams.get('restaurant_id')).toBe('1');
       return request.fulfill({ json: { suggestions: [{ ...suggestion, city: 'Tel Aviv, Israel', kind: 'prediction', lookup_token: 'demo-token' }] } });
     });
-    await page.route('**/api/v1/public/address-autocomplete/resolve?**', request =>
+    await page.route('**/api/v1/delivery/address-autocomplete/resolve?**', request =>
       mode === 'unavailable Details' ? request.fulfill({ status: 503, json: { error: 'unavailable' } })
         : request.fulfill({ json: { suggestion: mode === 'coordinates' ? { ...suggestion, ...location } : suggestion } }));
     await page.route('**/api/v1/public/geocode?**', async request => {
@@ -185,13 +184,13 @@ for (const locale of ['fr', 'he'] as const) {
     const point = { lat: 32.28, lng: 34.85 };
     let searches = 0;
     await page.route('**/api/v1/orders/1002?**', request => request.fulfill({ json: { order } }));
-    await page.route('**/api/v1/public/address-autocomplete?**', request => {
+    await page.route('**/api/v1/delivery/address-autocomplete?**', request => {
       searches++;
       return request.fulfill({ json: { suggestions: ['Other City', city].map((name, index) => ({
         id: `prediction-${index}`, kind: 'prediction', address: label, city: `${name}, Israel`, lookup_token: `demo-${index}`,
       })) } });
     });
-    await page.route('**/api/v1/public/address-autocomplete/resolve?**', request => {
+    await page.route('**/api/v1/delivery/address-autocomplete/resolve?**', request => {
       expect(request.request().postDataJSON().lookup_token).toBe('demo-1');
       return request.fulfill({ json: { suggestion: {
         id: 'canonical-route', kind: 'street', address: street, street, city, house_number: '', lat: 30, lng: 35,
@@ -263,10 +262,10 @@ for (const locale of ['fr', 'he'] as const) {
     let saved: Record<string, unknown> | undefined;
     let recalculated = 0;
     await page.route('**/api/v1/orders/1002?**', req => req.fulfill({ json: { order } }));
-    await page.route('**/api/v1/public/address-autocomplete?**', req => req.fulfill({ json: { suggestions: [
+    await page.route('**/api/v1/delivery/address-autocomplete?**', req => req.fulfill({ json: { suggestions: [
       { id: 'street-choice', kind: 'prediction', address: street, city: city + ', ישראל', lookup_token: 'fixture-street' },
     ] } }));
-    await page.route('**/api/v1/public/address-autocomplete/resolve?**', req => req.fulfill({ json: { suggestion: {
+    await page.route('**/api/v1/delivery/address-autocomplete/resolve?**', req => req.fulfill({ json: { suggestion: {
       id: 'route', kind: 'street', address: street, street, city, lat: 31, lng: 35,
     } } }));
     await page.route('**/api/v1/public/geocode?**', req => req.fulfill({ json: { found: false } }));
@@ -353,7 +352,7 @@ test('planner separates completed deliveries from work and preserves history', a
   await expect(page.locator('.foody-stop-pin')).toHaveCount(2);
   await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(2);
   await expect(page.locator('.leaflet-overlay-pane path').first()).not.toHaveAttribute('stroke-dasharray', /.+/);
-  await expect(page.locator('.leaflet-control-attribution')).toContainText('Geoapify');
+  await expect(page.locator('.leaflet-control-attribution')).toContainText('Synthetic map data');
   await expect.poll(() => page.locator('.leaflet-tile-loaded').count()).toBeGreaterThan(0);
   await page.screenshot({ path: info.outputPath('delivery-planner-fr.png'), animations: 'disabled' });
   await page.getByRole('tab', { name: /Historique/ }).click();
@@ -584,7 +583,6 @@ test('a road quota retains known positions and does not label pending lookups as
   const state = await install(page);
   const located = { ...stop(2), coordinate_provider: 'google' };
   const pending = { ...stop(3), needs_geocode: true, lat: null, lng: null };
-  state.mapProvider = 'google';
   state.routes = [{ ...route(1, [located, pending]), routing_provider: 'google', needs_recalculation: true, routing_error: 'location service quota exceeded', route_geometry: [], total_distance_m: 0, est_duration_s: 0 }];
   await page.goto('/1/orders/deliveries');
   await expect(page.getByText('Le quota du service de localisation est atteint. Réessayez plus tard. Vos tournées existantes sont conservées.', { exact: true })).toBeVisible();
@@ -627,26 +625,12 @@ test('legend highlights distinct routes assigned to the same courier', async ({ 
 });
 
 
-test('map quota switch hides Google content and automatically returns after reset', async ({ page }) => {
- const state = await install(page); state.mapProvider = 'google';
- state.routes = [{ ...route(1, [{ ...stop(2), coordinate_provider: 'google' }]), routing_provider: 'google', start_lat: 32.0, start_lng: 34.0, end_lat: 32.3, end_lng: 34.3 }];
- await page.goto('/1/orders/deliveries');
-  await openMap(page);
+test('Google routes display their markers, geometry and map attribution together', async ({page}) => {
+ const state=await install(page);
+ state.routes=[{...route(1,[{...stop(2),coordinate_provider:'google'}]),start_lat:32,start_lng:34,end_lat:32.3,end_lng:34.3}];
+ await page.goto('/1/orders/deliveries'); await openMap(page);
  await expect(page.locator('.leaflet-control-attribution')).toContainText('Synthetic map data');
  await expect(page.locator('.foody-stop-pin')).toHaveCount(1);
- await expect(page.locator('.leaflet-marker-icon')).toHaveCount(3);
- await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(1);
- state.mapProvider = 'geoapify';
- await page.clock.runFor(61000);
- await expect(page.locator('.leaflet-control-attribution')).toContainText('Geoapify');
- await expect(page.locator('.foody-stop-pin')).toHaveCount(0);
- await expect(page.locator('.leaflet-marker-icon')).toHaveCount(0);
- await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(0);
- state.mapProvider = 'google';
- await page.clock.runFor(61000);
- await expect(page.locator('.leaflet-control-attribution')).toContainText('Synthetic map data');
- await expect(page.locator('.foody-stop-pin')).toHaveCount(1);
- await expect(page.locator('.leaflet-marker-icon')).toHaveCount(3);
  await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(1);
 });
 
@@ -696,7 +680,7 @@ test('a city selection is retained once and can be saved as the final destinatio
   const state = await install(page);
   state.routes = [route(1, [stop(2)])];
   let searches = 0;
-  await page.route('**/api/v1/public/address-autocomplete**', async intercepted => {
+  await page.route('**/api/v1/delivery/address-autocomplete**', async intercepted => {
     if (intercepted.request().url().includes('/resolve')) {
       return intercepted.fulfill({ json: { suggestion: { id: 'city-demo', kind: 'place', address: "Ra'anana, Israel", city: "Ra'anana" } } });
     }

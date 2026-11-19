@@ -48,8 +48,7 @@ export function FoodyBillingEntry({ rid, children }: { rid: number; children: Re
 
 const openStatus = new Set(['creating', 'pending', 'review']);
 const metricKeys = [
-  'google_autocomplete', 'google_details', 'google_geocoding', 'google_routes', 'google_optimization_single', 'google_optimization_fleet',
-  'google_tiles', 'geoapify_credits', 'openai_whisper_requests', 'anthropic_stock_input_tokens', 'anthropic_stock_output_tokens',
+  'openai_whisper_requests', 'anthropic_stock_input_tokens', 'anthropic_stock_output_tokens',
   'twilio_verify_sms_requests', 'anthropic_assistant_input_tokens', 'anthropic_assistant_output_tokens', 'whatsapp_order_messages',
 ];
 
@@ -204,7 +203,7 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
         {!usage.complete && <p role="status" className="text-sm">{t('foodyPilotUsageUnavailable')}</p>}
         <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
           {metricKeys.map((key) => {
-            const value = usage.quotas?.counters.find((c) => c.id === key)?.used ?? usage.observed[key];
+            const value = usage.observed[key];
             if (value == null) return null;
             return <div key={key} className="flex justify-between gap-2 rounded border border-[var(--line)] p-2"><dt>{t('foodyPilotUsage_' + key)}</dt><dd>{new Intl.NumberFormat(locale).format(value)}</dd></div>;
           })}

@@ -241,7 +241,7 @@ export default function DeliveryMap({
             <Fragment key={layer.routeId ?? layer.courierId}>
               {layer.geometry?.length ? layer.geometry.filter(leg => leg.order_id === 0 ? !!layer.end : seq.some(stop => stop.order_id === leg.order_id)).map((leg, index) => (
                 <Polyline key={`${leg.order_id}-${index}`} positions={leg.path} eventHandlers={onRouteSelect && layer.routeId ? { click: () => onRouteSelect(layer.routeId!) } : undefined} pathOptions={{ color: layer.color, opacity: dim ? 0.15 : 0.9, weight: dim ? 3 : 5 }} />
-              )) : !['geoapify', 'google'].includes(layer.routingProvider ?? '') && line.length > 1 && (
+              )) : (!layer.routingProvider || layer.routingProvider === 'approximate') && line.length > 1 && (
                 <Polyline positions={line} pathOptions={{ color: layer.color, opacity: dim ? 0.2 : 0.7, dashArray: '6 8' }} />
               )}
               {layer.start && <Marker position={[layer.start.lat, layer.start.lng]} icon={START_ICON} />}
@@ -282,7 +282,6 @@ export default function DeliveryMap({
         <button type="button" aria-pressed={highlightRouteId == null && highlightCourierId == null} onClick={() => onRouteSelect(null)} className="w-full rounded px-2 py-2 text-start text-fs-xs focus-visible:outline focus-visible:outline-2">{t('mapsAllRoutes')}</button>
         {routes.map((layer, index) => <button key={layer.routeId} type="button" aria-pressed={highlightRouteId === layer.routeId} onClick={() => onRouteSelect(highlightRouteId === layer.routeId ? null : layer.routeId ?? null)} className="flex w-full items-center gap-2 rounded px-2 py-2 text-start text-fs-xs hover:bg-[var(--surface-2)] focus-visible:outline focus-visible:outline-2" style={{ background: highlightRouteId === layer.routeId ? 'var(--surface-2)' : undefined }}><span aria-hidden="true" className="h-1 w-5 shrink-0 rounded" style={{ background: layer.color }} /><span>{layer.label ?? `${t('mapsRoute')} ${index + 1}`}</span></button>)}
       </div>}
-      {routes?.some(layer => layer.routingProvider === 'google') && provider !== 'google' && <p role="status" className="absolute bottom-10 start-3 end-3 z-[500] rounded bg-[var(--surface)] p-2 text-fs-xs">{t('mapsProviderChanged')}</p>}
     </div>
   );
 }
