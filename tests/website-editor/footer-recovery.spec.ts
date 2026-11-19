@@ -3,7 +3,7 @@ import type { DraftStatePayload } from "../../src/lib/website-v3/types";
 
 test("an absent footer can be created, edited and published independently of branding", async ({ page, request, context }) => {
   await page.addInitScript(() => {
-    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_portal_session", "fp1p.e30.fixture.00");
     localStorage.setItem("foody_restaurant_user", JSON.stringify({ id: 1, full_name: "Demo", role: "manager", email: "demo@foody.test" }));
     localStorage.setItem("foody_restaurant_ids", "[1]");
     localStorage.setItem("foody-admin-locale", "fr");
@@ -84,7 +84,7 @@ test("an absent footer can be created, edited and published independently of bra
 
 test("section content and settings remain reachable through contextual actions", async ({ page, request, context }) => {
   await page.addInitScript(() => {
-    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_portal_session", "fp1p.e30.fixture.00");
     localStorage.setItem("foody_restaurant_user", JSON.stringify({ id: 1, full_name: "Demo", role: "manager", email: "demo@foody.test" }));
     localStorage.setItem("foody_restaurant_ids", "[1]");
     localStorage.setItem("foody-admin-locale", "fr");

@@ -5,7 +5,7 @@ async function install(page: Page, options: {locale?: string; theme?: string; em
   const fixture = createFixture(options);
   await page.addInitScript(({locale,theme,authenticated}) => {
     if (authenticated) {
-    localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({id:1,full_name:'Équipe démo',role:'owner',email:'demo@foody.test'}));
     localStorage.setItem('foody_restaurant_ids', '[1,2]');
     }
@@ -563,7 +563,7 @@ test('reset password retains the draft after failure and follows the existing se
   await expect(page.getByRole('status')).toContainText('Password Updated');
   expect(payload).toEqual({token:'reset-demo',password:'local-demo-only'});
   await expect(page).toHaveURL(/\/select-restaurant$/);
-  expect(await page.evaluate(()=>!!localStorage.getItem('foody_restaurant_token'))).toBe(true);
+  expect(await page.evaluate(()=>!!localStorage.getItem('foody_restaurant_portal_session'))).toBe(true);
 });
 
 for (const variant of [{locale:'fr',theme:'light',width:375,height:812},{locale:'he',theme:'dark',width:1440,height:1000}]) {
@@ -584,7 +584,7 @@ for (const variant of [{locale:'fr',theme:'light',width:375,height:812},{locale:
     fail=false;await page.locator('form button[type="submit"]').click();
     await expect(page.locator('main h1')).toBeVisible();await expect(page.locator('#setup-posPin')).toHaveCount(0);
     expect(payload).toEqual({token:'staff-demo',password:'local-demo-only',full_name:'Équipe démo',pos_pin:'123456'});
-    expect(await page.evaluate(()=>localStorage.getItem('foody_restaurant_token'))).toBeNull();
+    expect(await page.evaluate(()=>localStorage.getItem('foody_restaurant_portal_session'))).toBeNull();
     await expect(page.locator('.card button')).toHaveCount(0);
     await page.screenshot({path:testInfo.outputPath('setup-staff-ready.png'),fullPage:true,animations:'disabled'});
     expect(fixture.unhandled).toEqual([]);
@@ -621,7 +621,7 @@ test('owner setup reports an unavailable download without undoing successful act
   await expect(page.getByRole('heading',{name:'Tout est prêt !',exact:true})).toBeVisible();
   await expect(page.getByRole('status').filter({hasText:'Le lien de téléchargement'})).toBeVisible();
   await expect(page.getByRole('button',{name:'Aller au tableau de bord',exact:true})).toBeVisible();
-  expect(await page.evaluate(()=>!!localStorage.getItem('foody_restaurant_token'))).toBe(true);
+  expect(await page.evaluate(()=>!!localStorage.getItem('foody_restaurant_portal_session'))).toBe(true);
 });
 
 for (const variant of [{locale:'fr',theme:'light',width:375,height:812},{locale:'he',theme:'dark',width:1440,height:1000}]) {

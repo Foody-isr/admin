@@ -1,0 +1,44 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "8d71101deafce9704fb6fc05777fda44728453c8fe9fcc152ce85459f277563c",
+      "disposition": "no-user-impact",
+      "reason": "The first-login guides cover the changed browser credential and renewal. Restaurant API paths, business payloads, catalogue workflows and the authority of each user remain as reviewed.",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "delivery-dispatch",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions"
+      ],
+      "baseSha256": "1fdce10a70881a861d045d84882adfb2b7e262178beb3a3b7a4046c0fddd20db"
+    },
+    {
+      "path": "src/lib/auth-context.tsx",
+      "sha256": "5cb6fdca937565b9e021e05c7e260ec528fa5f06b2df856047ff1ca2c8de5872",
+      "disposition": "no-user-impact",
+      "reason": "The updated access guide covers session restoration and sign-out. This provider manages authentication state without changing restaurant workflows or their business fields.",
+      "features": [
+        "shared-runtime"
+      ],
+      "baseSha256": "79a01e15919cfc66bec22bc7579f9045981d8313d74caa0a6c52800e0508b0be"
+    },
+    {
+      "path": "src/lib/push.ts",
+      "sha256": "31bd1edf94c0b9eedafbf310c3c441cbaab6d57159e20c0e68701f12f7defae3",
+      "disposition": "no-user-impact",
+      "reason": "Push requests use the browser-bound reference for the same Foody API. The permission prompt, device registration, opt-out and notifications retain their existing behavior.",
+      "features": [
+        "shared-runtime"
+      ],
+      "baseSha256": "14dab883712d4a1e79d5e1e53e9127e35ca15354c94b1d23f12e731dfed765b7"
+    }
+  ]
+}

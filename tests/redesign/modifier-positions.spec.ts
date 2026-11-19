@@ -7,7 +7,7 @@ test('configure Number Cake positions for this article with explicit save', asyn
  Object.assign(fixture.items[0], { name: 'Number Cake', modifier_sets: [set], option_sets: [{ id: 1, name: 'Format', options: [{ id: 101, name: '1 caractère', is_active: true, price: 55 }, { id: 102, name: '2 caractères', is_active: true, price: 110 }] }] });
  const writes: unknown[] = [];
  await page.addInitScript(() => {
-  localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
+  localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
   localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Demo', role: 'owner', email: 'demo@foody.test' }));
   localStorage.setItem('foody_restaurant_ids', '[1]'); localStorage.setItem('foody-admin-locale', 'fr');
  });

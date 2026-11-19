@@ -1,3 +1,4 @@
+import { bindPortalSession, endPortalSession, isPortalSession, portalRequest } from './portal-session';
 import { checkedLoyaltyProgramState, checkedProgramAck, type PendingLoyaltyProgram } from './loyalty-program';
 import { isMFAChallenge, requireCompleteAuth, type MFAReply, type MFAPrompt, type MFAResponse } from './mfa';
 // Foody Admin API client — restaurant owner/manager portal
@@ -93,7 +94,8 @@ export async function getDeliveryMapConfig(restaurantId: number): Promise<{ prov
   if (!['google', 'geoapify', 'openstreetmap'].includes(config.provider) || typeof config.tile_url !== 'string') throw new Error('Map configuration unavailable');
   return config;
 }
-const TOKEN_KEY = 'foody_restaurant_token';
+const SESSION_KEY = 'foody_restaurant_portal_session';
+const LEGACY_TOKEN_KEY = 'foody_restaurant_token';
 const USER_KEY = 'foody_restaurant_user';
 const RIDS_KEY = 'foody_restaurant_ids';
 const REMEMBER_KEY = 'foody_remember';
@@ -2385,14 +2387,18 @@ function persistSession(token: string, user: User, restaurantIds: number[], reme
   localStorage.setItem(REMEMBER_KEY, remember ? '1' : '0');
   const store = remember ? localStorage : sessionStorage;
   const other = remember ? sessionStorage : localStorage;
-  [TOKEN_KEY, USER_KEY, RIDS_KEY].forEach((k) => other.removeItem(k));
-  store.setItem(TOKEN_KEY, token);
+  [SESSION_KEY, USER_KEY, RIDS_KEY].forEach((k) => other.removeItem(k));
+  if (!isPortalSession(token)) throw new Error('Invalid protected session');
+  store.setItem(SESSION_KEY, token);
   store.setItem(USER_KEY, JSON.stringify(user));
   store.setItem(RIDS_KEY, JSON.stringify(restaurantIds));
 }
 
 export function getToken(): string | null {
-  return readAuthValue(TOKEN_KEY);
+  if (typeof window === 'undefined') return null;
+  for (const storage of [localStorage, sessionStorage]) storage.removeItem(LEGACY_TOKEN_KEY);
+  const value = readAuthValue(SESSION_KEY);
+  return isPortalSession(value) ? value : null;
 }
 
 /** Milliseconds until the stored token's `exp` (negative if already expired),
@@ -2414,13 +2420,13 @@ export async function refreshToken(): Promise<string | null> {
   const user = getStoredUser();
   if (!token || !user) return null;
   try {
-    const res = await fetch(`${API_URL}/api/v1/auth/refresh`, {
+    const res = await portalRequest(API_URL, `${API_URL}/api/v1/auth/refresh`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) return null;
     const data = await res.json();
-    if (!data?.token) return null;
+    if (!isPortalSession(data?.token) || getToken() !== token) return null;
     const remember = readAuthValue(REMEMBER_KEY) !== '0';
     const claims = parseJwtClaims(data.token);
     const rids = (claims?.restaurant_ids as number[]) ?? getStoredRestaurantIds();
@@ -2618,7 +2624,8 @@ async function apiResponse(
   options?: RequestInit,
   retried = false,
 ): Promise<Response> {
-  const token = getToken();
+  const anonymous = /^\/api\/v1\/auth\/(login|setup-account|reset-password|webauthn\/login\/)/.test(path);
+  const token = anonymous ? null : getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -2626,7 +2633,7 @@ async function apiResponse(
     ...(options?.headers as Record<string, string>),
   };
 
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  const res = await portalRequest(API_URL, `${API_URL}${path}`, { ...options, headers });
   if (!res.ok) {
     // Auth endpoints (login, refresh, setup, reset) use 401 to mean "bad
     // credentials" — surface that to the caller instead of hijacking it.
@@ -2848,17 +2855,20 @@ export async function login(
     throw new Error('Access denied. Your account is not linked to any restaurant.');
   }
 
-  persistSession(data.token, data.user, restaurantIds, remember);
+  const session = await bindPortalSession(API_URL, data.token, remember);
+  persistSession(session, data.user, restaurantIds, remember);
 
-  return { token: data.token, user: data.user, restaurant_ids: restaurantIds };
+  return { token: session, user: data.user, restaurant_ids: restaurantIds };
 }
 
 export function logout() {
   if (typeof window === 'undefined') return;
-  [TOKEN_KEY, USER_KEY, RIDS_KEY, REMEMBER_KEY].forEach((k) => {
+  const session = getToken();
+  [SESSION_KEY, LEGACY_TOKEN_KEY, USER_KEY, RIDS_KEY, REMEMBER_KEY].forEach((k) => {
     localStorage.removeItem(k);
     sessionStorage.removeItem(k);
   });
+  if (session) return endPortalSession(API_URL, session);
 }
 
 export function getStoredUser(): User | null {
@@ -2918,9 +2928,10 @@ export async function resetPassword(input: {
   const claims = parseJwtClaims(data.token);
   const restaurantIds: number[] = (claims?.restaurant_ids as number[]) ?? [];
 
-  persistSession(data.token, data.user, restaurantIds, true);
+  const session = await bindPortalSession(API_URL, data.token, true);
+  persistSession(session, data.user, restaurantIds, true);
 
-  return { token: data.token, user: data.user, restaurant_ids: restaurantIds };
+  return { token: session, user: data.user, restaurant_ids: restaurantIds };
 }
 
 /** Complete account setup: set password, profile, restaurant details, and POS choice. */
@@ -2946,15 +2957,16 @@ export async function setupAccount(input: {
   const claims = parseJwtClaims(data.token);
   const restaurantIds: number[] = (claims?.restaurant_ids as number[]) ?? [];
 
-  persistSession(data.token, data.user, restaurantIds, true);
+  const session = await bindPortalSession(API_URL, data.token, true);
+  persistSession(session, data.user, restaurantIds, true);
 
-  return { token: data.token, user: data.user, restaurant_ids: restaurantIds };
+  return { token: session, user: data.user, restaurant_ids: restaurantIds };
 }
 
 function parseJwtClaims(token: string): Record<string, unknown> | null {
   try {
     const payload = token.split('.')[1];
-    return JSON.parse(atob(payload));
+    return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
   } catch {
     return null;
   }
@@ -3054,9 +3066,10 @@ export async function loginWithPasskey(remember = true, mfa?: MFAPrompt): Promis
   if (!canAccessAdmin(data.user, restaurantIds)) {
     throw new Error('Access denied. Your account is not linked to any restaurant.');
   }
-  persistSession(data.token, data.user, restaurantIds, remember);
+  const session = await bindPortalSession(API_URL, data.token, remember);
+  persistSession(session, data.user, restaurantIds, remember);
   markPasskeyOnDevice();
-  return { token: data.token, user: data.user, restaurant_ids: restaurantIds };
+  return { token: session, user: data.user, restaurant_ids: restaurantIds };
 }
 
 /** Lists the signed-in user's registered passkeys, newest first. */
@@ -3085,7 +3098,7 @@ export interface POSDownloads {
 
 /** Fetch POS download URLs from the server (public, no auth). */
 export async function getPosDownloads(): Promise<POSDownloads> {
-  const res = await fetch(`${API_URL}/api/v1/public/pos-downloads`);
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/public/pos-downloads`);
   if (!res.ok) return {};
   return res.json();
 }
@@ -4321,7 +4334,7 @@ export async function uploadMenuItemImage(restaurantId: number, itemId: number, 
   const form = new FormData();
   form.append('image', file);
   const token = getToken();
-  const res = await fetch(`${API_URL}/api/v1/menu/items/${itemId}/image?restaurant_id=${restaurantId}`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/menu/items/${itemId}/image?restaurant_id=${restaurantId}`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: form,
@@ -4338,7 +4351,7 @@ export async function uploadCategoryImage(restaurantId: number, categoryId: numb
   const form = new FormData();
   form.append('image', file);
   const token = getToken();
-  const res = await fetch(`${API_URL}/api/v1/menu/categories/${categoryId}/image?restaurant_id=${restaurantId}`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/menu/categories/${categoryId}/image?restaurant_id=${restaurantId}`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: form,
@@ -4355,7 +4368,7 @@ export async function uploadGroupImage(restaurantId: number, groupId: number, fi
   const form = new FormData();
   form.append('image', file);
   const token = getToken();
-  const res = await fetch(`${API_URL}/api/v1/menu/groups/${groupId}/image?restaurant_id=${restaurantId}`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/menu/groups/${groupId}/image?restaurant_id=${restaurantId}`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: form,
@@ -4888,7 +4901,7 @@ export async function importMenuAI(restaurantId: number, file: File): Promise<Ri
   const formData = new FormData();
   formData.append('file', file);
   const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
-  const res = await fetch(`${API_URL}/api/v1/menu/import?${params}`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/menu/import?${params}`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -5676,7 +5689,7 @@ export async function fetchOrderInvoicePdf(
 ): Promise<Blob> {
   const token = getToken();
   const qs = documentNumber != null ? `?document_number=${documentNumber}` : '';
-  const res = await fetch(`${API_URL}/api/v1/orders/${orderId}/invoice/pdf${qs}`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/orders/${orderId}/invoice/pdf${qs}`, {
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       'X-Restaurant-ID': String(restaurantId),
@@ -6460,7 +6473,7 @@ export async function uploadRestaurantLogo(restaurantId: number, file: File): Pr
   const token = getToken();
   const formData = new FormData();
   formData.append('image', file);
-  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/logo`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/restaurants/${restaurantId}/logo`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -6480,7 +6493,7 @@ export async function uploadRestaurantBackground(restaurantId: number, file: Fil
   const token = getToken();
   const formData = new FormData();
   formData.append('image', file);
-  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/background`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/restaurants/${restaurantId}/background`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -6500,7 +6513,7 @@ export async function uploadQrHeroImage(restaurantId: number, file: File): Promi
   const token = getToken();
   const formData = new FormData();
   formData.append('image', file);
-  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/qr-hero`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/restaurants/${restaurantId}/qr-hero`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -6520,7 +6533,7 @@ export async function uploadSectionImage(restaurantId: number, file: File): Prom
   const token = getToken();
   const formData = new FormData();
   formData.append('image', file);
-  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/sections/upload-image`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/restaurants/${restaurantId}/sections/upload-image`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -6541,7 +6554,7 @@ export async function uploadSectionVideo(restaurantId: number, file: File): Prom
   const token = getToken();
   const formData = new FormData();
   formData.append('video', file);
-  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/sections/upload-video`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/restaurants/${restaurantId}/sections/upload-video`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -6567,7 +6580,7 @@ export async function uploadWebsiteFont(
   const token = getToken();
   const formData = new FormData();
   formData.append('font', file);
-  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/website-fonts`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/restaurants/${restaurantId}/website-fonts`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -6590,7 +6603,7 @@ export async function deleteWebsiteFonts(restaurantId: number, keys: string[]): 
   const clean = keys.filter(Boolean);
   if (clean.length === 0) return;
   const token = getToken();
-  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/website-fonts`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/restaurants/${restaurantId}/website-fonts`, {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
@@ -6676,7 +6689,7 @@ export async function reorderWebsiteSections(
 }
 
 export async function listSiteStyles(): Promise<SiteStylePreset[]> {
-  const res = await fetch(`${API_URL}/api/v1/public/site-styles`);
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/public/site-styles`);
   if (!res.ok) return [];
   const data = await res.json();
   return data.styles || [];
@@ -6864,7 +6877,7 @@ export async function uploadStockItemImage(restaurantId: number, itemId: number,
   const form = new FormData();
   form.append('image', file);
   const token = getToken();
-  const res = await fetch(`${API_URL}/api/v1/stock/items/${itemId}/image?restaurant_id=${restaurantId}`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/stock/items/${itemId}/image?restaurant_id=${restaurantId}`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: form,
@@ -6978,7 +6991,7 @@ export async function importDelivery(restaurantId: number, file: File, lang?: st
   if (method) params.set('method', method);
   if (supplier) params.set('supplier', supplier);
   if (supplierId) params.set('supplier_id', String(supplierId));
-  const res = await fetch(`${API_URL}/api/v1/stock/import/delivery?${params}`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/stock/import/delivery?${params}`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -7033,7 +7046,7 @@ export async function importDeliveryStream(
   if (opts.lang) params.set('lang', opts.lang);
   if (opts.supplierId) params.set('supplier_id', String(opts.supplierId));
 
-  const res = await fetch(`${API_URL}/api/v1/stock/import/delivery/stream?${params}`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/stock/import/delivery/stream?${params}`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -7176,7 +7189,7 @@ export async function importDeliveryVoice(
   const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
   if (lang) params.set('lang', lang);
   if (supplierId) params.set('supplier_id', String(supplierId));
-  const res = await fetch(`${API_URL}/api/v1/stock/import/delivery/voice?${params}`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/stock/import/delivery/voice?${params}`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -7243,7 +7256,7 @@ export async function createImportDraft(
   const formData = new FormData();
   formData.append('input', JSON.stringify(input));
   if (file) formData.append('file', file);
-  const res = await fetch(`${API_URL}/api/v1/stock/import/drafts?restaurant_id=${restaurantId}`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/stock/import/drafts?restaurant_id=${restaurantId}`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -7337,7 +7350,7 @@ export async function importRecipesFromFile(restaurantId: number, file: File, la
   formData.append('file', file);
   const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
   if (lang) params.set('lang', lang);
-  const res = await fetch(`${API_URL}/api/v1/stock/import/recipes?${params}`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/stock/import/recipes?${params}`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -7868,7 +7881,7 @@ export async function streamAiChat(
   onDelta: (delta: string) => void,
 ): Promise<void> {
   const token = getToken();
-  const res = await fetch(`${API_URL}/api/v1/ai/chat/stream?restaurant_id=${restaurantId}`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/ai/chat/stream?restaurant_id=${restaurantId}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -8710,7 +8723,7 @@ export async function uploadRecipeStepImage(restaurantId: number, menuItemId: nu
   const token = getToken();
   const formData = new FormData();
   formData.append('image', file);
-  const res = await fetch(`${API_URL}/api/v1/recipes/items/${menuItemId}/steps/${stepId}/image`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/recipes/items/${menuItemId}/steps/${stepId}/image`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -8771,7 +8784,7 @@ export async function uploadPrepStepImage(restaurantId: number, prepItemId: numb
   const token = getToken();
   const formData = new FormData();
   formData.append('image', file);
-  const res = await fetch(`${API_URL}/api/v1/prep/items/${prepItemId}/steps/${stepId}/image`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/prep/items/${prepItemId}/steps/${stepId}/image`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -9046,7 +9059,7 @@ async function avivSalesImportRequest<T>(
   formData: FormData,
 ): Promise<T> {
   const token = getToken();
-  const res = await fetch(`${API_URL}/api/v1/stock/daily-reports/${reportId}/sales/import/aviv${suffix}`, {
+  const res = await portalRequest(API_URL, `${API_URL}/api/v1/stock/daily-reports/${reportId}/sales/import/aviv${suffix}`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -9206,7 +9219,7 @@ export async function searchGlobal(
     'X-Restaurant-ID': String(restaurantId),
   };
   const url = `${API_URL}/api/v1/restaurants/${restaurantId}/search?q=${encodeURIComponent(q)}&limit=5`;
-  const res = await fetch(url, { headers, signal });
+  const res = await portalRequest(API_URL, url, { headers, signal });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || body.message || `Search failed (${res.status})`);
@@ -9739,7 +9752,7 @@ export function deleteWhatsAppMedia(rid: number,id: string): Promise<{deleted: b
 }
 async function privateMetaFileRequest(rid: number,path: string,options?: RequestInit,retried=false): Promise<Response> {
  const token=getToken();
- const response=await fetch(`${API_URL}/api/v1/restaurants/${rid}/whatsapp/meta/${path}`,{...options,cache:'no-store',headers:{...(token?{Authorization:`Bearer ${token}`} : {}),'X-Restaurant-ID':String(rid)}});
+ const response=await portalRequest(API_URL, `${API_URL}/api/v1/restaurants/${rid}/whatsapp/meta/${path}`,{...options,cache:'no-store',headers:{...(token?{Authorization:`Bearer ${token}`} : {}),'X-Restaurant-ID':String(rid)}});
  if(response.status===401 && typeof window!=='undefined') {
   if(!retried && await refreshToken())return privateMetaFileRequest(rid,path,options,true);
   logout();window.location.href='/login';return new Promise<never>(()=>{});
@@ -9976,7 +9989,7 @@ export async function editMenuItemImage(
   if (input.prompt_id != null) form.append('prompt_id', String(input.prompt_id));
   if (input.prompt_override) form.append('prompt_override', input.prompt_override);
   const token = getToken();
-  const res = await fetch(
+  const res = await portalRequest(API_URL,
     `${API_URL}/api/v1/menu/items/${itemId}/ai-image/edit?restaurant_id=${restaurantId}`,
     {
       method: 'POST',
@@ -10184,7 +10197,7 @@ export async function geocodeAddress(
   const q = new URLSearchParams({ address, restaurant_id: String(restaurantId) });
   if (city) q.set('city', city);
   try {
-    const res = await fetch(`${API_URL}/api/v1/public/geocode?${q.toString()}`);
+    const res = await portalRequest(API_URL, `${API_URL}/api/v1/public/geocode?${q.toString()}`);
     if (!res.ok) return { found: false, unavailable: res.status >= 500 };
     return res.json();
   } catch {
@@ -10212,7 +10225,7 @@ export async function checkDeliverable(
     q.set('lng', String(position.lng));
   }
   try {
-    const res = await fetch(`${API_URL}/api/v1/public/delivery/check?${q.toString()}`);
+    const res = await portalRequest(API_URL, `${API_URL}/api/v1/public/delivery/check?${q.toString()}`);
     if (!res.ok) return { deliverable: false };
     return res.json();
   } catch {
@@ -11109,7 +11122,7 @@ export function getKitchenDataBackup(rid: number, id: string) { return apiFetch<
 export async function parseKitchenData(rid: number, files: File[], retried = false): Promise<{ rows: KitchenDataRow[]; skipped_files: number }> {
   const body = new FormData(); files.forEach(file => body.append('files', file));
   const token = getToken();
-  const res = await fetch(`${API_URL}${kitchenDataPath}/parse`, { method: 'POST', body, headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'X-Restaurant-ID': String(rid) } });
+  const res = await portalRequest(API_URL, `${API_URL}${kitchenDataPath}/parse`, { method: 'POST', body, headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'X-Restaurant-ID': String(rid) } });
   if (res.status === 401 && !retried && await refreshToken()) return parseKitchenData(rid, files, true);
   const result = await res.json();
   if (!res.ok) throw new ApiError(result.error || result.message || 'data_workspace_failed', res.status);
@@ -11405,7 +11418,7 @@ async function lifecycleScopedFetch(context: LifecycleActorContext, path: string
   signal?.addEventListener('abort', abort, { once: true });
   if (signal?.aborted) controller.abort();
   try {
-    const response = await fetch(`${API_URL}/api/v1/orders/lifecycle-v2${path}`, {
+    const response = await portalRequest(API_URL, `${API_URL}/api/v1/orders/lifecycle-v2${path}`, {
       method: input === undefined ? 'GET' : 'POST', cache: 'no-store', credentials: 'omit', redirect: 'error', signal: controller.signal,
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${context.token}`, 'X-Restaurant-ID': String(context.restaurant_id) },
       ...(input === undefined ? {} : { body: JSON.stringify(input) }),
@@ -11615,7 +11628,7 @@ async function resolveMFASignIn(reply: MFAReply, prompt?: MFAPrompt, baseURL = A
   if (!isMFAChallenge(reply)) return requireCompleteAuth(reply);
   if (!prompt || !reply.challenge) throw new Error('Second-factor sign-in required');
   return prompt(reply, async (code) => {
-    const response = await fetch(`${baseURL}/api/v1/auth/mfa/verify`, {
+    const response = await portalRequest(API_URL, `${baseURL}/api/v1/auth/mfa/verify`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ challenge: reply.challenge, code }),
       credentials: 'omit', cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(15_000),
@@ -11631,9 +11644,10 @@ export function getAuthSecurityStatus(): Promise<{ enabled: boolean; mfa_verifie
 }
 /** Confirms a replacement before overwriting the stored session. */
 export async function replaceAuthenticator(password: string, prompt: MFAPrompt): Promise<void> {
-  const remember = typeof window !== 'undefined' && localStorage.getItem(TOKEN_KEY) !== null;
+  const remember = typeof window !== 'undefined' && localStorage.getItem(SESSION_KEY) !== null;
   const reply = await apiFetch<MFAReply>('/api/v1/auth/mfa/replace', undefined, { method: 'POST', body: JSON.stringify({ password }) });
   const data = await resolveMFASignIn(reply, prompt);
   const ids = (parseJwtClaims(data.token)?.restaurant_ids as number[]) ?? [];
-  persistSession(data.token, data.user, ids, remember);
+  const session = await bindPortalSession(API_URL, data.token, remember);
+  persistSession(session, data.user, ids, remember);
 }

@@ -34,7 +34,7 @@ async function installCustomers(page:Page,options:{locale?:string;theme?:string;
  const reads:{path:string;restaurant:number;query:string}[]=[];
  const faults={list:0,profile:0,profileSave:0,trustedGet:0,trustedPost:0,trustedDelete:0,duplicates:0,dismissNth:0,merge:0,detach:0,refreshAfterCreate:0,refreshAfterMerge:0,refreshAfterDetach:0,phoneSave:0,refreshAfterPhone:0,writeDelay:0,searchDelay:0,profileDelay:0};
  let dismisses=0;let total=customers.length;
- await page.addInitScript(({locale,theme})=>{localStorage.setItem('foody_restaurant_token','isolated-ui-fixture');localStorage.setItem('foody_restaurant_user',JSON.stringify({id:1,full_name:'Équipe démo',role:'owner',email:'demo@foody.test'}));localStorage.setItem('foody_restaurant_ids','[1,2]');localStorage.setItem('foody-admin-locale',locale);localStorage.setItem('foody_admin_theme',theme);},{locale:options.locale??'fr',theme:options.theme??'light'});
+ await page.addInitScript(({locale,theme})=>{localStorage.setItem('foody_restaurant_portal_session','fp1p.e30.fixture.00');localStorage.setItem('foody_restaurant_user',JSON.stringify({id:1,full_name:'Équipe démo',role:'owner',email:'demo@foody.test'}));localStorage.setItem('foody_restaurant_ids','[1,2]');localStorage.setItem('foody-admin-locale',locale);localStorage.setItem('foody_admin_theme',theme);},{locale:options.locale??'fr',theme:options.theme??'light'});
  await page.route('**/api/v1/**',async route=>{
   const request=route.request(),url=new URL(request.url()),path=url.pathname,method=request.method(),body=request.postDataJSON()??{},restaurant=Number(request.headers()['x-restaurant-id'])||1;
   const send=(json:unknown,status=200)=>route.fulfill({json,status});const fail=()=>send({error:'Échec synthétique clients'},503);

@@ -21,7 +21,7 @@ async function install(page: Page, options: { locale?: string; permissions?: str
   const faults = { templateLoad: 0, templateSave: 0, templateReset: 0, translation: 0, keyLoad: 0, keyDelete: 0, keyBegin: 0, keyFinish: 0 };
   const control = { saveGate: null as Promise<void> | null, keyGate: null as Promise<void> | null, failRefreshAfterWrite: false };
   await page.addInitScript(({ locale, unsupported }) => {
-    localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Équipe démo', role: 'owner', email: 'demo@foody.test' }));
     localStorage.setItem('foody_restaurant_ids', '[1,2]');
     localStorage.setItem('foody-admin-locale', locale);
@@ -322,7 +322,7 @@ test('security removing the last key clears only the local passkey hint', async 
   await page.getByRole('alertdialog').getByRole('button', { name: 'Supprimer', exact: true }).click();
   await expect(page.getByRole('status')).toContainText('Clé d’accès supprimée');
   expect(await page.evaluate(() => localStorage.getItem('foody.passkey.device'))).toBeNull();
-  expect(await page.evaluate(() => localStorage.getItem('foody_restaurant_token'))).toBe('isolated-ui-fixture');
+  expect(await page.evaluate(() => localStorage.getItem('foody_restaurant_portal_session'))).toBe('isolated-ui-fixture');
   expect(state.writes).toHaveLength(1);
 });
 

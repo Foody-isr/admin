@@ -7,7 +7,7 @@ import { normalizeSiteColors } from "../../src/lib/website-v3/site-colors";
 test("category styles and sticky choices survive preview, reload and publication on desktop and mobile", async ({ page, context, request }) => {
   test.setTimeout(240_000);
   await page.addInitScript(() => {
-    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_portal_session", "fp1p.e30.fixture.00");
     localStorage.setItem("foody_restaurant_user", JSON.stringify({ id: 1, full_name: "Demo", role: "manager", email: "demo@foody.test" }));
     localStorage.setItem("foody_restaurant_ids", "[1]");
     localStorage.setItem("foody-admin-locale", "fr");

@@ -15,7 +15,7 @@ for (const mobile of [false, true]) {
       orders: [{ ...row, cells: { '1': quantity }, units: { '1': quantity } }],
     });
     await page.addInitScript(() => {
-      localStorage.setItem('foody_restaurant_token', 'synthetic-ui-session');
+      localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
       localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Démo', role: 'manager' }));
       localStorage.setItem('foody_restaurant_ids', '[1]');
       localStorage.setItem('foody-admin-locale', 'fr');

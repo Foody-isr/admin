@@ -10,7 +10,7 @@ test('map settings track tenant usage, preserve caps and contact Foody for upgra
   const foodyOffer = { version: 1, status: 'planned', currency: 'ILS', monthly_price: 149, per_establishment: true, excluding_tax: true, optimization_credits: 500, single_stop_credits: 1, fleet_stop_credits: 3, map_tiles: 10000, geocoding_requests: 500, route_requests: 500, automatic_billing: false };
   let reads = 0;
   await page.addInitScript(() => {
-    localStorage.setItem('foody_restaurant_token', 'isolated-fixture');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, role: 'owner', full_name: 'Équipe démo' }));
     localStorage.setItem('foody_restaurant_ids', '[1]');
     if (!localStorage.getItem('foody-admin-locale')) localStorage.setItem('foody-admin-locale', 'fr');

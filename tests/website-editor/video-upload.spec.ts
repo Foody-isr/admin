@@ -7,7 +7,7 @@ import type { DraftStatePayload } from "../../src/lib/website-v3/types";
 test("video files can be uploaded, replaced, saved, published and removed", async ({ page, context, request }) => {
   test.setTimeout(240_000);
   await page.addInitScript(() => {
-    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_portal_session", "fp1p.e30.fixture.00");
     localStorage.setItem("foody_restaurant_user", JSON.stringify({ id: 1, full_name: "Demo", role: "manager", email: "demo@foody.test" }));
     localStorage.setItem("foody_restaurant_ids", "[1]");
     localStorage.setItem("foody-admin-locale", "fr");
@@ -37,7 +37,7 @@ test("video files can be uploaded, replaced, saved, published and removed", asyn
     uploads++;
     const upload = route.request();
     expect(upload.method()).toBe("POST");
-    expect(upload.headers()["authorization"]).toBe("Bearer isolated-ui-fixture");
+    expect(upload.headers()["authorization"]).toBe("Bearer fp1p.e30.fixture.00");
     expect(upload.headers()["x-restaurant-id"]).toBe("1");
     expect(upload.headers()["content-type"]).toContain("multipart/form-data; boundary=");
     const multipart = upload.postDataBuffer()!.toString("latin1");

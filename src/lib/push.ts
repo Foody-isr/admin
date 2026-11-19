@@ -1,3 +1,4 @@
+import { portalRequest } from './portal-session';
 // foodyadmin/src/lib/push.ts
 //
 // Client-side helpers for the foodyadmin Web Push subscription flow.
@@ -9,9 +10,7 @@
 // `getEnvironment` helper exposes that distinction so the UI can guide the
 // user to "Add to Home Screen" before offering the toggle.
 
-import { getToken } from './api';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
+import { getToken, API_URL } from './api';
 
 // A browser has one subscription. Serialize manual changes and background repair
 // so a slow repair cannot recreate a row after a confirmed local disable.
@@ -99,7 +98,7 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
 
 async function authedFetch(path: string, restaurantId: number, init?: RequestInit) {
   const token = getToken();
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await portalRequest(API_URL, `${API_URL}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',

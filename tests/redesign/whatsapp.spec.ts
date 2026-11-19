@@ -28,7 +28,7 @@ async function install(page: Page, options: { locale?: string; connected?: boole
     gate: null as Promise<void> | null, senderGate: null as Promise<void> | null,
   };
   await page.addInitScript(({ locale, sdkFailure }) => {
-    localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Équipe démo', role: 'owner', email: 'demo@foody.test' }));
     localStorage.setItem('foody_restaurant_ids', '[1,2]');
     localStorage.setItem('foody-admin-locale', locale);
@@ -760,7 +760,7 @@ test('read-only staff preview a private photo using scoped headers without editi
  Object.assign(state.control.meta.connection!,{order_recap_name:'order_recap',order_recap_language:'fr',message_attachments:{order_recap:{source:'fixed',asset_id:asset.id}}});
  const reads:string[]=[];
  await page.route('**/whatsapp/meta/media**',async route=>{
-  const request=route.request();expect(request.method()).toBe('GET');expect(request.headers()['x-restaurant-id']).toBe('1');expect(request.headers()['authorization']).toBe('Bearer isolated-ui-fixture');
+  const request=route.request();expect(request.method()).toBe('GET');expect(request.headers()['x-restaurant-id']).toBe('1');expect(request.headers()['authorization']).toBe('Bearer fp1p.e30.fixture.00');
   if(new URL(request.url()).pathname.endsWith(asset.id)){reads.push(asset.id);return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAHgAAAA8CAIAAAAiz+n/AAABrUlEQVR4nO3au1HGQAwE4L8GqqEEhiqICCiNltwBOSmGGbLzvU/Wrk7ybHj2nL7ZwK/H8fUTUcgDvgMnCeiA3isBHdB7xST00+szfA8bQv+x9gS+T6vQnb5WxBmhm5TneZrj5oIusfYc5NxE0NPEdW74XFzQ68QVbvh0LNCCxCVu+Ix46JuU2azB0LcqU1kjoRWUeaxh0GrKJNZ4aAXlxNoRdLPO3x8vpaxDQ6zB0KPKUtYuoOt1biqvWANLjYSeVhax9gs9pDxt7QVaqs7mSh3QAR3QbNBvn+/XBLQkdJa4yR3Qwsol6/2hFx8IpaAh1lYb3amctd6/0XXoIeuAXoLutw7oVege67NwSxfQY9B16/8FAS0D3TwCWsl6GtrL2zsp6H7r5CyP0Dqlziq7gD4US52s9/XN8JD+qaOH+PT5FfyI/zr0oXWssXVGQmtaw5XB0DrWDMp46LutSZQpoO+z5lFmgU6s17mTq8GnI4K+Ws9xXy8Cn4sOOmvdz509Fz4RKXSFO6FvroFPYQC6k9sKMTv0qDh8n+ahs/TwPbiAtpiADui9EtABvVd+ASar4UoSfz9lAAAAAElFTkSuQmCC','base64')})}
   return route.fulfill({json:{media:[asset]}});
  });
@@ -781,7 +781,7 @@ test('Meta image is fetched automatically and displayed after an external templa
  const reads:string[]=[];
  await page.route('**/whatsapp/meta/templates/700/image', async route => {
   expect(route.request().method()).toBe('GET');expect(route.request().headers()['x-restaurant-id']).toBe('1');
-  expect(route.request().headers()['authorization']).toBe('Bearer isolated-ui-fixture');reads.push(route.request().url());
+  expect(route.request().headers()['authorization']).toBe('Bearer fp1p.e30.fixture.00');reads.push(route.request().url());
   return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAHgAAAA8CAIAAAAiz+n/AAABrUlEQVR4nO3au1HGQAwE4L8GqqEEhiqICCiNltwBOSmGGbLzvU/Wrk7ybHj2nL7ZwK/H8fUTUcgDvgMnCeiA3isBHdB7xST00+szfA8bQv+x9gS+T6vQnb5WxBmhm5TneZrj5oIusfYc5NxE0NPEdW74XFzQ68QVbvh0LNCCxCVu+Ix46JuU2azB0LcqU1kjoRWUeaxh0GrKJNZ4aAXlxNoRdLPO3x8vpaxDQ6zB0KPKUtYuoOt1biqvWANLjYSeVhax9gs9pDxt7QVaqs7mSh3QAR3QbNBvn+/XBLQkdJa4yR3Qwsol6/2hFx8IpaAh1lYb3amctd6/0XXoIeuAXoLutw7oVege67NwSxfQY9B16/8FAS0D3TwCWsl6GtrL2zsp6H7r5CyP0Dqlziq7gD4US52s9/XN8JD+qaOH+PT5FfyI/zr0oXWssXVGQmtaw5XB0DrWDMp46LutSZQpoO+z5lFmgU6s17mTq8GnI4K+Ws9xXy8Cn4sOOmvdz509Fz4RKXSFO6FvroFPYQC6k9sKMTv0qDh8n+ahs/TwPbiAtpiADui9EtABvVd+ASar4UoSfz9lAAAAAElFTkSuQmCC','base64')});
  });
  await page.route('**/whatsapp/meta/media',route=>route.fulfill({json:{media:[]}}));

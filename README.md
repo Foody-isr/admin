@@ -726,7 +726,7 @@ src/
 - Login at `/login` with email + password
 - JWT returned by `POST /api/v1/auth/login`
 - Role must be `owner` or `manager` — any other role is rejected at login
-- Token stored in `localStorage` under `foody_restaurant_token`
+- The API binds the encrypted session reference to a Secure HttpOnly cookie. Remember me controls persistence. Existing sessions require a fresh sign-in after this upgrade.
 - All API calls send `Authorization: Bearer <token>` and `X-Restaurant-ID: <id>` header
 - Multi-restaurant support: `restaurant_ids` array in JWT payload drives the restaurant picker
 

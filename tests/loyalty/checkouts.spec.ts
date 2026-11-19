@@ -11,7 +11,7 @@ async function setup(page: Page, options: { locale?: string; readOnly?: boolean;
   ]);
   const posts: Record<string, any>[] = [];
   await page.addInitScript(({ locale }) => {
-    localStorage.setItem('foody_restaurant_token', 'isolated-loyalty-fixture');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     if (!localStorage.getItem('foody_restaurant_user')) localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Synthetic operator', role: 'owner' }));
     localStorage.setItem('foody_restaurant_ids', '[1,2]');
     localStorage.setItem('foody-admin-locale', locale);

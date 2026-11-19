@@ -6,7 +6,7 @@ async function install(page: Page, locale = 'en') {
   const prepared = {available_until:'2030-10-11',quantity:null as number|null, revision:0, conflict:false, writes:[] as unknown[]};
   await page.addInitScript(
     ({ locale }) => {
-      localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
+      localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
       localStorage.setItem(
         'foody_restaurant_user',
         JSON.stringify({

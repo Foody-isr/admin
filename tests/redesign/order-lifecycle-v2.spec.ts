@@ -16,7 +16,7 @@ async function install(page:Page, options:{parent?:boolean;uncertain?:boolean;lo
  Object.assign(fixture.orders[0],{status:'served',payment_status:'paid',lifecycle_v2:value});
  await page.addInitScript(locale=>{
   const payload=btoa(JSON.stringify({sub:'user-auth',user_id:1,exp:4102444800}));
-  localStorage.setItem('foody_restaurant_token',`synthetic.${payload}.signature`);localStorage.setItem('foody_restaurant_user',JSON.stringify({id:1,full_name:'Synthetic',role:'owner'}));localStorage.setItem('foody_restaurant_ids','[1]');localStorage.setItem('foody-admin-locale',locale);
+  localStorage.setItem('foody_restaurant_portal_session',`fp1p.${payload}.fixture.00`);localStorage.setItem('foody_restaurant_user',JSON.stringify({id:1,full_name:'Synthetic',role:'owner'}));localStorage.setItem('foody_restaurant_ids','[1]');localStorage.setItem('foody-admin-locale',locale);
  },options.locale??'fr');
  await page.route('**/*',route=>['localhost','127.0.0.1','square-fonts-production-f.squarecdn.com'].includes(new URL(route.request().url()).hostname)?route.fallback():route.abort());
  await page.route('**/api/v1/**',async route=>{

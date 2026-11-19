@@ -11,7 +11,7 @@ async function install(page:Page,locale='fr',theme='light',permissions?:string[]
  policy={...policy,...options.initialPolicy};
  const writes:FullServiceSettings[]=[];
  await page.addInitScript(({locale,theme,restaurantIds})=>{
-  localStorage.setItem('foody_restaurant_token','isolated-ui-fixture');localStorage.setItem('foody_restaurant_user',JSON.stringify({id:1,full_name:'Demo',role:'owner',email:'demo@foody.test'}));localStorage.setItem('foody_restaurant_ids',JSON.stringify(restaurantIds));localStorage.setItem('foody-admin-locale',locale);localStorage.setItem('foody_admin_theme',theme);
+  localStorage.setItem('foody_restaurant_portal_session','fp1p.e30.fixture.00');localStorage.setItem('foody_restaurant_user',JSON.stringify({id:1,full_name:'Demo',role:'owner',email:'demo@foody.test'}));localStorage.setItem('foody_restaurant_ids',JSON.stringify(restaurantIds));localStorage.setItem('foody-admin-locale',locale);localStorage.setItem('foody_admin_theme',theme);
  },{locale,theme,restaurantIds:options.restaurantIds??[1]});
  await page.route('**/*',route=>['localhost','127.0.0.1','square-fonts-production-f.squarecdn.com'].includes(new URL(route.request().url()).hostname)?route.fallback():route.abort());
  await page.route('**/api/v1/**',async route=>{

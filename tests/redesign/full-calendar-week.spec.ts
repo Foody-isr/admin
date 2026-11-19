@@ -6,7 +6,7 @@ async function install(page: Page, weekStart: number) {
   const requests: URL[] = [];
   await page.clock.install({ time: new Date('2026-11-02T12:00:00Z') });
   await page.addInitScript(() => {
-    localStorage.setItem('foody_restaurant_token', 'synthetic-week-session');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Démo', role: 'owner' }));
     localStorage.setItem('foody_restaurant_ids', '[1]');
     localStorage.setItem('foody-admin-locale', 'fr');

@@ -6,7 +6,7 @@ async function install(page: Page, locale = 'fr', readOnly = false) {
   const countries: Record<number, string> = { 1: 'IL', 2: 'FR' };
   const control = { failSave: false, countries, writes: [] as { body: Record<string, unknown>; restaurant: string; id: number }[] };
   await page.addInitScript(({ locale }) => {
-    localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Country fixture', role: 'owner', email: 'demo@foody.test' }));
     localStorage.setItem('foody_restaurant_ids', '[1,2]');
     localStorage.setItem('foody-admin-locale', locale);

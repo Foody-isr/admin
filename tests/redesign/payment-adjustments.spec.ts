@@ -19,7 +19,7 @@ async function setup(page: Page, { locale = 'fr', voidable = false, restricted =
       currency: 'ILS', reason: 'Synthetic uncertain cancellation', state: 'unknown', actor_user_id: 1, created_at: new Date().toISOString() });
   }
   await page.addInitScript(({ locale }) => {
-    localStorage.setItem('foody_restaurant_token', 'isolated-refund-fixture');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Synthetic staff', role: 'owner' }));
     localStorage.setItem('foody_restaurant_ids', '[1,2]');
     localStorage.setItem('foody-admin-locale', locale);

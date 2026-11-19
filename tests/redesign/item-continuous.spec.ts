@@ -10,7 +10,7 @@ async function install(
     Object.assign(fixture.items[0], { item_type: 'combo', combo_steps: [] });
   await page.addInitScript(
     ({ locale }) => {
-      localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
+      localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
       localStorage.setItem(
         'foody_restaurant_user',
         JSON.stringify({

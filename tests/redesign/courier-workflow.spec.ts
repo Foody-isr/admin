@@ -33,7 +33,7 @@ async function install(page: Page, options: { active?: boolean; unopened?: boole
   if (options.missing) Object.assign(state.routes[0].stops[0], { lat: null, lng: null, needs_geocode: true });
   page.on('pageerror', error => state.errors.push(error.message));
   await page.addInitScript(({ locale, role }) => {
-    localStorage.setItem('foody_restaurant_token', 'isolated-ui-fixture');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 91, full_name: 'Livreur démo', role }));
     localStorage.setItem('foody_restaurant_ids', '[1,2]');
     localStorage.setItem('foody-admin-locale', locale);

@@ -63,6 +63,7 @@ export function createFixture({ empty = false, denied = false, fail = false, per
     const u=new URL(url,'http://127.0.0.1');const p=u.pathname.replace(/\/$/,'');const q=u.searchParams;
     if(fail && !['/api/v1/users/me','/api/v1/restaurants/1'].includes(p)) return {status:503,json:{error:'Fixture unavailable'}};
     if(method==='OPTIONS') return {status:204};
+    if(p==='/api/v1/auth/security' && method==='GET') return {json:{enabled:true,mfa_verified:true}};
     if(method!=='GET') {
       writes.push(p);
       if(/^\/api\/v1\/menu\/items\/\d+\/ai-image\/generate$/.test(p)&&method==='POST') return {json:{generation_id:71,image_b64:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==',rendered_prompt:body.prompt_override}};
@@ -161,6 +162,10 @@ export function createFixture({ empty = false, denied = false, fail = false, per
         const staffInvite=body.token==='staff-demo';
         const claims=Buffer.from(JSON.stringify({restaurant_ids:[1,2],exp:Math.floor(Date.now()/1000)+86400})).toString('base64');
         return {json:{token:`fixture.${claims}.not-a-signature`,user:{id:1,full_name:body.full_name??'Équipe démo',role:staffInvite?'waiter':'owner',email:'demo@foody.test'}}};
+      }
+      if(p==='/api/v1/auth/portal-session') {
+        const claims=Buffer.from(JSON.stringify({sub:'user-auth',user_id:1,restaurant_ids:[1,2],exp:Math.floor(Date.now()/1000)+86400})).toString('base64url');
+        return {json:{session:`fp1${body.remember?'p':'s'}.${claims}.fixture.00`}};
       }
       if(p==='/api/v1/auth/login') {
         if(body.email!=='demo@foody.test' || body.password!=='demo-local') return {status:401,json:{error:'Identifiants de démonstration incorrects'}};

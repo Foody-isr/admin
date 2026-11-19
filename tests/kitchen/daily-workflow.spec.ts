@@ -55,7 +55,7 @@ async function mockKitchen(
     priority: "high",
   };
   await page.addInitScript(() => {
-    localStorage.setItem("foody_restaurant_token", "mock-kitchen-session");
+    localStorage.setItem("foody_restaurant_portal_session", "fp1p.e30.fixture.00");
     localStorage.setItem(
       "foody_restaurant_user",
       JSON.stringify({ id: 1, full_name: "Test chef", role: "manager" }),

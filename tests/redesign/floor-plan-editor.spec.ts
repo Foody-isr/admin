@@ -6,7 +6,7 @@ async function install(page: Page, { dark = false, locale = 'fr', legacyApi = fa
     placements:tables.slice(0,8).map((table,i) => ({id:i+1,floor_plan_id:16,table_id:table.id,table,x:1+i%4*7.2,y:1+Math.floor(i/4)*13,width:6.25,height:10.875,shape:'square',rotation:0,geometry_version:2})), decorations:[] };
   const writes: any[] = [];
   await page.addInitScript(({dark,locale}) => {
-    localStorage.setItem('foody_restaurant_token','isolated-ui-fixture');
+    localStorage.setItem('foody_restaurant_portal_session','fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user',JSON.stringify({id:1,full_name:'Équipe démo',role:'owner',email:'demo@foody.test'}));
     localStorage.setItem('foody_restaurant_ids','[1]');
     localStorage.setItem('foody-admin-locale',locale);

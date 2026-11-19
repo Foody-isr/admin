@@ -8,7 +8,7 @@ test("the order header controls its fulfillment bar and leaves space for categor
   test.skip(process.env.FOODY_HEADER_CHOICES !== "1", "Requires the isolated pickup and delivery fixture.");
   test.setTimeout(240_000);
   await page.addInitScript(() => {
-    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_portal_session", "fp1p.e30.fixture.00");
     localStorage.setItem("foody_restaurant_user", JSON.stringify({ id: 1, full_name: "Demo", role: "manager", email: "demo@example.invalid" }));
     localStorage.setItem("foody_restaurant_ids", "[1]");
     localStorage.setItem("foody-admin-locale", "fr");
@@ -154,7 +154,7 @@ test("the order header controls its fulfillment bar and leaves space for categor
 test("order mode separates the published format, screen appearance and shared sign-in invitation", async ({ page, request, context }) => {
   test.skip(process.env.FOODY_HEADER_CHOICES !== "1", "Requires the isolated pickup and delivery fixture.");
   await page.addInitScript(() => {
-    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_portal_session", "fp1p.e30.fixture.00");
     localStorage.setItem("foody_restaurant_user", JSON.stringify({ id: 1, full_name: "Demo", role: "manager", email: "demo@example.invalid" }));
     localStorage.setItem("foody_restaurant_ids", "[1]");
     localStorage.setItem("foody-admin-locale", "fr");
@@ -244,7 +244,7 @@ test("order mode separates the published format, screen appearance and shared si
 test("mobile order header settings preview and save independently of the product layout", async ({ page, request, context }) => {
   test.skip(process.env.FOODY_HEADER_CHOICES !== "1", "Requires the isolated pickup and delivery fixture.");
   await page.addInitScript(() => {
-    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_portal_session", "fp1p.e30.fixture.00");
     localStorage.setItem("foody_restaurant_user", JSON.stringify({id:1, full_name:"Demo", role:"manager", email:"demo@foody.test"}));
     localStorage.setItem("foody_restaurant_ids", "[1]");
     localStorage.setItem("foody-admin-locale", "fr");
@@ -297,7 +297,7 @@ test("mobile order header settings preview and save independently of the product
 test("service modal colors survive preview, reload and publication; desktop languages use the existing selector", async ({ page, request, context }) => {
   test.setTimeout(240_000);
   await page.addInitScript(() => {
-    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_portal_session", "fp1p.e30.fixture.00");
     localStorage.setItem("foody_restaurant_user", JSON.stringify({id:1, full_name:"Demo", role:"manager", email:"demo@foody.test"}));
     localStorage.setItem("foody_restaurant_ids", "[1]");
     localStorage.setItem("foody-admin-locale", "fr");
@@ -370,7 +370,7 @@ test("service modal colors survive preview, reload and publication; desktop lang
 
 test("service colors edit independently, survive publication, and the availability filter fits in LTR and RTL", async ({ page, request, context }) => {
   await page.addInitScript(() => {
-    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
+    localStorage.setItem("foody_restaurant_portal_session", "fp1p.e30.fixture.00");
     localStorage.setItem("foody_restaurant_user", JSON.stringify({id: 1, full_name: "Demo", role: "manager", email: "demo@foody.test"}));
     localStorage.setItem("foody_restaurant_ids", "[1]");
     localStorage.setItem("foody-admin-locale", "fr");

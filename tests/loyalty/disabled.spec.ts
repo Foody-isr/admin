@@ -4,7 +4,7 @@ import { createFixture } from '../redesign/fixtures.mjs';
 test('default build flag keeps navigation and direct route unavailable without loyalty API calls', async ({ page }) => {
   const fixture = createFixture(); let calls = 0;
   await page.addInitScript(() => {
-    localStorage.setItem('foody_restaurant_token', 'isolated-disabled-fixture');
+    localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Synthetic', role: 'owner' }));
     localStorage.setItem('foody_restaurant_ids', '[1]'); localStorage.setItem('foody-admin-locale', 'fr');
   });
