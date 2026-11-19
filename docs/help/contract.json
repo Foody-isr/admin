@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "5a4a40fc2787e943d8e9616b2b9ce82b585e215f",
-  "documentationRevision": "95f72b8674ff17d0c5a48a72148e072f70f5a03c296ef31d4e8aeb7752fac014",
+  "documentationRef": "9cc3b3a9856908b26133eab2b772b74a9b50914a",
+  "documentationRevision": "033fa6b216d50f51149603faacad9b79de7e1ba71e7405c74a89975725411284",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -145,15 +145,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/account/subscription.mdx",
-          "sha256": "e8a693beea7492a18cceafba490739646af3bc277e943e2b4468a6c75cecc187"
+          "sha256": "77226d14c96a204fccf41144db5bec8dcc182d6d99fdf3e374f6dd424cb646d1"
         },
         "fr": {
           "path": "src/content/help/fr/account/subscription.mdx",
-          "sha256": "58265d19dc9bbb14efe9dc8e518803d34901ca83d31a841696e7c144eb625676"
+          "sha256": "d09ff7ef0a5149cf6aea0154184bb6f933114e85549c413a5055addd5f475f92"
         },
         "he": {
           "path": "src/content/help/he/account/subscription.mdx",
-          "sha256": "a0692d18687df11e64b742e6b167beebf9cfa2ff95666de1e54de5d0b757968b"
+          "sha256": "fff7d5b4c252050ab5beab21b326e046f972b3e39938f164f8d5dbfed545919b"
         }
       }
     },
@@ -164,15 +164,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/foody-billing-sandbox.md",
-          "sha256": "a8f940276289256a0d9155d1b06e447632b705659dfe0ed21501dea4d9afbfcc"
+          "sha256": "fbc966b06be214fa1856bce22a158ec2c6fa79e50458cf20ede704cbbb721d45"
         },
         "fr": {
           "path": "docs/help/internal/fr/foody-billing-sandbox.md",
-          "sha256": "778313a449b0a60c215e7f403ab680c6dd1494f59d1c68bdc78ac9c2253df18d"
+          "sha256": "1f68829a7be25b2d5dbb2af7a2429b5beb5ca492216c47099f2ff796cebaf403"
         },
         "he": {
           "path": "docs/help/internal/he/foody-billing-sandbox.md",
-          "sha256": "d540141608bcc4d32629f09209181b0e7e0de327fe6aea1066df80c5e36e03a8"
+          "sha256": "449350e2b611cc862887d6313e3308622cec83b5e0c7461fe57685c7631553af"
         }
       }
     },
@@ -2234,13 +2234,19 @@
       ]
     },
     "src/app/[restaurantId]/billing/PrivateBilling.tsx": {
-      "sha256": "b92903e46de38afa980d28af97889f7d3df52240dbe161e25009528123d338a7",
+      "sha256": "08447bcb18a7ad06918e5006dba9ddc5e74daadfa7d6e312c862d23ed344426c",
       "features": [
         "foody-billing-sandbox"
       ]
     },
     "src/app/[restaurantId]/billing/SubscriptionAdditions.tsx": {
       "sha256": "b8b94e6d7c238855ef2319c4a288f4d3ece8287f75f160de5a822b99a91ba79a",
+      "features": [
+        "foody-billing-sandbox"
+      ]
+    },
+    "src/app/[restaurantId]/billing/SubscriptionDocuments.tsx": {
+      "sha256": "48c1612d5c76f0141cd65eaa912f7a33c40843d4d841d053ccdc279d2f3ec7a5",
       "features": [
         "foody-billing-sandbox"
       ]
@@ -6674,7 +6680,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "89839bb0e7d82905d0c6ab778c3598743bced951c602842193a43a0fd8c6510c",
+      "sha256": "7c5834011d8eea00f28842c5ad0d155a7f6410f0dfc03be96625d773eb626ab8",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -8493,6 +8499,19 @@
         "loading"
       ],
       "actions": []
+    },
+    {
+      "id": "foodyadmin:src/app/[restaurantId]/billing/SubscriptionDocuments.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/app/[restaurantId]/billing/SubscriptionDocuments.tsx",
+      "line": 1,
+      "features": [
+        "foody-billing-sandbox"
+      ],
+      "labels": [],
+      "actions": [
+        "saveBlob"
+      ]
     },
     {
       "id": "foodyadmin:src/app/[restaurantId]/billing/page.tsx:next-page:1",
@@ -23576,6 +23595,16 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:147",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 147,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.is_visible"
+    },
+    {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:694",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
@@ -25874,16 +25903,6 @@
         "website-qr-customize-your-site"
       ],
       "field": "section.delete"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:147",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 147,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.is_visible"
     },
     {
       "id": "foodyadmin:src/components/website/CheckoutEditor.tsx:ui-controls:1",

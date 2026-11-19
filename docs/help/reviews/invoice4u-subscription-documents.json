@@ -1,0 +1,27 @@
+{
+  "reviewedAt": "2026-11-19",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "7c5834011d8eea00f28842c5ad0d155a7f6410f0dfc03be96625d773eb626ab8",
+      "baseSha256": "89839bb0e7d82905d0c6ab778c3598743bced951c602842193a43a0fd8c6510c",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "delivery-dispatch",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The shared Admin API adds owner-scoped subscription PDF, ZIP, delivery preference and redelivery requests. The other consumers of the shared client retain their documented procedures."
+    }
+  ]
+}
