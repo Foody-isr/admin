@@ -1,0 +1,54 @@
+{
+  "reviewedAt": "2026-11-19",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "84eefbd5e6a74b73b749c616f884353078a7030b5359761cb2b1f29721bc4247",
+      "baseSha256": "8d71101deafce9704fb6fc05777fda44728453c8fe9fcc152ce85459f277563c",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "delivery-dispatch",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new owner billing endpoint and two payment view fields are consumed by the subscription screen. Other API consumers keep their current requests and response handling."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "b47d69374b751e36b2dc9bc7a49abe9121eb27dca5d3fb2863e60e5a858eb8ff",
+      "baseSha256": "8b0ca33f3abf6ee61613b21ca88f740932fc4d36a04dde77e87a02221ca418de",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The added English, French and Hebrew keys describe the first subscription instalment and its payment button. All previously published labels retain their wording."
+    }
+  ]
+}
