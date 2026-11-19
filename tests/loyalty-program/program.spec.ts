@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createFixture } from '../redesign/fixtures.mjs';
+const portalSession = 'fp1p.e30.fixture.00';
 const id = '11111111-1111-4111-8111-111111111111';
 const content = { en: { name: 'The Atelier Club', terms: 'Synthetic terms for test.' }, fr: { name: 'Le Club de l’Atelier', terms: 'Conditions synthétiques pour le test.' }, he: { name: 'מועדון האטלייה', terms: 'תנאים לדוגמה בלבד.' } };
 const base = { id, version_id: id, revision: 1, enabled: false, rules: { mode: 'visits', currency: 'ILS', spend_step_minor: 0, units_per_step: 1, minimum_purchase_minor: 0, reward_threshold: 5, reward_type: 'fixed', reward_amount_minor: 1250, reward_validity_days: 0, terms_version: 'v1' }, content, updated_at: '2026-11-01T08:00:00Z' };
@@ -7,7 +8,15 @@ const base = { id, version_id: id, revision: 1, enabled: false, rules: { mode: '
 async function setup(page: Page, options: { existing?: boolean; readOnly?: boolean; locked?: boolean; locale?: string; mode?: string; permissions?: string[] } = {}) {
   const fixtureOptions = { empty: false, permissions: options.permissions ?? ['customers.view', 'discounts.view', 'settings.view', 'settings.edit', 'menu.view'] }, fixture = createFixture(fixtureOptions);
   const posts: any[] = [], acks = new Map<string, any>(); let current: any = options.existing ? structuredClone(base) : null;
-  await page.addInitScript(({ locale, staff }) => { localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00'); if (!localStorage.getItem('foody_restaurant_user')) localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Synthetic operator', role: staff ? 'staff' : 'owner' })); localStorage.setItem('foody_restaurant_ids', '[1,2]'); localStorage.setItem('foody-admin-locale', locale); localStorage.setItem('foody_admin_theme', locale === 'he' ? 'dark' : 'light'); }, { locale: options.locale ?? 'fr', staff: !!options.permissions });
+  await page.addInitScript(({ locale, staff, session }) => {
+    localStorage.setItem('foody_restaurant_portal_session', session);
+    if (!localStorage.getItem('foody_restaurant_user')) {
+      localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Synthetic operator', role: staff ? 'staff' : 'owner' }));
+    }
+    localStorage.setItem('foody_restaurant_ids', '[1,2]');
+    localStorage.setItem('foody-admin-locale', locale);
+    localStorage.setItem('foody_admin_theme', locale === 'he' ? 'dark' : 'light');
+  }, { locale: options.locale ?? 'fr', staff: !!options.permissions, session: portalSession });
   await page.route('**/*', route => ['localhost', '127.0.0.1', 'square-fonts-production-f.squarecdn.com'].includes(new URL(route.request().url()).hostname) ? route.fallback() : route.abort());
   await page.routeWebSocket('**', socket => socket.close());
   await page.route('**/api/v1/**', async route => {
@@ -16,7 +25,8 @@ async function setup(page: Page, options: { existing?: boolean; readOnly?: boole
       permissions: options.permissions, role_name: 'Staff', user: { id: 1, full_name: 'Synthetic operator', role: 'staff' },
     } });
     if (path === '/api/v1/loyalty/program') {
-      expect(req.headers()['authorization']).toContain('isolated-program-fixture'); expect([1, 2]).toContain(rid);
+      expect(req.headers()['authorization']).toBe(`Bearer ${portalSession}`);
+      expect([1, 2]).toContain(rid);
       if (req.method() === 'GET') return route.fulfill({ json: { program: current, can_manage_program: !options.readOnly, identity_locked: !!options.locked, restaurant_currency: 'ILS' } });
       const input = req.postDataJSON(); posts.push(input);
       if (options.mode === 'stale' && posts.length === 1) { current = structuredClone(base); return route.fulfill({ status: 409, json: { error: 'loyalty_conflict' } }); }

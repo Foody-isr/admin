@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "050c90392e74664001975e539a04e72cffa7c539",
-  "documentationRevision": "4b4c1900bffd3a65fdcf4e839974259b627b836e6b7a87e2a742c1f01034a2c5",
+  "documentationRef": "67bdd9201401b5661c527ee6e2930b9cb248170c",
+  "documentationRevision": "773fe8e2b01f142eae9b34c1049cd937999c65d621bc69377f9adf16bd1a87f5",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -240,15 +240,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/using-support.mdx",
-          "sha256": "8d8eb16c8fd0f32fea358bc3c6636bf7a7e21fdcbc6d0b52a63477f8f30658a5"
+          "sha256": "ba8ae37bcf2043fabcba232c48fa94c9de985af07ee86f88bdaf45dc17a528a2"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/using-support.mdx",
-          "sha256": "82ba2fac6b0d6e45322b8d26ab81cd242be3db3c665a7c1bd7067e417239b0c5"
+          "sha256": "34e135dc372c7fefc9aa88e0679a7ddc174d116d0e2f6e5fef41135e5ad0716f"
         },
         "he": {
           "path": "src/content/help/he/getting-started/using-support.mdx",
-          "sha256": "7c15d67f158bb4d1b6bedc23dc0235d1cb512be63a50a0df7255a637d66f7ac8"
+          "sha256": "8cba1417a95bea2f9596659dd6d2d3be96e132d1beb170dc77b89f22ace8a8a6"
         }
       }
     },
@@ -772,15 +772,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/maps-and-usage.mdx",
-          "sha256": "81e128c26c4d4b9c77760eac0fb483502cf7933e3079846ce1fded2287b8b858"
+          "sha256": "950cc9f926d985bc32cf5eed2ae6f79e7dc5a78d6751c140eda2fcb21c13b61a"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/maps-and-usage.mdx",
-          "sha256": "db86ba9372d42c2eefd946251310ba7ad6af547462381abbe48686b2f0328564"
+          "sha256": "721cd94b17fe2c00bdb353b2030a9af9747eacdec41825f3631bf56f87050acd"
         },
         "he": {
           "path": "src/content/help/he/delivery/maps-and-usage.mdx",
-          "sha256": "88c6a383ba28201e6e45bc19a8289af2563bc3f7ee0012342b50c8f3b3133418"
+          "sha256": "b982b446a1768152588a256ce666e2e2c26ba57908199ac05a43ee841d9ef994"
         }
       }
     },
@@ -1608,15 +1608,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "bd0cb0f1dd7a65b4f1e8ee1d9952b082f4ae620305040ae3cc96e557de7787ca"
+          "sha256": "445decfe1e4f0d3a397334edc2e4bc431047c7fcc97f398fda57401060a0efab"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "c6b942911d686340b4d463241bd967dc27d110145f57c73f7ecf8416ad189783"
+          "sha256": "d0b2ea68bf8d93617d7e06ab666908994c4c3829255cf4288262c35b9c1ca35c"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "7b9d619bf66045d7c1c6c08e0a5d980921b5d1c27501e8ccf946c3d470b21c76"
+          "sha256": "907ceffa0712d207938881a893246dc0eb7d05a72a1d32105ab1b936c34b9e7c"
         }
       }
     },
@@ -1817,15 +1817,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "d0d5ec0f87bce25bcd391c2c6a93c956a3140a896c0f25decafb867ec1685673"
+          "sha256": "b42fda7ccac655d81c3da7bbbe8f07c8cdade77f1c3940110a55948edad15f7f"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "188a54287fd44496ed7366a3e63a9a0b3c43fd2d24da964c1987bbd42f931f15"
+          "sha256": "8ae6fe7849aca06e2f4831dc888982476cf4d43eb7878dbd05c9315439c34f6b"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "271bda4d1f71953d8e6bb1a1c04c7df1b99c20695a26261fc12f37feb3285ccb"
+          "sha256": "625e01cd63cf3a3222f86c0ff55884b170a45e99b1aa13a722db02cf4572ca63"
         }
       }
     },
@@ -2121,15 +2121,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/customers/loyalty-program.mdx",
-          "sha256": "20c48eab1a27c66968e67d70a93efeda94b1cd8942213810123a161ae5e54372"
+          "sha256": "946a68b38b10cb53e1cb37d63d68f45df37470d693aa5a7e5cc4158845e68c9f"
         },
         "fr": {
           "path": "src/content/help/fr/customers/loyalty-program.mdx",
-          "sha256": "4255f7e71867469db8d01a7cb6d56bcd4edcaf018df50bef8bf0e9e22a3a10b7"
+          "sha256": "39242a6aeb0ff4772097a6264d2d4d7fc42d081020655ac6b919a8e9f8a24538"
         },
         "he": {
           "path": "src/content/help/he/customers/loyalty-program.mdx",
-          "sha256": "f8ccc3de5bd996db7ed52898c117fbf54486d11c8aa27017696fcc1978028065"
+          "sha256": "2fd0bb0001ad82818c7f33d880533dc1fa204f0dacac567646b0a75ddadc1aab"
         }
       }
     },
@@ -2140,15 +2140,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/wallet-studio.md",
-          "sha256": "888c42f25f411986057551b92e57e9addbfd56910bffc20bc416acb8448d32ac"
+          "sha256": "9ecbd85231f14dcb90677d70cc37d8c585d31d5a170894d9441ff645d91b6b07"
         },
         "fr": {
           "path": "docs/help/internal/fr/wallet-studio.md",
-          "sha256": "2a503ff24791e5c9fba7fa2b276dd8dae392587bd7bf837b0b30e50e45642203"
+          "sha256": "f1ad3cf86b513b7305e8f62da70e528cd57545f1588385cd832e0e883ce18f36"
         },
         "he": {
           "path": "docs/help/internal/he/wallet-studio.md",
-          "sha256": "5ccbf088b2f44446eadf2c8d3c4c30071ee476bbec3965293637aead2dbe8b03"
+          "sha256": "d0296153331b6dab8e6a832cc980ee38c4a68661e6e7568126d93de6ebe656d0"
         }
       }
     },
@@ -4559,8 +4559,9 @@
       ]
     },
     "src/components/loyalty/WalletStudioWorkspace.tsx": {
-      "sha256": "ed83ec57014432588719082a03678f25c8f9a2cbe20127867e7afa8f3250ede7",
+      "sha256": "3f188685316b89c8dc622d2117e2b9b6098443b09ec6a8d6cc25816b4f56e414",
       "features": [
+        "customers-loyalty-program",
         "customers-wallet-studio"
       ]
     },
@@ -6666,7 +6667,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "e5375880c3ffcbe6f1d6d7705e1a874a27c33271ddf560551a8def3c1a2eaa3a",
+      "sha256": "a84f6863e0f0caddf46b464ad8768dc890f20902bbc179c9db5d0983cf885528",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6884,7 +6885,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "749dc37664f77463f9e8daefb957ce9ee25050863e26dcbcaf54451d9caf1d35",
+      "sha256": "0cd7c7afa4e2eae51e67b3d31f0984add4d992449d134e70bd0b765748f6214c",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -17514,6 +17515,7 @@
       "source": "src/components/loyalty/WalletStudioWorkspace.tsx",
       "line": 1,
       "features": [
+        "customers-loyalty-program",
         "customers-wallet-studio"
       ],
       "labels": [
@@ -17523,6 +17525,7 @@
         "walletStudioActiveRequired",
         "walletStudioAppearance",
         "walletStudioAppleText",
+        "walletStudioAttribution",
         "walletStudioBack",
         "walletStudioBackground",
         "walletStudioBanner",
@@ -17543,6 +17546,7 @@
         "walletStudioRemove",
         "walletStudioSave",
         "walletStudioSaveFirst",
+        "walletStudioShowRestaurantName",
         "walletStudioSigningOff",
         "walletStudioTestCard",
         "walletStudioTestHint",
@@ -23532,16 +23536,6 @@
       ]
     },
     {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:147",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 147,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.is_visible"
-    },
-    {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:694",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
@@ -25840,6 +25834,16 @@
         "website-qr-customize-your-site"
       ],
       "field": "section.delete"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:147",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 147,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.is_visible"
     },
     {
       "id": "foodyadmin:src/components/website/CheckoutEditor.tsx:ui-controls:1",
