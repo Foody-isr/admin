@@ -1,0 +1,57 @@
+{
+  "files": [
+    {
+      "path": "src/components/website/CheckoutEditor.tsx",
+      "baseSha256": "9890e30569f488eadbe16520a74ba45280d61d350e71e02ee5d1ac21f2de4923",
+      "sha256": "3b1dfd6c6f9c680aa8b53d456a8c23723c12aab52e4ce08fa772ffdf4733493b",
+      "features": [
+        "website-journey"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This change removes cartography provider settings and address usage reporting and directs delivery search and maps to Google. The reviewed shared Admin source also supports the listed operations; their inputs and actions are independent of address search."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "baseSha256": "8d71101deafce9704fb6fc05777fda44728453c8fe9fcc152ce85459f277563c",
+      "sha256": "1e6c4ff60c4ba7e83928c0074bbbcd9872f27e692769475613025dd609ab6e65",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This change removes cartography provider settings and address usage reporting and directs delivery search and maps to Google. The reviewed shared Admin source also supports the listed operations; their inputs and actions are independent of address search."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "baseSha256": "dbab045bc64a426c71d7af715a5b4da6af1161d3d7c6143cce96c2e63a1c7095",
+      "sha256": "f9e9eae345c25e68f381c5ff24f5876d1960e825a71b5cc8f35f206e57538f4b",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This change removes cartography provider settings and address usage reporting and directs delivery search and maps to Google. The reviewed shared Admin source also supports the listed operations; their inputs and actions are independent of address search."
+    }
+  ]
+}

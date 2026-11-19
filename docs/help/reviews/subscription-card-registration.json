@@ -3,8 +3,8 @@
   "files": [
     {
       "path": "src/lib/api.ts",
-      "sha256": "84eefbd5e6a74b73b749c616f884353078a7030b5359761cb2b1f29721bc4247",
-      "baseSha256": "8d71101deafce9704fb6fc05777fda44728453c8fe9fcc152ce85459f277563c",
+      "sha256": "e5375880c3ffcbe6f1d6d7705e1a874a27c33271ddf560551a8def3c1a2eaa3a",
+      "baseSha256": "1e6c4ff60c4ba7e83928c0074bbbcd9872f27e692769475613025dd609ab6e65",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -25,8 +25,8 @@
     },
     {
       "path": "src/lib/i18n.tsx",
-      "sha256": "1b2baea7f5a7ac1ea2bd3c9ffdfb9bdc41176db6d8eb1496bb859ba44f8a43d5",
-      "baseSha256": "dbab045bc64a426c71d7af715a5b4da6af1161d3d7c6143cce96c2e63a1c7095",
+      "sha256": "749dc37664f77463f9e8daefb957ce9ee25050863e26dcbcaf54451d9caf1d35",
+      "baseSha256": "f9e9eae345c25e68f381c5ff24f5876d1960e825a71b5cc8f35f206e57538f4b",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
