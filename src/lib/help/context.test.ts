@@ -10,7 +10,6 @@ test('help context exposes a topic, never a restaurant or record identifier', ()
   assert.equal(supportTopicForPath('/999/catering/quotes/private-token'), 'catering');
   assert.equal(supportTopicForPath('/999/clients/123'), 'customers');
   assert.equal(supportTopicForPath('/999/billing'), 'account');
-  assert.equal(supportTopicForPath('/999/settings/delivery/maps'), 'delivery');
   assert.equal(supportTopicForPath('/999/settings/delivery'), 'delivery');
   assert.equal(supportTopicForPath('/999/orders/courier-mode'), 'delivery');
   assert.equal(supportTopicForPath('/999/settings/security'), 'settings');

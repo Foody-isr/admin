@@ -78,7 +78,6 @@ Routes restaurant : AuthProvider → RestaurantGuard → PermissionsProvider →
 | `/[restaurantId]/settings/branding` | `src/app/[restaurantId]/settings/branding/page.tsx` | Voir composants/imports | ✓ | ✓ | ✓ | ◐ | ◐ |
 | `/[restaurantId]/settings/cibus` | `src/app/[restaurantId]/settings/cibus/page.tsx` | Voir composants/imports | ✓ | ✓ | ✓ | ◐ | ◐ |
 | `/[restaurantId]/settings/delivery` | `src/app/[restaurantId]/settings/delivery/page.tsx` | Zones, éditeur et carte | ✓ | ✓ | ✓ | ✓ | ✓ | Répertoire des zones, tarif et état de chaque zone, couverture et horaires dépliables, filtres, carte et minimum indépendant. |
-| `/[restaurantId]/settings/delivery/maps` | `src/app/[restaurantId]/settings/delivery/maps/page.tsx` | Consommation et choix de service | ✓ | ✓ | ✓ | ✓ | ✓ | Service actif, choix du fournisseur, consommation Google et Geoapify, quotas et tarifs. |
 | `/[restaurantId]/settings/devices` | `src/app/[restaurantId]/settings/devices/page.tsx` | ConfirmDialog, DeviceDrawerContent, Modal | ✓ | ✓ | ✓ | ✓ | ✓ | Inventaire mobile/RTL, détails C2, filtres/tri/colonnes/pagination, permissions cumulatives, brouillons/polling, actions partielles et récupération. 22 scénarios compilés ; limites matérielles et concurrence dans devices-audit.md. |
 | `/[restaurantId]/settings/language` | `src/app/[restaurantId]/settings/language/page.tsx` | TranslationReviewTable | ✓ | ✓ | ◐ | ◐ | ◐ |
 | `/[restaurantId]/settings/message-templates` | `src/app/[restaurantId]/settings/message-templates/page.tsx` | TemplateEditor | ✓ | ✓ | ◐ | ◐ | ◐ |

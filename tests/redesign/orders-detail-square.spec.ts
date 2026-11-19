@@ -131,10 +131,10 @@ test('direct delivery order can correct the customer address with Google suggest
   const order = fixture.orders[0];
   Object.assign(order, { order_type: 'delivery', delivery_address: '10 rue Démo', delivery_city: 'Ville démo' });
   await page.route('**/api/v1/orders?**', route => route.fulfill({ json: { orders: [], total: 0 } }));
-  await page.route('**/api/v1/public/address-autocomplete?**', route => route.fulfill({
+  await page.route('**/api/v1/delivery/address-autocomplete?**', route => route.fulfill({
     json: { suggestions: [{ id: 'address-demo', address: '12 rue Démo', city: 'Ville démo', kind: 'prediction', lookup_token: 'demo-token' }] },
   }));
-  await page.route('**/api/v1/public/address-autocomplete/resolve?**', route => route.fulfill({
+  await page.route('**/api/v1/delivery/address-autocomplete/resolve?**', route => route.fulfill({
     json: { suggestion: { id: 'address-demo', address: '12 rue Démo', city: 'Ville démo', street: 'rue Démo', house_number: '12' } },
   }));
   let correctedAddress: { delivery_address: string; delivery_city: string } | undefined;

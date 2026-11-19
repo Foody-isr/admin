@@ -227,7 +227,7 @@ function RouteRibbon({
           <Undo2Icon />{t('deliveryPlanResetDeparture')}
         </Button>}
         {!history && route.status === 'active' && <CourierLocationStatus location={location && (location.route_id == null || location.route_id === route.id) ? location : null} />}
-        {route.routing_provider !== 'geoapify' && <p className="mb-2 text-fs-xs text-[var(--fg-muted)]">{t('deliveryRouteApproximate')}</p>}
+        {route.routing_provider === 'approximate' && <p className="mb-2 text-fs-xs text-[var(--fg-muted)]">{t('deliveryRouteApproximate')}</p>}
         <div className="mb-2 grid grid-cols-3 divide-x divide-[var(--line)] rounded-r-md bg-[var(--surface-2)] px-2 py-1.5 text-center">
           <div>
             <div className="num text-fs-sm font-semibold text-[var(--fg)]">{history ? route.stops.length : pending.length}</div>
@@ -850,7 +850,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
     if (!position && !keepPoint) {
       const result = await geocodeAddress(rid, input.delivery_address ?? '', input.delivery_city);
       lookupUnavailable = !!result.unavailable;
-      if (result.found && result.lat != null && result.lng != null) {
+      if (result.found && result.provider !== 'google' && result.lat != null && result.lng != null) {
         position = { lat: result.lat, lng: result.lng };
       }
     }

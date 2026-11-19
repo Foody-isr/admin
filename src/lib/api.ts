@@ -89,9 +89,9 @@ export async function getOrderingTestCurrentIP(): Promise<string> {
 }
 
 /** Credential-free basemap configuration for the active restaurant. */
-export async function getDeliveryMapConfig(restaurantId: number): Promise<{ provider: 'google' | 'geoapify' | 'openstreetmap'; tile_url: string }> {
-  const config = await apiFetch<{ provider: 'google' | 'geoapify' | 'openstreetmap'; tile_url: string }>(`/api/v1/public/delivery/map-config?restaurant_id=${restaurantId}&capabilities=google-tiles-v1`, restaurantId);
-  if (!['google', 'geoapify', 'openstreetmap'].includes(config.provider) || typeof config.tile_url !== 'string') throw new Error('Map configuration unavailable');
+export async function getDeliveryMapConfig(restaurantId: number): Promise<{ provider: 'google'; tile_url: string }> {
+  const config = await apiFetch<{ provider: 'google'; tile_url: string }>(`/api/v1/public/delivery/map-config?restaurant_id=${restaurantId}`, restaurantId);
+  if (config.provider !== 'google' || !config.tile_url?.startsWith('/api/v1/public/delivery/map/google/')) throw new Error('Map configuration unavailable');
   return config;
 }
 const SESSION_KEY = 'foody_restaurant_portal_session';
@@ -10193,7 +10193,7 @@ export async function geocodeAddress(
   restaurantId: number,
   address: string,
   city?: string,
-): Promise<{ found: boolean; lat?: number; lng?: number; unavailable?: boolean }> {
+): Promise<{ found: boolean; lat?: number; lng?: number; provider?: 'google'; unavailable?: boolean }> {
   const q = new URLSearchParams({ address, restaurant_id: String(restaurantId) });
   if (city) q.set('city', city);
   try {
@@ -11159,9 +11159,9 @@ export async function saveKitchenStation(rid:number,id:string,settings:KitchenSt
   return data.station;
 }
 
-/** Reports server-side Geoapify availability for the restaurant's delivery form. */
+/** Reports Google Places availability for the restaurant's delivery form. */
 export function getAddressAutocompleteConfig(restaurantId: number) {
-  return apiFetch<{ available: boolean; enabled: boolean; provider: 'geoapify' }>(
+  return apiFetch<{ available: boolean; enabled: boolean; provider: 'google' }>(
     `/api/v1/public/address-autocomplete/config?restaurant_id=${restaurantId}`,
     restaurantId,
   );
@@ -11272,56 +11272,6 @@ export async function getCalendarConflicts(restaurantId: number, event: Restaura
   return apiFetch(`/api/v1/restaurants/${restaurantId}/calendar/conflicts`, restaurantId, { method: 'POST', body: JSON.stringify(event) });
 }
 
-export type DeliveryProviderPreference = 'auto' | 'google' | 'geoapify';
-export interface FoodyMapsOffer {
-  version: number;
-  status: 'planned';
-  currency: 'ILS';
-  monthly_price: number;
-  per_establishment: boolean;
-  excluding_tax: boolean;
-  optimization_credits: number;
-  single_stop_credits: number;
-  fleet_stop_credits: number;
-  map_tiles: number;
-  geocoding_requests: number;
-  route_requests: number;
-  automatic_billing: false;
-}
-export interface GeoapifyUsageStatus {
-  configured: boolean;
-  tracking_available: boolean;
-  daily_limit: number;
-  requests_per_second: number;
-  day: string;
-  month: string;
-  next_period_at: string;
-  tracked_since?: string;
-  credits_today: number;
-  credits_month: number;
-  counters: { sku: string; requests: number; credits: number }[];
-}
-export interface DeliveryProviderStatus {
-  preference: DeliveryProviderPreference;
-  active_provider: 'google' | 'geoapify';
-  reason: '' | 'manual' | 'quota' | 'unconfigured' | 'unavailable';
-  google: {
-    available: boolean;
-    month: string;
-    resets_at: string;
-    counters: { sku: string; used: number; limit: number; available: boolean }[];
-  };
-  geoapify?: GeoapifyUsageStatus;
-  foody_offer?: FoodyMapsOffer;
-}
-/** Read this restaurant's map usage and the shared platform's availability. */
-export function getDeliveryProviderStatus(restaurantId: number): Promise<DeliveryProviderStatus> {
-  return apiFetch(`/api/v1/delivery/providers?restaurant_id=${restaurantId}`, restaurantId);
-}
-/** Save the provider preference; every Google request still respects the hard cap. */
-export function updateDeliveryProviderPreference(restaurantId: number, preference: DeliveryProviderPreference): Promise<DeliveryProviderStatus> {
-  return apiFetch(`/api/v1/delivery/providers?restaurant_id=${restaurantId}`, restaurantId, { method: 'PUT', body: JSON.stringify({ preference }) });
-}
 /** Fetch mandatory Google attribution for the visible map bounds. */
 export function getDeliveryMapAttribution(restaurantId: number, bounds: { north: number; south: number; east: number; west: number; zoom: number }): Promise<{ copyright: string }> {
   const query = new URLSearchParams({ restaurant_id: String(restaurantId), ...Object.fromEntries(Object.entries(bounds).map(([key, value]) => [key, String(value)])) });
@@ -11389,10 +11339,6 @@ export const setSalesStockAvailability = (rid: number,date: string,itemId: numbe
 /** Saves remaining stock (empty mode selects recipe) and an optional profile atomically. */
 export const restockSalesStock = (rid: number,date: string,input: SaleStockLimit & { availability_rule_id?: number }) => apiFetch<{revision: number}>(`/api/v1/menu/items/${input.menu_item_id}/sales-stock/restock?serie_date=${encodeURIComponent(date)}`,rid,{method:'POST',body:JSON.stringify({...input,...(input.mode===''?{stock_source:'recipe'}:{})})});
 
-/** Monthly tenant allowances supplement independent provider-wide protection. */
-export interface ExternalApiCounter { id: string; provider: string; unit: string; default_limit: number; used: number; requests: number; limit: number; remaining: number; status: 'available' | 'warning' | 'exhausted' }
-export interface ExternalApiUsage { restaurant_id: number; revision: number; month: string; resets_at: string; tracked_since: string; counters: ExternalApiCounter[] }
-export const getExternalApiUsage = (rid: number) => apiFetch<ExternalApiUsage>(`/api/v1/restaurants/${rid}/api-usage`, rid);
 
 /** Personal actor snapshot for lifecycle requests; the token is memory-only. */
 export interface LifecycleActorContext { actor_id: number; restaurant_id: number; api_origin: string; token: string }
@@ -11569,7 +11515,7 @@ export type FoodyBillingView = {
 };
 
 export type FoodyBillingUsage = {
-  month: string; quotas: { counters: { id: string; used: number }[] } | null;
+  month: string;
   observed: Record<string, number>; complete: boolean;
 };
 

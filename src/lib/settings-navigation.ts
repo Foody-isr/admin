@@ -23,7 +23,6 @@ export function settingsNavigation(restaurantId: number, showPrivateBilling = fa
       { href: `${base}/settings/notifications`, labelKey: 'notifications' },
       { href: `${base}/settings/security`, labelKey: 'security' },
       ...(showPrivateBilling ? [{ href: `${base}/billing`, labelKey: 'billing', exact: true }] : []),
-      { href: `${base}/settings/usage`, labelKey: 'apiQuotaTitle', perm: ['settings.view', 'settings.edit'] },
     ] },
     { labelKey: 'settingsGroupRestaurant', items: [
       { href: `${base}/settings`, labelKey: 'general', exact: true },
@@ -48,7 +47,6 @@ export function settingsNavigation(restaurantId: number, showPrivateBilling = fa
     { labelKey: 'settingsGroupOrdering', items: [
       { href: `${base}/settings/orders`, labelKey: 'settingsOrderTaking', exact: true },
       { href: `${base}/settings/delivery`, labelKey: 'deliveryZones', exact: true },
-      { href: `${base}/settings/delivery/maps`, labelKey: 'mapsTitle' },
       { href: `${base}/settings/ai-assistant`, labelKey: 'aiOrderAssistant' },
     ] },
     { labelKey: 'paymentsAndVat', items: [

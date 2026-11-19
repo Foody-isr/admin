@@ -71,7 +71,7 @@ test("modal photo and responsive framing survive autosave, reload and publicatio
         body: JSON.stringify({
           available: false,
           enabled: false,
-          provider: "geoapify",
+          provider: "google",
         }),
       }),
   );
@@ -269,7 +269,7 @@ test("header pan and zoom remain separate on mobile; gallery framing survives a 
         body: JSON.stringify({
           available: false,
           enabled: false,
-          provider: "geoapify",
+          provider: "google",
         }),
       }),
   );

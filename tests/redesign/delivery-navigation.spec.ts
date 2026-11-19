@@ -18,13 +18,13 @@ test('delivery pages share one sidebar entry and the old sales page is gone', as
     const url = new URL(route.request().url());
     return ['localhost', '127.0.0.1'].includes(url.hostname) || url.pathname.startsWith('/api/v1/') ? route.fallback() : route.abort();
   });
-  await page.goto('/1/settings/delivery/maps');
+  await page.goto('/1/settings/delivery');
   const sidebar = page.getByRole('navigation', { name: 'Navigation principale', exact: true });
   const module = page.getByRole('navigation', { name: 'Navigation des livraisons', exact: true });
   await expect(sidebar.getByRole('link', { name: 'Livraisons', exact: true })).toHaveAttribute('aria-current', 'page');
   await expect(sidebar.getByRole('link', { name: 'Mode livreur', exact: true })).toHaveCount(0);
-  await expect(module.getByRole('link')).toHaveCount(4);
-  await expect(module.getByRole('link', { name: 'Cartographie' })).toHaveAttribute('aria-current', 'page');
+  await expect(module.getByRole('link')).toHaveCount(3);
+  await expect(module.getByRole('link', { name: 'Zones' })).toHaveAttribute('aria-current', 'page');
   const response = await page.goto('/1/delivery/tours');
   expect(response?.status()).toBe(404);
 });

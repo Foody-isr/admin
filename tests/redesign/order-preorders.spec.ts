@@ -468,12 +468,12 @@ for (const locale of ['fr', 'en', 'he'] as const) test(`simulation address autoc
   const searches: any[] = [], resolutions: any[] = [], simulations: any[] = [];
   let resolveSelection!: () => void;
   const selectionGate = new Promise<void>(resolve => { resolveSelection = resolve; });
-  await page.route('**/api/v1/public/address-autocomplete?*', route => {
+  await page.route('**/api/v1/delivery/address-autocomplete?*', route => {
     const request = route.request();
     searches.push({ body: request.postDataJSON(), restaurant: request.headers()['x-restaurant-id'], query: new URL(request.url()).searchParams.get('restaurant_id') });
     return route.fulfill({ json: { suggestions: [{ id: 'synthetic-paris', kind: 'prediction', address: '11 Rue de démonstration', city: 'Paris', lookup_token: 'synthetic-address-choice' }] } });
   });
-  await page.route('**/api/v1/public/address-autocomplete/resolve?*', async route => {
+  await page.route('**/api/v1/delivery/address-autocomplete/resolve?*', async route => {
     resolutions.push({ body: route.request().postDataJSON(), restaurant: route.request().headers()['x-restaurant-id'] });
     await selectionGate;
     return route.fulfill({ json: { suggestion: { id: 'synthetic-paris', kind: 'address', address: '11 Rue de démonstration', city: 'Paris' } } });
@@ -510,7 +510,7 @@ test('simulation keeps manual address entry available when autocomplete fails', 
   const state = await install(page);
   await page.route('**/api/v1/menu/items?*', route => route.fulfill({ json: { items: [{ id: 10, name: 'Synthetic roll' }] } }));
   await page.route('**/api/v1/delivery/zones?*', route => route.fulfill({ json: { zones: [] } }));
-  await page.route('**/api/v1/public/address-autocomplete?*', route => route.fulfill({ status: 503, json: { error: 'Synthetic unavailable' } }));
+  await page.route('**/api/v1/delivery/address-autocomplete?*', route => route.fulfill({ status: 503, json: { error: 'Synthetic unavailable' } }));
   let submitted: any;
   await page.route('**/api/v1/delivery/ordering-simulation', route => {
     if (route.request().method() === 'GET') return route.fallback();
