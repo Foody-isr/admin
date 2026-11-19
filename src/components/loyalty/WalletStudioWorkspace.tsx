@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Download, ImagePlus, Smartphone } from 'lucide-react';
+import { Crop, Download, ImagePlus, Smartphone } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   Badge, BooleanInput, Button, Card, CardBody, CardHeader, CardTitle, Input, PageHead,
@@ -17,12 +17,16 @@ import {
 import { useAuth } from '@/lib/auth-context';
 import { useI18n } from '@/lib/i18n';
 import { loyaltyCustomerPage } from '@/lib/loyalty-program';
+import { defaultBannerLayout, originalImageURL, readBannerOriginal, renderWalletBanners, sameBannerLayout, walletFrame, type WalletBannerLayout, type WalletPlatform } from '@/lib/wallet-banner';
+import type { ImageFrame } from '@/lib/website-v3/image-framing';
+import { FramedWalletBanner, WalletBannerControls } from './WalletBannerFraming';
 
 type AssetSlot = 'logo' | 'banner';
-type Draft = { background: string; foreground: string; hideRestaurantName: boolean; logo: string | null; banner: string | null };
+type Draft = { background: string; foreground: string; hideRestaurantName: boolean; logo: string | null; banner: string | null; original: string | null; layout: WalletBannerLayout | null };
 type Action = 'save' | 'publish' | 'generate' | AssetSlot;
 const isColor = (value: string) => /^#[0-9a-f]{6}$/i.test(value);
 const testBarcode = 'FOODY-WALLET-STUDIO-TEST';
+const legacyLayout: WalletBannerLayout = { shared: { fit: 'cover', x: 50, y: 50, zoom: 1 }, apple_counter: 'overlay' };
 
 function fromDesign(design: WalletStudioDesign): Draft {
   return {
@@ -31,6 +35,8 @@ function fromDesign(design: WalletStudioDesign): Draft {
     hideRestaurantName: design.hide_restaurant_name ?? false,
     logo: design.logo_png && `data:image/png;base64,${design.logo_png}`,
     banner: design.banner_png && `data:image/png;base64,${design.banner_png}`,
+    original: design.banner_original ? originalImageURL(design.banner_original) : null,
+    layout: design.banner_layout ?? null,
   };
 }
 
@@ -42,7 +48,7 @@ async function prepareArtwork(file: File, slot: AssetSlot): Promise<string> {
     await image.decode();
     const width = image.naturalWidth;
     const height = image.naturalHeight;
-    if (!width || !height) throw new Error('Unreadable image');
+    if (!width || !height || (slot === 'banner' && (width > 16384 || height > 16384 || width * height > 50_000_000))) throw new Error('Unreadable image');
     const scale = Math.min(1, (slot === 'banner' ? 750 : 320) / width, 320 / height);
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(width * scale));
@@ -89,11 +95,14 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
   const [error, setError] = useState('');
   const [imageError, setImageError] = useState<{ slot: AssetSlot; key: string } | null>(null);
   const [passURL, setPassURL] = useState<string | null>(null);
+  const [platform, setPlatform] = useState<WalletPlatform>('apple');
+  const [framing, setFraming] = useState(false);
   const operation = useRef<AbortController | null>(null);
   const saved = useMemo(() => state && fromDesign(state.design), [state]);
+  const frameChanged = !!draft && !!saved && (draft.banner !== saved.banner || draft.original !== saved.original || !sameBannerLayout(draft.layout, saved.layout));
   const dirty = !!draft && !!saved && (
     draft.background !== saved.background || draft.foreground !== saved.foreground ||
-    draft.hideRestaurantName !== saved.hideRestaurantName || draft.logo !== saved.logo || draft.banner !== saved.banner
+    draft.hideRestaurantName !== saved.hideRestaurantName || draft.logo !== saved.logo || frameChanged
   );
   const valid = !!draft && isColor(draft.background) && isColor(draft.foreground);
   const stale = error === 'walletStudioConflict';
@@ -143,6 +152,11 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
     setPassURL(null);
   }
 
+  const layout = draft?.layout ?? legacyLayout;
+  function adjustFrame(frame: ImageFrame) {
+    change({ layout: platform === 'google' && layout.google ? { ...layout, google: frame } : { ...layout, shared: frame } });
+  }
+
   async function perform(mode: Action, task: (signal: AbortSignal) => Promise<void>) {
     if (operation.current || getStoredUser()?.id !== actor) return;
     const controller = new AbortController();
@@ -183,19 +197,27 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
         return;
       }
       const value = await prepareArtwork(file, slot);
-      if (!signal.aborted) change({ [slot]: value });
+      if (slot === 'banner') {
+        const original = await readBannerOriginal(file);
+        if (!signal.aborted) change({ banner: value, original, layout: draft?.layout ?? defaultBannerLayout() });
+      } else if (!signal.aborted) change({ logo: value });
     });
   }
 
   function save() {
     if (!state || !draft || !canSave) return;
     void perform('save', async (signal) => {
+      const renders = frameChanged && draft.layout && draft.banner ? await renderWalletBanners(draft.original ?? draft.banner, draft.layout) : {};
+      if (signal.aborted) return;
       const design = await saveWalletStudio(rid, state.design.revision, {
         background_color: draft.background,
         foreground_color: draft.foreground,
         hide_restaurant_name: draft.hideRestaurantName,
         logo_png: draft.logo?.split(',')[1] ?? null,
         banner_png: draft.banner?.split(',')[1] ?? null,
+        banner_original: draft.original && draft.original !== saved?.original ? draft.original.split(',')[1] : undefined,
+        banner_layout: draft.layout ?? undefined,
+        ...renders,
       }, signal);
       if (signal.aborted) return;
       setState({ ...state, design });
@@ -277,7 +299,14 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
                     </div>
                     <AssetField id="wallet-banner" label={t('walletStudioBanner')} image={draft.banner}
                       error={imageError?.slot === 'banner' ? t(imageError.key) : undefined}
-                      onPick={file => pick('banner', file)} onRemove={() => change({ banner: null })} />
+                      onPick={file => pick('banner', file)} onRemove={() => { setFraming(false); change({ banner: null, original: null, layout: null }); }} />
+                    {draft.banner && <>
+                      <Button type="button" variant="secondary" aria-expanded={framing} aria-controls="wallet-frame-controls" onClick={() => setFraming(!framing)}>
+                        <Crop size={16} aria-hidden="true" />{t('walletFrameTitle')}
+                      </Button>
+                      {framing && <WalletBannerControls layout={layout} platform={platform} onPlatform={setPlatform}
+                        onChange={next => change({ layout: next })} onFrame={adjustFrame} />}
+                    </>}
                     <p className="text-xs text-[var(--fg-muted)]">{t('walletStudioImageHint')}</p>
                   </div>
                   {state.can_edit && <Button disabled={!canSave} onClick={save}>{t('walletStudioSave')}</Button>}
@@ -348,13 +377,13 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
             <Card className="overflow-hidden">
               <CardHeader><CardTitle>{t('walletStudioPreview')}</CardTitle></CardHeader>
               <CardBody className="bg-[var(--surface-subtle)]">
-                <Tabs defaultValue="apple">
+                <Tabs value={platform} onValueChange={value => setPlatform(value as WalletPlatform)}>
                   <TabsList aria-label={t('walletStudioPreview')} className="mx-auto max-w-full">
                     <Tab value="apple">Apple Wallet</Tab>
                     <Tab value="google">Google Wallet</Tab>
                   </TabsList>
-                  <TabsContent value="apple"><Preview platform="apple" state={state} draft={draft} /></TabsContent>
-                  <TabsContent value="google"><Preview platform="google" state={state} draft={draft} /></TabsContent>
+                  {(['apple', 'google'] as const).map(wallet => <TabsContent key={wallet} value={wallet}><Preview platform={wallet} state={state} draft={draft}
+                    onFrame={framing && state.can_edit && !action && !stale ? adjustFrame : undefined} /></TabsContent>)}
                 </Tabs>
                 <p className="mt-4 text-center text-xs text-[var(--fg-muted)]">{t('walletStudioPreviewHint')}</p>
               </CardBody>
@@ -411,7 +440,7 @@ function AssetField({ id, label, image, error, onPick, onRemove }: {
   );
 }
 
-function Preview({ platform, state, draft }: { platform: 'apple' | 'google'; state: WalletStudioState; draft: Draft }) {
+function Preview({ platform, state, draft, onFrame }: { platform: WalletPlatform; state: WalletStudioState; draft: Draft; onFrame?: (f: ImageFrame) => void }) {
   const { t, locale } = useI18n();
   const apple = platform === 'apple';
   const background = isColor(draft.background) ? draft.background : state.design.background_color;
@@ -422,12 +451,18 @@ function Preview({ platform, state, draft }: { platform: 'apple' | 'google'; sta
   const unit = t(state.program?.mode === 'points' ? 'loyaltyProgramPoints' : 'loyaltyProgramVisits');
   const threshold = state.program?.threshold ?? 2;
   const progress = Math.min(1, threshold - 1);
+  const counterBelow = apple && !!draft.banner && draft.layout?.apple_counter === 'below';
   const progressFields = (
-    <div>
+    <div data-wallet-counter>
       <div className="text-xs font-medium">{unit}</div>
-      <div className="text-[2rem] font-semibold leading-tight tabular-nums">{progress}</div>
+      <div className={(counterBelow ? 'text-lg' : 'text-[2rem]') + ' font-semibold leading-tight tabular-nums'}>{progress}</div>
     </div>
   );
+  const banner = (draft.original ?? draft.banner);
+  const frame = draft.layout ?? legacyLayout;
+  const overlay = apple && !counterBelow && <div className="pointer-events-none absolute inset-0 px-4 py-3">{progressFields}</div>;
+  const bannerElement = banner && <FramedWalletBanner source={banner} platform={platform} legacy={!draft.layout}
+    frame={walletFrame(frame, platform)} onFrame={onFrame}>{overlay}</FramedWalletBanner>;
   return (
     <div data-wallet-preview={platform} className="mx-auto max-w-[23rem] overflow-hidden rounded-[1.35rem] border border-black/10 shadow-2"
       style={{ backgroundColor: background, color: apple ? text : googleText }}>
@@ -444,19 +479,13 @@ function Preview({ platform, state, draft }: { platform: 'apple' | 'google'; sta
         </div>
         {apple && <span className="max-w-[45%] text-end text-xs font-medium">{t('walletStudioTestCard')}</span>}
       </div>
-      {apple && draft.banner ? (
-        <div className="relative aspect-[375/144] overflow-hidden">
-          <Image unoptimized loading="eager" src={draft.banner} alt={t('walletStudioBanner')} fill className="object-cover" />
-          <div className="absolute inset-0 px-4 py-3">{progressFields}</div>
-        </div>
-      ) : <div className="px-4 pb-2">{progressFields}</div>}
-      <div className="flex flex-wrap justify-between gap-2 px-4 py-3 text-xs">
+      {apple && bannerElement ? bannerElement : <div className="px-4 pb-2">{progressFields}</div>}
+      <div className={(counterBelow ? 'grid grid-cols-[auto_minmax(0,1fr)_minmax(0,0.8fr)]' : 'flex flex-wrap justify-between') + ' gap-3 px-4 py-3 text-xs'}>
+        {counterBelow && progressFields}
         {apple && <span className="break-words font-medium">{title}</span>}
-        <span>{t('walletStudioThreshold')} <b className="tabular-nums">{threshold}</b></span>
+        <span>{t('walletStudioThreshold')} <b className={counterBelow ? 'block text-lg leading-tight tabular-nums' : 'tabular-nums'}>{threshold}</b></span>
       </div>
-      {!apple && draft.banner && (
-        <div className="relative aspect-[1032/336] overflow-hidden"><Image unoptimized loading="eager" src={draft.banner} alt={t('walletStudioBanner')} fill className="object-cover" /></div>
-      )}
+      {!apple && bannerElement}
       <div className="flex flex-col items-center gap-2 p-4">
         <div className="rounded-lg bg-white p-2" aria-hidden="true"><QRCodeSVG value={testBarcode} size={90} marginSize={1} /></div>
         <a className="text-[11px] hover:underline focus-visible:underline" href="https://foody-pos.co.il/?utm_source=wallet&utm_medium=powered_by"

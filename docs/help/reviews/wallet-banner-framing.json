@@ -1,0 +1,51 @@
+{
+  "feature": "Wallet Studio banner framing",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "89839bb0e7d82905d0c6ab778c3598743bced951c602842193a43a0fd8c6510c",
+      "baseSha256": "a84f6863e0f0caddf46b464ad8768dc890f20902bbc179c9db5d0983cf885528",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "delivery-dispatch",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The only change extends the private Wallet Studio artwork request and response with the original banner, frame parameters and two destination images. Other restaurant API calls keep their existing contract."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "c9c6f361f28510b89aebf2003779dfb763f0911a2ac90e3db40b26060d928e51",
+      "baseSha256": "0cd7c7afa4e2eae51e67b3d31f0984add4d992449d134e70bd0b765748f6214c",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "All new strings label the Wallet Studio framing controls and original file handling. The translations used by the other Admin features keep their previous wording."
+    }
+  ]
+}
