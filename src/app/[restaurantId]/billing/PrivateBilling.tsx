@@ -5,6 +5,7 @@ import { ApiError, getFoodyBilling, getFoodyBillingUsage, payFoodyBillingRegiste
   stopFoodyBillingRenewal, type FoodyBillingCycle, type FoodyBillingUsage, type FoodyBillingView } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Badge, Button, ConfirmDialog, PageHead, Section } from '@/components/ds';
+import { SubscriptionDocuments } from './SubscriptionDocuments';
 import { SubscriptionAdditions } from './SubscriptionAdditions';
 import { ModuleAccessSummary, ModuleOnboarding } from './ModuleOnboarding';
 
@@ -199,6 +200,7 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
       </div>
     </Section>
     {view.onboarding?.access.enforced && <SubscriptionAdditions rid={rid} view={view} onPrepared={next => { setView(next); reset(); }} />}
+    <SubscriptionDocuments key={rid} rid={rid} lastPayment={payment?.id + ':' + payment?.status} />
     <Section title={t('foodyPilotUsage')}>
       <p className="text-sm text-[var(--fg-muted)]">{t('foodyPilotUsageHint')}</p>
       {usageError && <p role="status" className="mt-2 text-sm">{t('foodyPilotUsageUnavailable')}</p>}
