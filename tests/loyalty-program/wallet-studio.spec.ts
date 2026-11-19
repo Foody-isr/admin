@@ -4,7 +4,7 @@ import { createFixture } from '../redesign/fixtures.mjs';
 async function studio(page: Page, locale: 'fr' | 'he' = 'fr', canSign = true) {
   const fixtureOptions = { empty: false, permissions: ['settings.view', 'settings.edit'] };
   const fixture = createFixture(fixtureOptions);
-  const writes: { method: string; path: string; data: { expected_revision: number; background_color?: string; logo_png?: string; banner_png?: string } }[] = [];
+  const writes: { method: string; path: string; data: { expected_revision: number; background_color?: string; hide_restaurant_name?: boolean; logo_png?: string; banner_png?: string } }[] = [];
   let design = { revision: 0, background_color: '#FFFFFF', foreground_color: '#15292F', logo_png: null, banner_png: null };
   let publishedRevision = 0;
   await page.addInitScript((lang) => {
@@ -92,6 +92,12 @@ test('edits both previews, saves Bella artwork and downloads the saved Apple tes
   await expect(page.getByRole('button', { name: 'Retirer Logo du restaurant' })).toBeVisible();
   await page.getByLabel('Bannière de la carte', { exact: true }).setInputFiles({ name: 'bella-banner.png', mimeType: 'image/png', buffer: Buffer.from(assets.banner, 'base64') });
   const apple = page.locator('[data-wallet-preview="apple"]');
+  const showName = page.getByRole('switch', { name: 'Afficher le nom du restaurant' });
+  await expect(showName).toBeChecked();
+  await expect(apple.getByText('Bella Italia', { exact: true })).toBeVisible();
+  await showName.uncheck();
+  await expect(apple.getByText('Bella Italia', { exact: true })).toHaveCount(0);
+  await expect(apple.getByRole('link', { name: 'Propulsé par Foody' })).toHaveAttribute('href', /^https:\/\/foody-pos\.co\.il\//);
   await expect(apple).toHaveCSS('background-color', 'rgb(35, 79, 67)');
   await expect(apple).toHaveCSS('color', 'rgb(255, 242, 219)');
   await expect(apple.locator('img')).toHaveCount(2);
@@ -101,14 +107,21 @@ test('edits both previews, saves Bella artwork and downloads the saved Apple tes
   await expect(google).toHaveCSS('background-color', 'rgb(35, 79, 67)');
   await expect(google).toHaveCSS('color', 'rgb(255, 255, 255)');
   await expect(google.locator('img')).toHaveCount(2);
+  await expect(google).toContainText('Les habitués de Bella');
+  await expect(google.getByRole('link', { name: 'Propulsé par Foody' })).toBeVisible();
   await page.screenshot({ path: info.outputPath('bella-google.png'), fullPage: true, animations: 'disabled' });
   await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
   await expect(page.getByText('Brouillon enregistré.', { exact: true })).toBeVisible();
   await expect(page.getByText('À publier', { exact: true })).toBeVisible();
   expect(writes).toHaveLength(1);
-  expect(writes[0].data).toMatchObject({ expected_revision: 0, background_color: '#234F43', logo_png: assets.logo, banner_png: assets.banner });
+  expect(writes[0].data).toMatchObject({ expected_revision: 0, background_color: '#234F43', hide_restaurant_name: true });
+  for (const asset of [writes[0].data.logo_png, writes[0].data.banner_png]) {
+    expect(Buffer.from(asset!, 'base64').subarray(1, 4).toString()).toBe('PNG');
+  }
   await page.reload();
   await expect(page.getByLabel('Couleur du fond', { exact: true })).toHaveValue('#234F43');
+  await expect(showName).not.toBeChecked();
+  await expect(apple.getByRole('img', { name: 'Bannière de la carte' })).toBeVisible();
   await generate.click();
   const download = page.waitForEvent('download');
   await page.getByRole('link', { name: 'Télécharger le .pkpass' }).click();
@@ -138,7 +151,70 @@ test('shows the preview in Hebrew on mobile when Apple signing is unavailable', 
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   await expect(page.getByRole('button', { name: 'יצירת כרטיס בדיקה של Apple' })).toBeDisabled();
   await expect(page.getByRole('tab', { name: 'Google Wallet' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'מופעל על ידי Foody' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(writes).toHaveLength(0);
   await page.screenshot({ path: info.outputPath('studio-hebrew-mobile.png'), fullPage: true, animations: 'disabled' });
+});
+
+test('resizes a large banner and keeps the saved image through a failed replacement', async ({ page }) => {
+  const writes = await studio(page);
+  const file = page.getByLabel('Bannière de la carte', { exact: true });
+  const banner = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 2600;
+    canvas.height = 900;
+    const context = canvas.getContext('2d')!;
+    const pixels = context.createImageData(canvas.width, canvas.height);
+    let seed = 42;
+    for (let i = 0; i < pixels.data.length; i += 4) {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      pixels.data[i] = seed >>> 24;
+      pixels.data[i + 1] = seed >>> 16 & 255;
+      pixels.data[i + 2] = seed >>> 8 & 255;
+      pixels.data[i + 3] = 255;
+    }
+    context.putImageData(pixels, 0, 0);
+    return canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
+  });
+  const buffer = Buffer.from(banner, 'base64');
+  expect(buffer.byteLength).toBeGreaterThan(1024 * 1024);
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByText('Bannière de la carte', { exact: true }).click();
+  await (await chooser).setFiles({ name: 'restaurant.jpg', mimeType: 'image/jpeg', buffer });
+  const apple = page.locator('[data-wallet-preview="apple"]');
+  const google = page.locator('[data-wallet-preview="google"]');
+  for (const [tab, card] of [['Apple Wallet', apple], ['Google Wallet', google]] as const) {
+    await page.getByRole('tab', { name: tab }).click();
+    const image = card.getByRole('img', { name: 'Bannière de la carte' });
+    await expect(image).toBeVisible();
+    await expect.poll(() => image.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBe(750);
+    expect((await image.boundingBox())!.height).toBeGreaterThan(40);
+  }
+  await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
+  await expect(page.getByText('Brouillon enregistré.', { exact: true })).toBeVisible();
+  expect(Buffer.from(writes[0].data.banner_png!, 'base64').byteLength).toBeLessThan(1024 * 1024);
+  await page.reload();
+  const saved = apple.getByRole('img', { name: 'Bannière de la carte' });
+  await expect(saved).toBeVisible();
+  await file.setInputFiles({ name: 'illisible.png', mimeType: 'image/png', buffer: Buffer.from('invalid image') });
+  await expect(file).toHaveAccessibleDescription('Cette image est illisible. Essayez un autre fichier.');
+  await expect(saved).toHaveAttribute('src', 'data:image/png;base64,' + writes[0].data.banner_png);
+  await file.setInputFiles({ name: 'trop-grande.jpg', mimeType: 'image/jpeg', buffer: Buffer.alloc(10 * 1024 * 1024 + 1) });
+  await expect(file).toHaveAccessibleDescription('Ce fichier dépasse 10 Mo. Choisissez une image plus petite.');
+  await expect(saved).toHaveAttribute('src', 'data:image/png;base64,' + writes[0].data.banner_png);
+  const webp = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 40;
+    canvas.height = 12;
+    return canvas.toDataURL('image/webp').split(',')[1];
+  });
+  await file.setInputFiles({ name: 'nouvelle-banniere.webp', mimeType: 'image/webp', buffer: Buffer.from(webp, 'base64') });
+  await expect.poll(() => saved.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBe(40);
+  await expect(file).toHaveAttribute('aria-invalid', 'false');
+  await page.getByRole('button', { name: 'Retirer Bannière de la carte' }).click();
+  await expect(saved).toHaveCount(0);
+  await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
+  await expect(page.getByText('Brouillon enregistré.', { exact: true })).toBeVisible();
+  expect(writes[1].data.banner_png).toBeNull();
 });

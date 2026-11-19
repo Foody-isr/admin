@@ -1,0 +1,49 @@
+{
+  "feature": "Loyalty card artwork and Foody attribution",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "a88796e25619105fd8b394af3f7643ca6a97ac36d6cc470ba9552c71abca9a3e",
+      "baseSha256": "982466312dedcbc965c4f0105dc825860f4a021cda622f6476f50ea0b4798315",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "delivery-dispatch",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The only shared client change adds a restaurant name preference when managers save a Wallet Studio design. All other endpoints keep their existing request and response contracts."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "bb823e8a382c05bc0dd5f6a8cd29d77d326b0a6a9af98e0b31cbe94ccfa13347",
+      "baseSha256": "5c262b255202a745ac4d1b9f4e18c9bef23617ccaa116ddf3b1e85feb6c3fd91",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The updated keys belong to image import, the restaurant name switch and the Foody attribution in the Wallet Studio. Their text is isolated to the loyalty card editor."
+    }
+  ]
+}
