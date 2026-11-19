@@ -11527,6 +11527,42 @@ function foodyBillingPath(restaurantId: number) {
   return '/api/v1/restaurants/' + restaurantId + '/foody-billing';
 }
 
+export type FoodyDocumentState = 'pending' | 'ready' | 'review' | 'legacy';
+export interface FoodySubscriptionDocument {
+  payment_id: number; title: string; cycle: FoodyBillingCycle; kind: 'checkout' | 'upgrade' | 'renewal';
+  paid_at: string; period_start: string; period_end?: string;
+  price: { net_minor: number; vat_minor: number; total_minor: number };
+  issue_state: FoodyDocumentState; mail_state: 'off' | 'pending' | 'sending' | 'sent' | 'review'; number?: number;
+}
+export interface FoodyDocumentPage {
+  documents: FoodySubscriptionDocument[]; has_more: boolean; environment: 'sandbox';
+  issuer_configured: boolean; email_available: boolean; email_enabled: boolean;
+}
+
+/** List the owner's subscription documents and the delivery options for this pilot. */
+export function getFoodyDocuments(rid: number, query: URLSearchParams, signal?: AbortSignal): Promise<FoodyDocumentPage> {
+  return apiFetch(foodyBillingPath(rid) + '/documents?' + query.toString(), rid, { signal, cache: 'no-store' });
+}
+
+/** Retrieve the bytes of a previously issued Invoice4U document or a monthly archive. */
+export async function downloadFoodyDocuments(rid: number, selection: { payment: number } | { month: string }, signal?: AbortSignal): Promise<Blob> {
+  const single = 'payment' in selection;
+  const path = single ? '/' + selection.payment + '/pdf' : '/archive?month=' + encodeURIComponent(selection.month);
+  const response = await apiResponse(foodyBillingPath(rid) + '/documents' + path, rid, { cache: 'no-store', signal });
+  if (response.headers.get('content-type') !== (single ? 'application/pdf' : 'application/zip')) throw new ApiError('foody_document_invalid', 502);
+  return response.blob();
+}
+
+/** Record the owner's consent to send confirmations and documents to the QA mailbox. */
+export function setFoodyDocumentDelivery(rid: number, enabled: boolean): Promise<void> {
+  return apiFetch(foodyBillingPath(rid) + '/document-delivery', rid, { method: 'PUT', body: JSON.stringify({ enabled }) });
+}
+
+/** Queue a new delivery of the same archived PDF. */
+export function resendFoodyDocument(rid: number, payment: number): Promise<void> {
+  return apiFetch(foodyBillingPath(rid) + '/documents/' + payment + '/resend', rid, { method: 'POST' });
+}
+
 /** Return the authenticated owner's private offer, if available. */
 export function getFoodyBilling(rid: number, signal?: AbortSignal): Promise<FoodyBillingView> {
   return apiFetch(foodyBillingPath(rid), rid, { cache: 'no-store', signal });
