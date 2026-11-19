@@ -7,7 +7,7 @@ import { useParams } from 'next/navigation';
 import { Download, ImagePlus, Smartphone } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
-  Badge, Button, Card, CardBody, CardHeader, CardTitle, Input, PageHead,
+  Badge, BooleanInput, Button, Card, CardBody, CardHeader, CardTitle, Input, PageHead,
   Tab, Tabs, TabsContent, TabsList,
 } from '@/components/ds';
 import {
@@ -18,8 +18,9 @@ import { useAuth } from '@/lib/auth-context';
 import { useI18n } from '@/lib/i18n';
 import { loyaltyCustomerPage } from '@/lib/loyalty-program';
 
-type Draft = { background: string; foreground: string; logo: string | null; banner: string | null };
-type Action = 'save' | 'publish' | 'generate' | 'image';
+type AssetSlot = 'logo' | 'banner';
+type Draft = { background: string; foreground: string; hideRestaurantName: boolean; logo: string | null; banner: string | null };
+type Action = 'save' | 'publish' | 'generate' | AssetSlot;
 const isColor = (value: string) => /^#[0-9a-f]{6}$/i.test(value);
 const testBarcode = 'FOODY-WALLET-STUDIO-TEST';
 
@@ -27,18 +28,33 @@ function fromDesign(design: WalletStudioDesign): Draft {
   return {
     background: design.background_color,
     foreground: design.foreground_color,
+    hideRestaurantName: design.hide_restaurant_name ?? false,
     logo: design.logo_png && `data:image/png;base64,${design.logo_png}`,
     banner: design.banner_png && `data:image/png;base64,${design.banner_png}`,
   };
 }
 
-function readImage(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('invalid image'));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
+async function prepareArtwork(file: File, slot: AssetSlot): Promise<string> {
+  const url = URL.createObjectURL(file);
+  try {
+    const image = new window.Image();
+    image.src = url;
+    await image.decode();
+    const width = image.naturalWidth;
+    const height = image.naturalHeight;
+    if (!width || !height) throw new Error('Unreadable image');
+    const scale = Math.min(1, (slot === 'banner' ? 750 : 320) / width, 320 / height);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Image canvas unavailable');
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/png');
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 /** Keeps private drafts scoped to the active restaurant and staff session. */
@@ -71,12 +87,13 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
   const [action, setAction] = useState<Action | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [imageError, setImageError] = useState<{ slot: AssetSlot; key: string } | null>(null);
   const [passURL, setPassURL] = useState<string | null>(null);
   const operation = useRef<AbortController | null>(null);
   const saved = useMemo(() => state && fromDesign(state.design), [state]);
   const dirty = !!draft && !!saved && (
     draft.background !== saved.background || draft.foreground !== saved.foreground ||
-    draft.logo !== saved.logo || draft.banner !== saved.banner
+    draft.hideRestaurantName !== saved.hideRestaurantName || draft.logo !== saved.logo || draft.banner !== saved.banner
   );
   const valid = !!draft && isColor(draft.background) && isColor(draft.foreground);
   const stale = error === 'walletStudioConflict';
@@ -92,6 +109,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
     const request = new AbortController();
     setLoading(true);
     setError('');
+    setImageError(null);
     setMessage('');
     setPassURL(null);
     getWalletStudio(rid, request.signal).then((result) => {
@@ -119,6 +137,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
 
   function change(patch: Partial<Draft>) {
     setDraft(current => current && { ...current, ...patch });
+    setImageError(current => current && current.slot in patch ? null : current);
     setError('');
     setMessage('');
     setPassURL(null);
@@ -142,7 +161,9 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
         setError('loyaltyProgramForbidden');
       } else if (failure instanceof ApiError && failure.message === 'loyalty_conflict') {
         setError('walletStudioConflict');
-      } else if (mode === 'image' || mode === 'save' && failure instanceof ApiError && [400, 413, 415].includes(failure.status)) {
+      } else if (mode === 'logo' || mode === 'banner') {
+        setImageError({ slot: mode, key: 'walletStudioImageReadError' });
+      } else if (mode === 'save' && failure instanceof ApiError && [400, 413, 415].includes(failure.status)) {
         setError('walletStudioImageError');
       } else {
         setError(mode === 'publish' ? 'walletStudioPublishError' : mode === 'generate' ? 'walletStudioSignError' : 'walletStudioSaveError');
@@ -153,10 +174,15 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
     }
   }
 
-  function pick(slot: 'logo' | 'banner', file: File) {
-    void perform('image', async (signal) => {
-      if (file.size > 1024 * 1024 || !['image/png', 'image/jpeg'].includes(file.type)) throw new Error('invalid image');
-      const value = await readImage(file);
+  function pick(slot: AssetSlot, file: File) {
+    void perform(slot, async (signal) => {
+      setImageError(null);
+      const supported = file.type ? ['image/png', 'image/jpeg', 'image/webp'].includes(file.type) : /\.(png|jpe?g|webp)$/i.test(file.name);
+      if (!supported || file.size > 10 * 1024 * 1024) {
+        setImageError({ slot, key: supported ? 'walletStudioImageSizeError' : 'walletStudioImageFormatError' });
+        return;
+      }
+      const value = await prepareArtwork(file, slot);
       if (!signal.aborted) change({ [slot]: value });
     });
   }
@@ -167,6 +193,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
       const design = await saveWalletStudio(rid, state.design.revision, {
         background_color: draft.background,
         foreground_color: draft.foreground,
+        hide_restaurant_name: draft.hideRestaurantName,
         logo_png: draft.logo?.split(',')[1] ?? null,
         banner_png: draft.banner?.split(',')[1] ?? null,
       }, signal);
@@ -241,8 +268,15 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
                   <p className="text-xs text-[var(--fg-muted)]">{t('walletStudioAppleText')}</p>
                   <div className="space-y-3 border-t border-[var(--line)] pt-4">
                     <AssetField id="wallet-logo" label={t('walletStudioLogo')} image={draft.logo}
+                      error={imageError?.slot === 'logo' ? t(imageError.key) : undefined}
                       onPick={file => pick('logo', file)} onRemove={() => change({ logo: null })} />
+                    <div className="flex items-center justify-between gap-3 py-1">
+                      <label htmlFor="wallet-show-name" className="text-sm font-medium">{t('walletStudioShowRestaurantName')}</label>
+                      <BooleanInput id="wallet-show-name" checked={!draft.hideRestaurantName}
+                        onChange={event => change({ hideRestaurantName: !event.target.checked })} />
+                    </div>
                     <AssetField id="wallet-banner" label={t('walletStudioBanner')} image={draft.banner}
+                      error={imageError?.slot === 'banner' ? t(imageError.key) : undefined}
                       onPick={file => pick('banner', file)} onRemove={() => change({ banner: null })} />
                     <p className="text-xs text-[var(--fg-muted)]">{t('walletStudioImageHint')}</p>
                   </div>
@@ -350,8 +384,8 @@ function ColorField({ id, label, value, fallback, onChange }: {
   );
 }
 
-function AssetField({ id, label, image, onPick, onRemove }: {
-  id: string; label: string; image: string | null; onPick: (file: File) => void; onRemove: () => void;
+function AssetField({ id, label, image, error, onPick, onRemove }: {
+  id: string; label: string; image: string | null; error?: string; onPick: (file: File) => void; onRemove: () => void;
 }) {
   const { t } = useI18n();
   return (
@@ -364,13 +398,15 @@ function AssetField({ id, label, image, onPick, onRemove }: {
           <span className="block text-sm font-medium">{label}</span>
           <span className="block text-xs text-[var(--fg-muted)]">{t(image ? 'walletStudioReplace' : 'walletStudioChoose')}</span>
         </span>
-        <input className="sr-only" id={id} aria-label={label} type="file" accept="image/png,image/jpeg" onChange={e => {
+        <input className="sr-only" id={id} aria-label={label} aria-invalid={!!error} aria-describedby={error ? id + '-error' : undefined}
+          type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" onChange={e => {
           const file = e.currentTarget.files?.[0];
           if (file) onPick(file);
           e.currentTarget.value = '';
         }} />
       </label>
       {image && <Button variant="ghost" size="sm" aria-label={`${t('walletStudioRemove')} ${label}`} onClick={onRemove}>{t('walletStudioRemove')}</Button>}
+      {error && <p id={id + '-error'} role="alert" className="w-full text-sm text-[var(--danger-500)]">{error}</p>}
     </div>
   );
 }
@@ -398,19 +434,19 @@ function Preview({ platform, state, draft }: { platform: 'apple' | 'google'; sta
       <div className="flex items-start justify-between gap-3 p-4">
         <div className="flex min-w-0 items-center gap-2">
           {(draft.logo || !apple) && (
-            <Image unoptimized src={draft.logo ?? '/brand/foody-symbol.svg'} alt="" width={apple ? 72 : 36} height={36}
-              className={apple ? 'h-9 max-w-[4.5rem] object-contain' : 'h-9 w-9 rounded-full bg-white p-0.5 object-contain'} />
+            <Image unoptimized src={draft.logo ?? '/brand/foody-symbol.svg'} alt={t('walletStudioLogo')} width={apple ? 160 : 36} height={36}
+              className={apple ? 'h-9 w-auto max-w-[10rem] object-contain' : 'h-9 w-9 rounded-full bg-white p-0.5 object-contain'} />
           )}
           <div className="min-w-0 break-words text-sm font-semibold leading-tight">
             {!apple && <div className="text-xs font-normal">Foody</div>}
-            {apple ? state.restaurant_name : title}
+            {apple ? (!draft.hideRestaurantName && state.restaurant_name) : title}
           </div>
         </div>
         {apple && <span className="max-w-[45%] text-end text-xs font-medium">{t('walletStudioTestCard')}</span>}
       </div>
       {apple && draft.banner ? (
         <div className="relative aspect-[375/144] overflow-hidden">
-          <Image unoptimized src={draft.banner} alt="" fill className="object-cover" />
+          <Image unoptimized loading="eager" src={draft.banner} alt={t('walletStudioBanner')} fill className="object-cover" />
           <div className="absolute inset-0 px-4 py-3">{progressFields}</div>
         </div>
       ) : <div className="px-4 pb-2">{progressFields}</div>}
@@ -419,10 +455,12 @@ function Preview({ platform, state, draft }: { platform: 'apple' | 'google'; sta
         <span>{t('walletStudioThreshold')} <b className="tabular-nums">{threshold}</b></span>
       </div>
       {!apple && draft.banner && (
-        <div className="relative aspect-[1032/336] overflow-hidden"><Image unoptimized src={draft.banner} alt="" fill className="object-cover" /></div>
+        <div className="relative aspect-[1032/336] overflow-hidden"><Image unoptimized loading="eager" src={draft.banner} alt={t('walletStudioBanner')} fill className="object-cover" /></div>
       )}
-      <div className="flex justify-center p-4">
+      <div className="flex flex-col items-center gap-2 p-4">
         <div className="rounded-lg bg-white p-2" aria-hidden="true"><QRCodeSVG value={testBarcode} size={90} marginSize={1} /></div>
+        <a className="text-[11px] hover:underline focus-visible:underline" href="https://foody-pos.co.il/?utm_source=wallet&utm_medium=powered_by"
+          target="_blank" rel="noopener noreferrer">{t('walletStudioAttribution')}</a>
       </div>
     </div>
   );

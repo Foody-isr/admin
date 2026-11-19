@@ -2514,6 +2514,7 @@ export async function saveLoyaltyProgram(saved: PendingLoyaltyProgram): Promise<
 export interface WalletStudioArtwork {
   background_color: string;
   foreground_color: string;
+  hide_restaurant_name?: boolean;
   logo_png: string | null;
   banner_png: string | null;
 }
