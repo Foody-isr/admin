@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { deliveryMatchesRouteDate, formatDeliveryDuration, buildDeliveryEtaLabel, buildDeliveryEtaMessage, deliveryEtaWindow, deliveryRoutingError, deliveryRouteWarning, deliveryLocationWarning, isOpenDeliveryRoute } from '@/lib/delivery-planning';
+import { deliveryDepartureInstant, deliveryWallTime, validDispatchDay, deliveryMatchesRouteDate, formatDeliveryDuration, buildDeliveryEtaLabel, buildDeliveryEtaMessage, deliveryEtaWindow, deliveryRoutingError, deliveryRouteWarning, deliveryLocationWarning, isOpenDeliveryRoute } from '@/lib/delivery-planning';
 import type { DeliveryRoute } from '@/lib/delivery';
 
 test('completed, skipped and empty routes do not remain operational plans', () => {
@@ -119,4 +119,15 @@ test('configured customer range starts at arrival and lasts exactly 90 minutes',
   assert.equal(window?.startAt.toISOString(), '2026-10-19T05:30:00.000Z');
   assert.equal(window?.endAt.toISOString(), '2026-10-19T07:00:00.000Z');
   assert.equal(deliveryEtaWindow({ planned_departure_at: '2026-10-19T05:00:00Z', customer_window_minutes: 90 }, { eta_seconds: 0, needs_geocode: true }, 'fr'), null);
+});
+
+test('dispatch civil dates and departure times use the restaurant clock across midnight and DST', () => {
+  const now = new Date('2026-11-18T23:40:00Z');
+  assert.equal(deliveryWallTime(now, 'Asia/Jerusalem'), '2026-11-19T01:40');
+  assert.equal(deliveryWallTime(now, 'America/Los_Angeles'), '2026-11-18T15:40');
+  assert.equal(deliveryDepartureInstant('2026-11-20T15:00', 'Asia/Jerusalem')?.toISOString(), '2026-11-20T13:00:00.000Z');
+  assert.equal(deliveryDepartureInstant('2026-03-08T02:30', 'America/New_York'), null);
+  assert.equal(validDispatchDay('2026-11-20'), '2026-11-20');
+  assert.equal(validDispatchDay('2026-02-31'), undefined);
+  assert.equal(validDispatchDay('unavailable'), undefined);
 });

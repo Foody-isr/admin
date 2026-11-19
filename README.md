@@ -1861,3 +1861,5 @@ Automatic bundles apply only to new exact-module selections and never remove
 features or capacity. Saved quotations, invitations, trials, negotiated prices
 and accepted grants retain their snapshots. Production activation requires the
 normal coordinated API/client release and catalogue review.
+
+Dispatch opens on the restaurant’s current service day. A dated dispatch link and the next planned day shortcut support upcoming deliveries. Managers can review each mistaken incident before undoing a departure. The courier, date, stop order and original incident audit are retained. A recorded arrival or receipt blocks the correction. Deploy the matching API before Admin.
