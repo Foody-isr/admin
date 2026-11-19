@@ -1,6 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createFixture } from './fixtures.mjs';
 
+const emptyDocuments = { environment: 'sandbox', documents: [], has_more: false, issuer_configured: true, email_available: false, email_enabled: false };
+
 async function install(page: Page, options: { locale?: string; scopedRole?: string; accountRole?: string } = {}) {
   const fixture = createFixture();
   const control = { reads: 0, failRead: false, failAfterWrite: false, failWrite: false, applyAndFail: false, gate: null as Promise<void> | null, subscription: { id: 1, restaurant_id: 1, status: 'active', plan_tier: 'starter', card_last_four: '4242', card_brand: 'Demo', current_period_end: '2026-11-04T10:30:00Z', events: [{ id: 1, subscription_id: 1, event_type: 'payment_succeeded', amount: 299.75, currency: 'ILS', created_at: '2026-10-03T09:30:00Z' }, { id: 2, subscription_id: 1, event_type: 'payment_failed', amount: 18.42, currency: 'USD', created_at: '2026-10-02T08:00:00Z' }, { id: 3, subscription_id: 1, event_type: 'plan_changed', created_at: '2026-10-01T08:00:00Z' }] } as any };
@@ -92,6 +94,7 @@ test(`the owner can pay a private ${cycle} offer with renewal ${renewal} and ver
   await page.route('**/api/v1/restaurants/1/foody-billing**', async (route) => {
     const url = new URL(route.request().url());
     expect(route.request().headers()['x-restaurant-id']).toBe('1');
+    if (url.pathname.endsWith('/documents')) return route.fulfill({ json: emptyDocuments });
     if (url.pathname.endsWith('/usage')) return route.fulfill({ json: { month: '2026-11', quotas: null, observed: { openai_whisper_requests: 12 }, complete: true } });
     if (url.pathname.endsWith('/checkout')) {
       checkoutCalls.push(route.request().postDataJSON());
@@ -153,6 +156,7 @@ test('a CST card registration waits for the owner to pay the full subscription a
   const charges: unknown[] = [];
   await page.route('**/api/v1/restaurants/1/foody-billing**', async (route) => {
     const { pathname } = new URL(route.request().url());
+    if (pathname.endsWith('/documents')) return route.fulfill({ json: emptyDocuments });
     if (pathname.endsWith('/usage')) return route.fulfill({ json: { month: '2026-11', observed: {}, quotas: null } });
     if (pathname.endsWith('/reconcile')) registered = true;
     else if (pathname.endsWith('/pay-registered-card')) {
@@ -179,6 +183,70 @@ test('a CST card registration waits for the owner to pay the full subscription a
   await expect(page.getByText(/Paiement de test confirmé/)).toBeVisible();
   await expect(pay).toHaveCount(0);
   expect(charges).toEqual([{ payment_id: 8 }]);
+});
+
+test('owner filters, views, downloads and resends the same subscription invoice', async ({ page }) => {
+  await install(page);
+  const price = { net_minor: 50000, vat_minor: 9000, total_minor: 59000 };
+  const offer = { id: 7, version: 1, title: 'Offre de test', includes: 'Logiciel', terms: 'Test', start_date: '2026-11-01', monthly: price, annual: price };
+  const document = {
+    payment_id: 43, number: 4012, title: 'Offre de test', cycle: 'monthly', kind: 'renewal',
+    paid_at: '2026-11-09T10:00:00Z', period_start: '2026-11-09T10:00:00Z', period_end: '2026-12-09T10:00:00Z',
+    issue_state: 'ready', mail_state: 'sent', price,
+  };
+  let emailEnabled = false;
+  let resends = 0;
+  const mutations: string[] = [];
+  await page.route('**/api/v1/restaurants/1/foody-billing**', async route => {
+    const request = route.request();
+    const { pathname, searchParams } = new URL(request.url());
+    expect(request.headers()['x-restaurant-id']).toBe('1');
+    if (request.method() !== 'GET') mutations.push(request.method() + ' ' + pathname);
+    if (pathname.endsWith('/document-delivery')) {
+      emailEnabled = request.postDataJSON().enabled;
+      return route.fulfill({ json: {} });
+    }
+    if (pathname.endsWith('/documents/43/resend')) {
+      resends++;
+      return route.fulfill({ json: {} });
+    }
+    if (pathname.endsWith('/documents/43/pdf')) return route.fulfill({ contentType: 'application/pdf', body: '%PDF-1.4\n% fixture\n%%EOF' });
+    if (pathname.endsWith('/documents/archive')) {
+      expect(searchParams.get('month')).toBe('2026-11');
+      return route.fulfill({ contentType: 'application/zip', body: Buffer.from('504b0506' + '00'.repeat(18), 'hex') });
+    }
+    if (pathname.endsWith('/documents')) {
+      const matches = !searchParams.has('number') || searchParams.get('number') === '4012';
+      return route.fulfill({ json: { ...emptyDocuments, email_available: true, email_enabled: emailEnabled, documents: matches ? [document] : [] } });
+    }
+    if (pathname.endsWith('/usage')) return route.fulfill({ json: { month: '2026-11', observed: {}, quotas: null } });
+    return route.fulfill({ json: { offer, due: false, checkout_enabled: false } });
+  });
+  await page.goto('/1/billing#documents');
+  const archive = page.locator('#documents');
+  await expect(archive.getByText('#4012')).toBeVisible();
+  await archive.getByLabel('Nº de facture').fill('9999');
+  await expect(archive.getByText('Aucun paiement correspondant.')).toBeVisible();
+  await archive.getByLabel('Nº de facture').fill('4012');
+  await archive.getByRole('button', { name: 'Voir le PDF' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: 'Fermer', exact: true }).click();
+  const pdf = page.waitForEvent('download');
+  await archive.getByRole('button', { name: 'Télécharger', exact: true }).click();
+  expect((await pdf).suggestedFilename()).toBe('Foody-Invoice4U-TEST-4012.pdf');
+  await archive.getByLabel('Mois du paiement').fill('2026-11');
+  const zip = page.waitForEvent('download');
+  await archive.getByRole('button', { name: 'Télécharger le mois (.zip)' }).click();
+  expect((await zip).suggestedFilename()).toBe('Foody-Invoice4U-TEST-2026-11.zip');
+  const resend = archive.getByRole('button', { name: 'Renvoyer par e-mail' });
+  await expect(resend).toHaveCount(0);
+  const delivery = archive.getByRole('checkbox');
+  await delivery.click();
+  await expect(delivery).toBeChecked();
+  await resend.click();
+  await expect(archive.getByText('Envoi demandé.')).toBeVisible();
+  expect(resends).toBe(1);
+  expect(mutations).toEqual(['PUT /api/v1/restaurants/1/foody-billing/document-delivery', 'POST /api/v1/restaurants/1/foody-billing/documents/43/resend']);
 });
 
 test('production owner navigation uses the scoped Foody billing response', async ({ page, baseURL }) => {
