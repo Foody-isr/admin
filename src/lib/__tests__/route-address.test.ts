@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { deliveryCityKey, formatRouteAddress, matchesDeliverySearch, selectedNumberedAddress } from '../route-address';
+import { deliveryCityKey, formatRouteAddress, matchesDeliverySearch, numberForSelectedStreet, selectedNumberedAddress } from '../route-address';
 
 test('a numbered choice keeps its original postal label and discards street-level coordinates', () => {
   for (const [address, street, number, city, selectedCity] of [
@@ -50,4 +50,15 @@ test('delivery search retains partial input in either script, literal labels and
   assert.ok(matchesDeliverySearch('#418', 418));
   assert.ok(matchesDeliverySearch('lea', 'Léa Demo'));
   assert.equal(matchesDeliverySearch('ירושלים', 'Tel Aviv', 418), false);
+});
+
+test('a selected street can reuse a known building number only on the same street and in the same city', () => {
+  const choice = { id: 'route', address: 'שדרת הדגמה', street: 'Example Avenue', city: 'נתניה' };
+  assert.equal(numberForSelectedStreet('שדרת הדגמה 9א', 'Netanya', choice), '9א');
+  assert.equal(numberForSelectedStreet('9 Example Avenue', 'Netanya', choice), '9');
+  assert.equal(numberForSelectedStreet('Example Avenue 9', 'Herzlya', choice), '');
+  assert.equal(numberForSelectedStreet('Other Avenue 9', 'Netanya', choice), '');
+  assert.equal(numberForSelectedStreet('Example Avenue', 'Netanya', choice), '');
+  assert.equal(deliveryCityKey('Herzlya'), deliveryCityKey('הרצליה'));
+  assert.equal(deliveryCityKey('Guivat Shmuel'), deliveryCityKey('גבעת שמואל'));
 });

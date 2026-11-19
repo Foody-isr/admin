@@ -11,7 +11,7 @@ import { RouteAddressField } from '@/components/delivery/RouteAddressField';
 import type { AddressSuggestion } from '@/lib/delivery';
 import { checkoutStepCopy } from '@/lib/orders/checkout-step-copy';
 import { parseDeliveryPin } from '@/lib/delivery-address';
-import { formatRouteAddress } from '@/lib/route-address';
+import { deliveryCityKey, formatRouteAddress, numberForSelectedStreet, streetBuilding } from '@/lib/route-address';
 
 interface EditCustomerDialogProps {
   restaurantId: number;
@@ -37,6 +37,7 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
   const [addressQuery, setAddressQuery] = useState<string | null>(null);
   const [manualAddress, setManualAddress] = useState(false);
   const [reviewSelection, setReviewSelection] = useState(false);
+  const [streetNumber, setStreetNumber] = useState<string | null>(null);
   const [pinText, setPinText] = useState('');
   const pin = parseDeliveryPin(pinText);
   const invalidPin = !!pinText.trim() && !pin;
@@ -60,6 +61,7 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
     setAddressQuery(null);
     setManualAddress(false);
     setReviewSelection(false);
+    setStreetNumber(null);
     setPinText('');
     setAddressResolving(false);
     setSelectedPosition(undefined);
@@ -67,6 +69,10 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
     setSubmitError('');
   }, [open, order]);
 
+  const numberedStreet = streetNumber?.trim()
+    ? [delivery.address.trim(), streetNumber.trim()].join(' ') : delivery.address.trim();
+  const previousNumber = order && streetNumber === '' && deliveryCityKey(order.delivery_city ?? '') === deliveryCityKey(delivery.city)
+    ? streetBuilding(order.delivery_address ?? '')?.number : undefined;
   const addressComplete = addressQuery === null && delivery.address.trim() !== '' && delivery.city.trim() !== '';
   const showAddressHint = !manualAddress && !addressComplete;
   const canConfirm = !!order && name.trim() !== '' && !submitting && !invalidPin &&
@@ -82,6 +88,7 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
   };
 
   const searchAddress = (query: string) => {
+    setStreetNumber(null);
     setAddressQuery(query);
     setSelectedPosition(undefined);
     setPinText('');
@@ -99,6 +106,7 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
   };
 
   const selectAddress = ({ address, city, lat, lng }: AddressSuggestion) => {
+    setStreetNumber(null);
     setDelivery(previous => ({ ...previous, address, city }));
     const position = typeof lat === 'number' && typeof lng === 'number' && Number.isFinite(lat) && Number.isFinite(lng)
       ? { lat, lng } : undefined;
@@ -108,11 +116,23 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
     setSubmitError('');
   };
 
+  const acceptStreet = (choice: AddressSuggestion) => {
+    const [typedStreet, typedCity] = (addressQuery ?? '').split(',').map(part => part.trim());
+    const number = numberForSelectedStreet(typedStreet, typedCity || choice.city, choice) ||
+      numberForSelectedStreet(delivery.address, delivery.city, choice);
+    selectAddress(choice);
+    setStreetNumber(number);
+  };
+
   const toggleAddressEntry = () => {
-    if (!manualAddress && addressQuery !== null) changeDelivery({ address: addressQuery, city: '' });
+    if (!manualAddress && addressQuery !== null) {
+      const [address, city] = addressQuery.split(',').map(part => part.trim());
+      changeDelivery({ address, city: city ?? '' });
+    } else if (streetNumber?.trim()) changeDelivery({ address: numberedStreet });
     setAddressQuery(null);
     setManualAddress(!manualAddress);
     setReviewSelection(false);
+    setStreetNumber(null);
     setPinText('');
     setSubmitError('');
   };
@@ -129,7 +149,7 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
     try {
       const input: OrderCustomerDetailsInput = { name: name.trim() };
       if (isDelivery) {
-        input.delivery_address = delivery.address.trim();
+        input.delivery_address = numberedStreet;
         input.delivery_city = delivery.city.trim();
         input.delivery_floor = delivery.floor.trim();
         input.delivery_apt = delivery.apt.trim();
@@ -194,7 +214,7 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
 
               {isDelivery && (
                 <div className="flex flex-col gap-[var(--s-3)] rounded-r-md border border-[var(--line)] p-[var(--s-4)]">
-                  <Button type="button" variant="ghost" size="sm" className="self-start" onClick={toggleAddressEntry} disabled={submitting}>
+                  <Button type="button" variant="secondary" size="sm" className="self-start" onClick={toggleAddressEntry} disabled={submitting}>
                     {manualAddress ? copy.addressSearch : copy.addressManual}
                   </Button>
                   <CustomerDeliveryFields
@@ -211,14 +231,23 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
                         onChange={searchAddress}
                         onSelectAddress={selectAddress}
                         onReviewAddress={reviewAddress}
+                        onSelectStreet={acceptStreet}
                         onResolvingChange={setAddressResolving}
                         inputProps={{ 'aria-describedby': showAddressHint ? addressHintId : undefined }}
                         disabled={submitting}
                         t={t}
                       />
                     )}
-                    underAddress={(showAddressHint || reviewSelection) && <p id={addressHintId} role="status" className="text-fs-xs text-[var(--fg-muted)]">
-                      {reviewSelection ? t('deliveryReviewSelectedAddress') : copy.addressSearchHint}
+                    underAddress={streetNumber !== null ? <div className="space-y-2">
+                      <p role="status" className="text-fs-xs text-[var(--fg-muted)]">{t('deliveryStreetSelected')}</p>
+                      <Field label={t('deliveryOptionalHouseNumber')}>
+                        <Input dir="auto" value={streetNumber} maxLength={20} disabled={submitting}
+                          onChange={event => { setStreetNumber(event.target.value); setPinText(''); setSubmitError(''); }} />
+                      </Field>
+                      {previousNumber && <Button type="button" size="sm" variant="secondary"
+                        onClick={() => { setStreetNumber(previousNumber); setPinText(''); }}>{t('deliveryUsePreviousNumber').replace('{number}', previousNumber)}</Button>}
+                    </div> : (showAddressHint || reviewSelection) && <p id={addressHintId} role="status" className="text-fs-xs text-[var(--fg-muted)]">
+                      {reviewSelection ? t('deliveryReviewSelectedAddress') : t('deliveryChooseStreetHint')}
                     </p>}
                   />
                   {allowMapPin && addressComplete && (
@@ -232,7 +261,7 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
                         {t(invalidPin ? 'deliveryPinInvalid' : 'deliveryPinHint')}
                       </p>
                       <a className="inline-flex min-h-9 items-center text-fs-sm font-medium underline"
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pin ? `${pin.lat},${pin.lng}` : formatRouteAddress(delivery))}`}
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pin ? `${pin.lat},${pin.lng}` : formatRouteAddress({ address: numberedStreet, city: delivery.city }))}`}
                         target="_blank" rel="noreferrer">{t(pin ? 'deliveryPinPreview' : 'deliveryPinSearch')}</a>
                     </div>
                   )}
