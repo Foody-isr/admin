@@ -1,11 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 import { createFixture } from '../redesign/fixtures.mjs';
+import type { WalletStudioArtwork } from '../../src/lib/api';
 
 async function studio(page: Page, locale: 'fr' | 'he' = 'fr', canSign = true) {
   const fixtureOptions = { empty: false, permissions: ['settings.view', 'settings.edit'] };
   const fixture = createFixture(fixtureOptions);
-  const writes: { method: string; path: string; data: { expected_revision: number; background_color?: string; hide_restaurant_name?: boolean; logo_png?: string; banner_png?: string } }[] = [];
-  let design = { revision: 0, background_color: '#FFFFFF', foreground_color: '#15292F', logo_png: null, banner_png: null };
+  const writes: { method: string; path: string; data: Partial<WalletStudioArtwork> & { expected_revision: number; apple_strip_png?: string; google_hero_png?: string } }[] = [];
+  let design: WalletStudioArtwork & { revision: number } = { revision: 0, background_color: '#FFFFFF', foreground_color: '#15292F', logo_png: null, banner_png: null };
   let publishedRevision = 0;
   await page.addInitScript((lang) => {
     localStorage.setItem('foody_restaurant_token', 'isolated-wallet-studio');
@@ -33,7 +34,7 @@ async function studio(page: Page, locale: 'fr' | 'he' = 'fr', canSign = true) {
       if (req.method() === 'PUT') {
         const { expected_revision, ...artwork } = data;
         if (expected_revision !== design.revision) return route.fulfill({ status: 409, json: { error: 'loyalty_conflict' } });
-        design = { ...artwork, revision: expected_revision + 1 };
+        design = { ...artwork, banner_original: artwork.banner_png ? artwork.banner_original ?? design.banner_original : undefined, revision: expected_revision + 1 };
         return route.fulfill({ json: design });
       }
       if (path.endsWith('/publish')) {
@@ -188,21 +189,22 @@ test('resizes a large banner and keeps the saved image through a failed replacem
     await page.getByRole('tab', { name: tab }).click();
     const image = card.getByRole('img', { name: 'Bannière de la carte' });
     await expect(image).toBeVisible();
-    await expect.poll(() => image.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBe(750);
+    await expect.poll(() => image.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBe(2600);
     expect((await image.boundingBox())!.height).toBeGreaterThan(40);
   }
   await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
   await expect(page.getByText('Brouillon enregistré.', { exact: true })).toBeVisible();
   expect(Buffer.from(writes[0].data.banner_png!, 'base64').byteLength).toBeLessThan(1024 * 1024);
+  expect(writes[0].data.banner_original === banner).toBe(true);
   await page.reload();
   const saved = apple.getByRole('img', { name: 'Bannière de la carte' });
   await expect(saved).toBeVisible();
   await file.setInputFiles({ name: 'illisible.png', mimeType: 'image/png', buffer: Buffer.from('invalid image') });
   await expect(file).toHaveAccessibleDescription('Cette image est illisible. Essayez un autre fichier.');
-  await expect(saved).toHaveAttribute('src', 'data:image/png;base64,' + writes[0].data.banner_png);
+  expect(await saved.getAttribute('src') === 'data:image/jpeg;base64,' + banner).toBe(true);
   await file.setInputFiles({ name: 'trop-grande.jpg', mimeType: 'image/jpeg', buffer: Buffer.alloc(10 * 1024 * 1024 + 1) });
   await expect(file).toHaveAccessibleDescription('Ce fichier dépasse 10 Mo. Choisissez une image plus petite.');
-  await expect(saved).toHaveAttribute('src', 'data:image/png;base64,' + writes[0].data.banner_png);
+  expect(await saved.getAttribute('src') === 'data:image/jpeg;base64,' + banner).toBe(true);
   const webp = await page.evaluate(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 40;
@@ -217,4 +219,69 @@ test('resizes a large banner and keeps the saved image through a failed replacem
   await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
   await expect(page.getByText('Brouillon enregistré.', { exact: true })).toBeVisible();
   expect(writes[1].data.banner_png).toBeNull();
+});
+
+test('preserves a square original, separate Wallet frames and the Apple counter across saves', async ({ page }) => {
+  const writes = await studio(page);
+  const source = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 600;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#ed182f';
+    ctx.fillRect(0, 0, 600, 600);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+  await page.getByLabel('Bannière de la carte', { exact: true }).setInputFiles({ name: 'cafe.png', mimeType: 'image/png', buffer: Buffer.from(source, 'base64') });
+  const edit = page.getByRole('button', { name: 'Cadrer la bannière' });
+  const apple = page.locator('[data-wallet-banner="apple"]');
+  const device = page.getByLabel('Wallet à modifier');
+  await edit.click();
+  await expect(page.getByLabel('Ajustement de l’image')).toHaveValue('contain');
+  await expect(apple.locator('[data-wallet-counter]')).toHaveCount(0);
+  await expect(apple.getByRole('img')).toBeVisible();
+  const area = (await apple.boundingBox())!;
+  await page.mouse.move(area.x + area.width / 2, area.y + area.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(area.x + area.width, area.y + area.height / 2);
+  await page.mouse.up();
+  await expect(page.getByLabel('Position horizontale')).toHaveValue('100');
+  await page.getByLabel('Position du compteur Apple').selectOption('overlay');
+  await expect(apple.locator('[data-wallet-counter]')).toContainText('Visites');
+  await device.selectOption('google');
+  await page.getByRole('switch', { name: 'Cadrage propre à Google' }).check();
+  await page.getByLabel('Ajustement de l’image').selectOption('cover');
+  await page.getByRole('slider', { name: 'Zoom', exact: true }).focus();
+  await page.keyboard.press('ArrowRight');
+  await device.selectOption('apple');
+  await expect(page.getByLabel('Position horizontale')).toHaveValue('100');
+  await expect(page.getByRole('slider', { name: 'Zoom', exact: true })).toHaveValue('1');
+  await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
+  await expect(page.getByText('Brouillon enregistré.', { exact: true })).toBeVisible();
+  const first = writes[0].data;
+  expect(first.banner_original === source).toBe(true);
+  expect(first.banner_layout).toMatchObject({ shared: { fit: 'contain', x: 100 }, google: { fit: 'cover', zoom: 1.05 }, apple_counter: 'overlay' });
+  const pixels = await page.evaluate(async images => Promise.all(images.map(async data => {
+    const img = new Image();
+    img.src = 'data:image/png;base64,' + data;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width; canvas.height = img.height;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(img, 0, 0);
+    return [img.width, img.height, ctx.getImageData(2, 2, 1, 1).data[3], ctx.getImageData(img.width - 3, 2, 1, 1).data[3]];
+  })), [first.apple_strip_png!, first.google_hero_png!]);
+  expect(pixels).toEqual([[1125, 432, 0, 255], [1032, 812, 255, 255]]);
+  await page.reload();
+  await edit.click();
+  await expect(page.getByLabel('Position du compteur Apple')).toHaveValue('overlay');
+  await device.selectOption('google');
+  await expect(page.getByLabel('Ajustement de l’image')).toHaveValue('cover');
+  await page.getByRole('switch', { name: 'Cadrage propre à Google' }).uncheck();
+  await expect(page.getByLabel('Position horizontale')).toHaveValue('100');
+  await page.getByRole('button', { name: 'Réinitialiser le cadrage' }).click();
+  await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
+  await expect(page.getByText('Brouillon enregistré.', { exact: true })).toBeVisible();
+  expect(writes[1].data.banner_original).toBeUndefined();
+  await page.reload();
+  await expect(apple.getByRole('img')).toHaveAttribute('src', 'data:image/png;base64,' + source);
 });

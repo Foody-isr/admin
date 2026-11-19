@@ -2510,6 +2510,8 @@ export interface WalletStudioArtwork {
   hide_restaurant_name?: boolean;
   logo_png: string | null;
   banner_png: string | null;
+  banner_original?: string;
+  banner_layout?: import('./wallet-banner').WalletBannerLayout;
 }
 
 export interface WalletStudioDesign extends WalletStudioArtwork {
@@ -2534,7 +2536,7 @@ export function getWalletStudio(rid: number, signal?: AbortSignal): Promise<Wall
 }
 
 /** Replace the draft only if its saved revision still matches. */
-export function saveWalletStudio(rid: number, revision: number, artwork: WalletStudioArtwork, signal?: AbortSignal): Promise<WalletStudioDesign> {
+export function saveWalletStudio(rid: number, revision: number, artwork: WalletStudioArtwork & { apple_strip_png?: string; google_hero_png?: string }, signal?: AbortSignal): Promise<WalletStudioDesign> {
   return apiFetch(walletStudioPath, rid, {
     method: 'PUT', cache: 'no-store', signal,
     body: JSON.stringify({ expected_revision: revision, ...artwork }),
