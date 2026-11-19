@@ -1,16 +1,18 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, type InputHTMLAttributes } from 'react';
-import { formatRouteAddress } from '@/lib/route-address';
+import { formatRouteAddress, selectedNumberedAddress } from '@/lib/route-address';
 import { Input } from '@/components/ds';
 import { autocompleteRouteAddress, resolveRouteAddress, type AddressSuggestion } from '@/lib/delivery';
 
 /** Search and select an endpoint using the restaurant's existing address provider. */
-export function RouteAddressField({ restaurantId, locale, label, placeholder, value, onChange, onSelectAddress, onResolvingChange, inputProps, disabled, t }: {
+export function RouteAddressField({ restaurantId, locale, label, placeholder, value, onChange, onSelectAddress, onReviewAddress, onResolvingChange, inputProps, disabled, t }: {
   restaurantId: number; locale: string; label: string; placeholder?: string; value: string;
   onChange: (value: string) => void; onResolvingChange?: (resolving: boolean) => void; disabled?: boolean; t: (key: string) => string;
   /** Receives a complete address and its city separately. Partial suggestions stay in the search field. */
   onSelectAddress?: (suggestion: AddressSuggestion) => void;
+  /** Lets a staff editor review the label that was clicked if Details cannot confirm it. */
+  onReviewAddress?: (prediction: AddressSuggestion) => void;
   inputProps?: Pick<InputHTMLAttributes<HTMLInputElement>, 'id' | 'aria-label' | 'aria-invalid' | 'aria-describedby'>;
 }) {
   const generatedId = useId();
@@ -59,21 +61,30 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
     const version = ++resolution.current;
     setResolving(true); resolvingCallback.current?.(true); setError(false); setSuggestions([]);
     try {
-      const resolved = suggestion.lookup_token ? await resolveRouteAddress(restaurantId, suggestion.lookup_token) : suggestion;
+      const details = suggestion.lookup_token ? await resolveRouteAddress(restaurantId, suggestion.lookup_token) : suggestion;
       if (resolution.current !== version || currentValue.current !== value) return;
+      const resolved = (onSelectAddress && selectedNumberedAddress(suggestion, details)) || details;
       const address = formatRouteAddress(resolved);
       session.current = '';
       // The API labels street/place refinements and omits kind on complete addresses.
       const completeAddress = resolved.address.trim() && resolved.city.trim() &&
         (resolved.kind === 'address' || (!resolved.kind && resolved.street?.trim() && resolved.house_number?.trim()));
       if (resolved.kind === 'street' || (onSelectAddress && !completeAddress)) {
+        if (onReviewAddress && /\d/.test(suggestion.address) && suggestion.address.trim() !== resolved.street?.trim()) {
+          onReviewAddress(suggestion); return;
+        }
         onChange(address); return;
       }
       selection.current = address;
       if (onSelectAddress) onSelectAddress(resolved);
       else onChange(address);
       setFocused(false);
-    } catch { if (resolution.current === version && currentValue.current === value) setError(true); }
+    } catch {
+      if (resolution.current === version && currentValue.current === value) {
+        if (onReviewAddress) onReviewAddress(suggestion);
+        else setError(true);
+      }
+    }
     finally { if (resolution.current === version) { setResolving(false); resolvingCallback.current?.(false); } }
   };
 

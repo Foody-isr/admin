@@ -80,7 +80,7 @@ async function install(page: Page, locale = 'fr') {
   return state;
 }
 
-for (const mode of ['coordinates', 'canonical text', 'unlocated Google address', 'manual recovery'] as const) {
+for (const mode of ['coordinates', 'canonical text', 'unlocated Google address', 'manual recovery', 'unavailable Details'] as const) {
   test(`dispatch corrects the customer delivery address using ${mode}`, async ({ page }) => {
     const state = await install(page);
     const order = {
@@ -100,15 +100,15 @@ for (const mode of ['coordinates', 'canonical text', 'unlocated Google address',
     await page.route('**/api/v1/public/address-autocomplete?**', async request => {
       const url = new URL(request.request().url());
       expect(url.searchParams.get('restaurant_id')).toBe('1');
-      return request.fulfill({ json: { suggestions: [{ ...suggestion, kind: 'prediction', lookup_token: 'demo-token' }] } });
+      return request.fulfill({ json: { suggestions: [{ ...suggestion, city: 'Tel Aviv, Israel', kind: 'prediction', lookup_token: 'demo-token' }] } });
     });
-    await page.route('**/api/v1/public/address-autocomplete/resolve?**', request => request.fulfill({
-      json: { suggestion: mode === 'coordinates' ? { ...suggestion, ...location } : suggestion },
-    }));
+    await page.route('**/api/v1/public/address-autocomplete/resolve?**', request =>
+      mode === 'unavailable Details' ? request.fulfill({ status: 503, json: { error: 'unavailable' } })
+        : request.fulfill({ json: { suggestion: mode === 'coordinates' ? { ...suggestion, ...location } : suggestion } }));
     await page.route('**/api/v1/public/geocode?**', async request => {
       const query = new URL(request.request().url()).searchParams;
       geocodes.push({ address: query.get('address'), city: query.get('city') });
-      const found = mode !== 'unlocated Google address' && (mode !== 'manual recovery' || geocodes.length > 1);
+      const found = mode !== 'unlocated Google address';
       return request.fulfill({ json: found ? { found, ...location } : { found } });
     });
     await page.route('**/api/v1/orders/1002/customer-details?**', async request => {
@@ -121,6 +121,9 @@ for (const mode of ['coordinates', 'canonical text', 'unlocated Google address',
     await page.route('**/api/v1/delivery/routes/1/optimize?**', async request => {
       operations.push('optimize');
       if (mode === 'coordinates') return request.fulfill({ status: 500, json: { error: 'demo recalculation error' } });
+      if (mode === 'unlocated Google address') {
+        state.routes[0].stops[1] = { ...state.routes[0].stops[1], ...saved, lat: null, lng: null, needs_geocode: true };
+      }
       return request.fulfill({ json: { route: state.routes[0] } });
     });
 
@@ -139,28 +142,26 @@ for (const mode of ['coordinates', 'canonical text', 'unlocated Google address',
       await dialog.getByRole('button', { name: 'Saisir l’adresse manuellement', exact: true }).click();
       const manualAddress = dialog.getByRole('textbox', { name: 'Adresse de livraison' });
       const manualCity = dialog.getByRole('textbox', { name: 'Ville', exact: true });
-      await manualAddress.fill(suggestion.address);
-      await manualCity.fill(suggestion.city);
-      await save.click();
-      await expect(dialog.getByRole('alert')).toContainText('Cette adresse est introuvable');
-      expect(operations).toEqual([]);
       saved.address = 'Rue Démo 24';
       saved.city = 'Ville Démo';
       await manualAddress.fill(saved.address);
       await manualCity.fill(saved.city);
     } else {
       await dialog.getByRole('option').getByRole('button').click();
-      await expect(address).toHaveValue('Rue Démo 12, Tel Aviv');
+      if (mode === 'unavailable Details') {
+        await expect(dialog.getByRole('textbox', { name: 'Adresse de livraison' })).toHaveValue(suggestion.address);
+        await expect(dialog.getByRole('textbox', { name: 'Ville', exact: true })).toHaveValue(suggestion.city);
+        await expect(dialog.getByText(/Vérifiez la rue, le numéro et la ville/)).toBeVisible();
+      } else await expect(address).toHaveValue('Rue Démo 12, Tel Aviv');
     }
 
     await save.click();
     await expect(dialog).toHaveCount(0);
     if (mode === 'coordinates') await expect(page.getByText('Impossible de recalculer cette tournée.')).toBeVisible();
     const unlocated = mode === 'unlocated Google address';
-    if (unlocated) await expect(page.getByText('Adresse enregistrée. Le point reste à vérifier pour recalculer la tournée.')).toBeVisible();
-    expect(operations).toEqual(unlocated ? ['save'] : ['save', 'optimize']);
-    expect(geocodes).toEqual(mode === 'coordinates' ? [] : mode === 'manual recovery'
-      ? [{ address: suggestion.address, city: suggestion.city }, saved] : [saved]);
+    if (unlocated) await expect(page.getByText(/Adresse enregistrée\. Pour inclure cet arrêt/)).toBeVisible();
+    expect(operations).toEqual(['save', 'optimize']);
+    expect(geocodes).toEqual(mode === 'coordinates' ? [] : [saved]);
     expect(correction).toEqual({
       name: order.customer_name,
       delivery_address: saved.address, delivery_city: saved.city,
@@ -168,6 +169,86 @@ for (const mode of ['coordinates', 'canonical text', 'unlocated Google address',
       delivery_entry_code: order.delivery_entry_code, delivery_notes: order.delivery_notes,
       ...(unlocated ? {} : { delivery_latitude: location.lat, delivery_longitude: location.lng }),
     });
+  });
+}
+
+for (const locale of ['fr', 'he'] as const) {
+  test(`a numbered ${locale} suggestion survives street-only Details and keeps its assigned stop`, async ({ page }) => {
+    const state = await install(page, locale);
+    const street = locale === 'he' ? 'רחוב הדגמה' : 'Demo Street';
+    const city = locale === 'he' ? 'נתניה' : 'Netanya';
+    const label = `${street} 6`;
+    const order = { id: 1002, restaurant_id: 1, order_type: 'delivery', customer_name: 'Demo',
+      delivery_address: '2 Rue de démonstration', delivery_city: 'Tel Aviv' };
+    const originalStops = state.routes[0].stops.map(stop => stop.id);
+    const operations: string[] = [];
+    const point = { lat: 32.28, lng: 34.85 };
+    let searches = 0;
+    await page.route('**/api/v1/orders/1002?**', request => request.fulfill({ json: { order } }));
+    await page.route('**/api/v1/public/address-autocomplete?**', request => {
+      searches++;
+      return request.fulfill({ json: { suggestions: ['Other City', city].map((name, index) => ({
+        id: `prediction-${index}`, kind: 'prediction', address: label, city: `${name}, Israel`, lookup_token: `demo-${index}`,
+      })) } });
+    });
+    await page.route('**/api/v1/public/address-autocomplete/resolve?**', request => {
+      expect(request.request().postDataJSON().lookup_token).toBe('demo-1');
+      return request.fulfill({ json: { suggestion: {
+        id: 'canonical-route', kind: 'street', address: street, street, city, house_number: '', lat: 30, lng: 35,
+      } } });
+    });
+    await page.route('**/api/v1/public/geocode?**', request => {
+      expect(new URL(request.request().url()).searchParams.get('address')).toBe(label);
+      operations.push('geocode');
+      return request.fulfill({ json: { found: false } });
+    });
+    await page.route('**/api/v1/orders/1002/customer-details?**', request => {
+      const data = request.request().postDataJSON();
+      expect(data.delivery_address).toBe(label);
+      expect(data.delivery_city).toBe(city);
+      if (locale === 'he') expect(data).toMatchObject({ delivery_latitude: point.lat, delivery_longitude: point.lng, delivery_pin_confirmed: true });
+      else {
+        expect(data).not.toHaveProperty('delivery_latitude');
+        expect(data).not.toHaveProperty('delivery_longitude');
+      }
+      operations.push('save');
+      return request.fulfill({ json: { order: { ...order, ...data } } });
+    });
+    await page.route('**/api/v1/delivery/routes/1/optimize?**', request => {
+      operations.push('optimize');
+      Object.assign(state.routes[0].stops[1], { address: label, city, ...point, needs_geocode: false, coordinate_provider: 'google' });
+      return request.fulfill({ json: { route: state.routes[0] } });
+    });
+    await page.goto('/1/orders/deliveries');
+    await page.getByRole('button', { name: /2 Rue de démonstration/ }).click();
+    await page.getByRole('button', { name: locale === 'he' ? 'תיקון כתובת' : 'Corriger l’adresse', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    const input = dialog.getByRole('combobox');
+    await input.fill(label);
+    const option = dialog.getByRole('option').filter({ hasText: city });
+    await expect(option).toBeVisible();
+    if (locale === 'he') {
+      await input.press('ArrowDown');
+      await input.press('Enter');
+    } else await option.click();
+    await expect(input).toHaveValue(`${label}, ${city}`);
+    const save = dialog.getByRole('button', { name: locale === 'he' ? 'שמור' : 'Enregistrer', exact: true });
+    await expect(save).toBeEnabled();
+    const searchesAfterSelection = searches;
+    await page.clock.runFor(500);
+    await expect(dialog.getByRole('listbox')).toHaveCount(0);
+    expect(searches).toBe(searchesAfterSelection);
+    if (locale === 'he') {
+      const pin = dialog.getByRole('textbox', { name: /נקודת משלוח/ });
+      await pin.fill('invalid');
+      await expect(save).toBeDisabled();
+      await pin.fill(`${point.lat}, ${point.lng}`);
+    }
+    await save.click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByRole('button', { name: new RegExp(label) }).first()).toBeVisible();
+    expect(operations).toEqual(locale === 'he' ? ['save', 'optimize'] : ['geocode', 'save', 'optimize']);
+    expect(state.routes[0].stops.map(stop => stop.id)).toEqual(originalStops);
   });
 }
 
