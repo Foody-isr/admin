@@ -1,0 +1,40 @@
+{
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "baseSha256": "67da32fbe38527071de4a261f4b1efe6ad98c1b7c326042d5f29eaa3e491c834",
+      "sha256": "363f144694150f86f9cffc93dada97c66a52944f2088a1b99387eda83b72c781",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Translated guidance identifies the retained postal address and the optional entrance pin in dispatch. Other product labels and operations use their existing translations."
+    },
+    {
+      "path": "src/lib/route-address.ts",
+      "baseSha256": "d7e9c59aaf4e0fd5e511bc7a4806290128daf6a94cc075f5ce0bad79a9572585",
+      "sha256": "7f72f663f3dac69bea061bf11180504b8a88fe112581fa27bf92b5ffc30f0c4b",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The added helper handles postal labels returned for a selected delivery address. City grouping, route endpoint labels and the existing dispatch search retain their recorded behavior."
+    }
+  ]
+}

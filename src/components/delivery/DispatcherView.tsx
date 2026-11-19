@@ -839,19 +839,19 @@ export default function DispatcherView({ rid }: { rid: number }) {
     }
   };
 
-  const saveAddressCorrection = async (input: OrderCustomerDetailsInput, selectedFromGoogle: boolean) => {
+  const saveAddressCorrection = async (input: OrderCustomerDetailsInput) => {
     if (!editingOrder) throw new Error(t('couldNotSave'));
     let position = input.delivery_latitude != null && input.delivery_longitude != null
       ? { lat: input.delivery_latitude, lng: input.delivery_longitude } : undefined;
     const { order, routeId } = editingOrder;
-    const keepPoint = !position && !selectedFromGoogle && order.delivery_latitude != null && order.delivery_longitude != null &&
+    const keepPoint = !position && order.delivery_latitude != null && order.delivery_longitude != null &&
       input.delivery_address === order.delivery_address && input.delivery_city === order.delivery_city;
+    let lookupUnavailable = false;
     if (!position && !keepPoint) {
       const result = await geocodeAddress(rid, input.delivery_address ?? '', input.delivery_city);
+      lookupUnavailable = !!result.unavailable;
       if (result.found && result.lat != null && result.lng != null) {
         position = { lat: result.lat, lng: result.lng };
-      } else if (!selectedFromGoogle) {
-        throw new Error(t(result.unavailable ? 'deliveryLookupUnavailable' : 'addressVerificationFailed'));
       }
     }
     await updateOrderCustomerDetails(rid, order.id, {
@@ -859,14 +859,17 @@ export default function DispatcherView({ rid }: { rid: number }) {
       delivery_latitude: position?.lat,
       delivery_longitude: position?.lng,
     });
-    if (!position && !keepPoint) {
-      await load();
-      setError(t('deliveryAddressSavedUnlocated'));
-      return;
-    }
     let routingError: string | null = null;
     try {
-      if (routeId && !keepPoint) await optimizeRoute(rid, routeId);
+      if (routeId && !keepPoint) {
+        // The route can locate the numbered address with its own Google provider.
+        const updated = await optimizeRoute(rid, routeId);
+        const stop = updated.stops.find(candidate => candidate.order_id === order.id);
+        if (updated.routing_error) routingError = deliveryRouteWarning(updated, t);
+        else if (stop?.needs_geocode) routingError = t('deliveryAddressSavedUnlocated');
+      } else if (!position && !keepPoint) {
+        routingError = t(lookupUnavailable ? 'deliveryAddressSavedLookupUnavailable' : 'deliveryAddressSavedUnlocated');
+      }
     } catch (cause) {
       routingError = deliveryRoutingError(cause, t) ?? t('deliveryPlanRecalculateFailed');
     }

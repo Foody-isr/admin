@@ -1,6 +1,28 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { deliveryCityKey, formatRouteAddress, matchesDeliverySearch } from '../route-address';
+import { deliveryCityKey, formatRouteAddress, matchesDeliverySearch, selectedNumberedAddress } from '../route-address';
+
+test('a numbered choice keeps its original postal label and discards street-level coordinates', () => {
+  for (const [address, street, number, city, selectedCity] of [
+    ['Demo Street 6', 'Demo Street', '6', 'Netanya', 'Netanya, Israel'],
+    ['אצ״ד 14א', 'אצ"ד', '14א', 'נתניה', 'Netanya, Israel'],
+    ['18 bis rue du Test', 'rue du Test', '18 bis', 'Paris', 'Paris, France'],
+    ['Rue du 8 Mai 9', 'Rue du 8 Mai', '9', 'Paris', 'Paris, France'],
+  ]) {
+    const prediction = { id: 'choice', kind: 'prediction', address, city: selectedCity, lookup_token: 'fixture' };
+    const details = { id: 'canonical-street', kind: 'street', address: street, street, city, lat: 31, lng: 34 };
+    assert.deepEqual(selectedNumberedAddress(prediction, details), { id: 'choice', address, city, street, house_number: number });
+  }
+});
+
+test('a bare street, different street or different city cannot supply a building number', () => {
+  const prediction = { id: 'choice', address: 'Rue du 8 Mai', city: 'Paris, France', lookup_token: 'fixture' };
+  const details = { id: 'route', address: 'Rue du 8 Mai', street: 'Rue du 8 Mai', city: 'Paris', kind: 'street' };
+  assert.equal(selectedNumberedAddress(prediction, details), undefined);
+  assert.equal(selectedNumberedAddress({ ...prediction, address: 'Rue Exemple 9' }, details), undefined);
+  assert.equal(selectedNumberedAddress({ ...prediction, address: 'Rue du 8 Mai 9', city: 'Lyon, France' }, details), undefined);
+  assert.equal(selectedNumberedAddress({ ...prediction, address: 'Rue du 8 Mai 9' }, { ...details, house_number: '9' }), undefined);
+});
 
 test('route endpoints retain formatted city and place suggestions without duplicated locality', () => {
   assert.equal(formatRouteAddress({ address: "Ra'anana, Israel", city: "Ra'anana" }), "Ra'anana, Israel");

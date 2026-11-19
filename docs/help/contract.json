@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "4e72aa00c707d1095c92e1bc51c4db24e215492b",
-  "documentationRevision": "ac4476671d506a86b9ffc985cd2adb0b1d9bad9d419781f4c92cd9258b638c65",
+  "documentationRef": "7c7aff819958362cd6d17215a057ed38972e8e16",
+  "documentationRevision": "14685e38ce63544a2949cdff1dcc77045195e928f048359ae3c100d2074c6048",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -449,15 +449,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/managing-orders.mdx",
-          "sha256": "d73e4cefcd7ec04f71d10f78ad58c84d46e7049beae9b831b329b84bd81a7aaa"
+          "sha256": "f50fa840e5cebb4a7151df273433a8e578a324b76c1721362eff870509bf45ce"
         },
         "fr": {
           "path": "src/content/help/fr/orders/managing-orders.mdx",
-          "sha256": "27b898a58f83ef897a209170623ba544c80b508ff6016dfc1fb35b4405fc53b4"
+          "sha256": "578b9706b812168b177c77b945d5b9953dbe36d064412804244e4f99daf2cf06"
         },
         "he": {
           "path": "src/content/help/he/orders/managing-orders.mdx",
-          "sha256": "eb87c5fd498ba0070517162aa7491988af8a76a0d7be9271b95e3f9c67c56b5a"
+          "sha256": "0e3039d133b5a89a0c1c3910cbc6cea01aaffb3dec5a85c4c305b1d44b7e8277"
         }
       }
     },
@@ -639,15 +639,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/order-details.mdx",
-          "sha256": "303e57319eb33e6db0d2b4a2700f586617a87be107c9a8703f450c5f64bf5e65"
+          "sha256": "2068ea49cdc2e3fda8435559ff694dd9641d279e265bdd3183880f6e7c2638f9"
         },
         "fr": {
           "path": "src/content/help/fr/orders/order-details.mdx",
-          "sha256": "c03e8bfad98a00f49b348ab1349cc6c90fa008b7ef700f58978f915bd74239a3"
+          "sha256": "d9e6e9a6075b706a670d0bb2e7b5c35cc196d9af6c100aa1a3e2c56e7657223b"
         },
         "he": {
           "path": "src/content/help/he/orders/order-details.mdx",
-          "sha256": "ab0d5c5b5eea8712d11b2de0c1984006896c75a92892637531406a3aebb00d9a"
+          "sha256": "2eaa92cf0506e6999c4279ba284830f2c4e7cbc19b93726f175a3ba37d168d76"
         }
       }
     },
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "d7fd81f90fa1dbb9e8e2b1ed07ced0407c2b3ef539e460a3afa65b53d703c8cf"
+          "sha256": "fb39f61b2d3b2ee0cf53842acdbc9bcf89d82697c57df7237119ed368e0cd91b"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "80a39b6dcbde247294dd863b8d21bc1430cd0f029f85872a3023459174bf1ba8"
+          "sha256": "a96454feb7b48046eb3456c94488cbefebf064ec5c8aec0b7aa09cc123e988f8"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "9993b135f17778c9111ac1d174355c9c5b3d64dd86b6cf2d148963ec07d8720a"
+          "sha256": "b425b51daae7a5350de18a2140fececa7c0359a10888d6a39f66df501940c49a"
         }
       }
     },
@@ -4203,7 +4203,7 @@
       ]
     },
     "src/components/delivery/DispatcherView.tsx": {
-      "sha256": "c0064102b795e06957586763f10430c39649d3417e472782db4c556de0571097",
+      "sha256": "071581ef801d0b767de4729b8794eb881730f2d258cef2c45bd4a6d90b223504",
       "features": [
         "delivery-dispatch"
       ]
@@ -4247,7 +4247,7 @@
       ]
     },
     "src/components/delivery/RouteAddressField.tsx": {
-      "sha256": "6de0851ddf9c28f04b4d3c4366c4e76f918dbbeeddff7a262d758e2194e5de91",
+      "sha256": "7a38f848eb8dac3d06e2bd6df0cf219b741e91095ed16174ba92ae9b61d8e5d3",
       "features": [
         "delivery-dispatch"
       ]
@@ -5319,7 +5319,7 @@
       ]
     },
     "src/components/orders/EditCustomerDialog.tsx": {
-      "sha256": "c8e5ef80d10268d11214eb8c426ce9705e659509e07b8fb898937168e79ad033",
+      "sha256": "174b72cdba814b0ca09803efd838b77e0895abc6559fa77d8acb0e98a3328f94",
       "features": [
         "orders-managing-orders",
         "order-detail",
@@ -6894,7 +6894,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "67da32fbe38527071de4a261f4b1efe6ad98c1b7c326042d5f29eaa3e491c834",
+      "sha256": "363f144694150f86f9cffc93dada97c66a52944f2088a1b99387eda83b72c781",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -7509,7 +7509,7 @@
       ]
     },
     "src/lib/route-address.ts": {
-      "sha256": "d7e9c59aaf4e0fd5e511bc7a4806290128daf6a94cc075f5ce0bad79a9572585",
+      "sha256": "7f72f663f3dac69bea061bf11180504b8a88fe112581fa27bf92b5ffc30f0c4b",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -19836,6 +19836,7 @@
         "customerName",
         "deliveryAddress",
         "deliveryPinLabel",
+        "deliveryReviewSelectedAddress",
         "editCustomer",
         "editCustomerNameHint",
         "editCustomerNoPhoneHint",
@@ -23620,16 +23621,6 @@
       ]
     },
     {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:147",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 147,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.is_visible"
-    },
-    {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:694",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
@@ -25928,6 +25919,16 @@
         "website-qr-customize-your-site"
       ],
       "field": "section.delete"
+    },
+    {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:147",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 147,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.is_visible"
     },
     {
       "id": "foodyadmin:src/components/website/CheckoutEditor.tsx:ui-controls:1",
