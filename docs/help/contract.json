@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "67bdd9201401b5661c527ee6e2930b9cb248170c",
-  "documentationRevision": "773fe8e2b01f142eae9b34c1049cd937999c65d621bc69377f9adf16bd1a87f5",
+  "documentationRef": "73eeb1cdfd432d3f146e0d1653a008b78f8aac07",
+  "documentationRevision": "95f72b8674ff17d0c5a48a72148e072f70f5a03c296ef31d4e8aeb7752fac014",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -1817,15 +1817,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "b42fda7ccac655d81c3da7bbbe8f07c8cdade77f1c3940110a55948edad15f7f"
+          "sha256": "4a31f4d756774b669ecde9d103416b89f170a6bfe3a35db28180306449d2e8c5"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "8ae6fe7849aca06e2f4831dc888982476cf4d43eb7878dbd05c9315439c34f6b"
+          "sha256": "616a7f28250475ea6b874bc1dae75f97fcb702bf8e50165f2131bee2c44884fc"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "625e01cd63cf3a3222f86c0ff55884b170a45e99b1aa13a722db02cf4572ca63"
+          "sha256": "c6cf1b677906c7c0ab741a99adfed5a7d0c0f829311777325ec2cec8640ee3a9"
         }
       }
     },
@@ -2121,15 +2121,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/customers/loyalty-program.mdx",
-          "sha256": "946a68b38b10cb53e1cb37d63d68f45df37470d693aa5a7e5cc4158845e68c9f"
+          "sha256": "68d6a7c7e7db16004795ed55d39d6e8e9bba5e880972518d871ad6900a10fac2"
         },
         "fr": {
           "path": "src/content/help/fr/customers/loyalty-program.mdx",
-          "sha256": "39242a6aeb0ff4772097a6264d2d4d7fc42d081020655ac6b919a8e9f8a24538"
+          "sha256": "3f023c820245d35b64b3026fb0b1a5b143eb5faaac1ed1d99ae56d951a2d846d"
         },
         "he": {
           "path": "src/content/help/he/customers/loyalty-program.mdx",
-          "sha256": "2fd0bb0001ad82818c7f33d880533dc1fa204f0dacac567646b0a75ddadc1aab"
+          "sha256": "e3d2221a4183a357e8d0f4bdbc1379eacaaf0bf1fb920e6c051cc04c31b7b4ca"
         }
       }
     },
@@ -2140,15 +2140,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/wallet-studio.md",
-          "sha256": "9ecbd85231f14dcb90677d70cc37d8c585d31d5a170894d9441ff645d91b6b07"
+          "sha256": "9985ccc25b10af21187956138a65982d5ccadc647cec82f55ffa372a4f0ca58c"
         },
         "fr": {
           "path": "docs/help/internal/fr/wallet-studio.md",
-          "sha256": "f1ad3cf86b513b7305e8f62da70e528cd57545f1588385cd832e0e883ce18f36"
+          "sha256": "025113aab8fb967d3a628691fbc3673b3cf47aac999f6bb320c6f58cbb6731cc"
         },
         "he": {
           "path": "docs/help/internal/he/wallet-studio.md",
-          "sha256": "d0296153331b6dab8e6a832cc980ee38c4a68661e6e7568126d93de6ebe656d0"
+          "sha256": "bbc8abfaeb03b6025b9ad742f5e502c2f10c80f45849951e5033d254cb002909"
         }
       }
     },
@@ -4558,8 +4558,15 @@
         "customers-wallet-studio"
       ]
     },
+    "src/components/loyalty/WalletBannerFraming.tsx": {
+      "sha256": "508009ac7b751b888fdc071c6f934eddc64cce433ec70eb77b28264aa5bda498",
+      "features": [
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ]
+    },
     "src/components/loyalty/WalletStudioWorkspace.tsx": {
-      "sha256": "3f188685316b89c8dc622d2117e2b9b6098443b09ec6a8d6cc25816b4f56e414",
+      "sha256": "0ca231306492dd1919e3729ff4f4f4cc67786408525728f2a1d2a5717dabfe53",
       "features": [
         "customers-loyalty-program",
         "customers-wallet-studio"
@@ -6667,7 +6674,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "a84f6863e0f0caddf46b464ad8768dc890f20902bbc179c9db5d0983cf885528",
+      "sha256": "89839bb0e7d82905d0c6ab778c3598743bced951c602842193a43a0fd8c6510c",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6885,7 +6892,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "0cd7c7afa4e2eae51e67b3d31f0984add4d992449d134e70bd0b765748f6214c",
+      "sha256": "c9c6f361f28510b89aebf2003779dfb763f0911a2ac90e3db40b26060d928e51",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -7691,6 +7698,14 @@
       "sha256": "24c63b941a7136780e896a913103deccaf250e0528af00ce48850f1d27470bcc",
       "features": [
         "shared-runtime"
+      ]
+    },
+    "src/lib/wallet-banner.ts": {
+      "sha256": "8557f99fb0d6ae791d888a3a36ba6a21dabf4b42d15ffa20539f631909b13e61",
+      "features": [
+        "shared-runtime",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
       ]
     },
     "src/lib/website-fonts.ts": {
@@ -17510,6 +17525,30 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/loyalty/WalletBannerFraming.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/loyalty/WalletBannerFraming.tsx",
+      "line": 1,
+      "features": [
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "labels": [
+        "walletFrameBelow",
+        "walletFrameContain",
+        "walletFrameCounter",
+        "walletFrameCover",
+        "walletFrameDevice",
+        "walletFrameHint",
+        "walletFrameMode",
+        "walletFrameOverlay",
+        "walletFrameReset",
+        "walletFrameSeparate",
+        "walletStudioBanner"
+      ],
+      "actions": []
+    },
+    {
       "id": "foodyadmin:src/components/loyalty/WalletStudioWorkspace.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/loyalty/WalletStudioWorkspace.tsx",
@@ -17522,6 +17561,7 @@
         "loading",
         "loyaltyProgramForbidden",
         "loyaltyProgramTitle",
+        "walletFrameTitle",
         "walletStudioActiveRequired",
         "walletStudioAppearance",
         "walletStudioAppleText",
