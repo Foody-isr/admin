@@ -96,7 +96,7 @@ test(`the owner can pay a private ${cycle} offer with renewal ${renewal} and ver
     if (url.pathname.endsWith('/checkout')) {
       checkoutCalls.push(route.request().postDataJSON());
       started = true;
-      return route.fulfill({ json: { checkout_url: 'https://cst.test-gsc.vfims.com/sandbox-checkout' } });
+      return route.fulfill({ json: { checkout_url: 'https://cst.checkout.vficloud.net/sandbox-checkout' } });
     }
     if (url.pathname.endsWith('/reconcile')) {
       verifications++;
@@ -106,7 +106,7 @@ test(`the owner can pay a private ${cycle} offer with renewal ${renewal} and ver
     }
     return route.fulfill({ json: { ...initial, payment: started ? pending : null } });
   });
-  await page.route('https://cst.test-gsc.vfims.com/sandbox-checkout', (route) => route.fulfill({ body: 'Sandbox checkout fixture' }));
+  await page.route('https://cst.checkout.vficloud.net/sandbox-checkout', (route) => route.fulfill({ body: 'Sandbox checkout fixture' }));
   await page.goto('/1/dashboard');
   const nav = await openAccountNavigation(page);
   const billing = nav.getByRole('link', { name: 'Facturation', exact: true });

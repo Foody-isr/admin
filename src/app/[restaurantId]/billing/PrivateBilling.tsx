@@ -105,7 +105,7 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
         if (upgrade && (offer.upgrade_minor ?? 0) === 0 && url.origin === window.location.origin && url.pathname === `/${rid}/billing` && !url.search && !url.hash) {
           const updated = await getFoodyBilling(rid); if (mounted.current) { setView(updated); reset(); } return;
         }
-        if (url.protocol !== 'https:' || !url.hostname.endsWith('.test-gsc.vfims.com') || url.username || url.password || url.port) {
+        if (url.protocol !== 'https:' || !(url.hostname === 'cst.checkout.vficloud.net' || url.hostname.endsWith('.test-gsc.vfims.com')) || url.username || url.password || url.port) {
           throw new Error('Invalid sandbox checkout link');
         }
         if (mounted.current) window.location.assign(url.href);
@@ -141,8 +141,9 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
         <h2 id="foody-offer" className="text-2xl font-semibold" dir="auto">{offer.title}</h2>
  {upgrade && <div className="space-y-2 rounded-lg border border-[var(--line)] p-4 text-sm"><p className="font-semibold">{t('foodyUpgradeDueNow').replace('{amount}', money(offer.upgrade_minor ?? 0))}</p><p>{t('foodyUpgradePeriod').replace('{date}', date(offer.upgrade_period_end!))}</p><p>{t('foodyUpgradeReviewHint')}</p>{offer.scope && <><p>{offer.scope.modules.map(id=>view.onboarding?.catalog.products.find(p=>p.id===id)?.name[locale]??id).join(', ')}</p><ul>{Object.entries(offer.scope.seats).filter(([,n])=>n!=null).map(([key,n])=><li key={key}>{t('foodyLicence_'+key)} · {n}</li>)}</ul></>}</div>}
         <p className="text-sm text-[var(--fg-muted)]">{t('foodyPilotAvailable').replace('{date}', date(offer.start_date + 'T12:00:00Z'))}</p>
+        {offer.commercial_source?.valid_until && <p className="text-sm">{t('foodyPilotQuoteUntil').replace('{date}', date(offer.commercial_source.valid_until + 'T12:00:00Z'))}</p>}
         {!view.onboarding && <div><h3 className="text-sm font-semibold">{t('foodyPilotIncludes')}</h3><p className="whitespace-pre-wrap break-words text-sm" dir="auto">{offer.includes}</p></div>}
-        <div><h3 className="text-sm font-semibold">{t('foodyPilotTerms')}</h3><p className="whitespace-pre-wrap break-words text-sm" dir="auto">{view.onboarding?.mode === 'public' ? t('foodyModulePublicTerms') : offer.terms}</p></div>
+        {(offer.terms || view.onboarding?.mode === 'public') && <div><h3 className="text-sm font-semibold">{t('foodyPilotTerms')}</h3><p className="whitespace-pre-wrap break-words text-sm" dir="auto">{view.onboarding?.mode === 'public' ? t('foodyModulePublicTerms') : offer.terms}</p></div>}
         {agreement && <div className="space-y-2 rounded-lg border border-[var(--line)] p-3 text-sm">
           <p>{t('foodyPilotPaidUntil').replace('{date}', date(agreement.period_end))} · {t(agreement.cycle === 'monthly' ? 'foodyPilotMonthly' : 'foodyPilotAnnual')}
             {agreement.card_last_four && <> · <bdi>•••• {agreement.card_last_four}</bdi></>}
