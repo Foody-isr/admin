@@ -2,11 +2,11 @@ import { expect, test, type Page } from '@playwright/test';
 import { createFixture } from '../redesign/fixtures.mjs';
 import type { WalletStudioArtwork } from '../../src/lib/api';
 
-async function studio(page: Page, locale: 'fr' | 'he' = 'fr', canSign = true) {
+async function studio(page: Page, locale: 'fr' | 'he' = 'fr', canSign = true, legacyBanner?: string) {
   const fixtureOptions = { empty: false, permissions: ['settings.view', 'settings.edit'] };
   const fixture = createFixture(fixtureOptions);
   const writes: { method: string; path: string; data: Partial<WalletStudioArtwork> & { expected_revision: number; apple_strip_png?: string; google_hero_png?: string } }[] = [];
-  let design: WalletStudioArtwork & { revision: number } = { revision: 0, background_color: '#FFFFFF', foreground_color: '#15292F', logo_png: null, banner_png: null };
+  let design: WalletStudioArtwork & { revision: number } = { revision: legacyBanner ? 1 : 0, background_color: '#FFFFFF', foreground_color: '#15292F', logo_png: null, banner_png: legacyBanner ?? null };
   let publishedRevision = 0;
   await page.addInitScript((lang) => {
     localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
@@ -219,6 +219,21 @@ test('resizes a large banner and keeps the saved image through a failed replacem
   await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
   await expect(page.getByText('Brouillon enregistré.', { exact: true })).toBeVisible();
   expect(writes[1].data.banner_png).toBeNull();
+});
+
+test('opening the editor keeps the saved legacy frame until the first adjustment', async ({ page }) => {
+  const source = await page.evaluate(() => document.createElement('canvas').toDataURL('image/png').split(',')[1]);
+  const writes = await studio(page, 'fr', true, source);
+  await page.getByRole('tab', { name: 'Google Wallet' }).click();
+  const banner = page.locator('[data-wallet-banner="google"]');
+  await expect(banner).toHaveCSS('aspect-ratio', '1032 / 336');
+  await page.getByRole('button', { name: 'Cadrer la bannière' }).click();
+  await expect(banner).toHaveCSS('aspect-ratio', '1032 / 336');
+  await expect(page.getByRole('button', { name: 'Enregistrer le brouillon' })).toBeDisabled();
+  await page.getByLabel('Ajustement de l’image').selectOption('contain');
+  await expect(banner).toHaveCSS('aspect-ratio', '1032 / 812');
+  await expect(page.getByRole('button', { name: 'Enregistrer le brouillon' })).toBeEnabled();
+  expect(writes).toHaveLength(0);
 });
 
 test('preserves a square original, separate Wallet frames and the Apple counter across saves', async ({ page }) => {
