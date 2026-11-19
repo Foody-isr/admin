@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ApiError, getFoodyBilling, getFoodyBillingUsage, reconcileFoodyBilling, startFoodyBillingCheckout,
+import { ApiError, getFoodyBilling, getFoodyBillingUsage, payFoodyBillingRegisteredCard, reconcileFoodyBilling, startFoodyBillingCheckout,
   stopFoodyBillingRenewal, type FoodyBillingCycle, type FoodyBillingUsage, type FoodyBillingView } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Badge, Button, ConfirmDialog, PageHead, Section } from '@/components/ds';
@@ -86,11 +86,12 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
   const price = cycle ? offer[cycle] : null;
   const reset = () => { setCycle(null); setAccept(false); setRenew(false); };
 
-  async function action(kind: 'pay' | 'resume' | 'verify' | 'stop') {
+  async function action(kind: 'pay' | 'resume' | 'verify' | 'stop' | 'pay-registered') {
     if (!offer) return;
     if (lock.current) return;
     if (kind === 'pay' && (!canPay || !cycle || !accept || (cycle === 'monthly' && ((!freeUpgrade && !renew) || !view.monthly_enabled)))) return;
     if (kind === 'resume' && (!view.can_resume || !payment)) return;
+    if (kind === 'pay-registered' && (!view.can_pay_registered_card || !payment?.id)) return;
     lock.current = true; setBusy(true); setError(''); setConfirmStop(false);
     try {
       if (kind === 'pay' || kind === 'resume') {
@@ -109,7 +110,8 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
         }
         if (mounted.current) window.location.assign(url.href);
       } else {
-        const data = await (kind === 'stop' ? stopFoodyBillingRenewal(rid) : reconcileFoodyBilling(rid));
+        const data = kind === 'pay-registered' ? await payFoodyBillingRegisteredCard(rid, payment!.id)
+          : kind === 'stop' ? await stopFoodyBillingRenewal(rid) : await reconcileFoodyBilling(rid);
         if (mounted.current) { setView(data); reset(); }
       }
     } catch (e) {
@@ -157,10 +159,12 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
           {agreement.renews && <Button variant="secondary" disabled={busy || open} onClick={() => setConfirmStop(true)}>{t('foodyPilotStop')}</Button>}
         </div>}
         {payment && <div className="space-y-2 rounded-lg border border-[var(--line)] p-3 text-sm">
-          <p role="status">{t('foodyPilotStatus_' + payment.status)} · <bdi>{money(payment.amount_minor)}</bdi></p>
+          <p role="status">{t(view.can_pay_registered_card ? 'foodyPilotCardVerified' : 'foodyPilotStatus_' + payment.status)} · <bdi>{money(payment.amount_minor)}</bdi></p>
           {open && <p className="text-[var(--fg-muted)]">{t('foodyPilotRef')} <bdi>{payment.reference}</bdi></p>}
           {open && <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" disabled={busy} onClick={() => void action('verify')}>{t('foodyPilotVerify')}</Button>
+            {view.can_pay_registered_card
+              ? <Button disabled={busy} onClick={() => void action('pay-registered')}>{t('foodyPilotPayRegistered').replace('{total}', money(payment.amount_minor))}</Button>
+              : <Button variant="secondary" disabled={busy} onClick={() => void action('verify')}>{t('foodyPilotVerify')}</Button>}
             {view.can_resume && <Button disabled={busy} onClick={() => void action('resume')}>{t('foodyPilotResume')}</Button>}
           </div>}
         </div>}
