@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "13e9b1649a75808075d4aaa0b05874453c5c0a03",
-  "documentationRevision": "ce16223b144d747657fc676fe0c9df922dee7ce91905c6093b8011e35280193d",
+  "documentationRef": "6e794ff9fb08827245fa00cfa6cae24053171c58",
+  "documentationRevision": "219431349d58db373825b4a5d98ce6d0cec40adce3b1831d14cd16c01721c26c",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -69,15 +69,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/staff/roles-and-permissions.mdx",
-          "sha256": "a22c9e7029abbfb37abc6b97998681aae564106d372013d6df12b2bf144a3105"
+          "sha256": "e25f485f2cb12692b61f968be945462fe7c41dcf88e47c43e48bbb732ad9cc4d"
         },
         "fr": {
           "path": "src/content/help/fr/staff/roles-and-permissions.mdx",
-          "sha256": "d538e6ec7a4006b1d617a0d537cdd1261f6cbb3a147b0b21d0600439ddfb72f8"
+          "sha256": "b5866a42324896b9449d9dc486fdf8609c9aae33039597d7304e2948261e4d90"
         },
         "he": {
           "path": "src/content/help/he/staff/roles-and-permissions.mdx",
-          "sha256": "599884eb6ec8b3aede18cc753c0cdc31e767a18657a9ee285ec43340941a2f68"
+          "sha256": "9daee6368f77511718febd9a062301ca1a4b9f977c9ddd27456be15f6967d309"
         }
       }
     },
@@ -164,15 +164,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/foody-billing-sandbox.md",
-          "sha256": "b93cfcb5d37111a357d339caded4f14e1863bb24dc423432187edff6de0b3b3f"
+          "sha256": "a8f940276289256a0d9155d1b06e447632b705659dfe0ed21501dea4d9afbfcc"
         },
         "fr": {
           "path": "docs/help/internal/fr/foody-billing-sandbox.md",
-          "sha256": "bf0240f94f68c1f41eaff236b52c1d53eb3c877378b95d5c3f88925042263874"
+          "sha256": "778313a449b0a60c215e7f403ab680c6dd1494f59d1c68bdc78ac9c2253df18d"
         },
         "he": {
           "path": "docs/help/internal/he/foody-billing-sandbox.md",
-          "sha256": "950aa697950a05234f5f6056d9b504feb318f1754e1d0fd24cd47f3f9da629a8"
+          "sha256": "d540141608bcc4d32629f09209181b0e7e0de327fe6aea1066df80c5e36e03a8"
         }
       }
     },
@@ -240,15 +240,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/using-support.mdx",
-          "sha256": "7c6c34cb5c23d1d5034aa5114b6d57fafea84c461cfc7d5382829eef998530de"
+          "sha256": "8d8eb16c8fd0f32fea358bc3c6636bf7a7e21fdcbc6d0b52a63477f8f30658a5"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/using-support.mdx",
-          "sha256": "a9748ad77f3471fe633bdf11c2baad1a5f4725e4f225c8544bf381cfeb973d02"
+          "sha256": "82ba2fac6b0d6e45322b8d26ab81cd242be3db3c665a7c1bd7067e417239b0c5"
         },
         "he": {
           "path": "src/content/help/he/getting-started/using-support.mdx",
-          "sha256": "b52bfff52ac8c255ad30ad3081fbadaa2112b5c42b9fb67f7c2e65d07dd166aa"
+          "sha256": "7c15d67f158bb4d1b6bedc23dc0235d1cb512be63a50a0df7255a637d66f7ac8"
         }
       }
     },
@@ -468,15 +468,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/how-payments-work.mdx",
-          "sha256": "eeab12af81d8db960a03dda86ebc08c5b8b5baa6c0f9f965fa1b28ad0ad47f51"
+          "sha256": "1e03b337c9b32841e8eea7edf1d371785e19f93b84d8d1bb816160e70c99c26e"
         },
         "fr": {
           "path": "src/content/help/fr/payments/how-payments-work.mdx",
-          "sha256": "d39665c215ed05c849e6a45a97e1b7c99e1315a511a02a42fde23b48d66b6220"
+          "sha256": "f08a67474da38d6edff47e22842f9bedf6163bf31afe33aff5405f5947002352"
         },
         "he": {
           "path": "src/content/help/he/payments/how-payments-work.mdx",
-          "sha256": "e6be17d3213676f1fc6eeef92810b177122502f2c7b55ac1ecececc6e7c43ed1"
+          "sha256": "f414e7b8e15b06e21d645db3faa52efe10d9eaa788de2d847f304be552c28804"
         }
       }
     },
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "450aa3e8d5b5bdf7b9494e772e1efa1695a3158caeb05475cd77eef7063acf1a"
+          "sha256": "3a89a9c92b3da754623f896971f4de76bd4cb7829fb576556af941fe00cea177"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "20eb4da2aa856b7f73c791a40c4f1225c2d92c43dca374b256e44f89e84887df"
+          "sha256": "29844bc1ade6a00f7a1d4f03e7bb84aa89f2406e4c8950c0bc64bd7ee0e27a8b"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "8d9a145a27a19b5a910a5b6efd9e24fb77ef7d71cc2ee4a16490dfce7685b49b"
+          "sha256": "57370225d6dc457357c67361d1738078b9dd8770dfe222616a0de8b18440c31f"
         }
       }
     },
@@ -772,15 +772,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/maps-and-usage.mdx",
-          "sha256": "cc84eea40395cb82fe0c5f8afcc659c07a180e1fd61465e99e456d45e84e2fd7"
+          "sha256": "81e128c26c4d4b9c77760eac0fb483502cf7933e3079846ce1fded2287b8b858"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/maps-and-usage.mdx",
-          "sha256": "f6eff3badfa664a3e4440092053cdb36f32e54027c75990960b6325d7aaaa0a2"
+          "sha256": "db86ba9372d42c2eefd946251310ba7ad6af547462381abbe48686b2f0328564"
         },
         "he": {
           "path": "src/content/help/he/delivery/maps-and-usage.mdx",
-          "sha256": "b8e06f2f97fc9f0432b6a6a3913ac3237c43b28a8de587515fb56d1520a842b2"
+          "sha256": "88c6a383ba28201e6e45bc19a8289af2563bc3f7ee0012342b50c8f3b3133418"
         }
       }
     },
@@ -791,15 +791,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/google-account-and-api-keys.mdx",
-          "sha256": "683ea976b7f7e121160c06bf40a4cb85ccf6ce9a55f21ed75e027b154a32f4b5"
+          "sha256": "7d7b73a73ad4ceebd5657fd0807945faabb53350183d0c26b91d70ffa0495071"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/google-account-and-api-keys.mdx",
-          "sha256": "0aa9748e9f024008a38e9e958894eade0a209731bf966b79c5beea3f37a9d40c"
+          "sha256": "7fd0d0b79acea29df6893e6148018db3831df041bcd5731be5c783415d1b4693"
         },
         "he": {
           "path": "src/content/help/he/delivery/google-account-and-api-keys.mdx",
-          "sha256": "8d6176888be718e3df8ae2fe82829b83f0531ddb3b484a54bbd1fbc7b79cb58e"
+          "sha256": "2e8709043ac4b0d1393bedd4ba02f6f1f910f26d4ac6be761bd8777c0ea9bbcf"
         }
       }
     },
@@ -1076,15 +1076,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/restaurant-profile.mdx",
-          "sha256": "70fb5fef98504f25d95d3ef2bdbf8e8d835668e6be4607be1700de17752bfa2d"
+          "sha256": "d98ddae25e903d6dde561725a98d8056a436a77345477a9c847318c650c36528"
         },
         "fr": {
           "path": "src/content/help/fr/settings/restaurant-profile.mdx",
-          "sha256": "c9ad42f9131a2df62c636a0bc4ce7ace057c25f682e86ecb75c2f11f4a7b490b"
+          "sha256": "adf4c9c46d9cbd60a10b8ef18ab293c47fb0ec1d17691dab2e36fd29e71b0fa8"
         },
         "he": {
           "path": "src/content/help/he/settings/restaurant-profile.mdx",
-          "sha256": "bce9769145f262236307ca5d64199af35f25658a8a7832cdf23ac0e3e5a6862f"
+          "sha256": "0c2fdc9586c11b6526edb226a4d03b20a237f8d03aa57a31d035a1567b8024c4"
         }
       }
     },
@@ -1095,15 +1095,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/fulfillment-and-ordering.mdx",
-          "sha256": "350aadfcb2101d15c60d9064fe5bcd458ec3e18856d9f1cef984a9e527dd3b83"
+          "sha256": "79cba9c64af7c44d80e04cbd9ab266e4f10e80c40cac618d2a50d9004e411ae8"
         },
         "fr": {
           "path": "src/content/help/fr/settings/fulfillment-and-ordering.mdx",
-          "sha256": "84b77edede5cea45a7050b39584a5b21e15117f56ca4a7dc90b593e9de82ae19"
+          "sha256": "2d15dc6e2e306fb288e1e70875a791cdce2535fae6315a4b2da8f3e8d807291e"
         },
         "he": {
           "path": "src/content/help/he/settings/fulfillment-and-ordering.mdx",
-          "sha256": "e72554725df8985bc4826a5d3287b42345270c25d69899131a936f2279f809fc"
+          "sha256": "bde29b60df4a2388c585def95179a56d506ae8adc1ef4c0dada006b2ddd3679c"
         }
       }
     },
@@ -1684,15 +1684,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/offers-and-contact.mdx",
-          "sha256": "e52f42319ff9fd02b457580681260e634a42f49752a446d7e66b3a950a19cecd"
+          "sha256": "99bebc2551dfecc0680feda8e829b5f9e5c502f9ed2cdb33ed2226ba0c635209"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/offers-and-contact.mdx",
-          "sha256": "2f64f933708216126cb0b2844ec7a00472eaa50482545ef9d8ed37872672ff13"
+          "sha256": "ce026921f536a5c236aaa59f29ba386530d0d7bcf3afd2e796660eaaef9ec352"
         },
         "he": {
           "path": "src/content/help/he/getting-started/offers-and-contact.mdx",
-          "sha256": "344f9d8d76edd285648757361b705b8f69ddd56b89eb4b28764498bb4ff09da9"
+          "sha256": "f292fd73aa645dc20ebadc7d065acd599f1922fce58e6991db191de34be68edb"
         }
       }
     },
@@ -1855,15 +1855,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/shared-runtime.md",
-          "sha256": "166dcae129cd7e71bff6c70f03272d8c631576e26405a843e5df43a3155f5b03"
+          "sha256": "b630a523c4e06abc21e8316b1d6531e40c410590258bfd11f1536f8854917e87"
         },
         "fr": {
           "path": "docs/help/internal/fr/shared-runtime.md",
-          "sha256": "1113b8888bf2bc4d4b5e59bf23ab66749962dad907b6029e0f41d1a0c4068998"
+          "sha256": "2a27f319cfe393564c565955a77c42be03bb780f9e8e7f6594af1e0f26107d3c"
         },
         "he": {
           "path": "docs/help/internal/he/shared-runtime.md",
-          "sha256": "82f2e3c15745e0c2580999284573c34f627cfc28ed1d4f770045b30b73d176b7"
+          "sha256": "7205aa3531e88052fcbd24fb224c9bc142d8031367d3be5a3781b4cee92a104b"
         }
       }
     },
@@ -1950,15 +1950,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/api-usage-and-quotas.mdx",
-          "sha256": "b6f418886edeb018f9bc6c11c43b57e12d807603ab5e16499352f8e3f659fc25"
+          "sha256": "f9346169be11b3b38c4d94f3c48d9c5ad46184c033096fd62f68c1184b21dbab"
         },
         "fr": {
           "path": "src/content/help/fr/settings/api-usage-and-quotas.mdx",
-          "sha256": "aec224b9a3650380134d0b54a332b5a2b8e144ffa6c0f458c8a4158a512cef10"
+          "sha256": "0e7ae7d8fbe4f7699cf010f6774ce22e9942683aa80b9c3f508994aff0c7ef49"
         },
         "he": {
           "path": "src/content/help/he/settings/api-usage-and-quotas.mdx",
-          "sha256": "7be2c70403cff9e685ec66921c74693a43762d00911bc54c93a0daf1c597db95"
+          "sha256": "2998d6dae0a117532aeaf8e55f8515046375e62ac9eb8402c0298b59ddeb2c21"
         }
       }
     },
@@ -2234,7 +2234,7 @@
       ]
     },
     "src/app/[restaurantId]/billing/PrivateBilling.tsx": {
-      "sha256": "a7e15a4a8bf069ea19087ee81da43414317e6a5d0737a9ab8ab492c383349c12",
+      "sha256": "b92903e46de38afa980d28af97889f7d3df52240dbe161e25009528123d338a7",
       "features": [
         "foody-billing-sandbox"
       ]
@@ -3303,13 +3303,6 @@
         "delivery-zones"
       ]
     },
-    "src/app/[restaurantId]/settings/delivery/maps/page.tsx": {
-      "sha256": "cdcbe5ad0d93702e6e6e05dff5153db46331b78f3bb74a126d1c40922ab6999b",
-      "features": [
-        "maps-usage",
-        "google-account-setup"
-      ]
-    },
     "src/app/[restaurantId]/settings/delivery/page.tsx": {
       "sha256": "ca97a439d59253d87a05d89bc2c667650804522a531d255aeff4aae695d9870a",
       "features": [
@@ -3611,12 +3604,6 @@
       "sha256": "a26a9c83e1818fc4e0dd1c4fd30717bf04826258968a32958b5ef3ad4ab03420",
       "features": [
         "notifications-team"
-      ]
-    },
-    "src/app/[restaurantId]/settings/usage/page.tsx": {
-      "sha256": "9708acee87f82385b4f7c3fbca42aac41ed8c3db37555cf5167a5250935f47de",
-      "features": [
-        "external-api-quotas"
       ]
     },
     "src/app/[restaurantId]/settings/whatsapp/page.tsx": {
@@ -4179,7 +4166,7 @@
       ]
     },
     "src/components/delivery/DeliveryMap.tsx": {
-      "sha256": "fbbf6f38746906731e0a0f7aa50496ab3aff55f2cc9a29bdfde4b942a5126f24",
+      "sha256": "d64b0989dc543ed01da1b2888c28b76c099d87c953c46cc9471eda2c54b05f54",
       "features": [
         "delivery-dispatch"
       ]
@@ -4191,9 +4178,10 @@
       ]
     },
     "src/components/delivery/DeliveryTiles.tsx": {
-      "sha256": "61306b8dd2ef25fa4c016c447111feef2fb285936bde98b10a3742694fcd25a5",
+      "sha256": "fd3d91c0093299abe6ab2aa924f412e311ea4535bcd76b163f5e6f505b8f49d0",
       "features": [
-        "delivery-dispatch"
+        "delivery-dispatch",
+        "maps-usage"
       ]
     },
     "src/components/delivery/DeliveryWhatsAppDrawer.tsx": {
@@ -4203,7 +4191,7 @@
       ]
     },
     "src/components/delivery/DispatcherView.tsx": {
-      "sha256": "071581ef801d0b767de4729b8794eb881730f2d258cef2c45bd4a6d90b223504",
+      "sha256": "3eb063d37642bcbe6295a86f053bf8bb32b7d5488866dc3b8b65b87eff56e7cc",
       "features": [
         "delivery-dispatch"
       ]
@@ -4216,19 +4204,6 @@
     },
     "src/components/delivery/LeafletSurface.tsx": {
       "sha256": "bd78b3a6d62ea116a2f000e9699c269b46d4567356238c5d458f386578af7509",
-      "features": [
-        "delivery-dispatch"
-      ]
-    },
-    "src/components/delivery/MapsProviderDetails.tsx": {
-      "sha256": "a680cd19e81cb093cefe7c907c4af69fba33b99d97b2783ddb24445cea9facfe",
-      "features": [
-        "delivery-dispatch",
-        "maps-usage"
-      ]
-    },
-    "src/components/delivery/MapsUsage.module.css": {
-      "sha256": "178fcbcd131125082b298e1c2fe040fac2f410338740ced57741eab5c29141bd",
       "features": [
         "delivery-dispatch"
       ]
@@ -4249,7 +4224,8 @@
     "src/components/delivery/RouteAddressField.tsx": {
       "sha256": "64d7c1650941f770a18f6badf40f3ba6d602a5ffe6b907bda6d63cae90fc14fe",
       "features": [
-        "delivery-dispatch"
+        "delivery-dispatch",
+        "maps-usage"
       ]
     },
     "src/components/delivery/RouteSettingsEditor.tsx": {
@@ -6645,9 +6621,11 @@
       ]
     },
     "src/components/website/CheckoutEditor.tsx": {
-      "sha256": "9890e30569f488eadbe16520a74ba45280d61d350e71e02ee5d1ac21f2de4923",
+      "sha256": "3b1dfd6c6f9c680aa8b53d456a8c23723c12aab52e4ce08fa772ffdf4733493b",
       "features": [
-        "website-journey"
+        "maps-usage",
+        "website-journey",
+        "external-api-quotas"
       ]
     },
     "src/components/website/ConfirmationEditor.tsx": {
@@ -6676,7 +6654,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "63c5cebd864b9a336025c88e3e467ccc6100fe130433b522b832733d2be16345",
+      "sha256": "b77393038f80564684c6665d05a0cac5c741c9f0d70d167dbcee99d77a84de73",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6807,7 +6785,7 @@
       ]
     },
     "src/lib/delivery-navigation.ts": {
-      "sha256": "7c51b1fb0f75a991718ca673567c067e2ee85cbfab4fb0649fb818f2a92f4dbf",
+      "sha256": "4abfb27024611a7d23758abb0b575de6f15a7bdefca5e227b34b816b6dd35e31",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -6836,7 +6814,7 @@
       ]
     },
     "src/lib/delivery.ts": {
-      "sha256": "1f5ed528c1c03255bc763a908e1b098af4a6043301ea0c14e56deba03b451264",
+      "sha256": "31aaae1179c805c85e4b43705bd748d3ee8934dcf445e72f418427602d16d298",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -6894,7 +6872,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "d7fcb88e1d2c164af2d77604cbe868eeaa5c1ddf1723da4e21df057700ec0359",
+      "sha256": "b9cdab97b9983510531bb84f513e02c7fbd7179efa4f99d1c8aca3c6cf27a601",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -7559,7 +7537,7 @@
       ]
     },
     "src/lib/settings-navigation.ts": {
-      "sha256": "985bd9845866c8f2dec1139365ff5ff0f3c5766f9c66573d30d6f4ca223f26a1",
+      "sha256": "661f28736fad51b20a69e13052596b91d53b99084fd0daf0934bbb254b693134",
       "features": [
         "shared-runtime"
       ]
@@ -13059,62 +13037,6 @@
       ]
     },
     {
-      "id": "foodyadmin:src/app/[restaurantId]/settings/delivery/maps/page.tsx:next-page:1",
-      "kind": "next-page",
-      "source": "src/app/[restaurantId]/settings/delivery/maps/page.tsx",
-      "line": 1,
-      "features": [
-        "maps-usage",
-        "google-account-setup"
-      ],
-      "route": "/[restaurantId]/settings/delivery/maps"
-    },
-    {
-      "id": "foodyadmin:src/app/[restaurantId]/settings/delivery/maps/page.tsx:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/app/[restaurantId]/settings/delivery/maps/page.tsx",
-      "line": 1,
-      "features": [
-        "maps-usage",
-        "google-account-setup"
-      ],
-      "labels": [
-        "apiQuotaTitle",
-        "cancel",
-        "close",
-        "loading",
-        "mapsActiveProvider",
-        "mapsChangeProvider",
-        "mapsContactHint",
-        "mapsContactTitle",
-        "mapsCountersUnavailable",
-        "mapsDescription",
-        "mapsMonthlyLimit",
-        "mapsNoPermission",
-        "mapsOverviewTab",
-        "mapsPricingTab",
-        "mapsProvider",
-        "mapsProviderHint",
-        "mapsProviderTabs",
-        "mapsReset",
-        "mapsSections",
-        "mapsSeePricing",
-        "mapsService",
-        "mapsTitle",
-        "mapsUsage",
-        "mapsUsageHint",
-        "mapsUsageTab",
-        "mapsUsed",
-        "refresh",
-        "save",
-        "status"
-      ],
-      "actions": [
-        "load",
-        "save"
-      ]
-    },
-    {
       "id": "foodyadmin:src/app/[restaurantId]/settings/delivery/page.tsx:next-page:1",
       "kind": "next-page",
       "source": "src/app/[restaurantId]/settings/delivery/page.tsx",
@@ -14570,41 +14492,6 @@
       "actions": [
         "load"
       ]
-    },
-    {
-      "id": "foodyadmin:src/app/[restaurantId]/settings/usage/page.tsx:next-page:1",
-      "kind": "next-page",
-      "source": "src/app/[restaurantId]/settings/usage/page.tsx",
-      "line": 1,
-      "features": [
-        "external-api-quotas"
-      ],
-      "route": "/[restaurantId]/settings/usage"
-    },
-    {
-      "id": "foodyadmin:src/app/[restaurantId]/settings/usage/page.tsx:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/app/[restaurantId]/settings/usage/page.tsx",
-      "line": 1,
-      "features": [
-        "external-api-quotas"
-      ],
-      "labels": [
-        "apiQuotaAttempts",
-        "apiQuotaContact",
-        "apiQuotaDescription",
-        "apiQuotaLoadError",
-        "apiQuotaProviderNote",
-        "apiQuotaRenewal",
-        "apiQuotaRequests",
-        "apiQuotaTitle",
-        "apiQuotaTracking",
-        "loading",
-        "mapsNoPermission",
-        "refresh",
-        "retry"
-      ],
-      "actions": []
     },
     {
       "id": "foodyadmin:src/app/[restaurantId]/settings/whatsapp/page.tsx:next-page:1",
@@ -16446,7 +16333,6 @@
         "deliveryZoneZoomOut",
         "mapsAllRoutes",
         "mapsLegend",
-        "mapsProviderChanged",
         "mapsRoute"
       ],
       "actions": [
@@ -16472,14 +16358,14 @@
       "source": "src/components/delivery/DeliveryTiles.tsx",
       "line": 1,
       "features": [
-        "delivery-dispatch"
+        "delivery-dispatch",
+        "maps-usage"
       ],
       "labels": [
         "deliveryZoneTilesUnavailable"
       ],
       "actions": [
-        "refresh",
-        "update"
+        "refresh"
       ]
     },
     {
@@ -16657,51 +16543,6 @@
       "actions": []
     },
     {
-      "id": "foodyadmin:src/components/delivery/MapsProviderDetails.tsx:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "src/components/delivery/MapsProviderDetails.tsx",
-      "line": 1,
-      "features": [
-        "delivery-dispatch",
-        "maps-usage"
-      ],
-      "labels": [
-        "mapsAddressPrecision",
-        "mapsCompareAllowance",
-        "mapsCompareIntro",
-        "mapsCompareTimes",
-        "mapsCompareTitle",
-        "mapsContactTitle",
-        "mapsCreditRules",
-        "mapsFeaturesTitle",
-        "mapsGeoMonth",
-        "mapsGeoNextPeriod",
-        "mapsGeoNotConfigured",
-        "mapsGeoPlan",
-        "mapsGeoScope",
-        "mapsGeoToday",
-        "mapsGeoTrackedSince",
-        "mapsGeoUnavailable",
-        "mapsGeoUsage",
-        "mapsIncludedHint",
-        "mapsIncludedTitle",
-        "mapsLargeHint",
-        "mapsLargeTitle",
-        "mapsMonthlyPrice",
-        "mapsNoOverage",
-        "mapsPlanned",
-        "mapsPlannedHint",
-        "mapsPlusTitle",
-        "mapsPriceGeocoding",
-        "mapsPriceOptimization",
-        "mapsPriceRoutes",
-        "mapsPriceTiles",
-        "mapsPricingUnavailable",
-        "mapsViewDeliveries"
-      ],
-      "actions": []
-    },
-    {
       "id": "foodyadmin:src/components/delivery/NavigationAppMenu.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/delivery/NavigationAppMenu.tsx",
@@ -16742,7 +16583,8 @@
       "source": "src/components/delivery/RouteAddressField.tsx",
       "line": 1,
       "features": [
-        "delivery-dispatch"
+        "delivery-dispatch",
+        "maps-usage"
       ],
       "labels": [
         "checking",
@@ -25941,7 +25783,9 @@
       "source": "src/components/website/CheckoutEditor.tsx",
       "line": 1,
       "features": [
-        "website-journey"
+        "maps-usage",
+        "website-journey",
+        "external-api-quotas"
       ],
       "labels": [
         "addressAutocompleteDescription",
@@ -26187,7 +26031,6 @@
         "updateClosingStock",
         "updateCustomUnit",
         "updateCustomerProfile",
-        "updateDeliveryProviderPreference",
         "updateDeliveryZone",
         "updateDeviceDisplayName",
         "updateDiscount",

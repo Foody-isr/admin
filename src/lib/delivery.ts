@@ -76,7 +76,7 @@ export interface DeliveryRoute {
   respect_order_windows?: boolean;
   stops: RouteStop[];
   last_location?: CourierLocationDTO | null;
-  routing_provider?: 'google' | 'geoapify' | 'approximate';
+  routing_provider?: 'google' | 'approximate';
   route_geometry?: RoadLeg[];
 }
 
@@ -375,7 +375,7 @@ export interface AddressSuggestion {
 
 /** Search addresses without exposing the provider credential. */
 export async function autocompleteRouteAddress(restaurantId: number, text: string, lang: string, sessionId: string, signal?: AbortSignal): Promise<AddressSuggestion[]> {
-  const data = await apiFetch<{ suggestions: AddressSuggestion[] }>(`/api/v1/public/address-autocomplete?${q(restaurantId)}`, restaurantId, {
+  const data = await apiFetch<{ suggestions: AddressSuggestion[] }>(`/api/v1/delivery/address-autocomplete?${q(restaurantId)}`, restaurantId, {
     method: 'POST', body: JSON.stringify({ text, lang, session_id: sessionId }), signal,
   });
   return data.suggestions;
@@ -383,7 +383,7 @@ export async function autocompleteRouteAddress(restaurantId: number, text: strin
 
 /** Resolve a restaurant-bound prediction before accepting its full address. */
 export async function resolveRouteAddress(restaurantId: number, token: string): Promise<AddressSuggestion> {
-  const data = await apiFetch<{ suggestion: AddressSuggestion }>(`/api/v1/public/address-autocomplete/resolve?${q(restaurantId)}`, restaurantId, {
+  const data = await apiFetch<{ suggestion: AddressSuggestion }>(`/api/v1/delivery/address-autocomplete/resolve?${q(restaurantId)}`, restaurantId, {
     method: 'POST', body: JSON.stringify({ lookup_token: token }),
   });
   return data.suggestion;

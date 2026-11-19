@@ -930,20 +930,6 @@ for (const measure of [false, true]) test(`exhausted predefined ${measure ? "mea
  await page.screenshot({ path: 'test-results/carte-direct-restock-fr.png', fullPage: true });
 });
 
-for (const locale of ['fr', 'he']) test(`restaurant quotas are read-only and responsive (${locale})`, async ({ page }) => {
- await install(page, locale);
- if (locale === 'he') await page.setViewportSize({ width: 390, height: 844 });
- const ids = ['google_autocomplete','google_details','google_geocoding','google_routes','google_optimization_single','google_optimization_fleet','google_tiles','geoapify_credits'];
- const limits = [2000,500,500,500,500,100,10000,3000];
- await page.route('**/api/v1/restaurants/1/api-usage', route => route.fulfill({ json: { restaurant_id: 1, revision: 0, month: '2026-10', resets_at: '2026-11-01T00:00:00Z', tracked_since: '2026-10-21T10:00:00Z', counters: ids.map((id,i) => ({ id, provider: i === 7 ? 'geoapify' : 'google', unit: i === 7 ? 'estimated_credits' : i === 6 ? 'tiles' : i === 4 || i === 5 ? 'shipments' : 'requests', default_limit: limits[i], used: i === 5 ? 100 : i === 4 ? 400 : i === 7 ? 0.25 : 1, requests: 1, limit: limits[i], remaining: limits[i], status: i === 5 ? 'exhausted' : i === 4 ? 'warning' : 'available' })) } }));
- await page.goto('/1/settings/usage');
- await expect(page.getByRole('heading', { level: 1 })).toHaveText(locale === 'fr' ? 'Consommation et quotas' : 'צריכה ומכסות');
- await expect(page.getByRole('progressbar')).toHaveCount(8);
- await expect(page.getByRole('spinbutton')).toHaveCount(0);
- await expect(page.getByText(locale === 'fr' ? 'Plafond atteint ; ce service est suspendu' : 'המכסה נוצלה; השירות מושהה', { exact: true })).toBeVisible();
- expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
- await page.screenshot({ path: `test-results/api-quotas-${locale}.png`, fullPage: true });
-});
 
 
 test('predefined stock can be created from the badge and a conflict preserves entered quantities', async ({page}) => {

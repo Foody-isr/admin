@@ -4,7 +4,7 @@ import { demoTiles } from './fixtures/delivery-map';
 import type { DeliveryRoute, RouteStop } from '../../src/lib/delivery';
 
 const stop = (id: number): RouteStop => ({ id, order_id: 1000 + id, sequence: id, status: 'pending', customer_name: `Client démo ${id}`, customer_phone: '+972500000000', address: 'Yoram Kaniuk 1', city: 'Tel Aviv', lat: 32.07, lng: 34.79, eta_seconds: id * 600, distance_from_prev_m: 1000, total_amount: 90, needs_geocode: false });
-const route = (id: number, status: DeliveryRoute['status'] = 'draft'): DeliveryRoute => ({ id, restaurant_id: 1, courier_id: 91, status, date: id === 1 ? '2026-10-14' : '2026-10-16', planned_departure_at: '2026-10-14T08:00:00+03:00', start_address: 'Dépôt démo', start_lat: 32.06, start_lng: 34.78, est_duration_s: 1800, total_distance_m: 2000, stop_service_minutes: 3, stops: id === 1 ? [stop(1), stop(2)] : [stop(3)], routing_provider: 'geoapify' });
+const route = (id: number, status: DeliveryRoute['status'] = 'draft'): DeliveryRoute => ({ id, restaurant_id: 1, courier_id: 91, status, date: id === 1 ? '2026-10-14' : '2026-10-16', planned_departure_at: '2026-10-14T08:00:00+03:00', start_address: 'Dépôt démo', start_lat: 32.06, start_lng: 34.78, est_duration_s: 1800, total_distance_m: 2000, stop_service_minutes: 3, stops: id === 1 ? [stop(1), stop(2)] : [stop(3)], routing_provider: 'google' });
 
 const openedAt = '2026-10-14T05:00:00Z';
 
@@ -56,7 +56,8 @@ async function install(page: Page, options: { active?: boolean; unopened?: boole
       state.routes[0].last_location = location;
       return intercepted.fulfill({ json: { location } });
     }
-    if (path === '/api/v1/public/delivery/map-config') return intercepted.fulfill({ json: { provider: 'geoapify', tile_url: `/api/v1/public/delivery/map/{style}/{z}/{x}/{y}.png?restaurant_id=${rid}` } });
+    if (path === '/api/v1/public/delivery/map-viewport') return intercepted.fulfill({json:{copyright:'Synthetic map data'}});
+    if (path === '/api/v1/public/delivery/map-config') return intercepted.fulfill({ json: { provider: 'google', tile_url: `/api/v1/public/delivery/map/google/{z}/{x}/{y}.png?restaurant_id=${rid}` } });
     if (path.startsWith('/api/v1/public/delivery/map/')) return intercepted.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#e9eded"/></svg>' });
     if (path.endsWith('/my-navigation-check')) {
       if (state.failNavigation) return intercepted.fulfill({ status: 503, json: { error: 'address lookup unavailable' } });
