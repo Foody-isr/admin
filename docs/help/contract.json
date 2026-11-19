@@ -2827,7 +2827,7 @@
       ]
     },
     "src/app/[restaurantId]/layout.tsx": {
-      "sha256": "637e44b1753b363714649f4f3c6c6235fcd33db250164736ce22c07b0e64cb0e",
+      "sha256": "b407181fab9746fefe978ed7110fdf5005f0de58cb78906fd8bb3da76ad4790c",
       "features": [
         "delivery-dispatch",
         "payments-transactions"
@@ -4215,7 +4215,7 @@
       ]
     },
     "src/components/delivery/DispatcherView.tsx": {
-      "sha256": "6e608d19169e54070312c6d931149697b7d9da7b297b19bb52fc841e06335dd0",
+      "sha256": "c0064102b795e06957586763f10430c39649d3417e472782db4c556de0571097",
       "features": [
         "delivery-dispatch"
       ]
@@ -6826,7 +6826,7 @@
       ]
     },
     "src/lib/delivery-planning.ts": {
-      "sha256": "bc0f7f5f04bcca403c316fe701994fc7c4ce052e4d91e0e5e33c17a725caf89e",
+      "sha256": "0b35fbe240ec3234e2ec6dc5bf3661c5032dae2e11100da89f8dae8ef46e1259",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -6848,7 +6848,7 @@
       ]
     },
     "src/lib/delivery.ts": {
-      "sha256": "e37994147a42634c092ae4a8985b4520c0744f208a63bceec588624f97733d95",
+      "sha256": "1f5ed528c1c03255bc763a908e1b098af4a6043301ea0c14e56deba03b451264",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -6906,7 +6906,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "90f6e75c9277be71e4c4c65b3118ae69dac8e504084007f109961908e0f6986c",
+      "sha256": "f6492088397fb30a63c8685df9f4bcc6a666646d8dfe4ddab1780e961b5c4d8e",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -7517,6 +7517,13 @@
     "src/lib/restaurant-request-state.ts": {
       "sha256": "03209bff4bfd0f7b136b5b13617c275fcbccb60536c03a63039fb5096d7815d5",
       "features": [
+        "shared-runtime"
+      ]
+    },
+    "src/lib/restaurant-timezone-context.ts": {
+      "sha256": "322df20c52eb6fd9d8022a15cd38348879e546e1f774bc2063cf00e492849552",
+      "features": [
+        "delivery-dispatch",
         "shared-runtime"
       ]
     },
@@ -16581,7 +16588,6 @@
       "labels": [
         "cancel",
         "close",
-        "confirm",
         "correctAddress",
         "couldNotLoad",
         "couldNotSave",
@@ -16594,12 +16600,16 @@
         "customer",
         "deliveries",
         "deliveryAddressSavedUnlocated",
+        "deliveryDepartureRestored",
+        "deliveryDepartureReviewIssues",
+        "deliveryDepartureTimeInvalid",
         "deliveryDispatchRouteActions",
         "deliveryExpectedArrival",
         "deliveryFiltersClear",
         "deliveryInsertSaved",
         "deliveryInsertTitle",
         "deliveryNavDispatch",
+        "deliveryNextPlannedDay",
         "deliveryNotes",
         "deliveryPlanAvailableCount",
         "deliveryPlanCouriers",
@@ -16620,7 +16630,6 @@
         "deliveryPlanRecalculate",
         "deliveryPlanRecalculateFailed",
         "deliveryPlanResetDeparture",
-        "deliveryPlanResetDepartureConfirmBody",
         "deliveryPlanReturnConfirmBody",
         "deliveryPlanReturnConfirmTitle",
         "deliveryPlanReturnToPool",
@@ -16659,7 +16668,8 @@
         "routeStatusCompleted",
         "selectAll",
         "selectCourier",
-        "stopStatusDelivered"
+        "stopStatusDelivered",
+        "today"
       ],
       "actions": [
         "confirmUndo",

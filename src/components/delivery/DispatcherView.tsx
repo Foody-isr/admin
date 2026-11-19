@@ -11,8 +11,10 @@ import { StopServiceField, validStopServiceMinutes } from '@/components/delivery
 import { OrderWindowField } from '@/components/delivery/OrderWindowField';
 
 import { ChoiceRow } from '@/components/ds/Selection';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
+import { RestaurantTimezone } from '@/lib/restaurant-timezone-context';
 import Link from 'next/link';
 import {
   AlertCircleIcon,
@@ -43,6 +45,9 @@ import {
   buildDeliveryEtaLabel,
   deliveryEtaWindow,
   deliveryMatchesRouteDate,
+  deliveryWallTime,
+  deliveryDepartureInstant,
+  validDispatchDay,
   isOpenDeliveryRoute,
   isPendingDeliveryStop,
   deliveryRouteWarning,
@@ -114,27 +119,16 @@ function formatDistance(metres: number): string {
   return metres < 1000 ? `${metres} m` : `${(metres / 1000).toFixed(1)} km`;
 }
 
-function defaultDepartureValue(): string {
-  const date = new Date(Date.now() + 30 * 60 * 1000);
-  date.setMinutes(Math.ceil(date.getMinutes() / 15) * 15, 0, 0);
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-}
-
-function localDateTimeValue(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value.slice(0, 16);
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+function defaultDepartureValue(timeZone: string, chosenDay?: string): string {
+  const now = Date.now();
+  const today = deliveryWallTime(new Date(now), timeZone).slice(0, 10);
+  const next = deliveryWallTime(new Date(Math.ceil((now + 30 * 60_000) / 900_000) * 900_000), timeZone);
+  const time = next.slice(0, 10) === today ? next.slice(11) : '23:59';
+  return `${chosenDay ?? today}T${time}`;
 }
 
 function routePlanningDate(route: DeliveryRoute): string {
   return route.date.slice(0, 10);
-}
-
-function departureValueForRoute(route: DeliveryRoute, fallback: string): string {
-  if (route.planned_departure_at) return localDateTimeValue(route.planned_departure_at);
-  return `${routePlanningDate(route)}T${fallback.slice(11, 16) || '09:00'}`;
 }
 
 function routeStatusTone(status: DeliveryRoute['status']): 'neutral' | 'success' | 'info' | 'warning' {
@@ -199,7 +193,11 @@ function RouteRibbon({
     .filter(stop => matchesDeliverySearch(stopQuery, stop.order_id, stop.customer_name, stop.address, stop.city))
     .sort((a, b) => a.sequence - b.sequence);
   const progress = route.stops.length > 0 ? (delivered / route.stops.length) * 100 : 0;
-  const canResetDeparture = route.status === 'active' && route.stops.length > 0 && route.stops.every((stop) => stop.status === 'pending' && !stop.issue_reason);
+  const reviewableIssue = (stop: RouteStop) => stop.status === 'skipped' && Boolean(route.started_at && stop.issue_reason && stop.issue_review_at);
+  const canResetDeparture = route.stops.length > 0 && (
+    route.status === 'active' && route.stops.every(stop => (stop.status === 'pending' && !stop.issue_reason) || reviewableIssue(stop)) ||
+    route.status === 'completed' && route.stops.every(reviewableIssue)
+  );
   const courierInk = `color-mix(in srgb, ${color} 40%, var(--fg))`;
 
   return (
@@ -225,6 +223,9 @@ function RouteRibbon({
         </span>
       </CardHeader>
       <CardBody className="px-4 pb-4 pt-0">
+        {canResetDeparture && <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={onResetDeparture} className="mb-3">
+          <Undo2Icon />{t('deliveryPlanResetDeparture')}
+        </Button>}
         {!history && route.status === 'active' && <CourierLocationStatus location={location && (location.route_id == null || location.route_id === route.id) ? location : null} />}
         {route.routing_provider !== 'geoapify' && <p className="mb-2 text-fs-xs text-[var(--fg-muted)]">{t('deliveryRouteApproximate')}</p>}
         <div className="mb-2 grid grid-cols-3 divide-x divide-[var(--line)] rounded-r-md bg-[var(--surface-2)] px-2 py-1.5 text-center">
@@ -348,7 +349,7 @@ function RouteRibbon({
           />
         </details>
 
-        {!history && (route.status === 'draft' || canResetDeparture || (route.status === 'active' && route.needs_recalculation)) && (
+        {!history && (route.status === 'draft' || (route.status === 'active' && route.needs_recalculation)) && (
           <div className="mb-2 flex flex-wrap items-center justify-end gap-1.5 border-b border-[var(--line)] pb-2">
             {(route.status === 'draft' || route.needs_recalculation) && <Button
               type="button"
@@ -359,15 +360,6 @@ function RouteRibbon({
             >
               <RefreshCwIcon className={busy ? 'animate-spin' : undefined} />
               {t('deliveryPlanRecalculate')}
-            </Button>}
-            {canResetDeparture && <Button
-              type="button"
-              variant="secondary"
-              disabled={busy}
-              onClick={onResetDeparture}
-            >
-              <Undo2Icon />
-              {t('deliveryPlanResetDeparture')}
             </Button>}
             {route.status === 'draft' && <Button
               type="button"
@@ -406,7 +398,9 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const { t, locale } = useI18n();
   const { lastEvent } = useWs();
   const prevEvent = useRef(lastEvent);
-  const initialPlanResolved = useRef(false);
+  const timeZone = useContext(RestaurantTimezone);
+  const searchParams = useSearchParams();
+  const linkedDay = validDispatchDay(searchParams?.get('date') ?? null);
   const loadRequestId = useRef(0);
   const [dayRoutes, setRoutes] = useState<DeliveryRoute[]>([]);
   const [messageTarget, setMessageTarget] = useState<{ orderId?: number } | null>(null);
@@ -430,7 +424,11 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [respectOrderWindows, setRespectOrderWindows] = useState(false);
   const [resolvingEndpoints, setResolvingEndpoints] = useState<Set<string>>(new Set());
   const [courierEndpoints, setCourierEndpoints] = useState<Record<number, { start_address: string; end_address: string }>>({});
-  const [departure, setDeparture] = useState(defaultDepartureValue);
+  const [departure, setDeparture] = useState(() => defaultDepartureValue(timeZone, linkedDay));
+  useEffect(() => {
+    const day = linkedDay ?? deliveryWallTime(new Date(), timeZone).slice(0, 10);
+    setDeparture(current => current.slice(0, 10) === day ? current : defaultDepartureValue(timeZone, day));
+  }, [linkedDay, timeZone]);
   const planningDate = departure.slice(0, 10);
   useEffect(() => { setCourierEndpoints({}); }, [rid, planningDate]);
   const [serviceMinutes, setServiceMinutes] = useState('3');
@@ -450,7 +448,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [addressEditorLoading, setAddressEditorLoading] = useState(false);
   const [undoAction, setUndoAction] = useState<
     | { kind: 'route'; routeId: number; stopCount: number }
-    | { kind: 'departure'; routeId: number; stopCount: number }
+    | { kind: 'departure'; routeId: number; stopCount: number; startedAt: DeliveryRoute['started_at']; reports: RouteStop[] }
     | { kind: 'stop'; routeId: number; stopId: number; customerName: string }
     | null
   >(null);
@@ -490,23 +488,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
         ...managerOpenRouteRows.flatMap((route) => route.stops.filter((stop) => !stop.issue_reason).map((stop) => stop.order_id)),
       ]);
       const available = candidateRows.orders.filter((order) => !routedOrderIds.has(order.id));
-      let visibleRoutes = managerRouteRows;
-
-      if (!initialPlanResolved.current) {
-        initialPlanResolved.current = true;
-        const candidateOrderIds = new Set(candidateRows.orders.map((order) => order.id));
-        const relatedOpenRoute = managerOpenRouteRows.find(route => route.status === 'active') ?? managerOpenRouteRows.find((route) =>
-          route.stops.some((stop) => candidateOrderIds.has(stop.order_id)),
-        );
-        if (!managerRouteRows.some(isOpenDeliveryRoute) && relatedOpenRoute) {
-          const recoveredDate = routePlanningDate(relatedOpenRoute);
-          if (recoveredDate !== departure.slice(0, 10)) {
-            setDeparture(departureValueForRoute(relatedOpenRoute, departure));
-            visibleRoutes = managerOpenRouteRows.filter((route) => routePlanningDate(route) === recoveredDate);
-          }
-        }
-      }
-
+      const visibleRoutes = managerRouteRows;
       setRoutes(visibleRoutes);
       setOpenRoutes(managerOpenRouteRows);
       setReady(candidateRows.orders);
@@ -776,13 +758,15 @@ export default function DispatcherView({ rid }: { rid: number }) {
       setError(t('deliveryPlanMissingAssignments'));
       return;
     }
+    const plannedInstant = deliveryDepartureInstant(departure, timeZone);
+    if (!plannedInstant) { setError(t('deliveryDepartureTimeInvalid')); return; }
     setPlanning(true);
     try {
       await planDeliveryRoutes(
         rid,
         selectedCourierIds,
         Array.from(picked),
-        new Date(departure).toISOString(),
+        plannedInstant.toISOString(),
         assignments,
         Number(serviceMinutes),
         parseCustomerWindowMinutes(customerWindow)!,
@@ -898,7 +882,9 @@ export default function DispatcherView({ rid }: { rid: number }) {
       if (undoAction.kind === 'route') {
         await cancelDeliveryRoute(rid, routeId);
       } else if (undoAction.kind === 'departure') {
-        await resetRouteDeparture(rid, routeId);
+        await resetRouteDeparture(rid, routeId, undoAction.startedAt, undoAction.reports);
+        setView('open');
+        setInserted(t('deliveryDepartureRestored'));
       } else {
         await unassignRouteStop(rid, routeId, undoAction.stopId);
       }
@@ -910,7 +896,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
     } catch (cause) {
       setUndoAction(null);
       await load();
-      setError(t(undoAction.kind === 'departure' ? 'deliveryPlanResetDepartureFailed' : 'deliveryPlanUndoFailed'));
+      setError(t(undoAction.kind !== 'departure' ? 'deliveryPlanUndoFailed' : undoAction.reports.length ? 'deliveryDepartureReviewedConflict' : 'deliveryPlanResetDepartureFailed'));
     } finally {
       setRouteBusy(null);
     }
@@ -946,7 +932,9 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const visibleRouteIds = new Set(visibleRoutes.map(({ route }) => route.id));
   const changeDay = (day: string) => {
     if (!day || day === planningDate) return;
-    initialPlanResolved.current = true;
+    const url = new URL(window.location.href);
+    url.searchParams.set('date', day);
+    window.history.replaceState(null, '', url);
     ++loadRequestId.current;
     setLoading(true);
     setRoutes([]);
@@ -957,10 +945,12 @@ export default function DispatcherView({ rid }: { rid: number }) {
     setSelectedRoute(null);
     setQueueQuery('');
     setRouteQuery('');
-    setDeparture(`${day}T${(departure || defaultDepartureValue()).slice(11)}`);
+    setDeparture(`${day}T${(departure || defaultDepartureValue(timeZone)).slice(11)}`);
   };
+  const today = deliveryWallTime(new Date(nowTick), timeZone).slice(0, 10);
+  const nextPlannedDay = openRoutes.map(routePlanningDate).filter(day => day > today).sort()[0];
   const stepDay = (offset: number) => {
-    const date = new Date((planningDate || defaultDepartureValue().slice(0, 10)) + 'T12:00:00Z');
+    const date = new Date((planningDate || defaultDepartureValue(timeZone).slice(0, 10)) + 'T12:00:00Z');
     date.setUTCDate(date.getUTCDate() + offset);
     changeDay(date.toISOString().slice(0, 10));
   };
@@ -1040,9 +1030,11 @@ export default function DispatcherView({ rid }: { rid: number }) {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3 sm:px-5">
           <div className="flex items-center gap-3">
             <CalendarDaysIcon aria-hidden className="size-6 shrink-0 text-[var(--info-500)]" />
-            <h2 id="dispatch-service-day" className="text-fs-xl font-semibold tracking-tight first-letter:uppercase">{new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date((planningDate || defaultDepartureValue().slice(0, 10)) + 'T12:00:00Z'))}</h2>
+            <h2 id="dispatch-service-day" className="text-fs-xl font-semibold tracking-tight first-letter:uppercase">{new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date((planningDate || defaultDepartureValue(timeZone).slice(0, 10)) + 'T12:00:00Z'))}</h2>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
+            {planningDate !== today && <Button variant="ghost" size="sm" onClick={() => changeDay(today)}>{t('today')}</Button>}
+            {nextPlannedDay && planningDate !== nextPlannedDay && <Button variant="secondary" size="sm" onClick={() => changeDay(nextPlannedDay)}>{t('deliveryNextPlannedDay').replace('{date}', new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(nextPlannedDay + 'T12:00:00Z')))}</Button>}
             <Button variant="ghost" icon aria-label={t('previousDay')} onClick={() => stepDay(-1)}><ChevronLeftIcon className="rtl:rotate-180" /></Button>
             <Input type="date" aria-label={t('deliveryPlanDate')} className="min-h-11 w-auto" value={planningDate} onChange={event => changeDay(event.target.value)} />
             <Button variant="ghost" icon aria-label={t('nextDay')} onClick={() => stepDay(1)}><ChevronRightIcon className="rtl:rotate-180" /></Button>
@@ -1201,7 +1193,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
                 onOptimize={() => void recalculateRoute(route.id)}
                 onSaveSettings={(input) => saveRouteSettings(route.id, input)}
                 onCancel={() => setUndoAction({ kind: 'route', routeId: route.id, stopCount: route.stops.filter(isPendingDeliveryStop).length })}
-                onResetDeparture={() => setUndoAction({ kind: 'departure', routeId: route.id, stopCount: route.stops.length })}
+                onResetDeparture={() => setUndoAction({ kind: 'departure', routeId: route.id, stopCount: route.stops.length, startedAt: route.started_at, reports: route.stops.filter(stop => stop.issue_reason && stop.issue_review_at) })}
                 t={t}
               />
             ))}
@@ -1464,12 +1456,18 @@ export default function DispatcherView({ rid }: { rid: number }) {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {undoAction?.kind === 'departure'
-                ? t('deliveryPlanResetDepartureConfirmBody').replace('{count}', String(undoAction.stopCount))
+                ? t(undoAction.reports.length ? 'deliveryDepartureReviewedBody' : 'deliveryPlanResetDepartureConfirmBody').replace('{count}', String(undoAction.stopCount))
                 : undoAction?.kind === 'route'
                 ? t('deliveryPlanUnassignConfirmBody').replace('{count}', String(undoAction.stopCount))
                 : t('deliveryPlanReturnConfirmBody').replace('{customer}', undoAction?.customerName ?? '')}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {undoAction?.kind === 'departure' && undoAction.reports.length > 0 && <div>
+            <p className="text-fs-sm font-medium">{t('deliveryDepartureReviewIssues')}</p>
+            <ul className="mt-2 space-y-1 text-fs-sm">{undoAction.reports.map(stop => <li key={stop.id}>
+              <bdi>#{stop.order_id}</bdi> · {t(deliveryIssueLabels[stop.issue_reason!])}
+            </li>)}</ul>
+          </div>}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={routeBusy != null}>{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction
@@ -1477,7 +1475,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
               onClick={(event) => { event.preventDefault(); void confirmUndo(); }}
               className="bg-[var(--danger-500)] text-white hover:brightness-95"
             >
-              {t('confirm')}
+              {t(undoAction?.kind === 'departure' && undoAction.reports.length ? 'deliveryDepartureCorrectAndReset' : 'confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

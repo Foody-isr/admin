@@ -4,6 +4,33 @@ import type { Order } from '@/lib/api';
 const ETA_EARLY_MINUTES = 5;
 const ETA_LATE_MINUTES = 10;
 
+/** Format an instant for a restaurant-local date/time input. */
+export function deliveryWallTime(instant: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).format(instant).replace(' ', 'T');
+}
+
+/** Resolve a restaurant wall clock to an instant, rejecting gaps during a clock change. */
+export function deliveryDepartureInstant(value: string, timeZone: string): Date | null {
+  const wall = Date.parse(value + ':00Z');
+  if (!Number.isFinite(wall)) return null;
+  let instant = new Date(wall);
+  for (let i = 0; i < 3; i++) {
+    const local = deliveryWallTime(instant, timeZone);
+    if (local === value) return instant;
+    instant = new Date(instant.getTime() + wall - Date.parse(local + ':00Z'));
+  }
+  return null;
+}
+
+/** Read a civil day from a dispatch link, excluding nonexistent calendar dates. */
+export function validDispatchDay(value: string | null): string | undefined {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return;
+  const stamp = Date.parse(value + 'T12:00:00Z');
+  if (Number.isFinite(stamp) && new Date(stamp).toISOString().slice(0, 10) === value) return value;
+}
+
 /** Scheduled delivery dates are civil dates; immediate orders have no promised day. */
 export function deliveryMatchesRouteDate(order: Pick<Order, 'scheduled_for'>, date: string): boolean {
   return !order.scheduled_for || order.scheduled_for.slice(0, 10) === date.slice(0, 10);
