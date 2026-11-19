@@ -46,7 +46,7 @@ test('verification is a no-store GET of the original request, and close has its 
  globalThis.fetch=async(input,options)=>{requests.push({url:String(input),options});return new Response('{}')};
  await verifyLifecycleV2(context,command);
  assert.equal(requests[0].options?.method,'GET');assert.equal(requests[0].options?.body,undefined);
- assert.equal(requests[0].options?.cache,'no-store');assert.equal(requests[0].options?.credentials,'omit');assert.equal(requests[0].options?.redirect,'error');
+ assert.equal(requests[0].options?.cache,'no-store');assert.equal(requests[0].options?.credentials,'include');assert.equal(requests[0].options?.redirect,'error');
  assert.ok(requests[0].url.includes(`/operations/${command.request_id}?scope=order&id=7`));
  await submitLifecycleV2(context,{...command,action:'close_check',unit_keys:[]});
  assert.ok(requests[1].url.endsWith('/close'));

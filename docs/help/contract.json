@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "fc149df53634be75710527937bf32041ecd5f2f3",
-  "documentationRevision": "f9788db7f5e608ab6f08e4749257967f4a3e341f069b0b0272a28d7222982eb5",
+  "documentationRef": "ca8a442425e10edd54e0e71ed340a4422fee21bf",
+  "documentationRevision": "3ea0b5fb02655e5743f6f57f8cff2ce942dee18592a05708adc06c8703eb0e31",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -12,15 +12,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/first-login.mdx",
-          "sha256": "2a37b4b560c1d96e4e3d3ff06e7e1687294cf169d750e965e5cb266a46808902"
+          "sha256": "6db98ce07e087418c581852c4c213d8451c0edc36dfeffee69b40cd34659ba2e"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/first-login.mdx",
-          "sha256": "d515921fc290cd06b4fdb4ace8a8dbe5cfd9895159e687c41180e8e24faacbae"
+          "sha256": "4a9b672cebaa8a7dad63d21c5ce2d3458007b3747f2323462524a9059d548592"
         },
         "he": {
           "path": "src/content/help/he/getting-started/first-login.mdx",
-          "sha256": "5c27d1d96b07856c1775a1a3a1ddc7068e8a2d244c8c48f713da3cf9554ccb19"
+          "sha256": "5792ec7a9c32ed368151d33b0d2a739865570993fdc9257905a0af375e398bbc"
         }
       }
     },
@@ -1703,15 +1703,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/access-and-dashboard.md",
-          "sha256": "f1d49dbb82a230ef6f5b1c2e459ec45e2fbdafc3739260b787cee7dd88a13a7e"
+          "sha256": "f2c52e32579cf88c422d3f3c6828ec042a845552ac76e5e7d036696fd4be3150"
         },
         "fr": {
           "path": "docs/help/internal/fr/access-and-dashboard.md",
-          "sha256": "a0d35b3bb2f19c82b64db348078169b26c35dc9f7748cd33eed0606f44e65eff"
+          "sha256": "faca69378564f3935ebe77bc6ffc01f2a76add0b0004f930abaf8b8622d8f9ca"
         },
         "he": {
           "path": "docs/help/internal/he/access-and-dashboard.md",
-          "sha256": "d4aa7f4f50d10f19be3299d0e11573f95070878cae85e0ba0a108ce0fb48d3fd"
+          "sha256": "84e77dfb2d5d810255584c7cab76fad79ebb5065341aee3ff9adb74a3bdd0820"
         }
       }
     },
@@ -6688,7 +6688,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "ef97cdb31e294f0f77bf3555a7c1bc18b446bd8daf454e164f45a52ce62d14a1",
+      "sha256": "47421b238f6f6a9511db69f3faf0df96bb58a9967524df02f90906c240620a45",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6713,7 +6713,7 @@
       ]
     },
     "src/lib/auth-context.tsx": {
-      "sha256": "79a01e15919cfc66bec22bc7579f9045981d8313d74caa0a6c52800e0508b0be",
+      "sha256": "5cb6fdca937565b9e021e05c7e260ec528fa5f06b2df856047ff1ca2c8de5872",
       "features": [
         "shared-runtime"
       ]
@@ -7403,6 +7403,13 @@
         "shared-runtime"
       ]
     },
+    "src/lib/portal-session.ts": {
+      "sha256": "7c47ee310bee84aacf17e6624e936b343d4c5500492f8f333291e4a07c949dc6",
+      "features": [
+        "account-access",
+        "shared-runtime"
+      ]
+    },
     "src/lib/pos-discount-form.ts": {
       "sha256": "2f87704764327546529589555ee853cf43809168658dc2f64271f5181dcd3f95",
       "features": [
@@ -7484,7 +7491,7 @@
       ]
     },
     "src/lib/push.ts": {
-      "sha256": "14dab883712d4a1e79d5e1e53e9127e35ca15354c94b1d23f12e731dfed765b7",
+      "sha256": "31bd1edf94c0b9eedafbf310c3c441cbaab6d57159e20c0e68701f12f7defae3",
       "features": [
         "shared-runtime"
       ]
