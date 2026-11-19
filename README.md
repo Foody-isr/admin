@@ -33,11 +33,7 @@ dialog, the rule is also immediate while other stock/preparation drafts retain
 product Save. Unrelated product drafts remain untouched. Deploy the API's optional
 availability_rule_id extension before this Admin. Stock preparation and carte
 publication remain separate workflows.
-Website V3 → Order page → Fulfillment can draft and publish the optional entry sign-in
-invitation. Settings → Usage and quotas is read-only restaurant-scoped Google and
-Geoapify consumption, including independent units, 80% warnings and UTC renewal.
-Deploy API migration 268 and the remaining-stock route before this Admin version.
-
+Website V3 → Order page → Fulfillment can draft and publish the optional entry sign-in invitation. Deploy the remaining-stock route before this Admin version.
 
 Orders → Deliveries → WhatsApp reminders reviews the approved current route message
 for every pending customer across all routes on the selected date. Previewing can
@@ -1038,61 +1034,11 @@ Isolated checks: `npx playwright test -c playwright.redesign.config.ts pos-setti
 
 ## Delivery address autocomplete
 
-The Website V3 delivery checkout editor discovers server-side Geoapify availability
-via `/api/v1/public/address-autocomplete/config?restaurant_id=...`. Configure
-`GEOAPIFY_API_KEY` on the API, then enable **Address autocomplete** and publish the
-website draft. The key is never sent to the admin or its preview iframe. Enabling
-the toggle makes the delivery address field enabled, required and unconditional.
-The API refuses a published autocomplete form that hides its address field.
+In the website editor, open the delivery checkout settings, switch Google address autocomplete on or off, then publish. In the delivery workspace, select a Google suggestion in French or Hebrew and save the correction. The form keeps the house number when Google returns only the street. A building number can also be reviewed manually.
 
-The public fulfillment dialog, checkout and customer correction form use the same
-provider. Staff customer/order/courier address editors retain their existing
-manual correction tools. Provider setup and deployment remain explicit operations;
-no account, subscription or deployment is created by this change.
+## Delivery maps and road itineraries
 
-## Geoapify delivery maps and road itineraries
-
-Deploy the API with migration 238 before this client. Delivery, courier and zone
-maps load restaurant-scoped map configuration and use the API's credential-free
-Geoapify tile proxy. Light mode uses Positron; dark mode uses Dark Matter. The
-provider key stays on the API. No new Admin environment variable is needed.
-Road geometry is rendered per stop so completed deliveries disappear from the
-operational map. Approximate historic/unconfigured routes are labelled and keep
-dashed straight-line paths until recalculated. Quota, infeasible plans and provider
-outages have localized feedback; a failed map background leaves stops/actions usable.
-Waze/Google Maps navigation links remain available.
-
-Checks: `npx tsx --test src/lib/__tests__/delivery-planning.test.ts` and
-`npx playwright test -c playwright.redesign.config.ts delivery-planner.spec.ts delivery-zones.spec.ts`.
-The browser fixtures use synthetic road geometry and tiles; no provider credentials
-or customer data are used.
-
-### Website image framing
-
-Website V3 image controls include non-destructive pan, 50–300% zoom, and fill/entire-image modes. Desktop and mobile frames are stored independently; the mobile control can explicitly inherit desktop framing. Header backgrounds/logos, section images/backgrounds/galleries, catering/chain imagery and per-item website photos use the same control. Framing affects website presentation without replacing catalogue assets.
-
-Order mode settings accept an independent `website_order.modal_cover_url` and `modal_cover_framing`, shared by fulfillment and scheduling windows. An empty URL inherits the restaurant cover; the cover toggle hides it. Optional frame objects live beside their media in the existing draft JSON, including `background.framing`/`logo.framing` in headers and `image_framing` in section content. Item overrides use `item_image_frames` keyed by item ID.
-
-The isolated image suite runs with `FOODY_WEB_DIR=/path/to/foodyweb npx playwright test -c playwright.image-framing.config.ts`; its API writes are in memory only.
-
-### Preparation timing and suggested service hours
-
-Orders and availability exposes continuous elapsed preparation, saved service
-hours, or a custom daily production start. For service/custom hours, owners can
-require one uninterrupted service or allow work to accumulate across services.
-This requires API migration `242_preparation_clock.sql`; the save is rejected if
-the API does not confirm the changed fields. Unrelated saves preserve the policy.
-
-Suggested 09:00–22:00 values are not treated as saved delivery hours. Owners can
-explicitly apply the suggestions or copy saved pickup hours for missing delivery
-days, then save. Neither action replaces already configured delivery days.
-
-The preparation example is a read-only live preview from the API's actual slot
-resolver. It sends the displayed delay, clock, split policy, booking horizon,
-slot duration, custom windows and service hours. Saved and unsaved values are
-identified separately; stale responses are discarded, errors remain visible,
-and an unavailable service never borrows another service's hours. Deploy the
-API's `preparation-preview` endpoint before Admin.
+The dispatch map uses Google Maps for route geometry and attribution. Delivery staff can update an address on a planned route and recalculate it. The other stops keep their assignments.
 
 ## Delivery calendars by zone
 
@@ -1204,37 +1150,6 @@ planning even with a historical orders.manage grant.
 
 Isolated synthetic checks: `npx playwright test -c playwright.redesign.config.ts tests/redesign/courier-workflow.spec.ts tests/redesign/delivery-planner.spec.ts` and
 `npx tsx --test src/lib/__tests__/delivery-links.test.ts src/lib/__tests__/delivery-planning.test.ts`.
-
-## Delivery maps and usage
-
-Settings → Ordering & delivery → Maps and routes exposes this restaurant's Google usage,
-platform availability and a protected provider choice. Google resumes after the
-monthly quota reset unless Geoapify was pinned manually. The planner's legend
-selects individual routes, including several routes for the same courier. Routes
-are numbered from 1 within the displayed list; the ribbon and map legend share
-that number, courier name and route color. Internal route IDs no longer appear in
-map labels; route actions continue to use the persisted IDs.
-The delivery planner and delivery-zone page expose Maps and routes as an outlined
-header action, and the settings sidebar offers it directly beside Delivery zones.
-Pricing contact actions open contact-Foody information without initiating payment.
-
-The workspace separates Usage, Services and choice, and Foody pricing. Usage has
-Google and Geoapify tabs. Geoapify displays restaurant-scoped credit estimates,
-the declared shared Free-plan allowance (3,000 credits/day, 5 requests/second),
-the tracking start and UTC counter periods. Earlier history and account use outside
-the current API environment are not included; unavailable tracking never appears
-as zero usage. The comparison describes the implemented features and explicitly
-distinguishes estimated traffic from live traffic.
-
-The API supplies the planned Maps Plus offer: 149 ILS excluding VAT per
-establishment/month, 500 weighted Foody optimization credits and defined Google
-volumes. Its contact dialog takes no payment, creates no entitlement and leaves
-all current provider caps intact. Public pricing mirrors the canonical API JSON.
-
-Deploy API migrations 249 (application DB) and 250 (dedicated Google budget DB)
-before enabling the production rollout. Credentials stay on the API. The API's
-`docs/GOOGLE_DELIVERY.md` describes activation, billing units and quota protection.
-Browser checks: `npx playwright test -c playwright.redesign.config.ts tests/redesign/delivery-planner.spec.ts tests/redesign/delivery-maps-settings.spec.ts`.
 
 ## Temporary IP test access
 
