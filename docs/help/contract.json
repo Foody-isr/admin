@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "c9586c4d238e871f8980091670cc5f294e5be212",
+  "documentationRef": "0dfdd37d4139c9bd604ff00e8160b0704025fe24",
   "documentationRevision": "2c9c814f85c6fa5c667894be1c49a810df875f1b8d62ea57bfac867af9f37746",
   "articles": {
     "getting-started/first-login": {
@@ -4133,7 +4133,7 @@
       ]
     },
     "src/components/delivery/CourierItineraryView.tsx": {
-      "sha256": "79b5a09f72152685aeb2c24bc928a2d4bf7ae6b6f12944e707ba3833a8dc39ec",
+      "sha256": "3022647cb2250365ebce45acfe63a134e5be381df57e50c8f99760e3567d84f2",
       "features": [
         "delivery-dispatch",
         "courier"
