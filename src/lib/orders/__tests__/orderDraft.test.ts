@@ -67,6 +67,21 @@ test("is scoped per restaurant", () => {
   assert.equal(loadOrderDraft(2), null);
 });
 
+test("two employee tabs keep independent order drafts after one is submitted", () => {
+  installStorage();
+  const tab = () => {
+    const m = new Map<string, string>();
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => m.set(k, v), removeItem: (k: string) => m.delete(k) };
+  };
+  const tabs = [tab(), tab()];
+  const select = (n: number) => { Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: tabs[n] }); };
+  select(0); saveOrderDraft(1, draft(), 10);
+  select(1); const other = draft(); other.customer.name = 'Recipient B'; saveOrderDraft(1, other, 10);
+  select(0); clearOrderDraft(1, 10);
+  select(1); assert.equal(loadOrderDraft(1, 10)?.customer.name, 'Recipient B');
+  assert.equal(loadOrderDraft(1, 11), null); assert.equal(loadOrderDraft(2, 10), null);
+});
+
 test("clear removes it", () => {
   installStorage();
   saveOrderDraft(1, draft());

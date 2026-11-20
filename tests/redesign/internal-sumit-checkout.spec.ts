@@ -194,12 +194,13 @@ test('undo restores the draft price warning and its checkout block', async ({ pa
   await install(page, false);
   await page.goto('/1/orders/new');
   await page.getByRole('button', { name: /^Salade méditerranéenne/ }).first().click();
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('foody.orders.draft.1'))).not.toBeNull();
-  await page.evaluate(() => {
-    const draft = JSON.parse(localStorage.getItem('foody.orders.draft.1')!);
+  const draftKey = 'foody.orders.draft.1:staff:1';
+  await expect.poll(() => page.evaluate(key => sessionStorage.getItem(key), draftKey)).not.toBeNull();
+  await page.evaluate(key => {
+    const draft = JSON.parse(sessionStorage.getItem(key)!);
     draft.lines[0].unitPriceAtDraft = 1;
-    localStorage.setItem('foody.orders.draft.1', JSON.stringify(draft));
-  });
+    sessionStorage.setItem(key, JSON.stringify(draft));
+  }, draftKey);
   await page.reload();
   const ticket = page.getByRole('complementary', { name: 'Articles de la commande', exact: true });
   const next = ticket.getByRole('button', { name: 'Continuer', exact: true });
@@ -438,6 +439,39 @@ test('manual delivery entry recovers from unavailable suggestions and accepts a 
   expect(state.created[0]).toMatchObject({ delivery_fee: 0, delivery_address: 'Zone gratuite', delivery_city: 'Ville démo', payment_status: 'unpaid' });
 });
 
+test('internal delivery retries in place and preserves the typed building when Google returns only the street', async ({ page }) => {
+  const state = await install(page, false);
+  const street = { id: 'route-demo', kind: 'street', address: 'Example Street', street: 'Example Street', city: 'Netanya' };
+  let searches = 0;
+  let available = false;
+  await page.route('**/delivery/address-autocomplete?*', route => {
+    searches++;
+    if (!available) return route.fulfill({ status: 503, json: { error: 'address_lookup_unavailable' } });
+    return route.fulfill({ json: { suggestions: [{ ...street, kind: 'prediction', lookup_token: 'fixture-street' }] } });
+  });
+  await page.route('**/delivery/address-autocomplete/resolve?*', route => route.fulfill({ json: { suggestion: street } }));
+  await page.route('**/public/delivery/check?*', route => route.fulfill({ json: { deliverable: true, resolved: true, delivery_fee: 10 } }));
+  const panel = await checkout(page);
+  await fillCustomer(panel);
+  await panel.getByRole('radio', { name: 'Livraison', exact: true }).check();
+  const address = panel.getByRole('combobox', { name: 'Adresse de livraison' });
+  await address.fill('Example 6 Netanya');
+  const retry = panel.getByRole('button', { name: 'Réessayer', exact: true });
+  await retry.click();
+  await expect.poll(() => searches).toBeGreaterThanOrEqual(4);
+  await expect(retry).toBeVisible();
+  await expect(address).toHaveValue('Example 6 Netanya');
+  available = true;
+  await retry.click();
+  await panel.getByRole('option', { name: 'Example Street, Netanya' }).click();
+  await expect(address).toHaveValue('Example Street 6, Netanya');
+  await expect(panel.getByRole('status').filter({ hasText: 'Frais de livraison calculés' })).toContainText('10.00');
+  await paymentStep(panel);
+  await panel.getByRole('radio', { name: 'Payer plus tard', exact: true }).check();
+  await panel.getByRole('button', { name: 'Créer la commande', exact: true }).click();
+  expect(state.created[0]).toMatchObject({ delivery_fee: 10, delivery_address: 'Example Street 6', delivery_city: 'Netanya' });
+});
+
 test('changing pickup to delivery from a visited step requires an address before advancing', async ({ page }) => {
   await install(page, false);
   const panel = await checkout(page);
@@ -526,7 +560,7 @@ test('a Google suggestion sets the street and city, and editing it discards the 
   const state = await install(page, false);
   const street = { id: 'street', kind: 'street', address: 'Rue Démo', city: 'Ville Démo', street: 'Rue Démo', house_number: '' };
   const first = { id: 'first', address: '12 rue Démo', city: 'Ville Démo', street: 'rue Démo', house_number: '12', lat: 32.08, lng: 34.78 };
-  const second = { id: 'second', address: '24 rue Démo', city: 'Autre Ville', street: 'rue Démo', house_number: '24' };
+  const second = { id: 'second', address: '24 rue Démo', city: 'Autre Ville', street: 'rue Démo', house_number: '24', token: 'synthetic-second-address' };
   await page.route('**/delivery/address-autocomplete?*', route => {
     const query = route.request().postDataJSON().text;
     const result = query.startsWith('12') ? first : query.startsWith('24') ? second : street;
@@ -572,7 +606,7 @@ test('a Google suggestion sets the street and city, and editing it discards the 
   await paymentStep(panel);
   await panel.getByRole('radio', { name: 'Payer plus tard', exact: true }).check();
   await panel.getByRole('button', { name: 'Créer la commande', exact: true }).click();
-  expect(state.created[0]).toMatchObject({ delivery_fee: 10, delivery_address: second.address, delivery_city: second.city });
+  expect(state.created[0]).toMatchObject({ delivery_fee: 10, delivery_address: second.address, delivery_city: second.city, delivery_address_token: second.token });
 });
 
 test('leaving event mode restores the normal series selector', async ({ page }) => {

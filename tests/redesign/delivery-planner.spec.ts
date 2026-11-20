@@ -43,7 +43,7 @@ async function install(page: Page, locale = 'fr') {
   await page.route('**/api/v1/**', async intercepted => {
     const request = intercepted.request(), url = new URL(request.url()), path = url.pathname;
     const rid = request.headers()['x-restaurant-id'];
-    if (path === '/api/v1/public/delivery/map-config') return intercepted.fulfill({ json: { provider: 'google', tile_url: `/api/v1/public/delivery/map/google/{z}/{x}/{y}.png?restaurant_id=${rid}` } });
+    if (path === '/api/v1/public/delivery/map-config') return intercepted.fulfill({ json: { provider: 'google', tile_url: `/api/v1/public/delivery/map/google/{z}/{x}/{y}.png?restaurant_id=${url.searchParams.get('restaurant_id')}` } });
     if (path === '/api/v1/public/delivery/map-viewport') return intercepted.fulfill({ json: { copyright: 'Synthetic map data ©2026' } });
     if (path.startsWith('/api/v1/public/delivery/map/')) { state.tiles.push(request.url()); return intercepted.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#edf0ee"/><path d="M0 80H256M90 0V256" stroke="#cbd0cd" stroke-width="8"/></svg>' }); }
     if (path === '/api/v1/users/me') return intercepted.fulfill({ json: { role_name: 'Manager', permissions: ['orders.manage', 'settings.view'], user: { id: 1, role: 'manager' } } });
@@ -156,17 +156,14 @@ for (const mode of ['coordinates', 'canonical text', 'unlocated Google address',
 
     await save.click();
     await expect(dialog).toHaveCount(0);
-    if (mode === 'coordinates') await expect(page.getByText('Impossible de recalculer cette tournée.')).toBeVisible();
-    const unlocated = mode === 'unlocated Google address';
-    if (unlocated) await expect(page.getByText(/Adresse enregistrée\. Pour inclure cet arrêt/)).toBeVisible();
-    expect(operations).toEqual(['save', 'optimize']);
-    expect(geocodes).toEqual(mode === 'coordinates' ? [] : [saved]);
+    expect(operations).toEqual(['save']);
+    expect(geocodes).toEqual([]);
     expect(correction).toEqual({
-      name: order.customer_name,
+      name: order.customer_name, update_customer_profile: true,
       delivery_address: saved.address, delivery_city: saved.city,
       delivery_floor: order.delivery_floor, delivery_apt: order.delivery_apt,
       delivery_entry_code: order.delivery_entry_code, delivery_notes: order.delivery_notes,
-      ...(unlocated ? {} : { delivery_latitude: location.lat, delivery_longitude: location.lng }),
+      ...(mode === 'coordinates' ? { delivery_latitude: location.lat, delivery_longitude: location.lng } : {}),
     });
   });
 }
@@ -211,6 +208,7 @@ for (const locale of ['fr', 'he'] as const) {
         expect(data).not.toHaveProperty('delivery_longitude');
       }
       operations.push('save');
+      Object.assign(state.routes[0].stops[1], { address: label, city });
       return request.fulfill({ json: { order: { ...order, ...data } } });
     });
     await page.route('**/api/v1/delivery/routes/1/optimize?**', request => {
@@ -246,7 +244,7 @@ for (const locale of ['fr', 'he'] as const) {
     await save.click();
     await expect(dialog).toHaveCount(0);
     await expect(page.getByRole('button', { name: new RegExp(label) }).first()).toBeVisible();
-    expect(operations).toEqual(locale === 'he' ? ['save', 'optimize'] : ['geocode', 'save', 'optimize']);
+    expect(operations).toEqual(['save']);
     expect(state.routes[0].stops.map(stop => stop.id)).toEqual(originalStops);
   });
 }
@@ -294,7 +292,8 @@ for (const locale of ['fr', 'he'] as const) {
     const number = dialog.getByRole('textbox', { name: locale === 'he' ? /מספר בית/ : /Numéro de rue/ });
     await expect(number).toHaveValue('');
     if (locale === 'fr') {
-      await dialog.getByRole('button', { name: 'Reprendre le n° 14 de la commande' }).click();
+      await expect(dialog.getByRole('button', { name: 'Reprendre le n° 14 de la commande' })).toHaveCount(0);
+      await number.fill('14');
       await expect(number).toHaveValue('14');
     }
     await save.click();
@@ -303,7 +302,7 @@ for (const locale of ['fr', 'he'] as const) {
       delivery_city: city, delivery_floor: '0', delivery_entry_code: 'test entry' });
     expect(saved).not.toHaveProperty('delivery_latitude');
     expect(saved).not.toHaveProperty('delivery_longitude');
-    expect(recalculated).toBe(1);
+    expect(recalculated).toBe(0);
     expect(state.routes[0].stops.map(stop => stop.id)).toEqual(stops);
   });
 }
@@ -566,7 +565,7 @@ test('Hebrew dark mode keeps requests scoped to the active restaurant', async ({
   await page.screenshot({ path: info.outputPath('delivery-planner-he-dark.png'), animations: 'disabled' });
   expect(state.reads.every(read => read.rid === '2')).toBe(true);
   await expect.poll(() => state.tiles.length).toBeGreaterThan(0);
-  expect(state.tiles.every(url => url.includes('/dark-matter/') && new URL(url).searchParams.get('restaurant_id') === '2' && !url.includes('apiKey'))).toBe(true);
+  expect(state.tiles.every(url => url.includes('/map/google/') && new URL(url).searchParams.get('restaurant_id') === '2' && !url.includes('apiKey'))).toBe(true);
 });
 
 test('routing quota failure keeps the route and explains the failure locally', async ({ page }) => {
@@ -674,6 +673,35 @@ test('changing a route to another delivery day shows a localized rejection', asy
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Choisissez des livraisons prévues à la même date que la tournée.' }).first()).toBeVisible();
   expect(state.routes[0].date).toBe(day);
+});
+
+test('the same address field recovers after three provider failures', async ({ page }) => {
+  const state = await install(page);
+  state.routes = [route(1, [stop(2)])];
+  let attempts = 0;
+  await page.route('**/api/v1/delivery/address-autocomplete**', intercepted => {
+    if (++attempts <= 3) return intercepted.fulfill({ status: 503, json: { error: 'unavailable' } });
+    return intercepted.fulfill({ json: { suggestions: [{ id: 'sample', address: 'Example 6', city: 'Netanya', street: 'Example', house_number: '6' }] } });
+  });
+  await page.goto('/1/orders/deliveries');
+  await openSettings(page);
+  await page.getByRole('button', { name: 'Modifier', exact: true }).click();
+  const field = page.getByRole('combobox', { name: 'Destination finale', exact: true });
+  await field.fill('Example 6');
+  await expect(page.getByRole('button', { name: 'Réessayer', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Réessayer', exact: true }).click();
+  await page.getByRole('option', { name: /Example 6/ }).click();
+  await expect(field).toHaveValue('Example 6, Netanya');
+  expect(attempts).toBe(4);
+});
+
+test('a directory outage keeps the day and its stops visible', async ({ page }) => {
+  const state = await install(page);
+  state.routes = [route(1, Array.from({ length: 21 }, (_, i) => stop(i + 1)))];
+  await page.route('**/api/v1/restaurants/1/staff**', intercepted => intercepted.fulfill({ status: 503, json: { error: 'unavailable' } }));
+  await page.goto('/1/orders/deliveries');
+  await expect(page.getByText('21 Rue de démonstration', { exact: false }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Réessayer', exact: true })).toBeVisible();
 });
 
 test('a city selection is retained once and can be saved as the final destination', async ({ page }) => {

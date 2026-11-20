@@ -25,7 +25,7 @@ import { CustomerPicker } from './CustomerPicker';
 import { CustomerDeliveryFields } from '@/components/customers/CustomerDeliveryFields';
 import { RouteAddressField } from '@/components/delivery/RouteAddressField';
 import type { AddressSuggestion } from '@/lib/delivery';
-import { formatRouteAddress } from '@/lib/route-address';
+import { formatRouteAddress, samePostalBuilding, numberForSelectedStreet, predictionLocality, streetBuilding } from '@/lib/route-address';
 import type { DraftCustomer } from '@/lib/orders/orderDraft';
 import { checkoutStepCopy } from '@/lib/orders/checkout-step-copy';
 import { validateCheckout, checkoutFieldProps, type CheckoutStep, type CheckoutField, type CheckoutIssue, type CheckoutErrors } from '@/lib/orders/checkout-validation';
@@ -40,6 +40,7 @@ export type OrderType = 'pickup' | 'delivery';
 export type PaymentMethodChoice = InternalPaymentMethod;
 
 export interface CheckoutData {
+  addressToken?: string;
   eventConfig?: OrderEventConfig;
   customerName: string;
   customerPhone: string;
@@ -160,6 +161,8 @@ export function NewOrderCheckoutPanel({
   const [addressQuery, setAddressQuery] = useState<string | null>(null);
   const [manualAddress, setManualAddress] = useState(false);
   const [addressResolving, setAddressResolving] = useState(false);
+  const previousBuilding = useRef<{ address: string; city: string } | null>(null);
+  const [addressToken, setAddressToken] = useState<string>();
   const [addressPosition, setAddressPosition] = useState<{ lat: number; lng: number }>();
   const [floor, setFloor] = useState('');
   const [apt, setApt] = useState('');
@@ -213,6 +216,8 @@ export function NewOrderCheckoutPanel({
     phoneSkipSearchRef.current = true;
     setCustomerName(initialState.customer.name);
     setCustomerPhone(initialState.customer.phone);
+    previousBuilding.current = initialState.customer;
+    setAddressToken(undefined);
     setAddress(initialState.customer.address);
     setCity(initialState.customer.city);
     setFloor(initialState.customer.floor);
@@ -532,13 +537,19 @@ export function NewOrderCheckoutPanel({
   const applyCustomer = (customer: CustomerSearchResult) => {
     nameSkipSearchRef.current = true;
     phoneSkipSearchRef.current = true;
+    if (linked && linked.phone !== customer.phone || previousBuilding.current?.address && customerPhone && customerPhone !== customer.phone) {
+      setFeeTouched(false); setDeliveryFee('');
+    }
     setLinked(customer);
     setCustomerName(customer.name);
     setCustomerPhone(customer.phone);
     if (customer.addresses.length > 0) applyAddress(customer.addresses[0]);
+    else if (linked?.phone !== customer.phone) applyAddress({ address: '', city: '', floor: '', apt: '', entry_code: '', delivery_notes: '', last_used: '' });
   };
 
   const applyAddress = (a: CustomerSearchAddress) => {
+    previousBuilding.current = a;
+    setAddressToken(undefined);
     setAddressQuery(null);
     setAddressPosition(undefined);
     setAddress(a.address);
@@ -553,13 +564,26 @@ export function NewOrderCheckoutPanel({
   };
 
   function editAddressSearch(value: string) {
+    if (address && city) previousBuilding.current = { address, city };
+    setAddressToken(undefined);
     setAddressQuery(value);
     setAddress('');
     setCity('');
     setAddressPosition(undefined);
   }
 
-  function selectDeliveryAddress({ address, city, lat, lng }: AddressSuggestion) {
+  function acceptBuilding(address: string, city: string) {
+    if (!address.trim() || !city.trim()) return;
+    if (previousBuilding.current?.address && !samePostalBuilding(previousBuilding.current, { address, city })) {
+      setFloor(''); setApt(''); setEntryCode(''); setDeliveryNotes('');
+      setDeliveryFee(''); setFeeTouched(false);
+    }
+    previousBuilding.current = { address, city };
+  }
+
+  function selectDeliveryAddress({ address, city, lat, lng, token }: AddressSuggestion) {
+    acceptBuilding(address, city);
+    setAddressToken(token);
     setAddress(address);
     setCity(city);
     setAddressPosition(typeof lat === 'number' && typeof lng === 'number' && Number.isFinite(lat) && Number.isFinite(lng)
@@ -568,7 +592,11 @@ export function NewOrderCheckoutPanel({
   }
 
   function toggleAddressEntry() {
-    if (!manualAddress && addressQuery !== null) setAddress(addressQuery);
+    if (!manualAddress && addressQuery !== null) {
+      const [street, locality] = addressQuery.split(',').map(part => part.trim());
+      setAddress(street);
+      if (locality) { setCity(locality); acceptBuilding(street, locality); }
+    }
     setAddressQuery(null);
     setManualAddress(value => !value);
   }
@@ -581,6 +609,7 @@ export function NewOrderCheckoutPanel({
     if (!payment || addToProduction === null) return;
     onConfirm({
       customerName, customerPhone, orderType,
+      addressToken: orderType === 'delivery' && intent !== 'link' ? addressToken : undefined,
       eventConfig: eventConfig ? { ...eventConfig, payment_mode: hosted ? eventConfig.payment_mode : 'none', deposit_value: hosted ? eventConfig.deposit_value : 0 } : undefined,
       address: intent === 'link' ? '' : address, city: intent === 'link' ? '' : city,
       floor: intent === 'link' ? '' : floor, apt: intent === 'link' ? '' : apt,
@@ -709,14 +738,31 @@ export function NewOrderCheckoutPanel({
                     value={addressQuery ?? formatRouteAddress({ address, city })}
                     onChange={editAddressSearch}
                     onSelectAddress={selectDeliveryAddress}
+                    onReviewAddress={choice => {
+                      const city = predictionLocality(choice.city);
+                      if (city && streetBuilding(choice.address)) {
+                        selectDeliveryAddress({ id: choice.id, address: choice.address, city });
+                      } else {
+                        editAddressSearch(formatRouteAddress({ address: choice.address, city }));
+                      }
+                    }}
+                    onSelectStreet={choice => {
+                      const prior = previousBuilding.current;
+                      const typed = (addressQuery ?? '').split(',').map(value => value.trim());
+                      const number = numberForSelectedStreet(typed[0], typed[1] || choice.city, choice) ||
+                        (prior && numberForSelectedStreet(prior.address, prior.city, choice));
+                      if (number) selectDeliveryAddress({ ...choice, address: `${choice.street || choice.address} ${number}` });
+                      else editAddressSearch(formatRouteAddress(choice));
+                    }}
                     onResolvingChange={setAddressResolving}
                     disabled={submitting}
                     t={t}
                   />
                 )}
                 value={{ address, city, floor, apt, entryCode, deliveryNotes }}
+                onPostalBlur={() => acceptBuilding(address, city)}
                 onChange={(p) => {
-                  if (p.address !== undefined || p.city !== undefined) setAddressPosition(undefined);
+                  if (p.address !== undefined || p.city !== undefined) { setAddressPosition(undefined); setAddressToken(undefined); }
                   if (p.address !== undefined) setAddress(p.address);
                   if (p.city !== undefined) setCity(p.city);
                   if (p.floor !== undefined) setFloor(p.floor);

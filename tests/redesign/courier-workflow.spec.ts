@@ -316,6 +316,20 @@ test('Hebrew mobile keeps call and delivered actions visible without overflow', 
 });
 
 
+test('navigation opens the current confirmed destination after staff change an address', async ({ page }) => {
+  const state = await install(page, { active: true });
+  await page.goto('/1/orders/deliveries');
+  const dock = run(page).getByTestId('courier-action-dock');
+  await dock.getByRole('button', { name: 'Choisir une application de navigation' }).click();
+  Object.assign(state.routes[0].stops[0], {
+    address: 'Example Avenue 22', lat: 32.18, lng: 34.81, navigation_verified: true,
+  });
+  state.routes[0].calculation_revision = 2;
+  await page.getByRole('menuitem', { name: 'Waze' }).click();
+  await expect.poll(() => state.externalNavigation.length).toBe(1);
+  expect(new URL(state.externalNavigation[0]).searchParams.get('ll')).toBe('32.18,34.81');
+});
+
 test('a mismatched cached point is flagged before Waze and never used as its GPS destination', async ({ page }) => {
   const state = await install(page, { mismatch: true, active: true }); await page.goto('/1/orders/deliveries');
   await expect(run(page).getByText(/destinations de livraison à vérifier/)).toBeVisible();

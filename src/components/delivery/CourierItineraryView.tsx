@@ -30,7 +30,7 @@ import {
   isPendingDeliveryStop,
   type DeliveryEtaWindow,
 } from '@/lib/delivery-planning';
-import { callUrl, wazeNavigationUrl, whatsappUrl, type NavigationDestination } from '@/lib/delivery-links';
+import { callUrl, navigationUrl, type NavigationApp, whatsappUrl, type NavigationDestination } from '@/lib/delivery-links';
 import { NavigationAppMenu } from '@/components/delivery/NavigationAppMenu';
 import { DeliveryDuration } from '@/components/delivery/DeliveryDuration';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
@@ -120,7 +120,7 @@ function RouteEndpointRow({
         </p>
         {finalDestination && (
           <NavigationAppMenu destination={finalDestination} label={t('navigate')} t={t}
-            onNavigate={(url) => window.location.assign(url)} />
+            onNavigate={(app) => window.location.assign(navigationUrl(app, finalDestination))} />
         )}
       </div>
     </div>
@@ -180,6 +180,7 @@ function OpenStopCard({
       {stop.payment_method === 'cash' && stop.total_amount > 0 && (
         <p className={styles.stopMeta}>{money(stop.total_amount, { decimals: 0 })}</p>
       )}
+      {stop.estimated_position && <p className={styles.stopMeta}>{t('deliveryEstimatedEntrance')}</p>}
       {stop.needs_geocode && (
         <p className="mt-2 text-fs-xs text-[var(--warning-500)]">
           {deliveryLocationWarning(route, t)}
@@ -281,6 +282,7 @@ function CourierRouteView({
   const navigationKey = JSON.stringify(
     [
       route.needs_recalculation,
+      route.calculation_revision,
       route.routing_provider,
       [...route.stops].sort((a, b) => a.id - b.id).map((stop) => [stop.id, stop.needs_geocode]),
     ]
@@ -374,14 +376,7 @@ function CourierRouteView({
     withBusy(async () => {
       setRoute(await startRoute(rid, route.id, courierId));
       if (stop) {
-        const updated = await beginStopNavigation(rid, route.id, stop.id, courierId);
-        setRoute(updated);
-        const destination = updated.stops.find((item) => item.id === stop.id && !item.destination_locked);
-        if (!destination) throw new Error('Current stop destination is unavailable');
-        window.location.assign(wazeNavigationUrl({
-          ...destination,
-          navigation_verified: stop.navigation_verified,
-        }));
+        await navigateToStop(stop, 'waze');
         return;
       }
       await onReload();
@@ -402,11 +397,23 @@ function CourierRouteView({
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
     }, 'courierNavigationFailed');
 
-  const onNavigate = (stop: RouteStop, url: string) =>
-    withBusy(async () => {
-      setRoute(await beginStopNavigation(rid, route.id, stop.id, courierId));
-      window.location.assign(url);
-    }, 'courierNavigationFailed');
+  async function navigateToStop(previous: RouteStop, app: NavigationApp) {
+    const current = await beginStopNavigation(rid, route.id, previous.id, courierId);
+    setRoute(current);
+    const stop = current.stops.find(item => item.id === previous.id);
+    if (!stop || current.status !== 'active' || stop.destination_locked || stop.status === 'delivered' || stop.status === 'skipped') {
+      throw new Error(t('courierNavigationFailed'));
+    }
+    const sameDestination = stop.address === previous.address && stop.city === previous.city &&
+      stop.lat === previous.lat && stop.lng === previous.lng && stop.needs_geocode === previous.needs_geocode;
+    const verified = stop.navigation_verified ?? (sameDestination && current.calculation_revision === route.calculation_revision && previous.navigation_verified === true);
+    if ((!sameDestination || current.calculation_revision !== route.calculation_revision) && !verified) {
+      // Re-render the new destination and its uncertainty before opening an external app.
+      setError(t('deliveryNavigationChanged'));
+      return;
+    }
+    window.location.assign(navigationUrl(app, { ...stop, navigation_verified: verified }));
+  }
 
   const onArrived = (stop: RouteStop) =>
     withBusy(async () => {
@@ -848,7 +855,7 @@ function CourierRouteView({
                     size="lg"
                     t={t}
                     disabled={busy || navigationLoading || actionStopFinished}
-                    onNavigate={(url) => void onNavigate(actionStop, url)}
+                    onNavigate={(app) => void withBusy(() => navigateToStop(openStop, app), 'courierNavigationFailed')}
                   />}
                 </>
               )

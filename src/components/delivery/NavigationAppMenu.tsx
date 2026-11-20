@@ -12,9 +12,8 @@ import {
   type ButtonProps,
 } from '@/components/ds';
 import {
-  googleNavigationUrl,
+  type NavigationApp,
   hasNavigationCoordinates,
-  wazeNavigationUrl,
   type NavigationDestination,
 } from '@/lib/delivery-links';
 
@@ -28,7 +27,7 @@ interface NavigationAppMenuProps {
   size?: ButtonProps['size'];
   className?: string;
   disabled?: boolean;
-  onNavigate: (url: string) => void;
+  onNavigate: (app: NavigationApp) => void;
 }
 
 export function NavigationAppMenu({
@@ -43,10 +42,9 @@ export function NavigationAppMenu({
 }: NavigationAppMenuProps) {
   const [confirmSearch, setConfirmSearch] = useState(false);
   const uncertain = !hasNavigationCoordinates(destination);
-  const wazeUrl = wazeNavigationUrl(destination);
   const chooseWaze = () => {
     if (uncertain) setConfirmSearch(true);
-    else onNavigate(wazeUrl);
+    else onNavigate('waze');
   };
   return (
     <>
@@ -63,14 +61,14 @@ export function NavigationAppMenu({
           <NavigationIcon />
           {t('navigationAppWaze')}
         </MenuItem>
-        <MenuItem onSelect={() => onNavigate(googleNavigationUrl(destination))}>
+        <MenuItem onSelect={() => onNavigate('google')}>
           <MapIcon />
           {t('navigationAppGoogleMaps')}
         </MenuItem>
       </MenuContent>
     </Menu>
     {uncertain && <p role="note" className="flex basis-full items-start gap-1.5 text-fs-xs text-[var(--warning-500)]"><AlertCircleIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />{t('navigationUnverifiedAddress')}</p>}
-    <ConfirmDialog open={confirmSearch} onOpenChange={setConfirmSearch} title={t('navigationUnverifiedTitle')} description={t('navigationUnverifiedDescription').replace('{address}', [destination.address, destination.city].filter(Boolean).join(', '))} confirmLabel={t('navigationSearchAnyway')} cancelLabel={t('back')} onConfirm={() => { setConfirmSearch(false); onNavigate(wazeUrl); }} />
+    <ConfirmDialog open={confirmSearch} onOpenChange={setConfirmSearch} title={t('navigationUnverifiedTitle')} description={t('navigationUnverifiedDescription').replace('{address}', [destination.address, destination.city].filter(Boolean).join(', '))} confirmLabel={t('navigationSearchAnyway')} cancelLabel={t('back')} onConfirm={() => { setConfirmSearch(false); onNavigate('waze'); }} />
     </>
   );
 }
