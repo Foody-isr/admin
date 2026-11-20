@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type InputHTMLAttributes } from 'react';
 import { formatRouteAddress, selectedNumberedAddress } from '@/lib/route-address';
+import { ApiError } from '@/lib/api';
 import { Input } from '@/components/ds';
 import { autocompleteRouteAddress, resolveRouteAddress, type AddressSuggestion } from '@/lib/delivery';
 
@@ -37,26 +38,41 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
   const [active, setActive] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+  const [empty, setEmpty] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const retry = () => { inputRef.current?.focus(); setFocused(true); setAttempt(n => n + 1); };
+  useEffect(() => {
+    if (!error) return;
+    window.addEventListener('online', retry);
+    return () => window.removeEventListener('online', retry);
+  }, [error]);
 
   useEffect(() => {
     const version = ++request.current;
-    setSuggestions([]); setError(false); setBusy(false); setActive(0);
+    setSuggestions([]); setEmpty(false); setError(false); setBusy(false); setActive(0);
     if (!focused || disabled || value.trim().length < 3 || value === selection.current) return;
     const controller = new AbortController();
-    const timer = setTimeout(async () => {
+    let timer: ReturnType<typeof setTimeout>;
+    async function search(mayRetry: boolean) {
       setBusy(true);
-      session.current ||= crypto.randomUUID();
       try {
+        session.current ||= crypto.randomUUID();
         const rows = await autocompleteRouteAddress(restaurantId, value.trim(), /[\u0590-\u05ff]/.test(value) ? 'he' : locale, session.current, controller.signal);
-        if (request.current === version) setSuggestions(rows);
-      } catch {
-        if (!controller.signal.aborted && request.current === version) setError(true);
+        if (!controller.signal.aborted && request.current === version) { setSuggestions(rows); setEmpty(rows.length === 0); }
+      } catch (cause) {
+        if (controller.signal.aborted || request.current !== version) return;
+        session.current = '';
+        if (mayRetry && (!(cause instanceof ApiError) || cause.status >= 500 || cause.status === 409)) {
+          timer = setTimeout(() => void search(false), 450);
+        } else setError(true);
       } finally {
         if (request.current === version) setBusy(false);
       }
-    }, 300);
+    }
+    timer = setTimeout(() => void search(true), 300);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [value, focused, disabled, restaurantId, locale]);
+  }, [value, focused, disabled, restaurantId, locale, attempt]);
 
   const select = async (suggestion: AddressSuggestion) => {
     ++request.current;
@@ -93,6 +109,7 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
       setFocused(false);
     } catch {
       if (resolution.current === version && currentValue.current === value) {
+        session.current = '';
         if (onReviewAddress) onReviewAddress(suggestion);
         else setError(true);
       }
@@ -101,13 +118,15 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
   };
 
   const describedBy = [inputProps?.['aria-describedby'], error && `${id}-error`].filter(Boolean).join(' ') || undefined;
-  return <div className="relative flex min-w-0 flex-col gap-1.5">
+  return <div className="relative flex min-w-0 flex-col gap-1.5" onBlur={event => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false);
+  }}>
     <label htmlFor={id} className="text-fs-xs font-medium text-[var(--fg-muted)]">{label}</label>
-    <Input {...inputProps} id={id} role="combobox" aria-autocomplete="list" aria-expanded={focused && suggestions.length > 0}
+    <Input ref={inputRef} {...inputProps} id={id} role="combobox" aria-autocomplete="list" aria-expanded={focused && suggestions.length > 0}
       aria-controls={`${id}-list`} aria-activedescendant={suggestions[active] ? `${id}-${active}` : undefined}
       aria-describedby={describedBy} value={value} placeholder={placeholder} disabled={disabled}
-      autoComplete="off" dir="auto" maxLength={500} className="min-w-0 text-[16px] sm:text-fs-sm"
-      onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+      autoComplete="off" dir="auto" maxLength={200} className="min-w-0 text-[16px] sm:text-fs-sm"
+      onFocus={() => setFocused(true)}
       onChange={event => { ++request.current; ++resolution.current; setResolving(false); resolvingCallback.current?.(false); selection.current = ''; onChange(event.target.value); setFocused(true); }}
       onKeyDown={event => {
         if (event.key === 'Escape') { event.preventDefault(); setFocused(false); setSuggestions([]); }
@@ -119,7 +138,7 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
     {focused && suggestions.length > 0 && <div className="absolute inset-x-0 top-full z-50 rounded-r-md border border-[var(--line)] bg-[var(--surface)] shadow-3">
       <ul id={`${id}-list`} role="listbox" aria-label={label} className="max-h-56 overflow-y-auto">
         {suggestions.map((suggestion, index) => <li key={suggestion.id} id={`${id}-${index}`} role="option" aria-selected={index === active}>
-          <button type="button" tabIndex={-1} onMouseDown={event => event.preventDefault()} onClick={() => void select(suggestion)}
+          <button type="button" tabIndex={-1} onPointerDown={event => event.preventDefault()} onClick={() => void select(suggestion)}
             className={`w-full px-3 py-3 text-start text-fs-sm hover:bg-[var(--surface-2)] ${index === active ? 'bg-[var(--surface-2)]' : ''}`}>
             {formatRouteAddress(suggestion)}
           </button>
@@ -127,6 +146,8 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
       </ul><p className="px-3 py-1 text-fs-xs text-[var(--fg-subtle)]">Google</p>
     </div>}
     {(busy || resolving) && <span role="status" className="text-fs-xs text-[var(--fg-muted)]">{t('checking')}</span>}
+    {(error || empty) && <button type="button" onPointerDown={event => event.preventDefault()} onClick={retry} className="self-start min-h-11 text-fs-sm underline">{t('retry')}</button>}
+    {empty && <span role="status" className="text-fs-xs text-[var(--fg-muted)]">{t('noResults')}</span>}
     {error && <span id={`${id}-error`} role="status" className="text-fs-xs text-[var(--warning-600)]">{t('routeAddressSearchUnavailable')}</span>}
   </div>;
 }

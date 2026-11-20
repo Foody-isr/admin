@@ -59,6 +59,11 @@ test('a selected street can reuse a known building number only on the same stree
   assert.equal(numberForSelectedStreet('Example Avenue 9', 'Herzlya', choice), '');
   assert.equal(numberForSelectedStreet('Other Avenue 9', 'Netanya', choice), '');
   assert.equal(numberForSelectedStreet('Example Avenue', 'Netanya', choice), '');
+  const numberedStreet = { id: 'route', address: 'Example Street', street: 'Example Street', city: 'Netanya' };
+  assert.equal(numberForSelectedStreet('Example 6 Netanya', 'Netanya', numberedStreet), '6');
+  assert.equal(numberForSelectedStreet('6A Rue Example נתניה', 'Netanya', numberedStreet), '6A');
+  assert.equal(numberForSelectedStreet('Example 6 Herzliya', 'Netanya', numberedStreet), '');
+  assert.equal(numberForSelectedStreet('Other Example 6 Netanya', 'Netanya', numberedStreet), '');
   assert.equal(deliveryCityKey('Herzlya'), deliveryCityKey('הרצליה'));
   assert.equal(deliveryCityKey('Guivat Shmuel'), deliveryCityKey('גבעת שמואל'));
 });

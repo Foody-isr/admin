@@ -11,6 +11,13 @@ function destinationQuery(destination: NavigationDestination): string {
   return [destination.address, destination.city].filter(Boolean).join(', ');
 }
 
+export type NavigationApp = 'google' | 'waze';
+
+/** Build the selected app's link from the destination currently authorized for this stop. */
+export function navigationUrl(app: NavigationApp, destination: NavigationDestination): string {
+  return app === 'google' ? googleNavigationUrl(destination) : wazeNavigationUrl(destination);
+}
+
 /** Google Maps directions URL for coordinates or a textual address. */
 export function googleNavigationUrl(destination: NavigationDestination): string {
   const target = hasNavigationCoordinates(destination)

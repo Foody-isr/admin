@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getMenu, listAllItems, createOrder, ApiError, getInternalCheckoutCapabilities,
@@ -12,7 +12,7 @@ import { isMembershipActiveOn } from '@/lib/membership';
 import { itemSizeOptions } from '@/lib/item-options';
 import { isItemSoldOut } from '@/lib/orders/itemAvailability';
 import {
-  loadOrderDraft, saveOrderDraft, clearOrderDraft, type DraftCustomer,
+  loadOrderDraft, saveOrderDraft, clearOrderDraft, type DraftCustomer, type OrderDraft,
 } from '@/lib/orders/orderDraft';
 import { rehydrateDraftLines, toDraftLines, type LineIssue } from '@/lib/orders/draftLines';
 import {
@@ -23,6 +23,7 @@ import { useSidebar } from '@/lib/sidebar-context';
 import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button } from '@/components/ds';
 import { BatchPicker } from '@/components/menu/BatchPicker';
+import { useAuth } from '@/lib/auth-context';
 import { DraftRestoredBanner } from '@/components/orders/DraftRestoredBanner';
 import { cn } from '@/lib/utils';
 import {
@@ -87,6 +88,13 @@ function hasOptions(it: MenuItem): boolean {
 }
 
 export default function NewOrderPage() {
+  const { user } = useAuth();
+  const params = useParams();
+  const restaurantId = Number(params.restaurantId);
+  return user ? <NewStaffOrder key={`${restaurantId}:${user.id}`} restaurantId={restaurantId} staffId={user.id} /> : null;
+}
+
+function NewStaffOrder({ restaurantId, staffId }: { restaurantId: number; staffId: number }) {
   const { money } = useCurrency();
   const { t, direction, locale } = useI18n();
   const { hasAnyPermission } = usePermissions();
@@ -94,9 +102,7 @@ export default function NewOrderPage() {
   const { collapsed, toggleCollapsed } = useSidebar();
   const continueRef = useRef<HTMLButtonElement>(null);
   const submittingRef = useRef(false);
-  const params = useParams();
   const router = useRouter();
-  const restaurantId = Number(params.restaurantId);
 
   const [menus, setMenus] = useState<Menu[]>([]);
   const [itemMap, setItemMap] = useState<Map<number, MenuItem>>(new Map());
@@ -119,6 +125,7 @@ export default function NewOrderPage() {
   // is provisional (accept/remove clears it) while the line itself is the
   // durable cart state that gets saved to the draft and sent to the server.
   const [issues, setIssues] = useState<Map<string, LineIssue>>(new Map());
+  const [legacyDraftAvailable, setLegacyDraftAvailable] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const [restoredState, setRestoredState] = useState<DrawerDraftState | null>(null);
   // Prix mémorisés par ligne restaurée. C'est la référence contre laquelle « le
@@ -223,13 +230,7 @@ export default function NewOrderPage() {
   // kitchen" — see the write-back effect below and `forgetDraft`.
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const submittedRef = useRef(false);
-  useEffect(() => {
-    if (didRestore.current || loading || itemMap.size === 0) return;
-    didRestore.current = true;
-
-    const draft = loadOrderDraft(restaurantId);
-    if (!draft) return;
-
+  const restoreDraft = useCallback((draft: OrderDraft) => {
     const rehydrated = rehydrateDraftLines(draft.lines, itemMap);
     setLines(rehydrated.map((r) => r.line));
     setIssues(new Map(rehydrated.filter((r) => r.issue).map((r) => [r.line.uid, r.issue!])));
@@ -239,7 +240,25 @@ export default function NewOrderPage() {
       orderType: draft.orderType, fulfillment: draft.fulfillment, eventConfig: draft.eventConfig,
     });
     setDraftRestored(true);
-  }, [loading, itemMap, restaurantId]);
+  }, [itemMap]);
+
+  useEffect(() => {
+    if (didRestore.current || loading || itemMap.size === 0) return;
+    didRestore.current = true;
+    const current = loadOrderDraft(restaurantId, staffId);
+    if (current) restoreDraft(current);
+    else setLegacyDraftAvailable(!!loadOrderDraft(restaurantId));
+  }, [loading, itemMap, restaurantId, staffId, restoreDraft]);
+
+  function recoverLegacyDraft() {
+    const legacy = loadOrderDraft(restaurantId);
+    if (!legacy || lines.length) { setLegacyDraftAvailable(false); return; }
+    saveOrderDraft(restaurantId, legacy, staffId);
+    if (!loadOrderDraft(restaurantId, staffId)) return;
+    clearOrderDraft(restaurantId);
+    restoreDraft(legacy);
+    setLegacyDraftAvailable(false);
+  }
 
   // An issue must never outlive its line: once a flagged line leaves the cart,
   // its entry in `issues` would otherwise linger and keep the checkout button
@@ -288,14 +307,14 @@ export default function NewOrderPage() {
         orderType: drawerState?.orderType ?? 'pickup',
         fulfillment: drawerState?.fulfillment ?? { timing: 'immediate' },
         eventConfig: drawerState?.eventConfig,
-      });
+      }, staffId);
     }, 500);
     saveTimerRef.current = timer;
     return () => {
       clearTimeout(timer);
       if (saveTimerRef.current === timer) saveTimerRef.current = null;
     };
-  }, [lines, drawerState, draftPrices, restaurantId]);
+  }, [lines, drawerState, draftPrices, restaurantId, staffId]);
 
   // POS-orderable cartes (menus), in the same order as the Cartes page
   // (sort_order, set via "Réorganiser"). Drives the carte selector.
@@ -509,7 +528,7 @@ export default function NewOrderPage() {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
-    clearOrderDraft(restaurantId);
+    clearOrderDraft(restaurantId, staffId);
   }
 
   /** Everything a discard has to put back to zero, cart and customer alike.
@@ -567,6 +586,7 @@ export default function NewOrderPage() {
         ...(data.orderType === 'delivery'
           ? {
               delivery_address: data.address.trim(),
+              delivery_address_token: data.addressToken,
               delivery_city: data.city.trim() || undefined,
               delivery_floor: data.floor.trim() || undefined,
               delivery_apt: data.apt.trim() || undefined,
@@ -691,6 +711,7 @@ export default function NewOrderPage() {
 
   return (
     <div className="flex min-h-[420px] flex-col" style={{ height: 'calc(100dvh - var(--topbar-total-h) - 64px)' }}>
+      {legacyDraftAvailable && lines.length === 0 && <Button className="mb-2 self-start" variant="secondary" onClick={recoverLegacyDraft}>{t('recoverLegacyOrderDraft')}</Button>}
       <div className="mb-3 flex shrink-0 gap-2 lg:hidden" role="group" aria-label={t('newOrder')}>
         <Button className="flex-1" variant={mobilePane === 'catalogue' ? 'primary' : 'secondary'} aria-pressed={mobilePane === 'catalogue'} disabled={submitting} onClick={() => { setCheckoutOpen(false); setMobilePane('catalogue'); }}>{t('items')}</Button>
         <Button className="flex-1" variant={mobilePane === 'ticket' ? 'primary' : 'secondary'} aria-pressed={mobilePane === 'ticket'} onClick={() => setMobilePane('ticket')}>{t('orderItems')} · {itemCount}</Button>

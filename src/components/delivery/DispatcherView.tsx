@@ -73,7 +73,6 @@ import {
 } from '@/lib/delivery';
 import { RouteSettingsEditor } from '@/components/delivery/RouteSettingsEditor';
 import {
-  geocodeAddress,
   getOrder,
   listOrders,
   listCouriers,
@@ -309,6 +308,7 @@ function RouteRibbon({
                           {t('deliveryNotes')}: {deliveryNotes}
                         </span>
                       )}
+                      {stop.estimated_position && <span className="mt-1 block text-fs-xs text-[var(--fg-muted)]">{t('deliveryEstimatedEntrance')}</span>}
                       {stop.navigation_started_at && isPendingDeliveryStop(stop) && (
                         <Badge className="mt-1" tone="warning">{t('courierResultPending')}</Badge>
                       )}
@@ -318,7 +318,7 @@ function RouteRibbon({
                         <span dir="ltr" className="mt-1 block w-fit text-[11px] font-medium leading-snug text-[var(--info-500)]">
                           {window.label}
                         </span>
-                      ) : stop.needs_geocode ? (
+                      ) : route.calculation_pending ? <span>{t('deliveryCalculationPending')}</span> : stop.needs_geocode ? (
                         <span className="mt-1 flex items-center gap-1 text-[11px] font-medium leading-snug text-[var(--warning-500)]">
                           <AlertCircleIcon className="h-3 w-3 shrink-0" />
                           {deliveryLocationWarning(route, t)}
@@ -402,6 +402,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const searchParams = useSearchParams();
   const linkedDay = validDispatchDay(searchParams?.get('date') ?? null);
   const loadRequestId = useRef(0);
+  const editorRequest = useRef(0);
+  const [loadFailures, setLoadFailures] = useState<string[]>([]);
   const [dayRoutes, setRoutes] = useState<DeliveryRoute[]>([]);
   const [messageTarget, setMessageTarget] = useState<{ orderId?: number } | null>(null);
   const [view, setView] = useState<'open' | 'history'>('open');
@@ -444,7 +446,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [editingOrder, setEditingOrder] = useState<{ order: Order; routeId?: number } | null>(null);
   const [insertingOrder, setInsertingOrder] = useState<Order | null>(null);
   const [inserted, setInserted] = useState('');
-  useEffect(() => { setEditingOrder(null); setInsertingOrder(null); setInserted(''); setMessageTarget(null); }, [rid, planningDate]);
+  useEffect(() => { ++editorRequest.current; setAddressEditorLoading(false); setEditingOrder(null); setInsertingOrder(null); setInserted(''); setMessageTarget(null); return () => { ++editorRequest.current; ++loadRequestId.current; }; }, [rid, planningDate]);
   const [addressEditorLoading, setAddressEditorLoading] = useState(false);
   const [undoAction, setUndoAction] = useState<
     | { kind: 'route'; routeId: number; stopCount: number }
@@ -468,7 +470,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
     setLoading(true);
     try {
       setError(null);
-      const [routeRows, openRouteRows, candidateRows, courierRows] = await Promise.all([
+      const [dayResult, openResult, candidateResult, courierResult] = await Promise.allSettled([
         listDeliveryRoutes(rid, departure.slice(0, 10)),
         listOpenDeliveryRoutes(rid),
         // Acceptance is the manager's operational gate: once a delivery has
@@ -479,6 +481,13 @@ export default function DispatcherView({ rid }: { rid: number }) {
       ]);
       if (requestId !== loadRequestId.current) return;
 
+      const sections = ['mapsRoute', 'deliveryPlanRoutes', 'orders', 'deliveryPlanCouriers'];
+      const failures = [dayResult, openResult, candidateResult, courierResult].flatMap((result, i) => result.status === 'rejected' ? [sections[i]] : []);
+      setLoadFailures(failures);
+      const routeRows = dayResult.status === 'fulfilled' ? dayResult.value : [];
+      const openRouteRows = openResult.status === 'fulfilled' ? openResult.value : [];
+      const candidateRows = candidateResult.status === 'fulfilled' && dayResult.status === 'fulfilled' && openResult.status === 'fulfilled' ? candidateResult.value : { orders: [] };
+      const courierRows = courierResult.status === 'fulfilled' ? courierResult.value : [];
       // Empty drafts are courier self-pick placeholders, not dispatcher plans.
       // Keeping them visible can hide a real plan on another date.
       const managerRouteRows = routeRows.filter((route) => route.status !== 'draft' || route.stops.length > 0);
@@ -496,7 +505,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
       const visibleDate = visibleRoutes[0]?.date ?? departure.slice(0, 10);
       const scope = [rid, visibleDate.slice(0, 10)].join(':');
       const firstLoadForDay = pickedScope.current !== scope;
-      pickedScope.current = scope;
+      if (dayResult.status === 'fulfilled' && openResult.status === 'fulfilled' && candidateResult.status === 'fulfilled') pickedScope.current = scope;
       const availableIds = new Set(available.filter(order => deliveryMatchesRouteDate(order, visibleDate)).map(order => order.id));
       setPicked(current => firstLoadForDay ? availableIds : new Set(Array.from(current).filter(id => availableIds.has(id))));
       setPlannerCouriers((current) => {
@@ -828,53 +837,28 @@ export default function DispatcherView({ rid }: { rid: number }) {
   };
 
   const openAddressEditor = async (orderId: number, routeId?: number) => {
+    const request = ++editorRequest.current;
     setAddressEditorLoading(true);
     try {
       setError(null);
-      setEditingOrder({ order: await getOrder(rid, orderId), routeId });
+      const order = await getOrder(rid, orderId);
+      if (request === editorRequest.current) setEditingOrder({ order, routeId });
     } catch (cause) {
-      setError((cause as Error)?.message || t('couldNotLoad'));
+      if (request === editorRequest.current) setError((cause as Error)?.message || t('couldNotLoad'));
     } finally {
-      setAddressEditorLoading(false);
+      if (request === editorRequest.current) setAddressEditorLoading(false);
     }
   };
 
   const saveAddressCorrection = async (input: OrderCustomerDetailsInput) => {
     if (!editingOrder) throw new Error(t('couldNotSave'));
-    let position = input.delivery_latitude != null && input.delivery_longitude != null
-      ? { lat: input.delivery_latitude, lng: input.delivery_longitude } : undefined;
     const { order, routeId } = editingOrder;
-    const keepPoint = !position && order.delivery_latitude != null && order.delivery_longitude != null &&
-      input.delivery_address === order.delivery_address && input.delivery_city === order.delivery_city;
-    let lookupUnavailable = false;
-    if (!position && !keepPoint) {
-      const result = await geocodeAddress(rid, input.delivery_address ?? '', input.delivery_city);
-      lookupUnavailable = !!result.unavailable;
-      if (result.found && result.provider !== 'google' && result.lat != null && result.lng != null) {
-        position = { lat: result.lat, lng: result.lng };
-      }
-    }
+    const stop = routes.find(route => route.id === routeId)?.stops.find(item => item.order_id === order.id);
     await updateOrderCustomerDetails(rid, order.id, {
-      ...input,
-      delivery_latitude: position?.lat,
-      delivery_longitude: position?.lng,
+      ...input, expected_updated_at: order.updated_at,
+      ...(stop?.needs_geocode ? { retry_delivery_position: true } : {}),
     });
-    let routingError: string | null = null;
-    try {
-      if (routeId && !keepPoint) {
-        // The route can locate the numbered address with its own Google provider.
-        const updated = await optimizeRoute(rid, routeId);
-        const stop = updated.stops.find(candidate => candidate.order_id === order.id);
-        if (updated.routing_error) routingError = deliveryRouteWarning(updated, t);
-        else if (stop?.needs_geocode) routingError = t('deliveryAddressSavedUnlocated');
-      } else if (!position && !keepPoint) {
-        routingError = t(lookupUnavailable ? 'deliveryAddressSavedLookupUnavailable' : 'deliveryAddressSavedUnlocated');
-      }
-    } catch (cause) {
-      routingError = deliveryRoutingError(cause, t) ?? t('deliveryPlanRecalculateFailed');
-    }
     await load();
-    if (routingError) setError(routingError);
   };
 
   const confirmUndo = async () => {
@@ -939,6 +923,9 @@ export default function DispatcherView({ rid }: { rid: number }) {
     url.searchParams.set('date', day);
     window.history.replaceState(null, '', url);
     ++loadRequestId.current;
+    ++editorRequest.current;
+    setEditingOrder(null);
+    setLoadFailures([]);
     setLoading(true);
     setRoutes([]);
     setReady([]);
@@ -989,6 +976,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
 
   return (
     <div className="flex flex-col gap-5" aria-busy={loading}>
+      {loadFailures.length > 0 && <div role="alert" className="flex items-center justify-between gap-3 p-3"><span>{t('couldNotLoad')} · {loadFailures.map(key => t(key)).join(', ')}</span><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div>}
       {error && (
         <div
           role="alert"
@@ -1166,7 +1154,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
               onChange={event => { setRouteQuery(event.target.value); setSelectedRoute(null); setSelectedCourier(null); setSelectedStopId(null); }} />
           </label>}
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
-            {routes.length === 0 ? (
+            {loadFailures.includes('mapsRoute') ? <p role="status">{t('couldNotLoad')}</p> : routes.length === 0 ? (
               <EmptyState icon={view === 'history' ? <CheckIcon /> : <RouteIcon />} title={t(loading ? 'loading' : view === 'history' ? 'deliveryPlanNoHistory' : 'deliveryPlanNoActiveRoutes')} desc={loading ? undefined : t(view === 'history' ? 'deliveryPlanHistoryHint' : 'deliveryPlanActiveHint')} />
             ) : !visibleRoutes.length ? (
               <EmptyState icon={<SearchIcon />} title={t('noResults')} action={<Button variant="ghost" onClick={() => setRouteQuery('')}>{t('deliveryFiltersClear')}</Button>} />

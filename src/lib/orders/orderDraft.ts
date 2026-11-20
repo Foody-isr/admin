@@ -133,60 +133,71 @@ function isWellFormedDraft(value: unknown): value is OrderDraft {
   return d.linked === null || typeof d.linked === 'object';
 }
 
-export function loadOrderDraft(rid: number): OrderDraft | null {
+function draftKey(rid: number, staffId?: number) {
+  return staffId === undefined ? keyFor(rid) : `${keyFor(rid)}:staff:${staffId}`;
+}
+
+function draftStore(staffId?: number) {
+  return staffId === undefined ? window.localStorage : window.sessionStorage;
+}
+
+/** Read the current tab's staff draft. Omitting the staff ID reads the legacy shared draft. */
+export function loadOrderDraft(rid: number, staffId?: number): OrderDraft | null {
   if (typeof window === 'undefined') return null;
-  const key = keyFor(rid);
+  const key = draftKey(rid, staffId);
   try {
-    const raw = window.localStorage.getItem(key);
+    const raw = draftStore(staffId).getItem(key);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     if (!isWellFormedDraft(parsed)) {
-      window.localStorage.removeItem(key);
+      draftStore(staffId).removeItem(key);
       return null;
     }
     if (parsed.version !== CURRENT_VERSION) {
-      window.localStorage.removeItem(key);
+      draftStore(staffId).removeItem(key);
       return null;
     }
     if (Date.now() - parsed.savedAt > DRAFT_TTL_MS) {
-      window.localStorage.removeItem(key);
+      draftStore(staffId).removeItem(key);
       return null;
     }
     return parsed;
   } catch {
-    try { window.localStorage.removeItem(key); } catch { /* ignore */ }
+    try { draftStore(staffId).removeItem(key); } catch { /* ignore */ }
     return null;
   }
 }
 
-export function saveOrderDraft(rid: number, input: OrderDraftInput): void {
+/** Save the active draft for this authenticated staff member and tab. */
+export function saveOrderDraft(rid: number, input: OrderDraftInput, staffId?: number): void {
   if (typeof window === 'undefined') return;
   if (!isMeaningfulDraft(input)) {
-    clearOrderDraft(rid);
+    clearOrderDraft(rid, staffId);
     return;
   }
   // L'heure de création se transmet d'une écriture à l'autre. `loadOrderDraft`
   // sert de lecture parce qu'il applique déjà la version, le TTL et la forme :
   // un enregistrement périmé ou illisible ne peut donc pas léguer son heure de
   // naissance au suivant, il repart de zéro.
-  const previous = loadOrderDraft(rid);
+  const previous = loadOrderDraft(rid, staffId);
   const draft: OrderDraft = {
     version: CURRENT_VERSION,
     savedAt: previous?.savedAt ?? Date.now(),
     ...input,
   };
   try {
-    window.localStorage.setItem(keyFor(rid), JSON.stringify(draft));
+    draftStore(staffId).setItem(draftKey(rid, staffId), JSON.stringify(draft));
   } catch {
     // Quota ou sérialisation : un brouillon est best-effort, il ne casse jamais
     // la prise de commande.
   }
 }
 
-export function clearOrderDraft(rid: number): void {
+/** Discard only the active draft in this staff and restaurant context. */
+export function clearOrderDraft(rid: number, staffId?: number): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.removeItem(keyFor(rid));
+    draftStore(staffId).removeItem(draftKey(rid, staffId));
   } catch {
     // ignore
   }

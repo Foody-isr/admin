@@ -134,7 +134,8 @@ export function deliveryRoutingError(error: unknown, t: (key: string) => string)
 }
 
 /** Describe provider limits separately from a changed route or an unlocated address. */
-export function deliveryRouteWarning(route: Pick<DeliveryRoute, 'routing_error' | 'needs_recalculation'>, t: (key: string) => string): string {
+export function deliveryRouteWarning(route: Pick<DeliveryRoute, 'routing_error' | 'needs_recalculation' | 'calculation_pending'>, t: (key: string) => string): string {
+  if (route.calculation_pending) return t('deliveryCalculationPending');
   if (route.routing_error) return deliveryRoutingError(new Error(route.routing_error), t) ?? t('deliveryRoutingUnavailable');
   return t(route.needs_recalculation ? 'deliveryRouteNeedsRecalculation' : 'routeEstimatePartial');
 }

@@ -37,6 +37,7 @@ export interface RouteStop {
   needs_geocode: boolean;
   coordinate_provider?: string;
   navigation_verified?: boolean;
+  estimated_position?: boolean;
 }
 
 export interface CourierLocationDTO {
@@ -70,6 +71,8 @@ export interface DeliveryRoute {
   est_waiting_s?: number;
   est_service_s?: number;
   needs_recalculation?: boolean;
+  calculation_pending?: boolean;
+  calculation_revision?: number;
   routing_error?: 'location service quota exceeded' | 'routing service unavailable' | 'some deliveries could not be routed';
   stop_service_minutes?: number;
   customer_window_minutes?: number | null;
@@ -362,6 +365,7 @@ export async function checkMyRouteNavigation(restaurantId: number, routeId: numb
 
 /** Server-backed address prediction or completed selection. */
 export interface AddressSuggestion {
+  token?: string;
   id: string;
   kind?: string;
   address: string;

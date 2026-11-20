@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-20",
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/orders/new/page.tsx",
+      "baseSha256": "274b3e936df8c30cae642a248fbec5ac1b5400e311f15ab32b95d33752f5f096",
+      "sha256": "c8b9c6929ecb5b3868870cea53157131f2336c907d21d65c19b206fbfd77adbd",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The tab restores the signed-in employee’s basket and forwards the selected delivery address at submission. The fields and steps specific to booking an event are unchanged."
+    },
+    {
+      "path": "src/components/orders/NewOrderCheckoutPanel.tsx",
+      "baseSha256": "dec9279c6fecf13aebc0e231a2994326f4bcc9b93ebff7cafbf1c5866b5c3dce",
+      "sha256": "f76448af468229cf8488246d328035320970bbbcf2df53cd2bcfae6fb01473db",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The delivery customer and address fields invalidate the prior building and recheck its quote. Event dates, event configuration and catering deposits still follow the existing event steps."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "baseSha256": "931bb8d5cf82bb13bf9dc96f96f0bf0bc47b6241c34d8def8fbcb79373cc1f90",
+      "sha256": "3e0a68ab8704be2186bb760805d920a5afe4cedd2ce21d46854d5de65cc1034a",
+      "features": [
+        "menu-variants-and-sizes",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The staff client carries a delivery address selection, an order revision and optional entrance reuse. Item media, variants, event records and the payment operations use their existing request shapes."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "baseSha256": "431e800f2b0963941e69ea42c71650fcc7242326e754d5cd042b73dc406ac7b0",
+      "sha256": "2e802dbca3099553a4f2cfc8d09ed883e35ecadfc35448b8bffdff81f2c00097",
+      "features": [
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The inserted messages belong to address corrections, draft recovery, route calculation and driver navigation. The reviewed translations for these other modules remain identical."
+    },
+    {
+      "path": "src/lib/orders/orderDraft.ts",
+      "baseSha256": "57840d057bb45499e6a01198f2917d423e1e24a95474743f6b780e07f5f1618e",
+      "sha256": "b6eaf66d08a22dda5b5180c9c3914ffeb1a12e3266218767a1024d3562c1eabb",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Draft storage is scoped to the employee and tab. The event date, guest counts and other event-specific fields retain their existing serialization and restore behavior."
+    }
+  ]
+}

@@ -30,6 +30,7 @@ interface Props {
   disabled?: boolean;
   addressInputProps?: Pick<React.InputHTMLAttributes<HTMLInputElement>, 'id' | 'aria-invalid' | 'aria-describedby' | 'aria-label'>;
   addressError?: React.ReactNode;
+  onPostalBlur?: () => void;
   /** An address picker that fills both the street and city. Unit fields are shared. */
   addressControl?: React.ReactNode;
   /** Order-specific content shown under the address line — the manual order
@@ -40,7 +41,7 @@ interface Props {
 }
 
 /** Shared street, city and unit fields for staff delivery details. */
-export function CustomerDeliveryFields({ value, onChange, disabled, underAddress, addressInputProps, addressError, addressControl }: Props) {
+export function CustomerDeliveryFields({ value, onChange, disabled, underAddress, addressInputProps, addressError, addressControl, onPostalBlur }: Props) {
   const { t } = useI18n();
   return (
     <>
@@ -49,6 +50,7 @@ export function CustomerDeliveryFields({ value, onChange, disabled, underAddress
           {...addressInputProps}
           dir="auto"
           value={value.address}
+          onBlur={onPostalBlur}
           disabled={disabled}
           onChange={(e) => onChange({ address: e.target.value })}
         />
@@ -60,6 +62,7 @@ export function CustomerDeliveryFields({ value, onChange, disabled, underAddress
           <Input
           dir="auto"
             value={value.city}
+            onBlur={onPostalBlur}
             disabled={disabled}
             onChange={(e) => onChange({ city: e.target.value })}
           />
