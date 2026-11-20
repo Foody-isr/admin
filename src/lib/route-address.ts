@@ -25,6 +25,12 @@ export function deliveryCityKey(city: string): string {
   return cityAliases.get(key) ?? key;
 }
 
+/** Extract the locality from the displayed secondary label when Google Details is unavailable. */
+export function predictionLocality(secondary: string): string {
+  const first = secondary.split(',')[0].trim();
+  return /^(israel|israël|ישראל|france|צרפת)$/i.test(first) ? '' : first;
+}
+
 /** Keep a provider's formatted endpoint without appending its city twice. */
 export function formatRouteAddress({ address, city }: { address: string; city: string }): string {
   const text = address.trim(), locality = city.trim();
@@ -47,11 +53,39 @@ export function streetBuilding(address: string): { street: string; number: strin
   if (trailing) return { street: trailing[1], number: trailing[2], first: false };
 }
 
+function streetKey(name: string): string {
+  return normalizedText(name.replace(/(?:^|\s)(?:street|st\.?|rue|רחוב)(?=\s|$)/gi, ' '));
+}
+
+function matchingStreetNumber(address: string, streets: string[]): string {
+  const leading = numberFirst.exec(address.trim());
+  if (leading && streets.includes(streetKey(leading[2]))) return leading[1];
+  const trailing = numberLast.exec(address.trim());
+  return trailing && streets.includes(streetKey(trailing[1])) ? trailing[2] : '';
+}
+
+/** Compare the complete postal identity before retaining private access instructions. */
+export function samePostalBuilding(a: { address: string; city: string }, b: { address: string; city: string }): boolean {
+  if (!a.city.trim() || deliveryCityKey(a.city) !== deliveryCityKey(b.city)) return false;
+  const left = streetBuilding(a.address), right = streetBuilding(b.address);
+  if (!left || !right) return !!a.address.trim() && a.address.trim() === b.address.trim();
+  return streetKey(left.street) === streetKey(right.street) &&
+    left.number.toLowerCase().replace(/\s/g, '') === right.number.toLowerCase().replace(/\s/g, '');
+}
+
 /** Restore the number only when the old and newly chosen street and city match. */
 export function numberForSelectedStreet(address: string, city: string, chosen: AddressSuggestion) {
-  const building = streetBuilding(address);
-  if (building && deliveryCityKey(city) === deliveryCityKey(chosen.city) &&
-      [chosen.address, chosen.street].some(label => label && normalizedText(label) === normalizedText(building.street))) return building.number;
+  const locality = deliveryCityKey(chosen.city);
+  if (!locality || deliveryCityKey(city) !== locality) return '';
+  const streets = [streetKey(chosen.address), streetKey(chosen.street ?? '')].filter(Boolean);
+  const direct = matchingStreetNumber(address, streets);
+  if (direct) return direct;
+  const words = address.trim().split(/\s+/);
+  for (let i = 2; i < words.length; i++) {
+    if (deliveryCityKey(words.slice(i).join(' ')) === locality) {
+      return matchingStreetNumber(words.slice(0, i).join(' '), streets);
+    }
+  }
   return '';
 }
 
@@ -62,11 +96,7 @@ export function selectedNumberedAddress(prediction: AddressSuggestion, details: 
   const address = prediction.address.trim();
   if (!prediction.lookup_token || !street || !city ||
       deliveryCityKey(prediction.city.split(',')[0]) !== deliveryCityKey(city)) return;
-  const streetKey = normalizedText(street);
-  const leading = numberFirst.exec(address);
-  const trailing = numberLast.exec(address);
-  const number = leading && normalizedText(leading[2]) === streetKey ? leading[1]
-    : trailing && normalizedText(trailing[1]) === streetKey ? trailing[2] : undefined;
+  const number = matchingStreetNumber(address, [streetKey(street)].filter(Boolean));
   if (!number || details.house_number?.trim().toLowerCase() === number.toLowerCase()) return;
   // A street centre or a point returned for another number cannot locate this building.
   return { id: prediction.id, address, city, street, house_number: number };

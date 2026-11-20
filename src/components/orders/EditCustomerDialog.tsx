@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { XIcon, InfoIcon } from 'lucide-react';
+import { XIcon } from 'lucide-react';
 import { Button, Field, Input } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import type { Order, OrderCustomerDetailsInput } from '@/lib/api';
@@ -11,7 +11,7 @@ import { RouteAddressField } from '@/components/delivery/RouteAddressField';
 import type { AddressSuggestion } from '@/lib/delivery';
 import { checkoutStepCopy } from '@/lib/orders/checkout-step-copy';
 import { parseDeliveryPin } from '@/lib/delivery-address';
-import { deliveryCityKey, formatRouteAddress, numberForSelectedStreet, streetBuilding } from '@/lib/route-address';
+import { formatRouteAddress, numberForSelectedStreet, predictionLocality, streetBuilding } from '@/lib/route-address';
 
 interface EditCustomerDialogProps {
   restaurantId: number;
@@ -36,6 +36,8 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
   const [delivery, setDelivery] = useState<CustomerDeliveryValue>(EMPTY_DELIVERY);
   const [addressQuery, setAddressQuery] = useState<string | null>(null);
   const [manualAddress, setManualAddress] = useState(false);
+  const [reuseEntrance, setReuseEntrance] = useState(false);
+  const [updateProfile, setUpdateProfile] = useState(true);
   const [reviewSelection, setReviewSelection] = useState(false);
   const [streetNumber, setStreetNumber] = useState<string | null>(null);
   const [pinText, setPinText] = useState('');
@@ -49,6 +51,8 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
   // Prefill from the order each time the dialog opens (or the order changes).
   useEffect(() => {
     if (!open || !order) return;
+    setReuseEntrance(!!order.delivery_entrance_confirmed_at);
+    setUpdateProfile(!order.customer_name_order_only);
     setName(order.customer_name ?? '');
     setDelivery({
       address: order.delivery_address ?? '',
@@ -71,9 +75,11 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
 
   const numberedStreet = streetNumber?.trim()
     ? [delivery.address.trim(), streetNumber.trim()].join(' ') : delivery.address.trim();
-  const previousNumber = order && streetNumber === '' && deliveryCityKey(order.delivery_city ?? '') === deliveryCityKey(delivery.city)
-    ? streetBuilding(order.delivery_address ?? '')?.number : undefined;
-  const addressComplete = addressQuery === null && delivery.address.trim() !== '' && delivery.city.trim() !== '';
+  const previousNumber = order && streetNumber === ''
+    ? numberForSelectedStreet(order.delivery_address ?? '', order.delivery_city ?? '', { id: 'street', address: delivery.address, city: delivery.city }) : '';
+  const parts = addressQuery?.split(',').map(value => value.trim());
+  const typed = parts && parts.length === 2 && streetBuilding(parts[0]) && parts[1] ? { address: parts[0], city: parts[1] } : undefined;
+  const addressComplete = !!typed || (addressQuery === null && delivery.address.trim() !== '' && delivery.city.trim() !== '');
   const showAddressHint = !manualAddress && !addressComplete;
   const canConfirm = !!order && name.trim() !== '' && !submitting && !invalidPin &&
     (!isDelivery || (addressComplete && !addressResolving));
@@ -98,8 +104,7 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
   const reviewAddress = (prediction: AddressSuggestion) => {
     // A prediction's secondary label may consist only of the country. Ask for
     // the city in that case instead of storing the country as the locality.
-    const [locality, region] = prediction.city.split(',');
-    changeDelivery({ address: prediction.address, city: region ? locality.trim() : '' });
+    changeDelivery({ address: prediction.address, city: predictionLocality(prediction.city) });
     setAddressQuery(null);
     setManualAddress(true);
     setReviewSelection(true);
@@ -147,10 +152,11 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
     setSubmitting(true);
     setSubmitError('');
     try {
-      const input: OrderCustomerDetailsInput = { name: name.trim() };
+      const input: OrderCustomerDetailsInput = { name: name.trim(), expected_updated_at: order?.updated_at, update_customer_profile: updateProfile };
       if (isDelivery) {
-        input.delivery_address = numberedStreet;
-        input.delivery_city = delivery.city.trim();
+        if (allowMapPin && (pin || (order?.delivery_entrance_confirmed_at && !reuseEntrance))) input.reuse_delivery_entrance = reuseEntrance;
+        input.delivery_address = typed?.address ?? numberedStreet;
+        input.delivery_city = typed?.city ?? delivery.city.trim();
         input.delivery_floor = delivery.floor.trim();
         input.delivery_apt = delivery.apt.trim();
         input.delivery_entry_code = delivery.entryCode.trim();
@@ -167,7 +173,7 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
       await onConfirm(input);
       onOpenChange(false);
     } catch (cause) {
-      setSubmitError((cause as Error)?.message || t('couldNotSave'));
+      setSubmitError((cause as { status?: number }).status === 409 || (cause as Error)?.message?.includes('delivery_details_changed') ? t('deliveryOrderChanged') : (cause as Error)?.message || t('couldNotSave'));
     } finally {
       setSubmitting(false);
     }
@@ -201,7 +207,7 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
             <div className="flex flex-col gap-[var(--s-4)]">
               <Field
                 label={t('customerName')}
-                hint={hasPhone ? t('editCustomerNameHint') : t('editCustomerNoPhoneHint')}
+                hint={!hasPhone ? t('editCustomerNoPhoneHint') : updateProfile ? t('editCustomerNameHint') : undefined}
               >
                 <Input
                   value={name}
@@ -257,6 +263,7 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
                           aria-invalid={invalidPin} aria-describedby={pinHintId}
                           onChange={event => { setPinText(event.target.value); setSubmitError(''); }} />
                       </Field>
+                      {(pin || order?.delivery_entrance_confirmed_at) && <label className="flex items-center gap-2 text-fs-sm"><input type="checkbox" checked={reuseEntrance} onChange={event => setReuseEntrance(event.target.checked)} />{t('deliveryReuseEntrance')}</label>}
                       <p id={pinHintId} className="text-fs-xs text-[var(--fg-muted)]">
                         {t(invalidPin ? 'deliveryPinInvalid' : 'deliveryPinHint')}
                       </p>
@@ -271,8 +278,7 @@ export function EditCustomerDialog({ restaurantId, allowMapPin = false, open, on
 
             {hasPhone && isDelivery && (
               <div className="mt-[var(--s-4)] flex items-start gap-[var(--s-2)] rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-[var(--s-3)] py-[var(--s-2)]">
-                <InfoIcon className="w-4 h-4 mt-0.5 shrink-0 text-[var(--fg-muted)]" />
-                <p className="text-fs-sm text-[var(--fg-muted)]">{t('editCustomerReflectNote')}</p>
+                <label className="flex items-center gap-2 text-fs-sm"><input type="checkbox" checked={updateProfile} onChange={event => setUpdateProfile(event.target.checked)} />{t('updateDeliveryCustomerProfile')}</label>
               </div>
             )}
 

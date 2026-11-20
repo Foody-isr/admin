@@ -1013,6 +1013,7 @@ export interface Order {
   /** Amount actually captured (₪) after weights were confirmed. */
   captured_amount?: number;
   customer_name: string;
+  customer_name_order_only?: boolean;
   customer_phone: string;
   total_amount: number;
   items: OrderItem[];
@@ -1048,6 +1049,7 @@ export interface Order {
   tour?: { id: number; name: string; delivery_date?: string } | null;
   delivery_address?: string;
   delivery_city?: string;
+  delivery_entrance_confirmed_at?: string;
   delivery_latitude?: number | null;
   delivery_longitude?: number | null;
   delivery_floor?: string;
@@ -5277,6 +5279,10 @@ export async function correctOrderPaymentMethod(
 
 /** Fields staff can correct on an order's customer, from the order screen. */
 export interface OrderCustomerDetailsInput {
+  retry_delivery_position?: boolean;
+  expected_updated_at?: string;
+  update_customer_profile?: boolean;
+  reuse_delivery_entrance?: boolean;
   name: string;
   /** Delivery fields are only applied for delivery orders (ignored otherwise). */
   delivery_address?: string;
@@ -5445,6 +5451,7 @@ export interface CreateOrderComboInput {
 }
 
 export interface CreateOrderInput {
+  delivery_address_token?: string;
   order_type: 'pickup' | 'delivery';
   customer_name: string;
   customer_phone: string;
