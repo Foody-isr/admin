@@ -406,7 +406,14 @@ function CourierRouteView({
     }
     const sameDestination = stop.address === previous.address && stop.city === previous.city &&
       stop.lat === previous.lat && stop.lng === previous.lng && stop.needs_geocode === previous.needs_geocode;
-    const verified = stop.navigation_verified ?? (sameDestination && current.calculation_revision === route.calculation_revision && previous.navigation_verified === true);
+    // A draft hides the address until the courier opens this stop for the first time.
+    // Verify the revealed point when it has no saved confirmation of its own.
+    let verified = stop.navigation_verified;
+    if (verified === undefined && previous.destination_locked) {
+      const checks = await checkMyRouteNavigation(rid, current.id, undefined, courierId);
+      verified = checks.some(check => check.stop_id === stop.id && check.verified);
+    }
+    verified ??= sameDestination && current.calculation_revision === route.calculation_revision && previous.navigation_verified === true;
     if ((!sameDestination || current.calculation_revision !== route.calculation_revision) && !verified) {
       // Re-render the new destination and its uncertainty before opening an external app.
       setError(t('deliveryNavigationChanged'));
