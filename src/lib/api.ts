@@ -11515,6 +11515,7 @@ export type FoodyBillingView = {
   annual_renewal_enabled?: boolean;
   due: boolean;
   can_resume: boolean;
+  registration_minor?: number;
   can_pay_registered_card?: boolean;
 };
 
@@ -11533,10 +11534,12 @@ export interface FoodySubscriptionDocument {
   paid_at: string; period_start: string; period_end?: string;
   price: { net_minor: number; vat_minor: number; total_minor: number };
   issue_state: FoodyDocumentState; mail_state: 'off' | 'pending' | 'sending' | 'sent' | 'review'; number?: number;
+  verifone_invoice?: boolean; resend_available?: boolean;
 }
 export interface FoodyDocumentPage {
   documents: FoodySubscriptionDocument[]; has_more: boolean; environment: 'sandbox';
   issuer_configured: boolean; email_available: boolean; email_enabled: boolean;
+  native_invoices?: boolean; archive_connected?: boolean;
 }
 
 /** List the owner's subscription documents and the delivery options for this pilot. */

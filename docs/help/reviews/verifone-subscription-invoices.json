@@ -1,0 +1,52 @@
+{
+  "reviewedAt": "2026-11-20",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "ec72c213a7604c876559846f6e4b658c48c1d9286abd0187a7593fa82f443be5",
+      "baseSha256": "7c5834011d8eea00f28842c5ad0d155a7f6410f0dfc03be96625d773eb626ab8",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "delivery-dispatch",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The changes to billing labels and the shared Admin client describe card registration, native invoice requests and original availability on the Foody subscription page. The other pages using the translation dictionary and API client retain their controls."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "d8ae8c5c642399fd7bd9f19f6eb1316a90824c9961f784e193d5879679f91169",
+      "baseSha256": "c9c6f361f28510b89aebf2003779dfb763f0911a2ac90e3db40b26060d928e51",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The changes to billing labels and the shared Admin client describe card registration, native invoice requests and original availability on the Foody subscription page. The other pages using the translation dictionary and API client retain their controls."
+    }
+  ]
+}
