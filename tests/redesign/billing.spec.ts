@@ -249,6 +249,29 @@ test('owner filters, views, downloads and resends the same subscription invoice'
   expect(mutations).toEqual(['PUT /api/v1/restaurants/1/foody-billing/document-delivery', 'POST /api/v1/restaurants/1/foody-billing/documents/43/resend']);
 });
 
+test('native invoice waits for a verified original and discloses card registration', async ({ page }) => {
+  await install(page);
+  const price = { net_minor: 50000, vat_minor: 9000, total_minor: 59000 };
+  const offer = { id: 7, title: 'Offre de test', includes: 'Logiciel', terms: 'Test', start_date: '2026-11-01', monthly: price, annual: price };
+  await page.route('**/api/v1/restaurants/1/foody-billing**', route => {
+    expect(route.request().method()).toBe('GET');
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/documents')) return route.fulfill({ json: { ...emptyDocuments, native_invoices: true,
+      archive_connected: false, email_available: true,
+      documents: [{ payment_id: 43, title: offer.title, cycle: 'monthly', kind: 'renewal', paid_at: '2026-11-09T10:00:00Z',
+        period_start: '2026-11-09T10:00:00Z', issue_state: 'pending', mail_state: 'off', verifone_invoice: true, price }] } });
+    if (path.endsWith('/usage')) return route.fulfill({ json: { month: '2026-11', observed: {} } });
+    return route.fulfill({ json: { offer, due: true, monthly_enabled: true, checkout_enabled: true, registration_minor: 1 } });
+  });
+  await page.goto('/1/billing');
+  const archive = page.locator('#documents');
+  await expect(archive.getByText(/Facture demandée à Verifone/)).toBeVisible();
+  await expect(archive.getByRole('button', { name: 'Voir le PDF' })).toHaveCount(0);
+  await expect(archive.getByRole('checkbox', { name: /Transmettre la boîte de test/ })).toBeVisible();
+  await page.getByRole('radio', { name: /Mensuel/ }).check();
+  await expect(page.getByText(/Verifone vérifie d’abord la carte pour 0,01.*confirmez le paiement de 590,00/)).toBeVisible();
+});
+
 test('production owner navigation uses the scoped Foody billing response', async ({ page, baseURL }) => {
   const local = new URL(baseURL!);
   expect(['localhost', '127.0.0.1']).toContain(local.hostname);

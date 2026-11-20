@@ -8,6 +8,8 @@ import { useI18n } from '@/lib/i18n';
 
 const copy = {
   fr: {
+    nativePending: 'Facture demandée à Verifone. Le PDF sera disponible après vérification de l’original.',
+    nativeMail: 'Transmettre la boîte de test à Verifone pour les factures des prochains paiements',
     title: 'Factures d’abonnement', sandbox: 'Documents de test Invoice4U · Sans valeur fiscale', month: 'Mois du paiement', number: 'Nº de facture', state: 'État du document',
     all: 'Tous', pending: 'En préparation', ready: 'Disponible', review: 'À vérifier par Foody', legacy: 'Paiement antérieur à l’archive',
     empty: 'Aucun paiement correspondant.', loading: 'Chargement des documents…', unavailable: 'Foody doit connecter son dossier Invoice4U de test pour émettre les documents.',
@@ -18,6 +20,8 @@ const copy = {
     monthly: 'Mensuel', annual: 'Annuel', upgrade: 'Ajustement', reset: 'Effacer les filtres',
   },
   en: {
+    nativePending: 'Invoice requested from Verifone. The PDF will be available once the original has been verified.',
+    nativeMail: 'Share the test inbox with Verifone for invoices on future payments',
     title: 'Subscription invoices', sandbox: 'Invoice4U test documents · No fiscal value', month: 'Payment month', number: 'Invoice no.', state: 'Document status',
     all: 'All', pending: 'Preparing', ready: 'Available', review: 'Foody review needed', legacy: 'Payment predates archive',
     empty: 'No matching payments.', loading: 'Loading documents…', unavailable: 'Foody needs to connect its Invoice4U test account to issue documents.',
@@ -28,6 +32,8 @@ const copy = {
     monthly: 'Monthly', annual: 'Annual', upgrade: 'Adjustment', reset: 'Clear filters',
   },
   he: {
+    nativePending: 'הוגשה בקשה לחשבונית דרך Verifone. קובץ ה־PDF יהיה זמין לאחר אימות מסמך המקור.',
+    nativeMail: 'העברת כתובת תיבת הבדיקה ל־Verifone עבור חשבוניות של תשלומים עתידיים',
     title: 'חשבוניות המינוי', sandbox: 'מסמכי בדיקה של Invoice4U · ללא תוקף לצורכי מס', month: 'חודש התשלום', number: 'מספר חשבונית', state: 'מצב המסמך',
     all: 'הכול', pending: 'בהכנה', ready: 'זמין', review: 'נדרשת בדיקה של Foody', legacy: 'התשלום בוצע לפני פתיחת הארכיון',
     empty: 'לא נמצאו תשלומים מתאימים.', loading: 'המסמכים נטענים…', unavailable: 'כדי להפיק מסמכים, על Foody לחבר את חשבון הבדיקה שלה ב־Invoice4U.',
@@ -86,7 +92,7 @@ export function SubscriptionDocuments({ rid, lastPayment }: { rid: number; lastP
     return () => controller.abort();
   }, [rid, month, number, state, before, revision, lastPayment]);
   useEffect(() => {
-    if (!page?.documents.some(d => (d.issue_state === 'pending' && page.issuer_configured) ||
+    if (!page?.documents.some(d => (d.issue_state === 'pending' && (page.archive_connected ?? page.issuer_configured)) ||
       (d.mail_state === 'pending' && page.email_enabled && page.email_available && d.issue_state === 'ready'))) return;
     const timer = window.setTimeout(() => setRevision(n => n + 1), 30000);
     return () => window.clearTimeout(timer);
@@ -140,14 +146,14 @@ export function SubscriptionDocuments({ rid, lastPayment }: { rid: number; lastP
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <strong dir="auto">{doc.title}{doc.number && <> · <bdi>#{doc.number}</bdi></>}</strong><strong><bdi>{money(doc.price.total_minor)}</bdi> {t.gross}</strong>
                 </div>
-                <p><bdi>{date(doc.paid_at)}</bdi> · {t[doc.kind === 'upgrade' ? 'upgrade' : doc.cycle]} · {t[doc.issue_state]}</p>
+                <p><bdi>{date(doc.paid_at)}</bdi> · {t[doc.kind === 'upgrade' ? 'upgrade' : doc.cycle]} · {doc.verifone_invoice && doc.issue_state === 'pending' ? t.nativePending : t[doc.issue_state]}</p>
                 <p className="text-[var(--fg-muted)]"><bdi>{money(doc.price.net_minor)}</bdi> {t.net} · {t.tax} <bdi>{money(doc.price.vat_minor)}</bdi>
                   {doc.period_end && <> · {t.period} <bdi>{date(doc.period_start)} – {date(doc.period_end)}</bdi></>}</p>
                 {doc.mail_state !== 'off' && <p>{doc.mail_state === 'sent' ? t.sent : doc.mail_state === 'review' ? t.mailReview : t.mailPending}</p>}
                 {doc.issue_state === 'ready' && <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="secondary" disabled={busy} onClick={() => file({ payment: doc.payment_id }, filename, true)}>{t.open}</Button>
                   <Button size="sm" variant="ghost" disabled={busy} onClick={() => file({ payment: doc.payment_id }, filename)}>{t.save}</Button>
-                  {page.email_available && page.email_enabled && <Button size="sm" variant="ghost" disabled={busy || doc.mail_state === 'sending' || doc.mail_state === 'pending'} onClick={() => void action(async signal => {
+                  {(doc.resend_available ?? page.email_available) && page.email_enabled && <Button size="sm" variant="ghost" disabled={busy || doc.mail_state === 'sending' || doc.mail_state === 'pending'} onClick={() => void action(async signal => {
                     await resendFoodyDocument(rid, doc.payment_id); if (!signal.aborted) { setNotice(t.queued); setRevision(n => n + 1); }
                   })}>{t.resend}</Button>}
                 </div>}
@@ -159,7 +165,7 @@ export function SubscriptionDocuments({ rid, lastPayment }: { rid: number; lastP
             {page.has_more && <Button variant="secondary" onClick={() => setPages(v => [...v, page.documents[page.documents.length - 1].payment_id])}>{t.next}</Button>}
           </div>
           {page.email_available ? <label className="flex items-center gap-2"><input type="checkbox" checked={page.email_enabled} disabled={busy}
-            onChange={e => { const enabled = e.target.checked; void action(async signal => { await setFoodyDocumentDelivery(rid, enabled); if (!signal.aborted) setRevision(n => n + 1); }); }} />{t.mail}</label> : <p className="text-[var(--fg-muted)]">{t.mailOff}</p>}
+            onChange={e => { const enabled = e.target.checked; void action(async signal => { await setFoodyDocumentDelivery(rid, enabled); if (!signal.aborted) setRevision(n => n + 1); }); }} />{page.native_invoices ? t.nativeMail : t.mail}</label> : <p className="text-[var(--fg-muted)]">{t.mailOff}</p>}
         </>}
       <p role="status">{notice}</p>
     </div>

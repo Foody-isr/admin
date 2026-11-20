@@ -191,6 +191,7 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
               })}
             </div>
             {canPay && cycle && price && <>
+              {!!view.registration_minor && !freeUpgrade && (cycle === 'monthly' || renew) && <p className="text-sm">{t('foodyPilotRegistrationAmount').replace('{amount}', money(view.registration_minor)).replace('{total}', money(upgrade ? offer.upgrade_minor! : price.total_minor))}</p>}
               <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={accept} onChange={(e) => setAccept(e.target.checked)} />{t('foodyPilotAccept')}</label>
               {!freeUpgrade && (cycle === 'monthly' || view.annual_renewal_enabled) && <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={renew} onChange={(e) => setRenew(e.target.checked)} />{t(cycle === 'monthly' ? 'foodyPilotAuthorize' : 'foodyPilotAuthorizeAnnual').replace('{total}', money(price.total_minor))}</label>}
               <Button type="submit" disabled={busy || !accept || cycle === 'monthly' && !freeUpgrade && !renew}>{t('foodyPilotPay')}</Button>

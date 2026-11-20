@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "9cc3b3a9856908b26133eab2b772b74a9b50914a",
-  "documentationRevision": "033fa6b216d50f51149603faacad9b79de7e1ba71e7405c74a89975725411284",
+  "documentationRef": "f2bcbc6c81c37757325ce32113e836691ecc6945",
+  "documentationRevision": "cc8000947e0b889311cd9730d4482d2e38baf5b01e59974633b5025f96cebe29",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -145,15 +145,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/account/subscription.mdx",
-          "sha256": "77226d14c96a204fccf41144db5bec8dcc182d6d99fdf3e374f6dd424cb646d1"
+          "sha256": "9a985c37e110b1f14ab29de3f324f42612a598c81ea9b6490b03a792231d7f1f"
         },
         "fr": {
           "path": "src/content/help/fr/account/subscription.mdx",
-          "sha256": "d09ff7ef0a5149cf6aea0154184bb6f933114e85549c413a5055addd5f475f92"
+          "sha256": "5398d2e5025cb3f3308e6a29c10c366d5961b3701abaa2c090014334eb0befcc"
         },
         "he": {
           "path": "src/content/help/he/account/subscription.mdx",
-          "sha256": "fff7d5b4c252050ab5beab21b326e046f972b3e39938f164f8d5dbfed545919b"
+          "sha256": "777c048b32690fd574f2f17b111e8f61aea1eae438eaa3a7e1ec031b3f98c706"
         }
       }
     },
@@ -164,15 +164,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/foody-billing-sandbox.md",
-          "sha256": "fbc966b06be214fa1856bce22a158ec2c6fa79e50458cf20ede704cbbb721d45"
+          "sha256": "95d117d01e3255f1973db3161c3e7bbddd469bd33e776719b175863bd931819e"
         },
         "fr": {
           "path": "docs/help/internal/fr/foody-billing-sandbox.md",
-          "sha256": "1f68829a7be25b2d5dbb2af7a2429b5beb5ca492216c47099f2ff796cebaf403"
+          "sha256": "fa19c9553f715e3b9005be19e2200054d9368af45ccc5af69ef2fa380c8a6816"
         },
         "he": {
           "path": "docs/help/internal/he/foody-billing-sandbox.md",
-          "sha256": "449350e2b611cc862887d6313e3308622cec83b5e0c7461fe57685c7631553af"
+          "sha256": "bf4490ffefcb79936bfff582e79b0595bb873ca344f1b4211463c38c10c2d35c"
         }
       }
     },
@@ -1323,15 +1323,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/victa-mini.mdx",
-          "sha256": "c7e38e848b1b38ff1688ca5a5814bb97afe17e926edf6a33fcc84f0c18681365"
+          "sha256": "436afdad970e7ccbc95ee46518b8d497803f94d8b5c7970c1c223f10c806e342"
         },
         "fr": {
           "path": "src/content/help/fr/payments/victa-mini.mdx",
-          "sha256": "6ea4dffe048a67198e542a730fc5be5235016ac012984b41daea61321356cef4"
+          "sha256": "0d4057a0540fadf5a095fbc8a322058925d145b0b8e2823e76cae7c9adac57c7"
         },
         "he": {
           "path": "src/content/help/he/payments/victa-mini.mdx",
-          "sha256": "59e3000ebf6d029e4490fe25554aeb825686c1d0c1fe888eb0b675f3cb9fa20d"
+          "sha256": "6493f27f3cc32df189511a06749bfb0fd56b2281d5d70a387aa5119b2799ccd3"
         }
       }
     },
@@ -2045,15 +2045,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/end-of-day.mdx",
-          "sha256": "ecc2aadf37153d0c660869b838035332f4b74e20c877d589fad5f65f196dbeea"
+          "sha256": "65e92e73f2c2ba2bd44f816fea4cd1d53e37df8ada7aeab07c4e8324d0ea900c"
         },
         "fr": {
           "path": "src/content/help/fr/payments/end-of-day.mdx",
-          "sha256": "fcb95902050376cf51f64c131c238f5a809d22123b03211615e536688e5bb30c"
+          "sha256": "73ab6c2de7d23a2b0a5e82c1dfe6f9ea9709a6a310069218f2a905444e512e9f"
         },
         "he": {
           "path": "src/content/help/he/payments/end-of-day.mdx",
-          "sha256": "b07758d4600632857d9531e80d9264e2fbc9f7afdb62dd1bf07bc590becde7cf"
+          "sha256": "984b6b69de9cd874861b2252352e44f394228e511ccee6eaf247cfc83eae3974"
         }
       }
     },
@@ -2083,15 +2083,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/transactions.mdx",
-          "sha256": "e4f77e0a5b02ee7c5bc9956d84c8fd09c3365b389dce90cd7ec352beb5e5c0e5"
+          "sha256": "55424b05a5af648157a55a23adcbaf3ae6c99f16aec1677df3e65865f6d8c052"
         },
         "fr": {
           "path": "src/content/help/fr/payments/transactions.mdx",
-          "sha256": "875acb740c90909798818079603575e9f041dabf9ab206fc989aca3560a0a75e"
+          "sha256": "36c867cac93f362df14ecbaba40767442b2f841a4bae0031fbdb8d1e78bc838d"
         },
         "he": {
           "path": "src/content/help/he/payments/transactions.mdx",
-          "sha256": "ada706dc03fd8c05ff2467646f96480001c425c6c2d9a31079da608d9c60423f"
+          "sha256": "a1b006e81835acb41763ba62c3a1dc4dbb40d4c6ee62086de19f8bcec1d5c735"
         }
       }
     },
@@ -2102,15 +2102,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/ashrait-terminal-inspection.mdx",
-          "sha256": "2b1964904eebc0ade66604dfeb88daefb1f7711bf4d4b1829d179c44d76694dd"
+          "sha256": "f1b7dedbf7a9496260b32837bb7e7980861c8bfa079117df40511ddc4753320a"
         },
         "fr": {
           "path": "src/content/help/fr/payments/ashrait-terminal-inspection.mdx",
-          "sha256": "91403d67cfc341f1a1aa2b02df71ce59d8e257a33405ea320cf6fc05a5f8ac74"
+          "sha256": "32ee3f880487e9d48d2fc2af68fe8e43695fc30e09c7540b2c2de9dc30e820d9"
         },
         "he": {
           "path": "src/content/help/he/payments/ashrait-terminal-inspection.mdx",
-          "sha256": "80aaea419a7d74072f3dd46786725411ac2471850f0c22cc947fbac75d125a90"
+          "sha256": "1dca7174e3b227fa9e884796e2cce0cae1bb3dbabbf213adf6e3301dc8991fcb"
         }
       }
     },
@@ -2234,7 +2234,7 @@
       ]
     },
     "src/app/[restaurantId]/billing/PrivateBilling.tsx": {
-      "sha256": "08447bcb18a7ad06918e5006dba9ddc5e74daadfa7d6e312c862d23ed344426c",
+      "sha256": "f027654252bc97dade4fc34d6db320164dd71dac315172c7d77c2e1b7cb945d0",
       "features": [
         "foody-billing-sandbox"
       ]
@@ -2246,7 +2246,7 @@
       ]
     },
     "src/app/[restaurantId]/billing/SubscriptionDocuments.tsx": {
-      "sha256": "48c1612d5c76f0141cd65eaa912f7a33c40843d4d841d053ccdc279d2f3ec7a5",
+      "sha256": "a1991f4fbd4a6c206a656634b74b9cde2dcc4b2465ff3a3089ebb6d7f655957c",
       "features": [
         "foody-billing-sandbox"
       ]
@@ -6680,7 +6680,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "7c5834011d8eea00f28842c5ad0d155a7f6410f0dfc03be96625d773eb626ab8",
+      "sha256": "ec72c213a7604c876559846f6e4b658c48c1d9286abd0187a7593fa82f443be5",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6898,7 +6898,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "c9c6f361f28510b89aebf2003779dfb763f0911a2ac90e3db40b26060d928e51",
+      "sha256": "d8ae8c5c642399fd7bd9f19f6eb1316a90824c9961f784e193d5879679f91169",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -8455,6 +8455,7 @@
         "foodyPilotPayRegistered",
         "foodyPilotQuoteUntil",
         "foodyPilotRef",
+        "foodyPilotRegistrationAmount",
         "foodyPilotResume",
         "foodyPilotSandbox",
         "foodyPilotStop",
