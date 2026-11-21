@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-21",
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/layout.tsx",
+      "sha256": "1cd872147a1fe9119769a623b315d6fde22c764e0527f6ec9ecec6184103db7b",
+      "disposition": "no-user-impact",
+      "reason": "Only staff with order management permission on the exact dispatch path receive the wide workspace. The Foody link returns to the restaurant dashboard. The existing links expose the same permitted delivery destinations. Restaurant guards, other module navigation and the courier interface retain their documented behavior.",
+      "baseSha256": "b407181fab9746fefe978ed7110fdf5005f0de58cb78906fd8bb3da76ad4790c",
+      "features": [
+        "delivery-dispatch",
+        "payments-transactions"
+      ]
+    },
+    {
+      "path": "src/components/delivery/DeliveryMap.tsx",
+      "sha256": "a4657e11779abf1c832ee777189f1adc6244b6dc1da585dde0a3a8932ae3d767",
+      "disposition": "no-user-impact",
+      "reason": "The header counts exactly the geolocated stops or queue points shown by the existing map provider. The badge, marker size and palette change presentation. Route geometry, tile attribution, click behavior and all courier controls still follow the published procedures.",
+      "baseSha256": "59c5c831a35012187926a6dee6276251faed6371055472a18373b046f5f63da3",
+      "features": [
+        "delivery-dispatch"
+      ]
+    },
+    {
+      "path": "src/components/delivery/DeliveryNavigation.tsx",
+      "sha256": "a265bf4cae70471bc72c0d7be88d1e4fe0b23d0b9a89eb21cfe473ade05df083",
+      "disposition": "no-user-impact",
+      "reason": "The same permission-checked navigation destinations and labels appear in the dispatch header. Other delivery pages retain the existing navigation described in the published guide.",
+      "baseSha256": "c58214b132f182272e1af8bab2e45e776af1d3d6c4676cd40a9c1e42622c1479",
+      "features": [
+        "delivery-dispatch"
+      ]
+    },
+    {
+      "path": "src/components/delivery/DispatchWorkspace.module.css",
+      "sha256": "26b4ffe9dce0aabe51bd27f1edd3ec65218181c32766b6ed82e28b7e3f3199bf",
+      "disposition": "no-user-impact",
+      "reason": "The stylesheet sizes and positions the table, map, details, filters and date for the full-width manager workspace and applies the existing Foody tokens. The three published dispatch guides already describe selecting, reviewing, searching and inserting stops. This file adds no separate operation or workflow."
+    },
+    {
+      "path": "src/components/delivery/DispatcherView.tsx",
+      "sha256": "0182e8ac9119ce5a4150c6470c115bd042988336b4000e25ed1c28165ba007ee",
+      "disposition": "no-user-impact",
+      "reason": "The reviewed dispatch guide already covers service-day selection, the three filters, linked table and map, address correction and insertion. The two-column view presents the same actions and can initially display an address needing review. A courier route can still be recalculated or reset in its settings and actions below the board.",
+      "baseSha256": "6225a24d02f6f05d9c421640ac84b86bc08aeb36253864de83fa66657fd178fe",
+      "features": [
+        "delivery-dispatch"
+      ]
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "dc8e95cae937c345e7a896590ef57ede975a0054f90f86ef787565ad834017f1",
+      "disposition": "no-user-impact",
+      "reason": "The additional English, French and Hebrew labels describe the dispatch workspace, the active route, window counts and the selected stop. All existing action labels for departure, address correction and insertion match the three published dispatch guides.",
+      "baseSha256": "b70ebaacdbf0fd724bf58d1c8fa72d40be9f7c1ffbc7e35dc135fd930c08dc21",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ]
+    }
+  ]
+}
