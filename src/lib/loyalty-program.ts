@@ -13,8 +13,48 @@ const whole = (value: unknown, min = 0) => Number.isSafeInteger(value) && Number
 const text = (value: unknown, limit: number, multiline = false): value is string => typeof value === 'string' && !!value && value.trim() === value && Array.from(value).length <= limit && !(multiline ? /[\x00-\x08\x0b-\x1f\x7f-\x9f]/ : /[\x00-\x1f\x7f-\x9f]/).test(value);
 const currency = (value: unknown) => ['ILS', 'EUR', 'USD', 'GBP'].includes(String(value));
 
+function validCalendarDate(value: unknown): boolean {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const instant = new Date(value + 'T00:00:00Z');
+  return Number.isFinite(instant.getTime()) && instant.toISOString().slice(0, 10) === value;
+}
+
+/** Return the balance unit shown to a member for this combination of rules. */
+export function loyaltyProgressMode(mode: LoyaltyRules['mode'], e?: LoyaltyRules['earning']): LoyaltyRules['mode'] {
+  return e && (e.purchase_bonus || e.products?.length || e.double_days || e.welcome || e.survey || e.referral || e.birthday) ? 'points' : mode;
+}
+
+/** Validate the activity configuration before displaying or submitting a program. */
+export function validEarning(value: unknown, mode?: unknown): boolean {
+  if (value === undefined) return true;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const e = value as Record<string, unknown>;
+  const number = (n: unknown, max: number, min = 0) => typeof n === 'number' && Number.isSafeInteger(n) && n >= min && n <= max;
+  if (['welcome', 'survey', 'referral', 'birthday'].some(k => e[k] !== undefined && !number(e[k], 1000000))) return false;
+  if ((e.double_days !== undefined && !number(e.double_days, 127)) || (e.birthday_gift !== undefined && typeof e.birthday_gift !== 'boolean') || (e.products_only !== undefined && typeof e.products_only !== 'boolean') || (e.birthday_gift && e.birthday)) return false;
+  if (e.purchase_bonus !== undefined) {
+    const bonus = e.purchase_bonus;
+    if (!object(bonus) || e.products_only || !number(bonus.units, 1000000, 1) ||
+        !number(bonus.spend_minor, Number.MAX_SAFE_INTEGER, mode === 'visits' ? 1 : 0) ||
+        (mode === 'points' && bonus.spend_minor !== 0)) return false;
+  }
+  const { double_from: from, double_until: until } = e;
+  if ([from, until].some(d => d !== undefined && (!e.double_days || !validCalendarDate(d)))) return false;
+  if (typeof from === 'string' && typeof until === 'string' && from > until) return false;
+  const products = e.products === undefined ? [] : e.products;
+  if (!Array.isArray(products) || products.length > 32 || (e.products_only && !products.length)) return false;
+  const seen = new Set<string>();
+  return products.every(p => {
+    if (!p || typeof p !== 'object' || (p.item_id === undefined) === (p.category_id === undefined) || !number(p.item_id ?? p.category_id, Number.MAX_SAFE_INTEGER, 1) || !number(p.units, 1000000, 1)) return false;
+    const key = p.item_id ? 'item-' + p.item_id : 'category-' + p.category_id;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function rulesValid(r: unknown): r is LoyaltyRules {
-  if (!object(r) || !currency(r.currency) || !whole(r.minimum_purchase_minor) || !whole(r.reward_threshold, 1) || !whole(r.reward_validity_days) || r.reward_validity_days > 3650 || !text(r.terms_version, 80)) return false;
+  if (!object(r) || !validEarning(r.earning, r.mode) || !currency(r.currency) || !whole(r.minimum_purchase_minor) || !whole(r.reward_threshold, 1) || !whole(r.reward_validity_days) || r.reward_validity_days > 3650 || !text(r.terms_version, 80)) return false;
   if (r.mode === 'points' ? !whole(r.spend_step_minor, 1) || !whole(r.units_per_step, 1) : r.mode !== 'visits' || r.spend_step_minor !== 0 || r.units_per_step !== 1) return false;
   return r.reward_type === 'fixed' ? whole(r.reward_amount_minor, 1) && r.reward_item_id == null && r.reward_variant_id == null : r.reward_type === 'item' && r.reward_amount_minor === 0 && whole(r.reward_item_id, 1) && (r.reward_variant_id == null || whole(r.reward_variant_id, 1));
 }
@@ -29,7 +69,7 @@ export function checkedLoyaltyProgram(value: unknown): LoyaltyProgram {
 /** Missing server authority stays read-only and never falls back to a role name. */
 export function checkedLoyaltyProgramState(value: unknown): LoyaltyProgramState {
   if (!object(value) || !currency(value.restaurant_currency) || typeof value.identity_locked !== 'boolean' || (value.can_manage_program !== undefined && typeof value.can_manage_program !== 'boolean') || value.program === undefined) throw new Error('loyalty_program_invalid');
-  return { program: value.program === null ? null : checkedLoyaltyProgram(value.program), restaurant_currency: value.restaurant_currency, identity_locked: value.identity_locked, can_manage_program: value.can_manage_program === true };
+  return { ...(object(value.survey) && whole(value.survey.count) && typeof value.survey.average==='number' && value.survey.average>=0 && value.survey.average<=5 ? {survey:{count:value.survey.count,average:value.survey.average}} : {}), program: value.program === null ? null : checkedLoyaltyProgram(value.program), restaurant_currency: value.restaurant_currency, identity_locked: value.identity_locked, can_manage_program: value.can_manage_program === true };
 }
 
 /** Money input uses decimal strings so an exact cent is never a float approximation. */
@@ -42,16 +82,17 @@ export function loyaltyMinor(value: string): number {
 }
 const major = (value: number) => (value / 100).toFixed(2);
 const integer = (value: string, min = 0) => { if (!/^\d+$/.test(value) || !whole(Number(value), min)) throw new Error('loyalty_program_invalid'); return Number(value); };
-export interface LoyaltyProgramDraft { mode: 'points' | 'visits'; enabled: boolean; threshold: string; minimum: string; step: string; units: string; reward: 'fixed' | 'item'; amount: string; item: string; variant: string; validity: string; termsVersion: string; content: LoyaltyProgram['content'] }
+export interface LoyaltyProgramDraft { earning?: LoyaltyRules['earning']; mode: 'points' | 'visits'; enabled: boolean; threshold: string; minimum: string; step: string; units: string; reward: 'fixed' | 'item'; amount: string; item: string; variant: string; validity: string; termsVersion: string; content: LoyaltyProgram['content'] }
 
 /** A new program has no invented earning threshold, benefit value or legal terms. */
 export function loyaltyProgramDraft(p: Pick<LoyaltyProgram, 'rules' | 'enabled' | 'content'> | null): LoyaltyProgramDraft {
-  return { mode: p?.rules.mode ?? 'points', enabled: p?.enabled ?? false, threshold: p ? String(p.rules.reward_threshold) : '', minimum: p ? major(p.rules.minimum_purchase_minor) : '0', step: p ? major(p.rules.spend_step_minor) : '', units: p ? String(p.rules.units_per_step) : '1', reward: p?.rules.reward_type ?? 'fixed', amount: p ? major(p.rules.reward_amount_minor) : '', item: p?.rules.reward_item_id ? String(p.rules.reward_item_id) : '', variant: p?.rules.reward_variant_id ? String(p.rules.reward_variant_id) : '', validity: p ? String(p.rules.reward_validity_days) : '0', termsVersion: p?.rules.terms_version ?? '', content: p ? structuredClone(p.content) : { en: { name: '', terms: '' }, fr: { name: '', terms: '' }, he: { name: '', terms: '' } } };
+  return { ...(p?.rules.earning ? {earning: structuredClone(p.rules.earning)} : {}), mode: p?.rules.mode ?? 'points', enabled: p?.enabled ?? false, threshold: p ? String(p.rules.reward_threshold) : '', minimum: p ? major(p.rules.minimum_purchase_minor) : '0', step: p ? major(p.rules.spend_step_minor) : '', units: p ? String(p.rules.units_per_step) : '1', reward: p?.rules.reward_type ?? 'fixed', amount: p ? major(p.rules.reward_amount_minor) : '', item: p?.rules.reward_item_id ? String(p.rules.reward_item_id) : '', variant: p?.rules.reward_variant_id ? String(p.rules.reward_variant_id) : '', validity: p ? String(p.rules.reward_validity_days) : '0', termsVersion: p?.rules.terms_version ?? '', content: p ? structuredClone(p.content) : { en: { name: '', terms: '' }, fr: { name: '', terms: '' }, he: { name: '', terms: '' } } };
 }
 
 /** Convert the displayed draft into the complete, explicitly reviewed server contract. */
 export function loyaltyProgramPayload(d: LoyaltyProgramDraft, code: string, revision: number, request: string, programID: string | null = null): LoyaltyProgramInput {
-  const r: LoyaltyRules = { mode: d.mode, currency: code, spend_step_minor: d.mode === 'points' ? loyaltyMinor(d.step) : 0, units_per_step: d.mode === 'points' ? integer(d.units, 1) : 1, minimum_purchase_minor: loyaltyMinor(d.minimum), reward_threshold: integer(d.threshold, 1), reward_type: d.reward, reward_amount_minor: d.reward === 'fixed' ? loyaltyMinor(d.amount) : 0, reward_validity_days: integer(d.validity), terms_version: d.termsVersion, ...(d.reward === 'item' ? { reward_item_id: integer(d.item, 1), ...(d.variant ? { reward_variant_id: integer(d.variant, 1) } : {}) } : {}) };
+  if (d.earning && [d.earning.welcome, d.earning.survey, d.earning.referral, d.earning.birthday].some(n => n === 0)) throw new Error('loyalty_program_invalid');
+  const r: LoyaltyRules = { ...(d.earning ? {earning: Object.fromEntries(Object.entries(d.earning).filter(([, v]) => Array.isArray(v) ? v.length > 0 : Boolean(v)))} : {}), mode: d.mode, currency: code, spend_step_minor: d.mode === 'points' ? loyaltyMinor(d.earning?.products_only && !d.step ? '1' : d.step) : 0, units_per_step: d.mode === 'points' ? integer(d.units, 1) : 1, minimum_purchase_minor: loyaltyMinor(d.minimum), reward_threshold: integer(d.threshold, 1), reward_type: d.reward, reward_amount_minor: d.reward === 'fixed' ? loyaltyMinor(d.amount) : 0, reward_validity_days: integer(d.validity), terms_version: d.termsVersion, ...(d.reward === 'item' ? { reward_item_id: integer(d.item, 1), ...(d.variant ? { reward_variant_id: integer(d.variant, 1) } : {}) } : {}) };
   const input = { program_id: programID, request_id: request, expected_revision: revision, enabled: d.enabled, rules: r, content: structuredClone(d.content) };
   if (!validInput(input)) throw new Error('loyalty_program_invalid');
   return input;

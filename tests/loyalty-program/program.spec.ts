@@ -77,6 +77,27 @@ test('a complete visits program needs explicit confirmation and preserves exact 
   await page.screenshot({path: info.outputPath('program-desktop.png'), animations: 'disabled'});
   expect(state.posts).toHaveLength(1); expect(state.posts[0].rules).toMatchObject({ mode: 'visits', spend_step_minor: 0, units_per_step: 1, reward_amount_minor: 1250 }); expect(state.posts[0].enabled).toBe(false); expect(state.fixture.writes).toEqual([]);
 });
+test('combines earning rules, saves a dated promotion and keeps the existing card', async ({ page }, info) => {
+  const state = await setup(page, {existing:true, locked:true});
+  await page.route('**/api/v1/menu/items?**', route => route.fulfill({json:{items:[{id:42,name:'Espresso',is_active:true}]}}));
+  await page.getByRole('button', {name:'Façons de gagner',exact:true}).click();
+  await page.getByRole('checkbox',{name:'Ajouter des points par tranche de dépense'}).check();
+  await page.getByRole('spinbutton',{name:'Points accordés'}).fill('2');
+  await page.getByRole('button', {name:'Ajouter une règle produit'}).click();
+  await page.getByRole('combobox', {name:'Produit',exact:true}).selectOption('42');
+  await page.getByRole('spinbutton', {name:'Points par article'}).fill('2');
+  await page.getByRole('button', {name:'mar.',exact:true}).click();
+  await page.getByLabel('Date de début (facultative)').fill('2026-12-01');
+  await page.getByLabel('Date de fin (facultative)').fill('2026-12-31');
+  await page.getByRole('checkbox',{name:/Activer · Enquête/}).check();
+  await page.getByRole('spinbutton',{name:'Enquête de satisfaction'}).fill('5');
+  await page.screenshot({path:info.outputPath('facons-de-gagner.png'),fullPage:true,animations:'disabled'});
+  await save(page);
+  expect(state.posts).toHaveLength(1);
+  expect(state.posts[0]).toMatchObject({program_id:id,rules:{mode:'visits',earning:{purchase_bonus:{units:2,spend_minor:100},products:[{item_id:42,units:2}],double_days:4,double_from:'2026-12-01',double_until:'2026-12-31',survey:5}}});
+  await expect(page.getByText('Après 5 points',{exact:true})).toBeVisible();
+});
+
 test('lost response survives reload and resumes exactly the original configuration', async ({ page }) => {
   const state = await setup(page, { mode: 'lost' }); await fill(page); await save(page); await expect(page.getByText('Le résultat n’est pas confirmé.', { exact: false })).toBeVisible(); await page.reload();
   await expect(page.getByRole('button', { name: 'Reprendre la demande d’origine', exact: true })).toBeVisible(); expect(state.posts).toHaveLength(1);

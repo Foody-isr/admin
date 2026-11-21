@@ -2500,9 +2500,23 @@ export function refreshOrderPaymentAdjustment(rid: number, oid: number, id: stri
 }
 
 /** Immutable restaurant loyalty contract; amounts are integer minor units. */
-export interface LoyaltyRules { mode: 'points' | 'visits'; currency: string; spend_step_minor: number; units_per_step: number; minimum_purchase_minor: number; reward_threshold: number; reward_type: 'fixed' | 'item'; reward_amount_minor: number; reward_item_id?: number; reward_variant_id?: number; reward_validity_days: number; terms_version: string }
+/** Optional activities that share the restaurant member's balance and reward threshold. */
+export interface LoyaltyEarningOptions {
+  purchase_bonus?: {units:number;spend_minor:number};
+  products?: { item_id?: number; category_id?: number; units: number }[];
+  products_only?: boolean;
+  double_days?: number;
+  double_from?: string;
+  double_until?: string;
+  welcome?: number;
+  survey?: number;
+  referral?: number;
+  birthday?: number;
+  birthday_gift?: boolean;
+}
+export interface LoyaltyRules { earning?: LoyaltyEarningOptions; mode: 'points' | 'visits'; currency: string; spend_step_minor: number; units_per_step: number; minimum_purchase_minor: number; reward_threshold: number; reward_type: 'fixed' | 'item'; reward_amount_minor: number; reward_item_id?: number; reward_variant_id?: number; reward_validity_days: number; terms_version: string }
 export interface LoyaltyProgram { id: string; version_id: string; revision: number; enabled: boolean; rules: LoyaltyRules; content: Record<'en' | 'fr' | 'he', { name: string; terms: string }>; updated_at: string }
-export interface LoyaltyProgramState { program: LoyaltyProgram | null; restaurant_currency: string; identity_locked: boolean; can_manage_program: boolean }
+export interface LoyaltyProgramState { survey?:{count:number;average:number}; program: LoyaltyProgram | null; restaurant_currency: string; identity_locked: boolean; can_manage_program: boolean }
 export interface LoyaltyProgramInput { program_id: string | null; request_id: string; expected_revision: number; enabled: boolean; rules: LoyaltyRules; content: LoyaltyProgram['content'] }
 /** Read current server authority and the exact program revision with no cache. */
 export async function getLoyaltyProgram(rid: number, signal?: AbortSignal): Promise<LoyaltyProgramState> {
@@ -2542,6 +2556,20 @@ const walletStudioPath = '/api/v1/loyalty/wallet-studio';
 /** Read a restaurant's private design and Apple test capability. */
 export function getWalletStudio(rid: number, signal?: AbortSignal): Promise<WalletStudioState> {
   return apiFetch(walletStudioPath, rid, { cache: 'no-store', signal });
+}
+
+/** Published site artwork available to editors of this restaurant's Wallet. */
+export interface WalletWebsiteDesign {
+  restaurant_id: number;
+  palette?: Record<string, unknown>;
+  logo?: string;
+  banner?: string;
+  missing_images: boolean;
+}
+
+/** Read the website's existing brand assets without saving or publishing a Wallet draft. */
+export function getWalletWebsiteDesign(rid: number, signal: AbortSignal): Promise<WalletWebsiteDesign> {
+  return apiFetch(`${walletStudioPath}/website-design`, rid, { cache: 'no-store', signal });
 }
 
 /** Replace the draft only if its saved revision still matches. */
