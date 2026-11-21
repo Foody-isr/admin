@@ -1,0 +1,12 @@
+{
+  "framework": null,
+  "installCommand": "",
+  "buildCommand": "",
+  "outputDirectory": "public",
+  "rewrites": [
+    {
+      "source": "/:path*",
+      "destination": "https://admin-822crobnm-mickaz.vercel.app/:path*"
+    }
+  ]
+}
