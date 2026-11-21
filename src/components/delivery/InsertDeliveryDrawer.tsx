@@ -12,23 +12,25 @@ interface Props {
   order: Order;
   routes: { route: DeliveryRoute; number: number }[];
   couriers: Map<number, StaffMember>;
+  initialRouteId?: number | null;
   onClose: () => void;
   onSaved: (route: DeliveryRoute, number: number) => void;
   onRefresh: () => Promise<void>;
 }
 
 /** Place a late delivery in a saved itinerary while retaining the other stops' order. */
-export function InsertDeliveryDrawer({ restaurantId, order, routes, couriers, onClose, onSaved, onRefresh }: Props) {
+export function InsertDeliveryDrawer({ restaurantId, order, routes, couriers, initialRouteId, onClose, onSaved, onRefresh }: Props) {
   const { t } = useI18n();
-  const [routeId, setRouteId] = useState(routes.length === 1 ? routes[0].route.id : 0);
-  const [before, setBefore] = useState(0);
+  const [routeId, setRouteId] = useState(initialRouteId && routes.some(row => row.route.id === initialRouteId) ? initialRouteId : routes.length === 1 ? routes[0].route.id : 0);
+  const [position, setPosition] = useState('end');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const selected = routes.find(row => row.route.id === routeId);
   const route = selected?.route;
   const ordered = [...(route?.stops ?? [])].sort((left, right) => left.sequence - right.sequence);
-  const insertAt = before ? ordered.findIndex(stop => stop.id === before) : ordered.length;
-  const anchorExists = insertAt >= 0;
+  const afterIndex = ordered.findIndex(stop => String(stop.id) === position);
+  const anchorExists = position === 'start' || position === 'end' || afterIndex >= 0;
+  const insertAt = position === 'end' ? ordered.length : position === 'start' ? 0 : afterIndex + 1;
   const previous = ordered[insertAt - 1], next = ordered[insertAt];
 
   const insert = async () => {
@@ -36,7 +38,7 @@ export function InsertDeliveryDrawer({ restaurantId, order, routes, couriers, on
     setBusy(true);
     setError('');
     try {
-      onSaved(await insertPlannedStop(restaurantId, route.id, order.id, before || undefined), selected.number);
+      onSaved(await insertPlannedStop(restaurantId, route.id, order.id, next?.id), selected.number);
     } catch (cause) {
       await onRefresh();
       setError(deliveryRoutingError(cause, t) ?? t('deliveryInsertFailed'));
@@ -52,7 +54,7 @@ export function InsertDeliveryDrawer({ restaurantId, order, routes, couriers, on
       <div className="space-y-5">
         <Field label={t('deliveryInsertRoute')}>
           <Select value={route?.id ?? ''} disabled={busy} onChange={event => {
-            setRouteId(Number(event.target.value)); setBefore(0); setError('');
+            setRouteId(Number(event.target.value)); setPosition('end'); setError('');
           }}>
             <option value="">{t('deliveryInsertChoose')}</option>
             {routes.map(({ route: row, number }) => <option key={row.id} value={row.id}>
@@ -61,10 +63,11 @@ export function InsertDeliveryDrawer({ restaurantId, order, routes, couriers, on
           </Select>
         </Field>
         {route && <Field label={t('deliveryInsertPosition')}>
-          <Select value={before} disabled={busy} onChange={event => { setBefore(Number(event.target.value)); setError(''); }}>
-            <option value={0}>{t('deliveryInsertLast')}</option>
+          <Select value={position} disabled={busy} onChange={event => { setPosition(event.target.value); setError(''); }}>
+            <option value="end">{t('deliveryInsertLast')}</option>
+            {ordered.length > 0 && <option value="start">{t('dispatchFirst')}</option>}
             {ordered.map(stop => <option key={stop.id} value={stop.id}>
-              {t('deliveryInsertBefore').replace('{sequence}', String(stop.sequence))} · #{stop.order_id} · {stop.customer_name}
+              {t('deliveryInsertAfter').replace('{sequence}', String(stop.sequence))} · #{stop.order_id} · {stop.customer_name}
             </option>)}
           </Select>
         </Field>}
