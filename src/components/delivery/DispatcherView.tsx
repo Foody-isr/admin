@@ -1,6 +1,7 @@
 'use client';
 
 import board from './DispatchWorkspace.module.css';
+import { DeliveryHistory, useDeliveryHistory } from './DeliveryHistory';
 import { DeliveryWhatsAppDrawer } from '@/components/delivery/DeliveryWhatsAppDrawer';
 import { DeliveryDuration } from '@/components/delivery/DeliveryDuration';
 import { CourierLocationStatus } from '@/components/delivery/CourierLocationStatus';
@@ -194,7 +195,7 @@ function RouteHeading({ route, number, courier, locale, history, onSelect, t }: 
   onSelect: () => void; t: Translator;
 }) {
   const count = route.stops.filter(stop => isPendingDeliveryStop(stop) && deliveryEtaWindow(route, stop, locale) != null).length;
-  const status = history && route.status !== 'cancelled' ? 'completed' : route.status;
+  const status = route.status;
   return <div className={board.routeHeading}>
     <button type="button" onClick={onSelect} aria-label={`${courier} ${t('mapsRoute')} ${number}`} className={board.driver}>
       <span aria-hidden className={board.avatar}>{Array.from(courier.trim())[0] || <UserIcon size={18}/>}</span>
@@ -245,7 +246,7 @@ function RouteTools({ route, title, locale, location, busy, history, onOptimize,
           <span>{t('deliveryPlanDistance')} <bdi dir="ltr">{route.needs_recalculation ? '—' : formatDistance(route.total_distance_m) || '—'}</bdi></span>
           <DeliveryDuration route={route} t={t} />
         </div>
-        {canResetDeparture && <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={onResetDeparture} className="mb-3">
+        {canResetDeparture && (!history || route.status === 'completed') && <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={onResetDeparture} className="mb-3">
           <Undo2Icon />{t('deliveryPlanResetDeparture')}
         </Button>}
         <details className="mb-2 rounded-r-md border border-[var(--line)] px-3">
@@ -253,7 +254,7 @@ function RouteTools({ route, title, locale, location, busy, history, onOptimize,
           <RouteSettingsEditor
             route={route}
             locale={locale}
-            disabled={busy || route.status !== 'draft'}
+            disabled={busy || history || route.status !== 'draft'}
             onSave={onSaveSettings}
             t={t}
           />
@@ -303,6 +304,10 @@ function RouteTools({ route, title, locale, location, busy, history, onOptimize,
 
 /** Restaurant-scoped delivery planning and completed-route history. */
 export default function DispatcherView({ rid }: { rid: number }) {
+  return <DispatchBoard key={rid} rid={rid} />;
+}
+
+function DispatchBoard({ rid }: { rid: number }) {
   const { t, locale } = useI18n();
   const { lastEvent } = useWs();
   const prevEvent = useRef(lastEvent);
@@ -314,7 +319,15 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [loadFailures, setLoadFailures] = useState<string[]>([]);
   const [dayRoutes, setRoutes] = useState<DeliveryRoute[]>([]);
   const [messageTarget, setMessageTarget] = useState<{ orderId?: number } | null>(null);
-  const [view, setView] = useState<'open' | 'history'>('open');
+  const view = searchParams?.get('view') === 'history' ? 'history' : 'open';
+  const archive = useDeliveryHistory(rid, view === 'history');
+  const [tableRoute, setTableRoute] = useState<number | null>(null);
+  const setView = (next: 'open' | 'history') => {
+    const url = new URL(window.location.href);
+    if (next === 'history') url.searchParams.set('view', next);
+    else url.searchParams.delete('view');
+    window.history.replaceState(null, '', url);
+  };
   const [showMap, setShowMap] = useState(false);
   useEffect(() => { setShowMap(window.matchMedia('(min-width: 1024px)').matches); }, []);
   const [workFilter, setWorkFilter] = useState<'route' | 'queue' | 'address' | null>(null);
@@ -367,9 +380,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
-  const routes = useMemo(() => dayRoutes.filter((route) => view === 'open'
-    ? isOpenDeliveryRoute(route)
-    : route.status === 'completed' || (route.stops.length > 0 && !isOpenDeliveryRoute(route))), [dayRoutes, view]);
+  const routes = useMemo(() => view === 'open' ? dayRoutes.filter(isOpenDeliveryRoute)
+    : archive.detail ? [archive.detail] : [], [dayRoutes, view, archive.detail]);
 
   useEffect(() => {
     const id = window.setInterval(() => setNowTick(Date.now()), 30_000);
@@ -449,10 +461,21 @@ export default function DispatcherView({ rid }: { rid: number }) {
     }
   }, [departure, rid, t]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (view === 'open') {
+      void load();
+      return;
+    }
+    // Older profiles can predate the restaurant-local staff directory.
+    let current = true;
+    void listCouriers(rid).then(staff => { if (current) setCouriers(staff); }).catch(() => {
+      // Archive entries still carry their restaurant-local name and courier ID.
+    });
+    return () => { current = false; };
+  }, [load, rid, view]);
 
   useEffect(() => {
-    if (!lastEvent || lastEvent === prevEvent.current) return;
+    if (view !== 'open' || !lastEvent || lastEvent === prevEvent.current) return;
     prevEvent.current = lastEvent;
     if (lastEvent.type === 'courier.location') {
       const position = lastEvent.payload as unknown as CourierLocationDTO;
@@ -466,7 +489,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
       return;
     }
     if (lastEvent.type === 'route.updated' || lastEvent.type.startsWith('order.')) void load();
-  }, [lastEvent, load]);
+  }, [lastEvent, load, view]);
 
   const courierById = useMemo(() => {
     const map = new Map<number, StaffMember>();
@@ -789,6 +812,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
         await cancelDeliveryRoute(rid, routeId);
       } else if (undoAction.kind === 'departure') {
         await resetRouteDeparture(rid, routeId, undoAction.startedAt, undoAction.reports);
+        if (view === 'history' && archive.detail) changeDay(archive.detail.date);
         setView('open');
         setInserted(t('deliveryDepartureRestored'));
       } else {
@@ -808,7 +832,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
     }
   };
 
-  if (error && routes.length === 0 && ready.length === 0 && couriers.length === 0) {
+  if (view === 'open' && error && routes.length === 0 && ready.length === 0 && couriers.length === 0) {
     return (
       <Card>
         <CardBody className="flex flex-col items-center gap-3 py-10 text-center">
@@ -834,12 +858,13 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const addressCount = dayOpenRoutes.reduce((count, route) => count + route.stops.filter(stop => needsAddressReview(route, stop)).length, 0);
   const selectFilter = (next: typeof workFilter) => {
     setWorkFilter(next);
+    setTableRoute(null);
     setSelectedStopId(undefined);
     setSelectedRoute(null);
     setSelectedCourier(null);
     setMoveTarget(null);
   };
-  const visibleRoutes = routes.flatMap((route, index) => {
+  const matchingRoutes = routes.flatMap((route, index) => {
     const number = index + 1;
     const match = matchesDeliverySearch(routeQuery, courierById.get(route.courier_id)?.full_name, `${t('mapsRoute')} ${number}`);
     const stops = view === 'history' ? route.stops : route.stops.filter(isPendingDeliveryStop);
@@ -848,7 +873,21 @@ export default function DispatcherView({ rid }: { rid: number }) {
       .sort((a, b) => a.sequence - b.sequence);
     return shownStops.length ? [{ route, number, shownStops, filtered: shownStops.length !== stops.length }] : [];
   });
-  const mapLayers = filter === 'queue' ? [] : visibleRoutes.flatMap(({ route, shownStops, filtered }) => {
+  const focusedId = routes.some(route => route.id === tableRoute) ? tableRoute : null;
+  const visibleRoutes = focusedId === null ? matchingRoutes : matchingRoutes.filter(item => item.route.id === focusedId);
+  const chooseRoute = (id: number | null) => {
+    setTableRoute(id);
+    setSelectedRoute(id);
+    setSelectedCourier(null);
+    setSelectedStopId(null);
+    setMoveTarget(null);
+  };
+  const openArchive = (id: number | null) => {
+    chooseRoute(null);
+    setRouteQuery('');
+    archive.open(id);
+  };
+  const mapLayers = filter === 'queue' ? [] : matchingRoutes.flatMap(({ route, shownStops, filtered }) => {
     const layer = layers.find(item => item.routeId === route.id);
     return layer ? [{ ...layer, stops: shownStops, ...(filtered ? { pinsOnly: true, geometry: undefined, start: undefined, end: undefined } : {}) }] : [];
   });
@@ -871,6 +910,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
     setSelectedCourier(null);
     setSelectedRoute(null);
     setQueueQuery('');
+    setTableRoute(null);
     setWorkFilter(null);
     setRouteQuery('');
     setDeparture(`${day}T${(departure || defaultDepartureValue(timeZone)).slice(11)}`);
@@ -921,16 +961,17 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const dayFormatter = new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
   const dayLabel = dayFormatter.format(new Date((planningDate || today) + 'T12:00:00Z'));
   const zoneLabel = new Intl.DateTimeFormat(locale, { timeZone, timeZoneName: 'longGeneric' }).formatToParts(nowTick).find(part => part.type === 'timeZoneName')?.value ?? timeZone;
-  const courierName = (route: DeliveryRoute) => courierById.get(route.courier_id)?.full_name || t('courier');
+  const directoryName = (id: number) => courierById.get(id)?.full_name || `${t('courier')} #${id}`;
+  const courierName = (route: DeliveryRoute) => (view === 'history' && archive.page.couriers?.find(item => item.id === route.courier_id)?.name) || directoryName(route.courier_id);
   const routeHeading = (route: DeliveryRoute, number: number) => <RouteHeading route={route} number={number} locale={locale} history={view === 'history'} courier={courierName(route)} t={t}
-    onSelect={() => { setSelectedRoute(current => current === route.id ? null : route.id); setSelectedCourier(null); setSelectedStopId(null); }} />;
+    onSelect={() => chooseRoute(selectedRoute === route.id ? null : route.id)} />;
   const displayedCount = filter === 'queue' ? visibleOrders.length : visibleRoutes.reduce((n, item) => n + item.shownStops.length, 0);
   const mapTitle = filter === 'queue' ? t('dispatchQueue') : visibleRoutes.length === 1 ? t('dispatchMapFor').replace('{courier}', courierName(visibleRoutes[0].route)) : t('mapsAllRoutes');
 
   return (
-    <div className={board.content} aria-busy={loading}>
-      {loadFailures.length > 0 && <div role="alert" className="flex items-center justify-between gap-3 p-3"><span>{t('couldNotLoad')} · {loadFailures.map(key => t(key)).join(', ')}</span><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div>}
-      {error && (
+    <div className={board.content} aria-busy={view === 'open' ? loading : archive.id === null ? archive.listState === 'loading' : archive.detailState === 'loading'}>
+      {view === 'open' && loadFailures.length > 0 && <div role="alert" className="flex items-center justify-between gap-3 p-3"><span>{t('couldNotLoad')} · {loadFailures.map(key => t(key)).join(', ')}</span><Button variant="secondary" onClick={() => void load()}>{t('retry')}</Button></div>}
+      {view === 'open' && error && (
         <div
           role="alert"
           className="flex items-center justify-between gap-3 rounded-r-lg px-4 py-3 text-fs-sm"
@@ -947,7 +988,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
 
       <div className={board.pageHead}>
         <div className="min-w-0">
-          <div className={board.dayControls}>
+          {view === 'open' && <div className={board.dayControls}>
             <label className={board.date}>
               <span>{dayLabel}</span><CalendarDaysIcon size={15} aria-hidden />
               <input type="date" aria-label={t('deliveryPlanDate')} value={planningDate} onChange={event => changeDay(event.target.value)} />
@@ -956,12 +997,12 @@ export default function DispatcherView({ rid }: { rid: number }) {
             <button type="button" aria-label={t('nextDay')} onClick={() => stepDay(1)}><ChevronRightIcon className="rtl:rotate-180" /></button>
             {planningDate !== today && <button type="button" onClick={() => changeDay(today)}>{t('today')}</button>}
             {nextPlannedDay && planningDate !== nextPlannedDay && <button type="button" onClick={() => changeDay(nextPlannedDay)}>{t('deliveryNextPlannedDay').replace('{date}', dayFormatter.format(new Date(nextPlannedDay + 'T12:00:00Z')))}</button>}
-          </div>
-          <h1>{t('dispatchWorkspaceTitle')}</h1>
+          </div>}
+          <h1>{t(view === 'open' ? 'dispatchWorkspaceTitle' : 'dispatchArchiveTitle')}</h1>
         </div>
         {view === 'open' && <Button className={board.primary} disabled={loading || loadFailures.includes('orders')} onClick={addDelivery}>{t('dispatchAddDelivery')}</Button>}
       </div>
-      {reportedIssues.length > 0 && (
+      {view === 'open' && reportedIssues.length > 0 && (
         <section className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-4" aria-label={t('courierReportedIssues')}>
           <h2 className="mb-2 text-fs-sm font-semibold">{t('courierReportedIssues')}</h2>
           <ul className="space-y-2">
@@ -988,13 +1029,25 @@ export default function DispatcherView({ rid }: { rid: number }) {
             </button>)}
         </div>}
         <div className={board.utilities}>
-          <Tabs value={view} onValueChange={value => { setView(value as 'open' | 'history'); selectFilter(null); setRouteQuery(''); }}>
+          <Tabs value={view} onValueChange={value => { setView(value as 'open' | 'history'); selectFilter(null); setRouteQuery(''); archive.open(null); }}>
             <TabsList aria-label={t('deliveries')}><Tab value="open">{t('deliveryPlanInProgress')}</Tab><Tab value="history">{t('deliveryPlanHistory')}</Tab></TabsList>
           </Tabs>
           {view === 'open' && dayOpenRoutes.length > 0 && <Button variant="ghost" icon aria-label={t('deliveryWhatsAppTitle')} title={t('deliveryWhatsAppTitle')} disabled={loading} onClick={() => setMessageTarget({})}><MessageCircleIcon /></Button>}
-          <Button variant="ghost" icon aria-label={t('refresh')} title={t('refresh')} disabled={loading} onClick={() => void load()}><RefreshCwIcon className={loading ? 'animate-spin' : undefined} /></Button>
+          <Button variant="ghost" icon aria-label={t('refresh')} title={t('refresh')} disabled={view === 'open' ? loading : archive.listState === 'loading'} onClick={() => view === 'open' ? void load() : archive.refresh()}><RefreshCwIcon className={(view === 'open' ? loading : archive.listState === 'loading') ? 'animate-spin' : undefined} /></Button>
         </div>
       </div>
+      {view === 'history' && <DeliveryHistory archive={archive} courierName={directoryName} onOpen={openArchive}/>}
+      {(view === 'open' || archive.detail) && <>
+      {view === 'open' && filter !== 'queue' && routes.length > 1 && <nav className={board.switcher} aria-label={t('dispatchChooseRoute')}>
+        {routes.length <= 4 ? <>
+          <button type="button" aria-pressed={focusedId === null} onClick={() => chooseRoute(null)}>{t('mapsAllRoutes')}</button>
+          {routes.map((route, index) => <button key={route.id} type="button" aria-pressed={focusedId === route.id}
+            onClick={() => chooseRoute(route.id)}><bdi>{courierName(route)}</bdi> · {t('mapsRoute')} {index + 1}</button>)}
+        </> : <label>{t('dispatchChooseRoute')}<Select value={focusedId ?? ''} onChange={event => chooseRoute(Number(event.target.value) || null)}>
+          <option value="">{t('mapsAllRoutes')}</option>
+          {routes.map((route, index) => <option key={route.id} value={route.id}>{courierName(route)} · {t('mapsRoute')} {index + 1}</option>)}
+        </Select></label>}
+      </nav>}
       <div className={board.grid} data-map={showMap}>
         <section className={board.panel} aria-label={t(filter === 'queue' ? 'dispatchQueue' : view === 'history' ? 'deliveryPlanHistory' : 'deliveryPlanRoutes')}>
           {filter === 'queue' ? <div className={board.queueHead}>
@@ -1069,8 +1122,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
               </Button>
             </div>
           </>}
-          {filter !== 'queue' && <div className={board.scroller}>
-            {loadFailures.includes('mapsRoute') ? <p role="status" className="p-4">{t('couldNotLoad')}</p> : routes.length === 0 ? (
+          {filter !== 'queue' && <div key={focusedId ?? archive.id ?? 'all'} className={board.scroller}>
+            {view === 'open' && loadFailures.includes('mapsRoute') ? <p role="status" className="p-4">{t('couldNotLoad')}</p> : routes.length === 0 ? (
               <EmptyState icon={view === 'history' ? <CheckIcon /> : <RouteIcon />} title={t(loading ? 'loading' : view === 'history' ? 'deliveryPlanNoHistory' : 'deliveryPlanNoActiveRoutes')} desc={loading ? undefined : t(view === 'history' ? 'deliveryPlanHistoryHint' : 'deliveryPlanActiveHint')} />
             ) : !visibleRoutes.length ? (
               <EmptyState icon={<SearchIcon />} title={t(!routeQuery && filter === 'address' ? 'dispatchAddressesClear' : 'noResults')} action={routeQuery ? <Button variant="ghost" onClick={() => setRouteQuery('')}>{t('deliveryFiltersClear')}</Button> : undefined} />
@@ -1100,15 +1153,16 @@ export default function DispatcherView({ rid }: { rid: number }) {
             }}
             selectedStopId={selectedEntry?.stop.id ?? null}
             onPointCountChange={setPointCount}
-            couriers={filter === 'queue' || filter === 'address' ? [] : courierMarkers.filter(marker => visibleRoutes.some(({ route }) => route.courier_id === marker.courierId))}
+            couriers={view === 'history' || filter === 'queue' || filter === 'address' ? [] : courierMarkers.filter(marker => visibleRoutes.some(({ route }) => route.courier_id === marker.courierId))}
             highlightCourierId={selectedCourier}
             highlightRouteId={selectedRoute}
-            onRouteSelect={id => { setSelectedRoute(id); setSelectedCourier(null); setSelectedStopId(null); }}
+            onRouteSelect={chooseRoute}
             onStopClick={(stop) => {
               setSelectedStopId(stop.id);
               const row = document.querySelector<HTMLElement>(`[data-stop-id="${stop.id}"]`);
               if (row && window.matchMedia('(min-width: 1024px)').matches) row.scrollIntoView({ block: 'nearest' });
               const route = routes.find((candidate) => candidate.stops.some((candidateStop) => candidateStop.id === stop.id));
+              if (tableRoute !== null) setTableRoute(route?.id ?? null);
               setSelectedRoute(route?.id ?? null);
               setSelectedCourier(route?.courier_id ?? null);
               setMoveTarget(null);
@@ -1205,6 +1259,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
           onResetDeparture={() => setUndoAction({ kind: 'departure', routeId: route.id, stopCount: route.stops.length, startedAt: route.started_at, reports: route.stops.filter(stop => stop.issue_reason && stop.issue_review_at) })}
           onRemind={() => void sendCourierReminder(route.id)} reminder={reminders[route.id]} />)}
       </div>}
+      </>}
       <Drawer
         open={plannerOpen}
         onOpenChange={setPlannerOpen}

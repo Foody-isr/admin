@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-21",
+  "files": [
+    {
+      "path": "src/lib/delivery.ts",
+      "baseSha256": "012e29ad8bcbcf44f94ec305697a89bc0d1a9874d6f938cd1d2eb069287097da",
+      "sha256": "31fad930a4be817f10c2b2c37c671635376eb4cb5dc6a277c589aebf22ef645e",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Adds staff archive read methods. Existing courier and delivery operations retain their contracts."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "baseSha256": "733f969beff1a7838a29b1b4071c5df4c6438b2808fa337f0b181659fe0a69c4",
+      "sha256": "620ba83cf560446ec7c910741f32d90f718679126095701279e181da17403962",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "These translations name the all-date archive, courier filter, route selector and archive navigation. The keys used by other screens retain their values."
+    }
+  ]
+}
