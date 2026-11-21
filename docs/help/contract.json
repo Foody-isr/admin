@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "89be3923faca3c9632b0056a98aa6654c2bd9605",
-  "documentationRevision": "40a847d66f10ad7b022c5d45af19daf50bcb3e74a1939b376c05e5124b3db543",
+  "documentationRef": "77fe70c6712675ace308f2d2cb0761c0f89688c7",
+  "documentationRevision": "b5b0330409ce6639ab2c6eadecedfbbc4f20d4dab41b7be5da747a2a5606ecac",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "bec159f12717f32752f0eafcc0d3fb11be431b5b6ed5c96e80a67ed52e3e8f41"
+          "sha256": "362dfe796a84c6bac015d18e05403d9bf6397f431ad7c72362b2020d25520a98"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "c364213e0376f64714f2edd75c74087474f42b18062e00dc8112cfdfafcc81fa"
+          "sha256": "e9e2fc1ae44c50bcebba0682fbdfc1098ca845d17dad71988f09403c1eba6703"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "5eead728229729f5a1e35ec0f795edd2b93a869cee01dfa3c2a64850f80fdafe"
+          "sha256": "99f4735612f03341e1e1088029948b01a7a31a64ab2f9c114b6e9dd83dcc0c30"
         }
       }
     },
@@ -4165,6 +4165,12 @@
         "delivery-dispatch"
       ]
     },
+    "src/components/delivery/DeliveryHistory.tsx": {
+      "sha256": "acbc1eabb9c2db998f6fab95a0bb9e912bac1a8ccf417948691c4c6e3f0ae159",
+      "features": [
+        "delivery-dispatch"
+      ]
+    },
     "src/components/delivery/DeliveryMap.tsx": {
       "sha256": "a4657e11779abf1c832ee777189f1adc6244b6dc1da585dde0a3a8932ae3d767",
       "features": [
@@ -4191,13 +4197,13 @@
       ]
     },
     "src/components/delivery/DispatchWorkspace.module.css": {
-      "sha256": "26b4ffe9dce0aabe51bd27f1edd3ec65218181c32766b6ed82e28b7e3f3199bf",
+      "sha256": "98230aeefe903832c5bf22df13e11ee3fdaf9567a6cc285fe904296f2d3f98ed",
       "features": [
         "delivery-dispatch"
       ]
     },
     "src/components/delivery/DispatcherView.tsx": {
-      "sha256": "0182e8ac9119ce5a4150c6470c115bd042988336b4000e25ed1c28165ba007ee",
+      "sha256": "03252ffd3da4001ab5987cc0c45e54a04633fec9ee0acf766294533803cffd79",
       "features": [
         "delivery-dispatch"
       ]
@@ -6828,7 +6834,7 @@
       ]
     },
     "src/lib/delivery.ts": {
-      "sha256": "012e29ad8bcbcf44f94ec305697a89bc0d1a9874d6f938cd1d2eb069287097da",
+      "sha256": "31fad930a4be817f10c2b2c37c671635376eb4cb5dc6a277c589aebf22ef645e",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -6886,7 +6892,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "dc8e95cae937c345e7a896590ef57ede975a0054f90f86ef787565ad834017f1",
+      "sha256": "1817adda4ab4dcf69a1dfa1639500c94c0a6a1f47db04f6c3bb865ae820718a3",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -16349,6 +16355,33 @@
       "actions": []
     },
     {
+      "id": "foodyadmin:src/components/delivery/DeliveryHistory.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/delivery/DeliveryHistory.tsx",
+      "line": 1,
+      "features": [
+        "delivery-dispatch"
+      ],
+      "labels": [
+        "couldNotLoad",
+        "courier",
+        "deliveryPlanNoHistory",
+        "dispatchAllCouriers",
+        "dispatchArchiveTitle",
+        "dispatchBackHistory",
+        "dispatchOlderRoutes",
+        "dispatchStopCount",
+        "loading",
+        "mapsAllRoutes",
+        "mapsRoute",
+        "retry"
+      ],
+      "actions": [
+        "open",
+        "refresh"
+      ]
+    },
+    {
       "id": "foodyadmin:src/components/delivery/DeliveryMap.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/delivery/DeliveryMap.tsx",
@@ -16506,6 +16539,7 @@
         "deliveryRouteDateMismatch",
         "deliveryWhatsAppTitle",
         "dispatchAddDelivery",
+        "dispatchChooseRoute",
         "dispatchDisplayedCount",
         "dispatchMapDetail",
         "dispatchMapFor",
@@ -16522,7 +16556,6 @@
         "dispatchStopOf",
         "dispatchWindow",
         "dispatchWindowCount",
-        "dispatchWorkspaceTitle",
         "mapsAllRoutes",
         "mapsRoute",
         "nextDay",
@@ -16547,6 +16580,7 @@
         "load",
         "loadRequestId",
         "openAddressEditor",
+        "openArchive",
         "openRouteByOrderId",
         "openRouteRows",
         "saveAddressCorrection",

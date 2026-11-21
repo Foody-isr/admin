@@ -104,6 +104,33 @@ function courierQuery(restaurantId: number, courierId?: number): string {
   return q(restaurantId, courierId === undefined ? undefined : { courier_id: String(courierId) });
 }
 
+/** A compact entry in the restaurant's archive, without stop or customer details. */
+export interface DeliveryHistoryEntry {
+  id: number;
+  date: string;
+  courier_id: number;
+  stop_count: number;
+  status: DeliveryRouteStatus;
+}
+
+export interface DeliveryHistoryPage {
+  routes: DeliveryHistoryEntry[];
+  couriers?: { id: number; name: string }[];
+  next_cursor?: string;
+}
+
+/** Reads an archive page across service dates, optionally restricted to one courier. */
+export function listDeliveryHistory(rid: number, courier: number | null, cursor: string, signal: AbortSignal) {
+  const query = q(rid, { ...(courier ? { courier_id: String(courier) } : {}), ...(cursor ? { cursor } : {}) });
+  return apiFetch<DeliveryHistoryPage>(`/api/v1/delivery/routes/history?${query}`, rid, { signal });
+}
+
+/** Loads the stops of one historic route owned by the restaurant. */
+export async function getDeliveryHistoryRoute(rid: number, id: number, signal: AbortSignal) {
+  const result = await apiFetch<{ route: DeliveryRoute }>(`/api/v1/delivery/routes/history/${id}?${q(rid)}`, rid, { signal });
+  return result.route;
+}
+
 /** The current courier's active or next assigned route. */
 export async function getMyRoute(restaurantId: number): Promise<DeliveryRoute> {
   const data = await apiFetch<{ route: DeliveryRoute }>(

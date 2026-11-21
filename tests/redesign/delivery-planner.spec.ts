@@ -47,6 +47,21 @@ async function install(page: Page, locale = 'fr') {
     if (path === '/api/v1/public/delivery/map-viewport') return intercepted.fulfill({ json: { copyright: 'Synthetic map data ©2026' } });
     if (path.startsWith('/api/v1/public/delivery/map/')) { state.tiles.push(request.url()); return intercepted.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#edf0ee"/><path d="M0 80H256M90 0V256" stroke="#cbd0cd" stroke-width="8"/></svg>' }); }
     if (path === '/api/v1/users/me') return intercepted.fulfill({ json: { role_name: 'Manager', permissions: ['orders.manage', 'settings.view'], user: { id: 1, role: 'manager' } } });
+    if (path.startsWith('/api/v1/delivery/routes/history')) {
+      const rows = state.routes.map(row => ({ ...row, status: (row.status === 'active' || row.status === 'draft') && row.stops.every(s => s.status === 'delivered' || s.status === 'skipped') ? 'completed' : row.status }))
+        .filter(row => row.stops.length && (row.date < day || row.date === day && row.status === 'completed'))
+        .sort((a,b) => b.date.localeCompare(a.date) || b.id - a.id);
+      if (path.endsWith('/history')) {
+        const owners = new Set(rows.map(row => row.courier_id));
+        const filtered = rows.filter(row => !url.searchParams.get('courier_id') || row.courier_id === Number(url.searchParams.get('courier_id')));
+        const offset = Number(url.searchParams.get('cursor') || 0);
+        return intercepted.fulfill({ json: { routes: filtered.slice(offset, offset + 25).map(row => ({ id: row.id, status: row.status, date: row.date, courier_id: row.courier_id, stop_count: row.stops.length })),
+          couriers: state.couriers.filter(row => owners.has(row.id)).map(row => ({ id: row.id, name: row.full_name })),
+          next_cursor: filtered.length > offset + 25 ? String(offset + 25) : undefined } });
+      }
+      const result = rows.find(row => row.id === Number(path.split('/').pop()));
+      return intercepted.fulfill({ status: result ? 200 : 404, json: { route: result } });
+    }
     if (path === '/api/v1/delivery/routes') {
       state.reads.push({ date: url.searchParams.get('date'), rid });
       const rows = url.searchParams.get('scope') === 'open' ? state.routes : state.routes.filter(row => row.date === url.searchParams.get('date'));
@@ -355,6 +370,7 @@ test('planner separates completed deliveries from work and preserves history', a
   await expect.poll(() => page.locator('.leaflet-tile-loaded').count()).toBeGreaterThan(0);
   await page.screenshot({ path: info.outputPath('delivery-planner-fr.png'), animations: 'disabled' });
   await page.getByRole('tab', { name: /Historique/ }).click();
+  await page.getByRole('button', { name: /Livreuse démo.*#2/ }).click();
   await expect(page.locator('tbody tr[data-stop-id="4"]')).toBeVisible();
   await expect(page.getByText('Terminée', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Désassigner', exact: true })).toHaveCount(0);
@@ -364,17 +380,19 @@ test('planner separates completed deliveries from work and preserves history', a
   expect(state.writes).toHaveLength(0);
 });
 
-test('completed series opens an empty operational view with a usable history date', async ({ page }) => {
+test('completed series opens the archive independently of the planning date', async ({ page }) => {
   const state = await install(page);
   state.routes = [route(2, [stop(4, 'delivered')])];
   await page.goto('/1/orders/deliveries');
   await expect(page.getByText('Aucune livraison en cours', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Désassigner', exact: true })).toHaveCount(0);
   await page.getByRole('tab', { name: /Historique/ }).click();
+  await page.getByRole('button', { name: /Livreuse démo.*#2/ }).click();
   await expect(page.locator('tbody tr[data-stop-id="4"]')).toBeVisible();
-  await page.getByLabel('Date des tournées', { exact: true }).fill('2026-09-18');
-  await expect(page.getByText('Aucune tournée terminée à cette date', { exact: true })).toBeVisible();
-  expect(state.reads.some(read => read.date === '2026-09-18' && read.rid === '1')).toBe(true);
+  await expect(page.getByLabel('Date des tournées', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Retour à l’historique' }).click();
+  await expect(page.getByRole('button', { name: /Livreuse démo.*#2/ })).toBeVisible();
+  expect(state.writes).toHaveLength(0);
 });
 
 test('unassign failure closes the confirmation and displays localized feedback', async ({ page }) => {
@@ -617,7 +635,7 @@ test('legend highlights distinct routes assigned to the same courier', async ({ 
   await second.focus(); await page.keyboard.press('Enter');
   await expect(second).toHaveAttribute('aria-pressed', 'true');
   await expect(paths.nth(0)).toHaveAttribute('stroke-opacity', '0.15');
-  await ribbon.click();
+  await page.getByRole('navigation', { name: 'Choisir une tournée' }).getByRole('button', { name: /Tournée 1$/ }).click();
   await expect(first).toHaveAttribute('aria-pressed', 'true');
   await expect(paths.nth(1)).toHaveAttribute('stroke-opacity', '0.15');
   await page.screenshot({ path: info.outputPath('delivery-route-legend.png'), animations: 'disabled' });
@@ -1066,4 +1084,50 @@ test('desktop dispatch matches the reference composition in the Foody palette', 
   await panel.getByRole('button', { name: 'Masquer la carte' }).click();
   await expect(page.getByRole('region', { name: 'Détail de l’arrêt' })).toContainText('#1002');
   expect(state.writes).toEqual([]);
+});
+
+test('archive spans all dates, loads older routes and filters former couriers', async ({ page }) => {
+  const state = await install(page);
+  state.routes = [
+    ...Array.from({ length: 26 }, (_, index) => ({ ...route(100 + index, [stop(200 + index)]), courier_id: 1, date: '2026-10-09' })),
+    { ...route(7, [stop(7), stop(8)]), courier_id: 2, date: '2025-03-07' },
+    { ...route(9, [stop(9)]), date: '2026-11-06' },
+  ];
+  await page.goto('/1/orders/deliveries?date=2020-01-01&view=history');
+  await expect(page.getByLabel('Date des tournées', { exact: true })).toHaveCount(0);
+  const client = page.getByRole('combobox', { name: 'Livreur', exact: true });
+  await expect(client).toBeVisible();
+  await expect(page.getByRole('button', { name: /Livreur démo.*#125/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /#7 ·/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Afficher les tournées plus anciennes' }).click();
+  await expect(page.getByRole('button', { name: /Livreuse démo.*#7/ })).toBeVisible();
+  await client.selectOption('2');
+  await expect(page.getByRole('button', { name: /#125 ·/ })).toHaveCount(0);
+  await page.getByRole('button', { name: /Livreuse démo.*#7/ }).click();
+  await expect(page.locator('tr[data-stop-id="8"]')).toBeVisible();
+  await expect(page.getByText('Départ à confirmer', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Retour à l’historique' }).click();
+  await expect(client).toHaveValue('2');
+  expect(state.writes).toHaveLength(0);
+});
+
+test('switching routes replaces the stops above the fold and keeps separate runs for one courier', async ({ page }) => {
+  const state = await install(page);
+  state.routes = [
+    { ...route(8, Array.from({ length: 21 }, (_, i) => stop(i + 1))), courier_id: 1 },
+    { ...route(9, [stop(28)]), courier_id: 2 },
+    { ...route(10, [stop(35)]), courier_id: 2 },
+  ];
+  await page.goto('/1/orders/deliveries');
+  const picker = page.getByRole('navigation', { name: 'Choisir une tournée' });
+  const third = picker.getByRole('button', { name: /Livreuse démo · Tournée 3/ });
+  await expect(third).toBeInViewport();
+  await third.click();
+  await expect(page.locator('tr[data-stop-id="35"]')).toBeInViewport();
+  await expect(page.locator('tr[data-stop-id="1"]')).toHaveCount(0);
+  await picker.getByRole('button', { name: /Livreuse démo · Tournée 2/ }).click();
+  await expect(page.locator('tr[data-stop-id="28"]')).toBeInViewport();
+  await picker.getByRole('button', { name: 'Toutes les tournées' }).click();
+  await expect(page.locator('tr[data-stop-id="1"]')).toBeInViewport();
+  expect(state.writes).toHaveLength(0);
 });
