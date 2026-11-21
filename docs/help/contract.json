@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "a6b22eb46f0403f6315ba5780efbba9ecd238187",
+  "documentationRef": "2e0e26f48f19f8413a26ed2d45ee3117c8e02d95",
   "documentationRevision": "84c80ea7bf64bf19f274740b06e4a32170bcd75993ece8098327fbf639ba4a63",
   "articles": {
     "getting-started/first-login": {
@@ -5428,7 +5428,7 @@
       ]
     },
     "src/components/orders/OrderWhatsAppComposer.tsx": {
-      "sha256": "d537b2181524f67d6e036fb958cfcaeffb13cf6991d132220e91c939b7707170",
+      "sha256": "614c1078f465c7c9a5fb73110ddc545abf1eddd7741aedae9c54e09c3b5b5607",
       "features": [
         "orders-managing-orders",
         "order-detail",
@@ -5863,7 +5863,7 @@
       ]
     },
     "src/components/settings/WhatsAppTemplatePreview.tsx": {
-      "sha256": "8b466273cfe607cf1ec9aa4d0eb4792c307cd6090f2ceaf2da2c0024815d2433",
+      "sha256": "8559c54138c73618a54d8252138e5d6ee91dc83f6bd5c9209285e65783bf84be",
       "features": [
         "whatsapp"
       ]
@@ -6704,7 +6704,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "f612e6402d12345f5222e38a08336351e49a48e8022a3f8fa1f3f864021b6fff",
+      "sha256": "57910679f8c77b1305324d88767b2e721b694da34860d0acd805140b32c88c8d",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",

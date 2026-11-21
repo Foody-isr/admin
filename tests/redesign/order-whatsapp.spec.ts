@@ -9,12 +9,14 @@ test.beforeEach(async ({ page }) => {
 });
 import type { BlockedOrderWhatsAppAutomation, OrderWhatsAppHistoryEntry } from '../../src/lib/api';
 
+const TEMPLATE_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAHgAAAA8CAIAAAAiz+n/AAABrUlEQVR4nO3au1HGQAwE4L8GqqEEhiqICCiNltwBOSmGGbLzvU/Wrk7ybHj2nL7ZwK/H8fUTUcgDvgMnCeiA3isBHdB7xST00+szfA8bQv+x9gS+T6vQnb5WxBmhm5TneZrj5oIusfYc5NxE0NPEdW74XFzQ68QVbvh0LNCCxCVu+Ix46JuU2azB0LcqU1kjoRWUeaxh0GrKJNZ4aAXlxNoRdLPO3x8vpaxDQ6zB0KPKUtYuoOt1biqvWANLjYSeVhax9gs9pDxt7QVaqs7mSh3QAR3QbNBvn+/XBLQkdJa4yR3Qwsol6/2hFx8IpaAh1lYb3amctd6/0XXoIeuAXoLutw7oVege67NwSxfQY9B16/8FAS0D3TwCWsl6GtrL2zsp6H7r5CyP0Dqlziq7gD4US52s9/XN8JD+qaOH+PT5FfyI/zr0oXWssXVGQmtaw5XB0DrWDMp46LutSZQpoO+z5lFmgU6s17mTq8GnI4K+Ws9xXy8Cn4sOOmvdz509Fz4RKXSFO6FvroFPYQC6k9sKMTv0qDh8n+ahs/TwPbiAtpiADui9EtABvVd+ASar4UoSfz9lAAAAAElFTkSuQmCC';
+
 async function install(page: Page, lostResponse = false, meta = false, completed = false, options: { pending?: boolean; readOnly?: boolean; locale?: string } = {}) {
   const fixture = createFixture({ empty: false, ...(options.readOnly ? { permissions: ['orders.view'] } : {}) });
   Object.assign(fixture.orders[0], { ...(completed ? { status: 'delivered', received_at: new Date().toISOString(), completed_at: new Date().toISOString() } : {}), order_type: 'delivery', customer_phone: '+972500000000', courier_name: 'Livreur démo', courier_phone: '+972500000001', scheduled_for: new Date(Date.now() + 86400000).toISOString(), scheduled_pickup_window_start: '10:45', scheduled_pickup_window_end: '12:15' });
   const writes: Array<{ path: string; body: unknown; restaurant?: string }> = [];
   if (options.pending) fixture.orders[0].status = 'pending_review';
-  const control = { status: 'ready', kind: 'order_recap', history: [] as OrderWhatsAppHistoryEntry[], blocked: [] as BlockedOrderWhatsAppAutomation[], blockedTotal: 0, historyError: false, unavailable: new Set<number>(), invalidPhones: new Set<number>(), notDue: new Set<number>(), changed: new Set<number>(), nextCursor: '', older: [] as OrderWhatsAppHistoryEntry[], reads: [] as string[] };
+  const control = { batchUnavailable: false, status: 'ready', kind: 'order_recap', history: [] as OrderWhatsAppHistoryEntry[], blocked: [] as BlockedOrderWhatsAppAutomation[], blockedTotal: 0, historyError: false, unavailable: new Set<number>(), invalidPhones: new Set<number>(), notDue: new Set<number>(), changed: new Set<number>(), nextCursor: '', older: [] as OrderWhatsAppHistoryEntry[], reads: [] as string[] };
   await page.addInitScript(locale => {
     localStorage.setItem('foody_restaurant_portal_session', 'fp1p.e30.fixture.00');
     localStorage.setItem('foody_restaurant_user', JSON.stringify({ id: 1, full_name: 'Équipe démo', role: 'owner' }));
@@ -40,11 +42,19 @@ async function install(page: Page, lostResponse = false, meta = false, completed
       writes.push({ path, body, restaurant });
       const orderId = Number(path.split('/').at(-2));
       if (path.endsWith('/send') && control.changed.has(orderId)) return route.fulfill({ status: 409, json: { error: 'whatsapp_preview_changed', details: { status: 'changed' } } });
-      if (path.endsWith('/preview') && control.invalidPhones.has(orderId)) return route.fulfill({ status: 422, json: { error: 'whatsapp_recipient_invalid' } });
-      if (path.endsWith('/preview') && control.unavailable.has(orderId)) return route.fulfill({ status: 422, json: { error: 'whatsapp_preview_unavailable' } });
       if (path.endsWith('/preview')) {
         control.kind = body.kind;
-        return route.fulfill({ json: { id: '11111111-1111-4111-8111-111111111111', provider: meta ? 'meta' : 'twilio', kind: body.kind, status: control.status, ...(control.notDue.has(orderId) ? { send_blocked_reason: 'not_due' } : {}), language: 'fr', message: body.kind === 'delivery_reminder' ? 'Bonjour client démo, livraison demain de 10:45 à 12:15. Livreur démo au +972500000001.' : 'Confirmation approuvée de votre commande. Détail complet dans le reçu.', recipient: '+972500000000', from: '+972500000002' } });
+        const resultFor = (order_id: number) => {
+          if (control.invalidPhones.has(order_id)) return { order_id, error: 'whatsapp_recipient_invalid' };
+          if (control.unavailable.has(order_id)) return { order_id, error: 'whatsapp_preview_unavailable' };
+          return { order_id, preview: { id: '11111111-1111-4111-8111-111111111111', provider: meta ? 'meta' : 'twilio', kind: body.kind, status: control.status, ...(control.notDue.has(order_id) ? { send_blocked_reason: 'not_due' } : {}), language: 'fr', message: body.kind === 'delivery_reminder' ? 'Bonjour client démo, livraison demain de 10:45 à 12:15. Livreur démo au +972500000001.' : 'Confirmation approuvée de votre commande. Détail complet dans le reçu.', recipient: '+972500000000', from: '+972500000002' } };
+        };
+        if (path.endsWith('/orders/preview')) {
+          if (control.batchUnavailable) return route.fulfill({ status: 422, json: { error: 'whatsapp_preview_unavailable' } });
+          return route.fulfill({ json: { results: body.order_ids.map(resultFor) } });
+        }
+        const result = resultFor(orderId);
+        return result.error ? route.fulfill({ status: 422, json: { error: result.error } }) : route.fulfill({ json: result.preview });
       }
       control.status = 'accepted';
       return lostResponse ? route.fulfill({ status: 503, json: { error: 'synthetic lost response' } }) : route.fulfill({ json: { status: 'accepted' } });
@@ -321,12 +331,57 @@ test('bulk selection reviews each order and sends only ready recipients after co
   const drawer = page.getByRole('dialog', { name: 'Message WhatsApp', exact: true });
   await expect(drawer.getByRole('button', { name: 'Envoyer le message', exact: true })).toBeEnabled();
   await expect(drawer).toContainText('Prêts : 1/3');
+  expect(state.writes.filter(row => row.path.endsWith('/preview'))).toEqual([
+    { path: '/api/v1/restaurants/1/whatsapp/orders/preview', body: { kind: 'order_recap', order_ids: [1048, 1049, 1050] }, restaurant: '1' },
+  ]);
   await page.screenshot({ path: info.outputPath('order-whatsapp-bulk-fr.png'), animations: 'disabled' });
   expect(state.writes.filter(row => row.path.endsWith('/send'))).toHaveLength(0);
   await drawer.getByRole('button', { name: 'Envoyer le message', exact: true }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Envoyer le message', exact: true }).click();
   await expect(drawer).toContainText('Acceptés : 1');
   expect(state.writes.filter(row => row.path.endsWith('/send')).map(row => row.path)).toEqual(['/api/v1/restaurants/1/whatsapp/orders/1048/send']);
+});
+
+test('bulk image previews reuse the reviewed photo when switching recipients', async ({ page }) => {
+  await install(page, false, true);
+  let batches = 0, imageReads = 0;
+  await page.route('**/whatsapp/orders/preview', route => {
+    batches++;
+    const ids = route.request().postDataJSON().order_ids as number[];
+    return route.fulfill({ json: {
+      results: ids.map(order_id => ({ order_id, preview: {
+        id: `synthetic-${order_id}`, kind: 'order_recap', provider: 'meta', status: 'ready', language: 'fr',
+        message: 'Confirmation avec photo', from: '+12025550123', recipient: '+12025550124',
+        attachment: { source: 'meta', format: 'IMAGE', template_id: '700', mime_type: 'image/png', filename: 'recap.png' },
+      } })),
+      template_image: { template_id: '700', mime: 'image/png', data: TEMPLATE_PNG },
+    } });
+  });
+  await page.route('**/whatsapp/meta/templates/*/image', route => { imageReads++; return route.abort(); });
+  await page.goto('/1/orders/all');
+  for (const id of [1048, 1049]) await page.getByRole('checkbox', { name: `Sélectionner la commande n°${id}`, exact: true }).check();
+  await page.getByRole('button', { name: 'Envoyer un message WhatsApp', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'Message WhatsApp', exact: true });
+  await expect(drawer.getByRole('img')).toBeVisible();
+  await drawer.getByRole('button', { name: /#1049/ }).click();
+  await expect(drawer.getByRole('img')).toBeVisible();
+  expect(batches).toBe(1);
+  expect(imageReads).toBe(0);
+});
+
+test('a failed shared template lookup stays blocked until one explicit batch refresh', async ({ page }) => {
+  const state = await install(page, false, true);
+  state.control.batchUnavailable = true;
+  await page.goto('/1/orders/all');
+  for (const id of [1048, 1049]) await page.getByRole('checkbox', { name: `Sélectionner la commande n°${id}`, exact: true }).check();
+  await page.getByRole('button', { name: 'Envoyer un message WhatsApp', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'Message WhatsApp', exact: true });
+  await expect(drawer.getByText('Indisponible', { exact: true }).first()).toBeVisible();
+  await expect(drawer.getByRole('button', { name: 'Envoyer 0 messages' })).toBeDisabled();
+  state.control.batchUnavailable = false;
+  await drawer.getByRole('button', { name: 'Actualiser' }).click();
+  await expect(drawer).toContainText('Prêts : 2/2');
+  expect(state.writes.map(row => row.path)).toEqual(Array(2).fill('/api/v1/restaurants/1/whatsapp/orders/preview'));
 });
 
 test('changed order stops the remaining bulk queue and requires another review', async ({ page }) => {
@@ -443,7 +498,7 @@ test('Meta image attachment is displayed inline in the order message review', as
  await install(page,false,true);
  let reads=0;
  await page.route('**/whatsapp/orders/1048/preview',route=>route.fulfill({json:{id:'11111111-1111-4111-8111-111111111111',provider:'meta',kind:'order_recap',status:'ready',language:'fr',message:'Confirmation approuvée avec image.',recipient:'+972500000000',from:'+972500000002',attachment:{source:'meta',template_id:'700',filename:'order_recap.png',mime_type:'image/png',format:'IMAGE'}}}));
- await page.route('**/whatsapp/meta/templates/700/image',route=>{reads++;expect(route.request().headers()['x-restaurant-id']).toBe('1');return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAHgAAAA8CAIAAAAiz+n/AAABrUlEQVR4nO3au1HGQAwE4L8GqqEEhiqICCiNltwBOSmGGbLzvU/Wrk7ybHj2nL7ZwK/H8fUTUcgDvgMnCeiA3isBHdB7xST00+szfA8bQv+x9gS+T6vQnb5WxBmhm5TneZrj5oIusfYc5NxE0NPEdW74XFzQ68QVbvh0LNCCxCVu+Ix46JuU2azB0LcqU1kjoRWUeaxh0GrKJNZ4aAXlxNoRdLPO3x8vpaxDQ6zB0KPKUtYuoOt1biqvWANLjYSeVhax9gs9pDxt7QVaqs7mSh3QAR3QbNBvn+/XBLQkdJa4yR3Qwsol6/2hFx8IpaAh1lYb3amctd6/0XXoIeuAXoLutw7oVege67NwSxfQY9B16/8FAS0D3TwCWsl6GtrL2zsp6H7r5CyP0Dqlziq7gD4US52s9/XN8JD+qaOH+PT5FfyI/zr0oXWssXVGQmtaw5XB0DrWDMp46LutSZQpoO+z5lFmgU6s17mTq8GnI4K+Ws9xXy8Cn4sOOmvdz509Fz4RKXSFO6FvroFPYQC6k9sKMTv0qDh8n+ahs/TwPbiAtpiADui9EtABvVd+ASar4UoSfz9lAAAAAElFTkSuQmCC','base64')})});
+ await page.route('**/whatsapp/meta/templates/700/image',route=>{reads++;expect(route.request().headers()['x-restaurant-id']).toBe('1');return route.fulfill({contentType:'image/png',body:Buffer.from(TEMPLATE_PNG,'base64')})});
  const drawer=await confirmation(page);await expect(drawer.getByRole('img',{name:'Image jointe au message WhatsApp'})).toBeVisible();expect(reads).toBeGreaterThan(0);
  await page.setViewportSize({width:375,height:1000});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
