@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Check, CreditCard, Mail } from 'lucide-react';
+import { Check, CreditCard, Layers, Mail } from 'lucide-react';
 import { changePlan, getSubscription, type PlanTier, type SubscriptionDetail, type SubscriptionEvent } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
 import { Badge, Button, ConfirmDialog, PageHead, Section } from '@/components/ds';
 import { FoodyBillingEntry } from './PrivateBilling';
+import styles from './billing-portal.module.css';
 
 const PLANS: { tier: PlanTier; price: number | null; features: string[] }[] = [
   { tier: 'starter', price: 299, features: ['posScreen', 'menuManagement', 'receiptPrinting', 'pickupAndTakeaway', 'pushNotifications'] },
@@ -87,19 +88,27 @@ function BillingWorkspace({ rid }: { rid: number }) {
     return `${new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(event.amount)} · ${t('billingCurrencyUnknown')}`;
   };
   const statusTone = subscription?.status === 'active' ? 'success' : subscription?.status === 'deactivated' ? 'danger' : subscription?.status === 'past_due' ? 'warning' : 'neutral';
-  return <div className="mx-auto max-w-[980px] space-y-6">
+  return <div className={styles.portal + ' space-y-6'}>
     <PageHead title={t('billing')} desc={t('billingDesc')} />
     {loading ? <p role="status" className="py-10 text-sm text-[var(--fg-muted)]">{t('loading')}</p> : loadError ? <div role="alert" className="space-y-3 rounded-r-lg border border-[var(--line)] p-5"><p className="text-sm text-[var(--danger-500)]">{t('billingLoadError')}</p><Button onClick={() => void load()}>{t('retry')}</Button></div> : subscription && <>
-      <Section title={t('subscription')}>
-        <div className="flex flex-wrap items-start justify-between gap-4 rounded-r-lg bg-[var(--summary-bg)] p-5 text-[var(--summary-fg)]"><div><p className="text-sm">{t('currentPlan')}</p><p className="mt-2 text-2xl font-semibold">{planName(subscription.plan_tier)}</p></div><Badge tone={statusTone}>{statusLabels[subscription.status] ? t(statusLabels[subscription.status]) : subscription.status}</Badge></div>
-        <dl className="mt-5 grid gap-5 sm:grid-cols-2">
-          {[[subscription.status === 'trial' && subscription.trial_ends_at, 'trialEnds'], [subscription.status === 'active' && subscription.current_period_end, 'nextBilling'], [subscription.status === 'past_due' && subscription.grace_period_until, 'gracePeriod']].map(([value, label]) => typeof value === 'string' && <div key={String(label)}><dt className="text-sm text-[var(--fg-muted)]">{t(String(label))}</dt><dd className="mt-1 text-sm font-semibold"><bdi>{date(value)}</bdi></dd></div>)}
-          {subscription.card_last_four && <div><dt className="text-sm text-[var(--fg-muted)]">{t('paymentMethod')}</dt><dd className="mt-1 flex items-center gap-2 text-sm font-semibold"><CreditCard className="size-4 shrink-0" aria-hidden="true" /><bdi>{subscription.card_brand} •••• {subscription.card_last_four}</bdi></dd></div>}
+      <section className={styles.agreement} aria-label={t('subscription')}>
+        <div className={styles.plan}>
+          <p className={styles.kicker}><Layers size={17} aria-hidden="true" />{t('currentPlan')}</p>
+          <h2>{planName(subscription.plan_tier)}</h2>
+          <Badge tone={statusTone}>{statusLabels[subscription.status] ? t(statusLabels[subscription.status]) : subscription.status}</Badge>
+        </div>
+        <dl className={styles.legacyFacts}>
+          {[[subscription.status === 'trial' && subscription.trial_ends_at, 'trialEnds'], [subscription.status === 'active' && subscription.current_period_end, 'nextBilling'], [subscription.status === 'past_due' && subscription.grace_period_until, 'gracePeriod']].map(([value, label]) => typeof value === 'string' && <div key={String(label)}><dt>{t(String(label))}</dt><dd><bdi>{date(value)}</bdi></dd></div>)}
+          {subscription.card_last_four && <div><dt>{t('paymentMethod')}</dt><dd><CreditCard size={17} aria-hidden="true" /><bdi>{subscription.card_brand} •••• {subscription.card_last_four}</bdi></dd></div>}
+          {subscription.status === 'deactivated' && <div><dt className="sr-only">{t('subscription')}</dt><dd>{t('accountDeactivated')}</dd></div>}
         </dl>
-        {subscription.status === 'deactivated' && <p className="mt-4 text-sm leading-6 text-[var(--danger-500)]">{t('accountDeactivated')}</p>}
-      </Section>
+      </section>
       {pending && <div role="alert" className="space-y-3 rounded-r-lg border border-[var(--danger-500)] p-5"><p className="text-sm font-semibold">{t('billingChangeUnconfirmed').replace('{plan}', planName(pending))}</p><p className="text-sm leading-6 text-[var(--fg-muted)]">{t('billingVerifyHint')}</p>{readError && <p className="text-sm text-[var(--danger-500)]">{t('billingReadError')}</p>}<Button variant="secondary" disabled={busy} onClick={() => void verify()}>{t('billingReadSubscription')}</Button></div>}
       {notice && <p role="status" className="rounded-r-md bg-[var(--summary-bg)] p-4 text-sm leading-6 text-[var(--summary-fg)]">{t(notice)}</p>}
+      <Section title={t('paymentHistory')}>
+        {subscription.events.length === 0 ? <p className="text-sm text-[var(--fg-muted)]">{t('billingHistoryEmpty')}</p> : <ol className="divide-y divide-[var(--line)]">{subscription.events.map(event => <li key={event.id} className="flex flex-col gap-2 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div className="min-w-0"><p dir="auto" className="break-words text-sm font-medium">{eventLabels[event.event_type] ? t(eventLabels[event.event_type]) : event.event_type.replace(/_/g, ' ')}</p><p className="mt-1 text-xs text-[var(--fg-muted)]"><bdi>{date(event.created_at)}</bdi></p></div>{event.amount != null && <span className="shrink-0 text-sm font-semibold tabular-nums"><bdi>{amount(event)}</bdi></span>}</li>)}</ol>}
+        <p className="mt-5 text-xs leading-5 text-[var(--fg-muted)]">{t('billingDatesZone')} <bdi>{Intl.DateTimeFormat().resolvedOptions().timeZone}</bdi></p>
+      </Section>
       <section aria-label={t('plans')} className="space-y-4">
         <div><h2 className="text-lg font-semibold">{t('plans')}</h2>{!canEdit && <p className="mt-2 text-sm text-[var(--fg-muted)]">{t('billingOwnerOnly')}</p>}</div>
         <div className="grid gap-4 lg:grid-cols-3">{PLANS.map(plan => {
@@ -113,10 +122,6 @@ function BillingWorkspace({ rid }: { rid: number }) {
           </article>;
         })}</div>
       </section>
-      <Section title={t('paymentHistory')}>
-        {subscription.events.length === 0 ? <p className="text-sm text-[var(--fg-muted)]">{t('billingHistoryEmpty')}</p> : <ol className="divide-y divide-[var(--line)]">{subscription.events.map(event => <li key={event.id} className="flex flex-col gap-2 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-6"><div className="min-w-0"><p dir="auto" className="break-words text-sm font-medium">{eventLabels[event.event_type] ? t(eventLabels[event.event_type]) : event.event_type.replace(/_/g, ' ')}</p><p className="mt-1 text-xs text-[var(--fg-muted)]"><bdi>{date(event.created_at)}</bdi></p></div>{event.amount != null && <span className="shrink-0 text-sm font-semibold tabular-nums"><bdi>{amount(event)}</bdi></span>}</li>)}</ol>}
-        <p className="mt-5 text-xs leading-5 text-[var(--fg-muted)]">{t('billingDatesZone')} <bdi>{Intl.DateTimeFormat().resolvedOptions().timeZone}</bdi></p>
-      </Section>
     </>}
     {!loading && <div className="flex items-start gap-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-5"><Mail className="mt-1 size-5 shrink-0 text-[var(--brand-ink)]" aria-hidden="true" /><p className="min-w-0 text-sm leading-6 text-[var(--fg-muted)]">{t('billingManagedBySupport')} <a className="break-words font-medium text-[var(--brand-ink)] underline underline-offset-4" href="mailto:support@foody-pos.co.il?subject=Billing"><bdi>support@foody-pos.co.il</bdi></a></p></div>}
     <ConfirmDialog open={!!confirmation} onOpenChange={open => { if (!open) setConfirmation(null); }} title={t('switchToPlan').replace('{plan}', planName(confirmation ?? 'starter'))} description={t('billingPlanChangeHint')} confirmLabel={t('confirm')} cancelLabel={t('cancel')} onConfirm={() => void apply()} />

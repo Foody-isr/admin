@@ -1,7 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Button, Section } from '@/components/ds';
+import { ChevronDown, Download, FileText, ListFilter, Mail, Send } from 'lucide-react';
+import { portalCopy } from './BillingPortal';
+import styles from './billing-portal.module.css';
+import { Badge, Button } from '@/components/ds';
 import { ApiError, downloadFoodyDocuments, getFoodyDocuments, resendFoodyDocument, setFoodyDocumentDelivery,
   type FoodyDocumentPage, type FoodyDocumentState } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -58,6 +61,8 @@ function saveBlob(url: string, filename: string) {
 export function SubscriptionDocuments({ rid, lastPayment }: { rid: number; lastPayment: string }) {
   const { locale } = useI18n();
   const t = copy[locale];
+  const c = portalCopy[locale];
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [month, setMonth] = useState('');
   const [number, setNumber] = useState('');
   const [state, setState] = useState('');
@@ -122,57 +127,80 @@ export function SubscriptionDocuments({ rid, lastPayment }: { rid: number; lastP
       else { saveBlob(url, filename); window.setTimeout(() => URL.revokeObjectURL(url), 1000); }
     });
   }
-  return <Section id="documents" title={t.title} desc={t.sandbox}>
+  const activeFilters = [month, number, state].filter(Boolean).length;
+  return <section id="documents" tabIndex={-1} aria-labelledby="billing-invoices" className={styles.panel}>
+    <header className={styles.invoiceHead}><div><h2 id="billing-invoices">{t.title}</h2><p className={styles.hint}>{t.sandbox}</p></div>
+      <Button size="sm" variant="secondary" aria-expanded={filtersOpen} aria-controls="invoice-filters" onClick={() => setFiltersOpen(!filtersOpen)}>
+        <ListFilter size={16} aria-hidden="true" />{c.filters}{activeFilters > 0 && <span>({activeFilters})</span>}
+      </Button>
+    </header>
     <div className="space-y-4 text-sm">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div id="invoice-filters" hidden={!filtersOpen}><div className={styles.filterGrid}>
         <label>{t.month}<input className="mt-1 block w-full rounded-lg border bg-transparent p-2" type="month" value={month} onChange={e => filter(setMonth, e.target.value)} /></label>
         <label>{t.number}<input className="mt-1 block w-full rounded-lg border bg-transparent p-2" inputMode="numeric" dir="ltr" maxLength={18} value={number} onChange={e => filter(setNumber, e.target.value.replace(/\D/g, ''))} /></label>
         <label>{t.state}<select className="mt-1 block w-full rounded-lg border bg-[var(--surface)] p-2" value={state} onChange={e => filter(setState, e.target.value)}>
           <option value="">{t.all}</option>{(['ready', 'pending', 'review', 'legacy'] as FoodyDocumentState[]).map(key => <option key={key} value={key}>{t[key]}</option>)}
         </select></label>
       </div>
-      {(month || state || number) && <div className="flex flex-wrap gap-2">
+      {(month || state || number) && <div className={styles.actions}>
         {month && <Button variant="secondary" disabled={busy} onClick={() => file({ month }, 'Foody-Invoice4U-TEST-' + month + '.zip')}>{t.zip}</Button>}
         <Button variant="ghost" onClick={() => { setMonth(''); setNumber(''); setState(''); setPages([]); setNotice(''); }}>{t.reset}</Button>
-      </div>}
+      </div>}</div>
       {error ? <div role="alert">{t.failed} <Button variant="secondary" onClick={() => setRevision(n => n + 1)}>{t.retry}</Button></div> :
         !page ? <p role="status">{t.loading}</p> : <>
           {!page.issuer_configured && <p>{t.unavailable}</p>}
           {page.documents.length === 0 && <p>{t.empty}</p>}
-          <ul className="divide-y divide-[var(--line)]">
-            {page.documents.map(doc => {
-              const filename = 'Foody-Invoice4U-TEST-' + doc.number + '.pdf';
-              return <li key={doc.payment_id} className="space-y-2 py-3">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <strong dir="auto">{doc.title}{doc.number && <> · <bdi>#{doc.number}</bdi></>}</strong><strong><bdi>{money(doc.price.total_minor)}</bdi> {t.gross}</strong>
-                </div>
-                <p><bdi>{date(doc.paid_at)}</bdi> · {t[doc.kind === 'upgrade' ? 'upgrade' : doc.cycle]} · {doc.verifone_invoice && doc.issue_state === 'pending' ? t.nativePending : t[doc.issue_state]}</p>
-                <p className="text-[var(--fg-muted)]"><bdi>{money(doc.price.net_minor)}</bdi> {t.net} · {t.tax} <bdi>{money(doc.price.vat_minor)}</bdi>
-                  {doc.period_end && <> · {t.period} <bdi>{date(doc.period_start)} – {date(doc.period_end)}</bdi></>}</p>
-                {doc.mail_state !== 'off' && <p>{doc.mail_state === 'sent' ? t.sent : doc.mail_state === 'review' ? t.mailReview : t.mailPending}</p>}
-                {doc.issue_state === 'ready' && <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="secondary" disabled={busy} onClick={() => file({ payment: doc.payment_id }, filename, true)}>{t.open}</Button>
-                  <Button size="sm" variant="ghost" disabled={busy} onClick={() => file({ payment: doc.payment_id }, filename)}>{t.save}</Button>
-                  {(doc.resend_available ?? page.email_available) && page.email_enabled && <Button size="sm" variant="ghost" disabled={busy || doc.mail_state === 'sending' || doc.mail_state === 'pending'} onClick={() => void action(async signal => {
-                    await resendFoodyDocument(rid, doc.payment_id); if (!signal.aborted) { setNotice(t.queued); setRevision(n => n + 1); }
-                  })}>{t.resend}</Button>}
-                </div>}
-              </li>;
-            })}
-          </ul>
+          {page.documents.length > 0 && <>
+            <div aria-hidden="true" className={styles.ledgerHead}><span>{t.title}</span><span>{t.state}</span><span>{c.amount}</span></div>
+            <ul className={styles.ledger}>
+              {page.documents.map(doc => {
+                const filename = 'Foody-Invoice4U-TEST-' + doc.number + '.pdf';
+                const ready = doc.issue_state === 'ready';
+                return <li key={doc.payment_id}>
+                  <div className={styles.ledgerRow}>
+                    <div className={styles.invoiceIdentity}><FileText size={19} aria-hidden="true" /><div>
+                      <strong dir="auto">{doc.title}{doc.number && <> · <bdi>#{doc.number}</bdi></>}</strong>
+                      <p className={styles.hint}><bdi>{date(doc.paid_at)}</bdi> · {t[doc.kind === 'upgrade' ? 'upgrade' : doc.cycle]}</p>
+                    </div></div>
+                    <span className={styles.invoiceStatus}><Badge tone={ready ? 'success' : doc.issue_state === 'review' ? 'warning' : 'neutral'}>{t[doc.issue_state]}</Badge></span>
+                    <strong className={styles.invoiceAmount}><bdi>{money(doc.price.total_minor)}</bdi> <small>{t.gross}</small></strong>
+                  </div>
+                  {doc.verifone_invoice && doc.issue_state === 'pending' && <p className={styles.hint}>{t.nativePending}</p>}
+                  <div className={styles.invoiceTools}>
+                    <details className={styles.invoiceDetail}><summary>{c.detailsPayment}<ChevronDown size={14} aria-hidden="true" /></summary>
+                      <dl className={styles.breakdown}>
+                        <div><dt>{t.net}</dt><dd><bdi>{money(doc.price.net_minor)}</bdi></dd></div>
+                        <div><dt>{t.tax}</dt><dd><bdi>{money(doc.price.vat_minor)}</bdi></dd></div>
+                        {doc.period_end && <div><dt>{t.period}</dt><dd><bdi>{date(doc.period_start)} – {date(doc.period_end)}</bdi></dd></div>}
+                        {doc.mail_state !== 'off' && <div><dt>{c.email}</dt><dd>{doc.mail_state === 'sent' ? t.sent : doc.mail_state === 'review' ? t.mailReview : t.mailPending}</dd></div>}
+                      </dl>
+                    </details>
+                    {ready && <div className={styles.fileActions}>
+                      <Button size="sm" variant="secondary" disabled={busy} onClick={() => file({ payment: doc.payment_id }, filename, true)}>{t.open}</Button>
+                      <Button size="sm" variant="ghost" disabled={busy} onClick={() => file({ payment: doc.payment_id }, filename)}><Download size={15} aria-hidden="true" />{t.save}</Button>
+                      {(doc.resend_available ?? page.email_available) && page.email_enabled && <Button size="sm" variant="ghost" disabled={busy || doc.mail_state === 'sending' || doc.mail_state === 'pending'} onClick={() => void action(async signal => {
+                        await resendFoodyDocument(rid, doc.payment_id); if (!signal.aborted) { setNotice(t.queued); setRevision(n => n + 1); }
+                      })}><Send size={15} aria-hidden="true" />{t.resend}</Button>}
+                    </div>}
+                  </div>
+                </li>;
+              })}
+            </ul>
+          </>}
           <div className="flex flex-wrap gap-2">
             {!!pages.length && <Button variant="secondary" onClick={() => setPages(v => v.slice(0, -1))}>{t.previous}</Button>}
             {page.has_more && <Button variant="secondary" onClick={() => setPages(v => [...v, page.documents[page.documents.length - 1].payment_id])}>{t.next}</Button>}
           </div>
+          <div className={styles.delivery}><Mail size={20} aria-hidden="true" /><div><h3>{c.email}</h3>
           {page.email_available ? <label className="flex items-center gap-2"><input type="checkbox" checked={page.email_enabled} disabled={busy}
-            onChange={e => { const enabled = e.target.checked; void action(async signal => { await setFoodyDocumentDelivery(rid, enabled); if (!signal.aborted) setRevision(n => n + 1); }); }} />{page.native_invoices ? t.nativeMail : t.mail}</label> : <p className="text-[var(--fg-muted)]">{t.mailOff}</p>}
+            onChange={e => { const enabled = e.target.checked; void action(async signal => { await setFoodyDocumentDelivery(rid, enabled); if (!signal.aborted) setRevision(n => n + 1); }); }} />{page.native_invoices ? t.nativeMail : t.mail}</label> : <p className="text-[var(--fg-muted)]">{t.mailOff}</p>}</div></div>
         </>}
-      <p role="status">{notice}</p>
+      {notice && <p role="status">{notice}</p>}
     </div>
     {preview && <dialog ref={dialog} onClose={() => setPreview(null)} className="m-auto w-[94vw] max-w-4xl rounded-lg bg-[var(--surface)] p-4 text-[var(--fg)] backdrop:bg-black/50" aria-label={t.open}>
       <div className="mb-3 flex flex-wrap justify-between gap-2"><Button variant="secondary" onClick={() => saveBlob(preview.url, preview.filename)}>{t.save}</Button>
         <Button autoFocus onClick={() => dialog.current?.close()}>{t.close}</Button></div>
       <iframe className="h-[70vh] w-full" title={t.open} src={preview.url} />
     </dialog>}
-  </Section>;
+  </section>;
 }
