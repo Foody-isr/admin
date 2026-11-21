@@ -5,7 +5,8 @@ import { selectFoodyOnboarding, type FoodyBillingOnboarding, type FoodyBillingVi
 import { useI18n } from '@/lib/i18n';
 import { LicenceInputs } from './SubscriptionAdditions';
 import { commercialSelection, licenceTariffs } from '@/lib/commercial-catalog';
-import { Badge, Button, PageHead, Section } from '@/components/ds';
+import styles from './billing-portal.module.css';
+import { Badge, Button, PageHead } from '@/components/ds';
 
 /** Presents the catalogue or the configured private trial within owner billing. */
 export function ModuleOnboarding({ restaurantId, view, onConfirmed }: {
@@ -54,13 +55,13 @@ export function ModuleOnboarding({ restaurantId, view, onConfirmed }: {
     }
   }
 
-  return <div className="mx-auto max-w-[980px] space-y-6">
-    <PageHead title={t('foodyModuleOnboarding')} desc={days > 0
+  return <div className={styles.portal}>
+    <PageHead title={t('foodyModuleOnboarding')} actions={<Badge tone="warning" dot>{t('foodyPilotSandbox')}</Badge>} desc={days > 0
       ? t('foodyModuleTrialAvailable').replace('{days}', String(days))
       : t('foodyModulePaymentAccess')} />
-    <Section title={isPublic ? t('foodyModuleChoose') : t('foodyPilotOffer')}>
-      <form onSubmit={submit} className="space-y-4">
-        <Badge tone="warning">{t('foodyPilotSandbox')}</Badge>
+    <section className={styles.panel}><h2>{isPublic ? t('foodyModuleChoose') : t('foodyPilotOffer')}</h2>
+      <form onSubmit={submit} className={styles.checkout + ' mt-5'}>
+        <div className="space-y-4">
         {!isPublic && view.offer && <>
           <h2 className="text-lg font-semibold" dir="auto">{view.offer.title}</h2>
           <p className="text-sm">{t('foodyModuleTrialIncludes')}</p>
@@ -83,15 +84,16 @@ export function ModuleOnboarding({ restaurantId, view, onConfirmed }: {
           <input className="input mt-2 block max-w-32" type="number" min={0} step={1} value={extra} onChange={event => setExtra(event.target.value)} />
         </label>}
         {isPublic && editable && selectedModules.length > 0 && <LicenceInputs catalog={catalog} limits={preview.seats} capabilities={preview.capabilities} values={extras} onChange={setExtras} disabled={busy} />}
+        </div><div className={styles.order}>
         {isPublic && <p className="text-sm font-semibold">
           {preview.planName && <span className="block mb-1">{preview.planName[locale]}</span>}{t('foodyModuleTotal')} <bdi>{money(amount)}</bdi> {t('foodyModuleMonthlyHT')}
         </p>}
         {error && <p role="alert" className="text-sm text-[var(--danger-500)]">{t('foodyModuleSelectionError')}</p>}
         <Button type="submit" disabled={busy || isPublic && (!selectedModules.length || !validExtra)}>
           {busy ? t('loading') : days > 0 ? t('foodyModuleStartTrial') : t('foodyModuleReviewOffer')}
-        </Button>
+        </Button></div>
       </form>
-    </Section>
+    </section>
   </div>;
 }
 
