@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "9c66302b3509d42da955ab756950d3e108263397",
-  "documentationRevision": "276d06e4a6e506211ce0fa04dcfc479a08920d6b8c002190c0052de6b6c9ea2b",
+  "documentationRef": "1a90ad6ac7a77a2f8b99f52d0da9b24b9ce952a5",
+  "documentationRevision": "21206a053768e370802914739b962e4fa4922b0417c7a1b250b89ac593929dc6",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -2045,15 +2045,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/end-of-day.mdx",
-          "sha256": "e7c99ad6e3da28cc3fd32d93e142e179e140c29324ddd88c0166d39907875a5a"
+          "sha256": "6b74cf0aa98622aa810719c9bd71f61e7c27f84428e793f272a0a04979419ea7"
         },
         "fr": {
           "path": "src/content/help/fr/payments/end-of-day.mdx",
-          "sha256": "41e3026c6208328782e78b3370881f4e996d08d2da19ecc667fc976b43989c52"
+          "sha256": "a59d96ed21d26e36df4145498d23b3a19e2e40681632c7dbc2e7512b0b666332"
         },
         "he": {
           "path": "src/content/help/he/payments/end-of-day.mdx",
-          "sha256": "407c216b8728601f778904c5a16480cf3cfd6407187176733b6ddf65c77fbd9a"
+          "sha256": "f4938256564cc019e707e549b51c844cf6395b5978c0ab0d9dfb019e1f905674"
         }
       }
     },
@@ -3167,7 +3167,7 @@
       ]
     },
     "src/app/[restaurantId]/orders/new/page.tsx": {
-      "sha256": "c8b9c6929ecb5b3868870cea53157131f2336c907d21d65c19b206fbfd77adbd",
+      "sha256": "7200e9eee0863769346690404db923ab387e97559a2bcec84d9b348ee3c18539",
       "features": [
         "orders-managing-orders",
         "order-detail",
@@ -4264,7 +4264,7 @@
       ]
     },
     "src/components/delivery/RouteAddressField.tsx": {
-      "sha256": "d7b31e7ba941577cc534a0def3a1b0244282d9d92d4e20af944220c65140c10f",
+      "sha256": "2119f97587b775590228e0a0d01972d420af58c47105dcee4cbdd2a2fc926d21",
       "features": [
         "delivery-dispatch",
         "maps-usage"
@@ -5401,7 +5401,7 @@
       ]
     },
     "src/components/orders/NewOrderCheckoutPanel.tsx": {
-      "sha256": "f76448af468229cf8488246d328035320970bbbcf2df53cd2bcfae6fb01473db",
+      "sha256": "d8fcb0eb29b1829876264fcbfe6ce174d40985e8c90d0a28fb3ab5f82f467e61",
       "features": [
         "orders-managing-orders",
         "order-detail",
@@ -6696,6 +6696,12 @@
         "shared-runtime"
       ]
     },
+    "src/lib/address-field-observation.ts": {
+      "sha256": "a42335f2015125bfc5313c6f5ff2cb61a881bbd3232cbea8b193b44f3341b7c8",
+      "features": [
+        "shared-runtime"
+      ]
+    },
     "src/lib/ai-context.tsx": {
       "sha256": "9aae68da557588db2e1c17f006a6db187e51b1eb8425708865ea4c7ab036f3bc",
       "features": [
@@ -6710,7 +6716,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "e93957800f806fdc90e1f1b95f4f5a0d7b830fddd2737cd9ec9b0c869e82fda5",
+      "sha256": "319fa0c921baacb248035e7f8c9ae2424353a9ab844c0ecc9c3fd08364aa9146",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6871,7 +6877,7 @@
       ]
     },
     "src/lib/delivery.ts": {
-      "sha256": "31fad930a4be817f10c2b2c37c671635376eb4cb5dc6a277c589aebf22ef645e",
+      "sha256": "dc32c9cdc872f4286f58748aeb9a579d550caca23a368e382c3d598accf3c084",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -16793,7 +16799,9 @@
         "retry",
         "routeAddressSearchUnavailable"
       ],
-      "actions": []
+      "actions": [
+        "accepted"
+      ]
     },
     {
       "id": "foodyadmin:src/components/delivery/RouteSettingsEditor.tsx:ui-controls:1",

@@ -425,3 +425,15 @@ export async function getDeliveryCustomerWindow(restaurantId: number, orderId: n
   const data = await apiFetch<{ window: { start: string; end: string; timezone?: string } | null }>(`/api/v1/delivery/orders/${orderId}/customer-window?${q(restaurantId)}`, restaurantId);
   return data.window ?? null;
 }
+
+/** Reads the active restaurant’s optional address-observation window. */
+export function getAddressObservationPolicy(restaurantId: number, signal: AbortSignal) {
+  return apiFetch<{ observation_until?: string }>(`/api/v1/public/address-autocomplete/config?${q(restaurantId)}`, restaurantId, {signal});
+}
+
+/** Reports an aggregate field outcome through the authenticated order-management route. */
+export function observeOrderAddress(restaurantId: number, event: import('./address-field-observation').AddressFieldEvent) {
+  return apiFetch<void>(`/api/v1/delivery/address-autocomplete/observations?${q(restaurantId)}`, restaurantId, {
+    method:'POST', body:JSON.stringify({event}), keepalive:true,
+  });
+}

@@ -1,25 +1,43 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type InputHTMLAttributes } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type InputHTMLAttributes } from 'react';
 import { formatRouteAddress, selectedNumberedAddress } from '@/lib/route-address';
+import { addressFieldObservation, type AddressChoiceOutcome } from '@/lib/address-field-observation';
+import { getAddressObservationPolicy, observeOrderAddress } from '@/lib/delivery';
 import { ApiError } from '@/lib/api';
 import { Input } from '@/components/ds';
 import { autocompleteRouteAddress, resolveRouteAddress, type AddressSuggestion } from '@/lib/delivery';
 
 /** Search and select an endpoint using the restaurant's existing address provider. */
-export function RouteAddressField({ restaurantId, locale, label, placeholder, value, onChange, onSelectAddress, onReviewAddress, onSelectStreet, onResolvingChange, inputProps, disabled, t }: {
+export function RouteAddressField({ onObservedChoice, restaurantId, locale, label, placeholder, value, onChange, onSelectAddress, onReviewAddress, onSelectStreet, onResolvingChange, inputProps, disabled, t }: {
   restaurantId: number; locale: string; label: string; placeholder?: string; value: string;
   onChange: (value: string) => void; onResolvingChange?: (resolving: boolean) => void; disabled?: boolean; t: (key: string) => string;
   /** Receives a complete address and its city separately. Partial suggestions stay in the search field. */
+  onObservedChoice?: (choice: AddressChoiceOutcome | undefined) => void;
   onSelectAddress?: (suggestion: AddressSuggestion) => void;
   /** Accepts the street explicitly picked by staff, even when it has no building point. */
-  onSelectStreet?: (suggestion: AddressSuggestion) => void;
+  onSelectStreet?: (suggestion: AddressSuggestion) => boolean | void;
   /** Lets a staff editor review the label that was clicked if Details cannot confirm it. */
-  onReviewAddress?: (prediction: AddressSuggestion) => void;
+  onReviewAddress?: (prediction: AddressSuggestion) => boolean | void;
   inputProps?: Pick<InputHTMLAttributes<HTMLInputElement>, 'id' | 'aria-label' | 'aria-invalid' | 'aria-describedby'>;
 }) {
   const generatedId = useId();
   const id = inputProps?.id ?? generatedId;
+  const measureOrders = !!onObservedChoice;
+  const [observationPolicy, setObservationPolicy] = useState<{rid:number; until?:string}>();
+  useEffect(() => {
+    if (!measureOrders || disabled) return;
+    const abort = new AbortController();
+    void getAddressObservationPolicy(restaurantId, abort.signal)
+      .then(policy => { if (!abort.signal.aborted) setObservationPolicy({rid: restaurantId, until:policy.observation_until}); })
+      .catch(() => { /* The order form also works when observations are unavailable. */ });
+    return () => abort.abort();
+  }, [restaurantId, measureOrders, disabled]);
+  const until = observationPolicy?.rid === restaurantId ? observationPolicy.until : undefined;
+  const observer = useMemo(() => addressFieldObservation(until, event => {
+    void observeOrderAddress(restaurantId, event).catch(() => { /* Optional field observation. */ });
+  }), [restaurantId, until]);
+  const accepted = () => onObservedChoice?.(observer.accept());
   const session = useRef('');
   const request = useRef(0);
   const selection = useRef('');
@@ -59,22 +77,23 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
       try {
         session.current ||= crypto.randomUUID();
         const rows = await autocompleteRouteAddress(restaurantId, value.trim(), /[\u0590-\u05ff]/.test(value) ? 'he' : locale, session.current, controller.signal);
-        if (!controller.signal.aborted && request.current === version) { setSuggestions(rows); setEmpty(rows.length === 0); }
+        if (!controller.signal.aborted && request.current === version) { observer.available(rows.length > 0); setSuggestions(rows); setEmpty(rows.length === 0); }
       } catch (cause) {
         if (controller.signal.aborted || request.current !== version) return;
         session.current = '';
         if (mayRetry && (!(cause instanceof ApiError) || cause.status >= 500 || cause.status === 409)) {
           timer = setTimeout(() => void search(false), 450);
-        } else setError(true);
+        } else { observer.available(false); setError(true); }
       } finally {
         if (request.current === version) setBusy(false);
       }
     }
     timer = setTimeout(() => void search(true), 300);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [value, focused, disabled, restaurantId, locale, attempt]);
+  }, [value, focused, disabled, restaurantId, locale, attempt, observer]);
 
   const select = async (suggestion: AddressSuggestion) => {
+    observer.choose();
     ++request.current;
     const version = ++resolution.current;
     setResolving(true); resolvingCallback.current?.(true); setError(false); setSuggestions([]);
@@ -89,7 +108,8 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
         (resolved.kind === 'address' || (!resolved.kind && resolved.street?.trim() && resolved.house_number?.trim()));
       if (resolved.kind === 'street' || (onSelectAddress && !completeAddress)) {
         if (onReviewAddress && /\d/.test(suggestion.address) && suggestion.address.trim() !== resolved.street?.trim()) {
-          onReviewAddress(suggestion); return;
+          if (onReviewAddress(suggestion)) accepted();
+          return;
         }
         if (onSelectStreet && resolved.kind === 'street' && resolved.city.trim()) {
           const chosen: AddressSuggestion = {
@@ -98,20 +118,20 @@ export function RouteAddressField({ restaurantId, locale, label, placeholder, va
           };
           selection.current = formatRouteAddress(chosen);
           setFocused(false);
-          onSelectStreet(chosen);
+          if (onSelectStreet(chosen)) accepted();
           return;
         }
         onChange(address); return;
       }
       selection.current = address;
-      if (onSelectAddress) onSelectAddress(resolved);
+      if (onSelectAddress) { onSelectAddress(resolved); accepted(); }
       else onChange(address);
       setFocused(false);
     } catch {
       if (resolution.current === version && currentValue.current === value) {
         session.current = '';
-        if (onReviewAddress) onReviewAddress(suggestion);
-        else setError(true);
+        if (onReviewAddress?.(suggestion)) accepted();
+        else { observer.available(false); if (!onReviewAddress) setError(true); }
       }
     }
     finally { if (resolution.current === version) { setResolving(false); resolvingCallback.current?.(false); } }

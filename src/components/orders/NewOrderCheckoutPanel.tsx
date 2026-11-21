@@ -41,6 +41,7 @@ export type PaymentMethodChoice = InternalPaymentMethod;
 
 export interface CheckoutData {
   addressToken?: string;
+  addressObservation?: import('@/lib/address-field-observation').AddressChoiceOutcome;
   eventConfig?: OrderEventConfig;
   customerName: string;
   customerPhone: string;
@@ -162,6 +163,7 @@ export function NewOrderCheckoutPanel({
   const [manualAddress, setManualAddress] = useState(false);
   const [addressResolving, setAddressResolving] = useState(false);
   const previousBuilding = useRef<{ address: string; city: string } | null>(null);
+  const [addressObservation, setAddressObservation] = useState<import('@/lib/address-field-observation').AddressChoiceOutcome>();
   const [addressToken, setAddressToken] = useState<string>();
   const [addressPosition, setAddressPosition] = useState<{ lat: number; lng: number }>();
   const [floor, setFloor] = useState('');
@@ -217,7 +219,7 @@ export function NewOrderCheckoutPanel({
     setCustomerName(initialState.customer.name);
     setCustomerPhone(initialState.customer.phone);
     previousBuilding.current = initialState.customer;
-    setAddressToken(undefined);
+    setAddressToken(undefined); setAddressObservation(undefined);
     setAddress(initialState.customer.address);
     setCity(initialState.customer.city);
     setFloor(initialState.customer.floor);
@@ -549,7 +551,7 @@ export function NewOrderCheckoutPanel({
 
   const applyAddress = (a: CustomerSearchAddress) => {
     previousBuilding.current = a;
-    setAddressToken(undefined);
+    setAddressToken(undefined); setAddressObservation(undefined);
     setAddressQuery(null);
     setAddressPosition(undefined);
     setAddress(a.address);
@@ -565,7 +567,7 @@ export function NewOrderCheckoutPanel({
 
   function editAddressSearch(value: string) {
     if (address && city) previousBuilding.current = { address, city };
-    setAddressToken(undefined);
+    setAddressToken(undefined); setAddressObservation(undefined);
     setAddressQuery(value);
     setAddress('');
     setCity('');
@@ -610,6 +612,7 @@ export function NewOrderCheckoutPanel({
     onConfirm({
       customerName, customerPhone, orderType,
       addressToken: orderType === 'delivery' && intent !== 'link' ? addressToken : undefined,
+      addressObservation: orderType === 'delivery' && intent !== 'link' ? addressObservation : undefined,
       eventConfig: eventConfig ? { ...eventConfig, payment_mode: hosted ? eventConfig.payment_mode : 'none', deposit_value: hosted ? eventConfig.deposit_value : 0 } : undefined,
       address: intent === 'link' ? '' : address, city: intent === 'link' ? '' : city,
       floor: intent === 'link' ? '' : floor, apt: intent === 'link' ? '' : apt,
@@ -737,11 +740,13 @@ export function NewOrderCheckoutPanel({
                     }}
                     value={addressQuery ?? formatRouteAddress({ address, city })}
                     onChange={editAddressSearch}
+                    onObservedChoice={setAddressObservation}
                     onSelectAddress={selectDeliveryAddress}
                     onReviewAddress={choice => {
                       const city = predictionLocality(choice.city);
                       if (city && streetBuilding(choice.address)) {
                         selectDeliveryAddress({ id: choice.id, address: choice.address, city });
+                        return true;
                       } else {
                         editAddressSearch(formatRouteAddress({ address: choice.address, city }));
                       }
@@ -753,6 +758,7 @@ export function NewOrderCheckoutPanel({
                         (prior && numberForSelectedStreet(prior.address, prior.city, choice));
                       if (number) selectDeliveryAddress({ ...choice, address: `${choice.street || choice.address} ${number}` });
                       else editAddressSearch(formatRouteAddress(choice));
+                      return !!number;
                     }}
                     onResolvingChange={setAddressResolving}
                     disabled={submitting}
@@ -762,7 +768,7 @@ export function NewOrderCheckoutPanel({
                 value={{ address, city, floor, apt, entryCode, deliveryNotes }}
                 onPostalBlur={() => acceptBuilding(address, city)}
                 onChange={(p) => {
-                  if (p.address !== undefined || p.city !== undefined) { setAddressPosition(undefined); setAddressToken(undefined); }
+                  if (p.address !== undefined || p.city !== undefined) { setAddressPosition(undefined); setAddressToken(undefined); setAddressObservation(undefined); }
                   if (p.address !== undefined) setAddress(p.address);
                   if (p.city !== undefined) setCity(p.city);
                   if (p.floor !== undefined) setFloor(p.floor);
