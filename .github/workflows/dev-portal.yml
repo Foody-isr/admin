@@ -1,0 +1,25 @@
+name: Publish development portal
+on:
+  deployment_status:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  deployments: read
+
+concurrency:
+  group: publish-development-portal
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/develop') ||
+      (github.event.deployment.environment == 'Production' &&
+       github.event.deployment.creator.login == 'vercel[bot]' &&
+       github.event.deployment_status.creator.login == 'vercel[bot]' &&
+       github.event.deployment_status.state == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: Foody-isr/backoffice/.github/actions/dev-portal@00b1be6d5242ba78873ae69b7e1b5fa42829c1b5

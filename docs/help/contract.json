@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "2e0e26f48f19f8413a26ed2d45ee3117c8e02d95",
-  "documentationRevision": "84c80ea7bf64bf19f274740b06e4a32170bcd75993ece8098327fbf639ba4a63",
+  "documentationRef": "1068f04eedd3535f6009d226503204ce2cb7e5a4",
+  "documentationRevision": "99fe857b5ec445324e599e6263353c9cf27f2e92a632c06dc544fa617a66e7f8",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -1304,15 +1304,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/pos-checkout.mdx",
-          "sha256": "fac5828782f16e82d0d0e81709d736c7b3bccff142692ab2a8e88b6f0ee571bc"
+          "sha256": "2457eca3e3be6cb838e47a79eb2eb245f00e9b97cf9abb01c4b0594743c7ce2f"
         },
         "fr": {
           "path": "src/content/help/fr/payments/pos-checkout.mdx",
-          "sha256": "8a7e9eaf69a8d1a40aa7ed8b77970e071b08b2daeb52ce76b91df1989b1ebb81"
+          "sha256": "3561394eec325ad0d665a3ae13720c161f9757f997488b68f16fb29f970bca90"
         },
         "he": {
           "path": "src/content/help/he/payments/pos-checkout.mdx",
-          "sha256": "8e14c7b68aabf315dcfd8d53d65eb96d7b28e0a6da956736037ed17a48b77d9d"
+          "sha256": "e18449d8e99ba5139b9a8f34aac2901d1cddc3f341f79259d3259216cf6cf732"
         }
       }
     },
@@ -1323,15 +1323,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/victa-mini.mdx",
-          "sha256": "436afdad970e7ccbc95ee46518b8d497803f94d8b5c7970c1c223f10c806e342"
+          "sha256": "903c89e5e28f4b852f716d3a0548bce7f4df11c3f24e7cd0f9eac25ac3d5b5b4"
         },
         "fr": {
           "path": "src/content/help/fr/payments/victa-mini.mdx",
-          "sha256": "0d4057a0540fadf5a095fbc8a322058925d145b0b8e2823e76cae7c9adac57c7"
+          "sha256": "0a89fe1a2b038abcf4be89bd94bee81a2b49baa888dcc7ca0a2ec3b54152f5b2"
         },
         "he": {
           "path": "src/content/help/he/payments/victa-mini.mdx",
-          "sha256": "6493f27f3cc32df189511a06749bfb0fd56b2281d5d70a387aa5119b2799ccd3"
+          "sha256": "622dc19070cc4c3ff05f06517669d1715db4de3c2280c9f27bd3f39993d42152"
         }
       }
     },
@@ -2045,15 +2045,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/end-of-day.mdx",
-          "sha256": "65e92e73f2c2ba2bd44f816fea4cd1d53e37df8ada7aeab07c4e8324d0ea900c"
+          "sha256": "e7c99ad6e3da28cc3fd32d93e142e179e140c29324ddd88c0166d39907875a5a"
         },
         "fr": {
           "path": "src/content/help/fr/payments/end-of-day.mdx",
-          "sha256": "73ab6c2de7d23a2b0a5e82c1dfe6f9ea9709a6a310069218f2a905444e512e9f"
+          "sha256": "41e3026c6208328782e78b3370881f4e996d08d2da19ecc667fc976b43989c52"
         },
         "he": {
           "path": "src/content/help/he/payments/end-of-day.mdx",
-          "sha256": "984b6b69de9cd874861b2252352e44f394228e511ccee6eaf247cfc83eae3974"
+          "sha256": "407c216b8728601f778904c5a16480cf3cfd6407187176733b6ddf65c77fbd9a"
         }
       }
     },
@@ -2102,15 +2102,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/ashrait-terminal-inspection.mdx",
-          "sha256": "f1b7dedbf7a9496260b32837bb7e7980861c8bfa079117df40511ddc4753320a"
+          "sha256": "8b039a26f87665daf57588abf33db2b3351bf2e2c62b82b5517710b36bc608e8"
         },
         "fr": {
           "path": "src/content/help/fr/payments/ashrait-terminal-inspection.mdx",
-          "sha256": "32ee3f880487e9d48d2fc2af68fe8e43695fc30e09c7540b2c2de9dc30e820d9"
+          "sha256": "8ea95b6ffb001617c4d141eb2576bb6181e7050d38f74b93cf8d348f5e88c1a4"
         },
         "he": {
           "path": "src/content/help/he/payments/ashrait-terminal-inspection.mdx",
-          "sha256": "1dca7174e3b227fa9e884796e2cce0cae1bb3dbabbf213adf6e3301dc8991fcb"
+          "sha256": "f77b87d05599f369aaf2ee702bdd933d1d534b7674b22621b701a7259e1d85c7"
         }
       }
     },
@@ -3747,7 +3747,7 @@
       ]
     },
     "src/app/login/page.tsx": {
-      "sha256": "97ccb64c8046faddd6cdbbf331f3e70f40544fe6ed95ddacfb3a6c0c096d7098",
+      "sha256": "a5ced6ef923aabf91f5fc4f65f1c49ba61aa7bf969d07de522305accc16b96de",
       "features": [
         "account-access"
       ]
@@ -7421,7 +7421,7 @@
       ]
     },
     "src/lib/portal-session.ts": {
-      "sha256": "7c47ee310bee84aacf17e6624e936b343d4c5500492f8f333291e4a07c949dc6",
+      "sha256": "707d23548986aed5dc5db52d6243858b5b83ad38436033a69f4deb68e35922bc",
       "features": [
         "account-access",
         "shared-runtime"

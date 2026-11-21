@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-21",
+  "documentationRef": "1068f04eedd3535f6009d226503204ce2cb7e5a4",
+  "files": [
+    {
+      "path": "src/app/login/page.tsx",
+      "sha256": "a5ced6ef923aabf91f5fc4f65f1c49ba61aa7bf969d07de522305accc16b96de",
+      "baseSha256": "97ccb64c8046faddd6cdbbf331f3e70f40544fe6ed95ddacfb3a6c0c096d7098",
+      "features": [
+        "account-access"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This change restores the published sign-in procedure when a tab outlives a deployment. The page reloads before asking the API to authenticate. The reviewed FR/HE/EN first-login and internal Backoffice guides already describe signing in again after a session update and completing the second factor. Restaurant access, roles, recovery, and existing authenticated sessions keep their documented behavior."
+    },
+    {
+      "path": "src/lib/portal-session.ts",
+      "sha256": "707d23548986aed5dc5db52d6243858b5b83ad38436033a69f4deb68e35922bc",
+      "baseSha256": "7c47ee310bee84aacf17e6624e936b343d4c5500492f8f333291e4a07c949dc6",
+      "features": [
+        "account-access",
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This change restores the published sign-in procedure when a tab outlives a deployment. The page reloads before asking the API to authenticate. The reviewed FR/HE/EN first-login and internal Backoffice guides already describe signing in again after a session update and completing the second factor. Restaurant access, roles, recovery, and existing authenticated sessions keep their documented behavior."
+    }
+  ]
+}

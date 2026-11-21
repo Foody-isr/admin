@@ -37,3 +37,18 @@ export async function endPortalSession(api: string, reference: string): Promise<
   });
   if (!response.ok && response.status !== 401) throw new Error('Could not clear the browser session cookie');
 }
+
+/** Refresh an obsolete sign-in form before sending a password or starting WebAuthn. */
+export async function refreshOutdatedLogin(): Promise<boolean> {
+  const revision = process.env.NEXT_PUBLIC_FOODY_LOGIN_REVISION;
+  if (!revision) return false;
+  const response = await fetch('/login', {
+    method: 'HEAD', cache: 'no-store', credentials: 'omit',
+    redirect: 'error', signal: AbortSignal.timeout(5000),
+  });
+  if (!response.ok) throw new Error('Could not load the sign-in page');
+  const published = response.headers.get('X-Foody-Login-Revision');
+  if (!published || published === revision) return false;
+  window.location.reload();
+  return true;
+}

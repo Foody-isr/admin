@@ -720,8 +720,8 @@ src/
 ## Authentication
 
 - Login at `/login` with email + password
-- JWT returned by `POST /api/v1/auth/login`
-- Role must be `owner` or `manager` — any other role is rejected at login
+- A 202 response opens the authenticator step. Restaurant selection uses the completed sign-in and the account's restaurant assignments. Superadmin access is explicit.
+- A tab left on the sign-in form across a release checks the current page before submitting a password or starting passkey sign-in. If it refreshes, enter your details on the refreshed page.
 - The API binds the encrypted session reference to a Secure HttpOnly cookie. Remember me controls persistence. Existing sessions require a fresh sign-in after this upgrade.
 - All API calls send `Authorization: Bearer <token>` and `X-Restaurant-ID: <id>` header
 - Multi-restaurant support: `restaurant_ids` array in JWT payload drives the restaurant picker
@@ -785,6 +785,8 @@ npm run build         # Full production build (catches all errors)
 Run `npm run build` before marking a PR ready to merge. Iterative feature-branch pushes may use targeted checks.
 
 ## Deployment (Vercel)
+
+The Vercel project builds the application once from `develop`. The development domain tracks the generated `dev-portal-routing` branch in the Preview environment. Its static rewrite forwards to the exact application deployment verified by the **Publish development portal** workflow. Keep this domain assigned to that branch when editing project domains. Use the workflow's manual run on `develop` to retry publication. The response header `X-Foody-Login-Revision` on `/login` identifies the application commit served to a browser.
 
 Vercel's Git integration deploys `develop` to the development environment. Production is a manual promotion of a verified `develop` deployment; no second PR to `main` and no GitHub Actions rebuild are required.
 
