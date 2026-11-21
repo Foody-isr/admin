@@ -6,17 +6,19 @@ import { Badge } from '@/components/ds';
 import type { LoyaltyProgram, MenuItem } from '@/lib/api';
 import { formatMoney } from '@/lib/currency';
 import { useI18n } from '@/lib/i18n';
-import { loyaltyCustomerPage } from '@/lib/loyalty-program';
+import { loyaltyCustomerPage, loyaltyProgressMode } from '@/lib/loyalty-program';
 
 const row = 'group flex min-w-0 items-center gap-3 rounded-r-md py-3 text-start focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2';
 const linkIcon = 'size-5 shrink-0 text-[var(--fg-muted)]';
 
 /** Displays the saved program and the routes a merchant uses to design and share its card. */
-export default function LoyaltyProgramOverview({ rid, program, item, onTerms }: {
+export default function LoyaltyProgramOverview({ rid, program, item, onTerms, onEarning, survey }: {
   rid: number;
   program: LoyaltyProgram | null;
   item?: MenuItem;
   onTerms: () => void;
+  onEarning:()=>void;
+  survey?:{count:number;average:number};
 }) {
   const { t, locale } = useI18n();
   const rules = program?.rules;
@@ -35,7 +37,7 @@ export default function LoyaltyProgramOverview({ rid, program, item, onTerms }: 
         <div className="min-w-0">
           <Badge dot tone={program.enabled ? 'success' : 'warning'}>{t(program.enabled ? 'loyaltyProgramActive' : 'loyaltyProgramPaused')}</Badge>
           <h2 dir="auto" className="my-3 break-words text-start text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{name}</h2>
-          <p className="text-fs-md text-[var(--fg-muted)]">{rules.mode === 'visits' ? t('loyaltyProgramEarnVisit') :
+          <p className="text-fs-md text-[var(--fg-muted)]">{rules.earning?.products_only ? t('earnProductHeading') : rules.mode === 'visits' ? t(loyaltyProgressMode(rules.mode, rules.earning) === 'points' ? 'earnVisitPoint' : 'loyaltyProgramEarnVisit') :
             t('loyaltyProgramEarnSpend').replace('{points}', units(rules.units_per_step, 'points')).replace('{amount}', money(rules.spend_step_minor))}</p>
         </div>
         <div className="relative min-w-0 overflow-hidden rounded-r-lg bg-[var(--action)] text-[var(--action-fg)]">
@@ -49,7 +51,7 @@ export default function LoyaltyProgramOverview({ rid, program, item, onTerms }: 
           <div className="relative border-t border-dashed border-current/40 px-5 py-3 text-sm font-medium">
             <span aria-hidden="true" className="absolute -start-2 -top-2 size-4 rounded-full bg-[var(--surface-2)]" />
             <span aria-hidden="true" className="absolute -end-2 -top-2 size-4 rounded-full bg-[var(--surface-2)]" />
-            {t('loyaltyProgramAfter').replace('{threshold}', units(rules.reward_threshold, rules.mode))}
+            {t('loyaltyProgramAfter').replace('{threshold}', units(rules.reward_threshold, loyaltyProgressMode(rules.mode, rules.earning)))}
           </div>
         </div>
       </section>
@@ -65,6 +67,8 @@ export default function LoyaltyProgramOverview({ rid, program, item, onTerms }: 
           <div className="flex justify-between gap-3 py-3"><dt>{t('loyaltyProgramMinimum')}</dt><dd className="text-end font-medium">{rules.minimum_purchase_minor ? money(rules.minimum_purchase_minor) : t('loyaltyProgramNoMinimum')}</dd></div>
           <div className="flex justify-between gap-3 py-3"><dt>{t('loyaltyProgramRewardValidity')}</dt><dd className="text-end font-medium">{rules.reward_validity_days ? t(rules.reward_validity_days === 1 ? 'loyaltyProgramOneDay' : 'loyaltyProgramDays').replace('{n}', number.format(rules.reward_validity_days)) : t('loyaltyProgramNoExpiry')}</dd></div>
         </dl>
+        <button type="button" onClick={onEarning} className={row + ' w-full justify-between border-t border-[var(--line)] text-sm font-medium hover:underline'}>{t('earnActivities')}<ChevronRight aria-hidden="true" className="size-4 rtl:rotate-180"/></button>
+        {rules.earning?.survey && survey && survey.count>0 ? <p className="pb-3 text-sm text-[var(--fg-muted)]">{t('earnSurveyScore').replace('{n}',number.format(survey.count)).replace('{score}',new Intl.NumberFormat(locale,{maximumFractionDigits:1}).format(survey.average))}</p>:null}
         <button type="button" onClick={onTerms} className={row + ' w-full justify-between border-t border-[var(--line)] text-sm font-medium hover:underline'}>{t('loyaltyProgramContent')}<ChevronRight aria-hidden="true" className="size-4 rtl:rotate-180" /></button>
       </section>}
       <section className="min-w-0">

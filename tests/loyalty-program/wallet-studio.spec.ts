@@ -236,6 +236,104 @@ test('opening the editor keeps the saved legacy frame until the first adjustment
   expect(writes).toHaveLength(0);
 });
 
+test('applies a banner layout and color palette to the draft and changes only the sample balance', async ({page}, info) => {
+  const writes = await studio(page);
+  const source = await page.evaluate(() => {
+    const canvas = document.createElement('canvas'); canvas.width = 360; canvas.height = 200;
+    const ctx=canvas.getContext('2d')!;
+    ctx.fillStyle='#f6cf9c';ctx.fillRect(0,0,360,200);
+    ctx.fillStyle='#473025';ctx.fillRect(130,45,100,84);
+    ctx.fillStyle='#f6cf9c';ctx.fillRect(213,61,9,29);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+  await page.getByLabel('Bannière de la carte',{exact:true}).setInputFiles({name:'espresso.png',mimeType:'image/png',buffer:Buffer.from(source,'base64')});
+  await page.getByRole('button',{name:'Espresso',exact:true}).click();
+  await page.getByRole('button',{name:'Compteur sur l’image',exact:true}).click();
+  await expect(page.locator('[data-wallet-banner="apple"] [data-wallet-counter]')).toBeVisible();
+  await page.getByRole('slider',{name:'Solde de démonstration'}).fill('0');
+  await expect(page.locator('[data-wallet-preview="apple"] [data-wallet-counter]')).toContainText('0');
+  await page.screenshot({path:info.outputPath('modeles-wallet.png'),fullPage:true,animations:'disabled'});
+  await page.getByRole('button',{name:'Enregistrer le brouillon'}).click();
+  await expect.poll(()=>writes.length).toBe(1);
+  expect(writes[0].data).toMatchObject({background_color:'#3E2924',banner_original:source,banner_layout:{shared:{fit:'cover'},apple_counter:'overlay'}});
+  expect(writes[0].data).not.toHaveProperty('sample');
+});
+
+test('generates from the published website, can undo, then saves original art for both Wallets', async ({ page }, info) => {
+  const writes = await studio(page);
+  const picture = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 384;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#D7EACA';
+    ctx.fillRect(0, 0, 384, 128);
+    ctx.fillStyle = '#18382A';
+    ctx.fillRect(104, 30, 100, 65);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+  let imports = 0;
+  await page.route('**/loyalty/wallet-studio/website-design*', route => {
+    imports++;
+    expect(route.request().headers()['x-restaurant-id']).toBe('1');
+    return route.fulfill({ json: { restaurant_id: 1, palette: { bg: '#fff', ink: '#000', color_styles: {
+      default: 'style-3', styles: [{ id: 'style-3', background: '#D7EACA', title: '#18382A' }],
+    } }, logo: picture, banner: picture, missing_images: false } });
+  });
+  const bg = page.getByLabel('Couleur du fond', { exact: true });
+  const generate = page.getByRole('button', { name: "Générer avec l'IA" });
+  await bg.fill('#FCDED4');
+  await generate.click();
+  await expect(bg).toHaveValue('#D7EACA');
+  await expect(page.getByLabel('Couleur du texte', { exact: true })).toHaveValue('#18382A');
+  await expect(page.locator('[data-wallet-banner="apple"] img')).toBeVisible();
+  await page.getByRole('tab', { name: 'Google Wallet' }).click();
+  await expect(page.locator('[data-wallet-banner="google"] img')).toBeVisible();
+  await page.getByRole('button', { name: 'Annuler la proposition' }).click();
+  await expect(bg).toHaveValue('#FCDED4');
+  await expect(page.locator('[data-wallet-banner="google"]')).toHaveCount(0);
+  expect(writes).toHaveLength(0);
+  await generate.click();
+  await page.getByRole('tab', { name: 'Apple Wallet' }).click();
+  await expect(page.getByRole('button', { name: 'Annuler la proposition' })).toBeVisible();
+  await page.screenshot({ path: info.outputPath('generation-site-wallet.png'), animations: 'disabled' });
+  await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0]).toMatchObject({ method: 'PUT', data: { banner_original: picture, background_color: '#D7EACA',
+    banner_layout: { shared: { fit: 'cover' }, google: { fit: 'contain' }, apple_counter: 'below' }, apple_strip_png: expect.any(String), google_hero_png: expect.any(String) } });
+  expect(imports).toBe(2);
+  await expect(page.getByRole('button', { name: 'Annuler la proposition' })).toHaveCount(0);
+});
+
+test('keeps existing artwork on partial or empty imports and rejects the wrong restaurant', async ({ page }) => {
+  const writes = await studio(page);
+  const image = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 2;
+    canvas.height = 2;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#336699';
+    ctx.fillRect(0, 0, 2, 2);
+    return canvas.toDataURL().split(',')[1];
+  });
+  await page.getByLabel('Bannière de la carte', { exact: true }).setInputFiles({ name: 'food.png', mimeType: 'image/png', buffer: Buffer.from(image, 'base64') });
+  let result: { restaurant_id: number; missing_images: boolean; logo?: string } = { restaurant_id: 1, missing_images: false };
+  await page.route('**/loyalty/wallet-studio/website-design*', route => route.fulfill({ json: result }));
+  const generate = page.getByRole('button', { name: "Générer avec l'IA" });
+  await generate.click();
+  await expect(page.getByText(/aucune couleur ni image/)).toBeVisible();
+  result = { restaurant_id: 1, logo: image, missing_images: true };
+  await generate.click();
+  await expect(page.getByText(/Certaines images du site/)).toBeVisible();
+  await expect(page.getByLabel('Couleur du fond', { exact: true })).toHaveValue('#336699');
+  await expect(page.locator('[data-wallet-banner="apple"]')).toBeVisible();
+  result = { restaurant_id: 2, missing_images: false };
+  await generate.click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Le design du site' })).toBeVisible();
+  await expect(page.getByLabel('Couleur du fond', { exact: true })).toHaveValue('#336699');
+  expect(writes).toHaveLength(0);
+});
+
 test('preserves a square original, separate Wallet frames and the Apple counter across saves', async ({ page }) => {
   const writes = await studio(page);
   const source = await page.evaluate(() => {
