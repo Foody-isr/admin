@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-21",
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "baseSha256": "2e802dbca3099553a4f2cfc8d09ed883e35ecadfc35448b8bffdff81f2c00097",
+      "sha256": "b70ebaacdbf0fd724bf58d1c8fa72d40be9f7c1ffbc7e35dc135fd930c08dc21",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "These translations name dispatch filters, table columns, delivery insertion and map controls. The keys used by other screens retain their values."
+    },
+    {
+      "path": "src/lib/route-address.ts",
+      "baseSha256": "8a9bcde3f3c1ac1609995fa233f9434a4e3a13cd6f90a2dfa9ad99b3b6b51c51",
+      "sha256": "591135dc1421b0524a36ebaa957e4680db77a4796fad78213817abfe021c85ea",
+      "features": [
+        "shared-runtime",
+        "orders-internal-sumit-checkout"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Search on the dispatch board now combines terms from the order and the address. The address selection, municipality grouping and validation functions retain their behavior."
+    }
+  ]
+}

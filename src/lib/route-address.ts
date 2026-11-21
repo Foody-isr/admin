@@ -107,7 +107,7 @@ export function matchesDeliverySearch(query: string, ...fields: Array<string | n
   const needle = normalizedText(query);
   if (!needle) return true;
   const canonical = cityAliases.get(needle) ?? needle;
-  return fields.some(value => {
+  const singleField = fields.some(value => {
     if (value == null) return false;
     const raw = normalizedText(String(value));
     if (raw.includes(needle) || raw.includes(canonical)) return true;
@@ -118,4 +118,14 @@ export function matchesDeliverySearch(query: string, ...fields: Array<string | n
     }
     return false;
   });
+  if (singleField) return true;
+  const words = query.trim().split(/\s+/);
+  if (words.length < 2) return false;
+  // Match a street and city entered together, including a localized city alias.
+  const haystack = fields.filter(value => value != null).map(value => {
+    const raw = normalizedText(String(value));
+    const canonicalCity = deliveryCityKey(raw);
+    return [raw, canonicalCity, ...municipalitySpellings.filter(([, city]) => city === canonicalCity).map(([alias]) => alias)];
+  }).flat();
+  return words.every(word => haystack.some(field => field.includes(normalizedText(word))));
 }

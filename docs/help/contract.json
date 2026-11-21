@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "0dfdd37d4139c9bd604ff00e8160b0704025fe24",
-  "documentationRevision": "2c9c814f85c6fa5c667894be1c49a810df875f1b8d62ea57bfac867af9f37746",
+  "documentationRef": "4dced398a5b02583202ded704229cbd339fe407e",
+  "documentationRevision": "40a847d66f10ad7b022c5d45af19daf50bcb3e74a1939b376c05e5124b3db543",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "a7267a3512577cebf9e056f431fb30b2db713dcfcb970918b066bf4306cf6dd9"
+          "sha256": "bec159f12717f32752f0eafcc0d3fb11be431b5b6ed5c96e80a67ed52e3e8f41"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "6ad3c2bba9c866abfa03ffa8017a103c5e516a269aca419973d46fd56fdb0bb9"
+          "sha256": "c364213e0376f64714f2edd75c74087474f42b18062e00dc8112cfdfafcc81fa"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "41ce54ea0334cb0e7fc3a99e8f30ebfc62aebc0b9284b03fcdc01f15d2c358ff"
+          "sha256": "5eead728229729f5a1e35ec0f795edd2b93a869cee01dfa3c2a64850f80fdafe"
         }
       }
     },
@@ -4166,7 +4166,7 @@
       ]
     },
     "src/components/delivery/DeliveryMap.tsx": {
-      "sha256": "d64b0989dc543ed01da1b2888c28b76c099d87c953c46cc9471eda2c54b05f54",
+      "sha256": "59c5c831a35012187926a6dee6276251faed6371055472a18373b046f5f63da3",
       "features": [
         "delivery-dispatch"
       ]
@@ -4191,13 +4191,13 @@
       ]
     },
     "src/components/delivery/DispatcherView.tsx": {
-      "sha256": "92c89a49171aa775a0eff1f4d8a3ea1c877db18b38b2a33ee10d6d82fc015464",
+      "sha256": "6225a24d02f6f05d9c421640ac84b86bc08aeb36253864de83fa66657fd178fe",
       "features": [
         "delivery-dispatch"
       ]
     },
     "src/components/delivery/InsertDeliveryDrawer.tsx": {
-      "sha256": "6aaadd8c854d7642f54aa9eb0807faa08117ee301b406c8c9e44b094ecc8aa42",
+      "sha256": "b84e191785e8ad0527c7e0de5c4658973006165716f63d2478f38e1fd9cce233",
       "features": [
         "delivery-dispatch"
       ]
@@ -6880,7 +6880,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "2e802dbca3099553a4f2cfc8d09ed883e35ecadfc35448b8bffdff81f2c00097",
+      "sha256": "b70ebaacdbf0fd724bf58d1c8fa72d40be9f7c1ffbc7e35dc135fd930c08dc21",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -7496,7 +7496,7 @@
       ]
     },
     "src/lib/route-address.ts": {
-      "sha256": "8a9bcde3f3c1ac1609995fa233f9434a4e3a13cd6f90a2dfa9ad99b3b6b51c51",
+      "sha256": "591135dc1421b0524a36ebaa957e4680db77a4796fad78213817abfe021c85ea",
       "features": [
         "delivery-dispatch",
         "shared-runtime",
@@ -16350,8 +16350,10 @@
       ],
       "labels": [
         "courierFitRoute",
+        "deliveryEstimatedEntrance",
         "deliveryZoneZoomIn",
         "deliveryZoneZoomOut",
+        "dispatchNoPins",
         "mapsAllRoutes",
         "mapsLegend",
         "mapsRoute"
@@ -16436,13 +16438,13 @@
         "delivery-dispatch"
       ],
       "labels": [
+        "address",
         "cancel",
         "close",
         "correctAddress",
         "couldNotLoad",
         "couldNotSave",
         "courier",
-        "courierDeparturePending",
         "courierReportedIssues",
         "courierResultPending",
         "courierReviewOrder",
@@ -16484,8 +16486,10 @@
         "deliveryPlanReturnConfirmBody",
         "deliveryPlanReturnConfirmTitle",
         "deliveryPlanReturnToPool",
+        "deliveryPlanShowMap",
         "deliveryPlanStepTwo",
         "deliveryPlanStepTwoHint",
+        "deliveryPlanStops",
         "deliveryPlanUnassignConfirmBody",
         "deliveryPlanUnassignConfirmTitle",
         "deliveryPlanUnassignRoute",
@@ -16493,19 +16497,25 @@
         "deliveryPlanUnplanned",
         "deliveryPlanWhatsApp",
         "deliveryPlanZoneCount",
-        "deliveryQueueSearch",
-        "deliveryQueueSearchShort",
         "deliveryRouteApproximate",
         "deliveryRouteDateMismatch",
-        "deliveryRouteSearch",
-        "deliveryRouteSearchShort",
         "deliveryWhatsAppTitle",
+        "dispatchAddDelivery",
+        "dispatchMapDetail",
+        "dispatchOrder",
+        "dispatchQueue",
         "dispatchRouteSettings",
+        "dispatchSavedAddress",
+        "dispatchSearch",
+        "dispatchStop",
+        "dispatchStopDetail",
+        "dispatchWindow",
+        "dispatchWithWindow",
+        "mapsAllRoutes",
         "mapsRoute",
         "nextDay",
         "noAddress",
         "noCouriersHint",
-        "noResults",
         "previousDay",
         "refresh",
         "retry",
@@ -16515,11 +16525,8 @@
         "routeSettingsSaveFailed",
         "routeSettingsStartAddress",
         "routeSettingsStartPlaceholder",
-        "routeStatusActive",
-        "routeStatusCompleted",
         "selectAll",
         "selectCourier",
-        "stopStatusDelivered",
         "today"
       ],
       "actions": [
@@ -16549,7 +16556,7 @@
       ],
       "labels": [
         "courier",
-        "deliveryInsertBefore",
+        "deliveryInsertAfter",
         "deliveryInsertChoose",
         "deliveryInsertConfirm",
         "deliveryInsertFailed",
@@ -16561,6 +16568,7 @@
         "deliveryInsertRoute",
         "deliveryInsertTitle",
         "deliveryInsertionChanged",
+        "dispatchFirst",
         "mapsRoute"
       ],
       "actions": []
