@@ -7,7 +7,14 @@ const securityHeaders = [
   { key: "Content-Security-Policy", value: "base-uri 'self'; object-src 'none'; frame-ancestors 'none'" },
 ];
 
+const loginRevision = process.env.VERCEL_GIT_COMMIT_SHA || '';
+const loginHeaders = loginRevision ? [{
+  source: '/login',
+  headers: [{ key: 'X-Foody-Login-Revision', value: loginRevision }],
+}] : [];
+
 const nextConfig = {
+  env: { NEXT_PUBLIC_FOODY_LOGIN_REVISION: loginRevision },
   poweredByHeader: false,
   webpack(config, { dev }) {
     // Isolated UI verification can run without a persistent webpack disk cache.
@@ -22,7 +29,7 @@ const nextConfig = {
     ];
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [{ source: "/:path*", headers: securityHeaders }, ...loginHeaders];
   },
 };
 

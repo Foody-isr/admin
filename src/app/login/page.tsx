@@ -1,6 +1,7 @@
 'use client';
 
 import { useMFA } from '@/components/MFAChallenge';
+import { refreshOutdatedLogin } from '@/lib/portal-session';
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
@@ -85,6 +86,7 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
+      if (await refreshOutdatedLogin()) return;
       const { restaurant_ids, user } = await login(email, password, remember, mfa.prompt);
       routeAfterLogin(restaurant_ids, user.role);
     } catch (reason: unknown) {
@@ -99,6 +101,7 @@ export default function LoginPage() {
     setError('');
     setPasskeyLoading(true);
     try {
+      if (await refreshOutdatedLogin()) return;
       const { restaurant_ids, user } = await loginWithPasskey(remember, mfa.prompt);
       routeAfterLogin(restaurant_ids, user.role);
     } catch (reason: unknown) {
