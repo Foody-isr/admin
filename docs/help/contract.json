@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "faaac81a0acb1d28583ec71cc639bc3b69b6fab0",
+  "documentationRef": "ba7d1736bf020f20233a68552c85d63f9148b55f",
   "documentationRevision": "01688b12530e62a5abe73d0f8777887cbdf8c972ffd88e940971b0af58dc60b3",
   "articles": {
     "getting-started/first-login": {
@@ -2227,14 +2227,20 @@
         "analytics-dashboard"
       ]
     },
+    "src/app/[restaurantId]/billing/BillingPortal.tsx": {
+      "sha256": "ca24da0844e192af5548bebf1e5af04c6eef6a4c0b166716938f8cb0633135bd",
+      "features": [
+        "foody-billing-sandbox"
+      ]
+    },
     "src/app/[restaurantId]/billing/ModuleOnboarding.tsx": {
-      "sha256": "0eebcbf25e32e8a2a80ed410f37c46442752d742f8c69f17b669d697307ac884",
+      "sha256": "170b13235d6e1ca300ee694fcedfead037c59c8d0fd52bcc2be5460352d2ed2f",
       "features": [
         "foody-billing-sandbox"
       ]
     },
     "src/app/[restaurantId]/billing/PrivateBilling.tsx": {
-      "sha256": "f027654252bc97dade4fc34d6db320164dd71dac315172c7d77c2e1b7cb945d0",
+      "sha256": "2c993777da08c6d8130182fd0e9730cd1479e718976112ee8f9cad15b301b0e8",
       "features": [
         "foody-billing-sandbox"
       ]
@@ -2246,7 +2252,13 @@
       ]
     },
     "src/app/[restaurantId]/billing/SubscriptionDocuments.tsx": {
-      "sha256": "a1991f4fbd4a6c206a656634b74b9cde2dcc4b2465ff3a3089ebb6d7f655957c",
+      "sha256": "bb327a54e0e30b44a38bc0e1c1b2f4fbdbcc83b3125b607639bb98518da36382",
+      "features": [
+        "foody-billing-sandbox"
+      ]
+    },
+    "src/app/[restaurantId]/billing/billing-portal.module.css": {
+      "sha256": "4a50b18872c2902b0f9e8876b496c35bea3d1464fea4a18c97ce3cf52a1d5aa0",
       "features": [
         "foody-billing-sandbox"
       ]
@@ -2258,7 +2270,7 @@
       ]
     },
     "src/app/[restaurantId]/billing/page.tsx": {
-      "sha256": "81bc79b1fdd85005ba6d3e88a6ac5118503c8b04c70901afb082c643d3a55867",
+      "sha256": "1ddfe93f232c2e09edc474715a3fe7b479cdaa9c9b8d9d861ff517e42f91732b",
       "features": [
         "billing"
       ]
@@ -8397,6 +8409,22 @@
       "route": "/[restaurantId]/analytics"
     },
     {
+      "id": "foodyadmin:src/app/[restaurantId]/billing/BillingPortal.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/app/[restaurantId]/billing/BillingPortal.tsx",
+      "line": 1,
+      "features": [
+        "foody-billing-sandbox"
+      ],
+      "labels": [
+        "billing",
+        "foodyPilotGross",
+        "foodyPilotSandbox",
+        "subscription"
+      ],
+      "actions": []
+    },
+    {
       "id": "foodyadmin:src/app/[restaurantId]/billing/ModuleOnboarding.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/app/[restaurantId]/billing/ModuleOnboarding.tsx",
@@ -8441,13 +8469,11 @@
         "foody-billing-sandbox"
       ],
       "labels": [
-        "billing",
         "billingLoadError",
         "cancel",
         "foodyLicence_",
         "foodyModulePublicTerms",
         "foodyPilotAccept",
-        "foodyPilotAcceptedTerms",
         "foodyPilotAvailable",
         "foodyPilotCheckoutDisabled",
         "foodyPilotChoose",
@@ -8455,17 +8481,15 @@
         "foodyPilotIncludes",
         "foodyPilotMonthlyDisabled",
         "foodyPilotNet",
-        "foodyPilotNextDebit",
         "foodyPilotNoRenewal",
         "foodyPilotOffer",
         "foodyPilotPaidUntil",
-        "foodyPilotPay",
         "foodyPilotPayRegistered",
         "foodyPilotQuoteUntil",
         "foodyPilotRef",
         "foodyPilotRegistrationAmount",
         "foodyPilotResume",
-        "foodyPilotSandbox",
+        "foodyPilotStatus_paid",
         "foodyPilotStop",
         "foodyPilotStopHint",
         "foodyPilotTerms",
@@ -8483,6 +8507,7 @@
         "retry"
       ],
       "actions": [
+        "accepted",
         "open",
         "openStatus",
         "updated"

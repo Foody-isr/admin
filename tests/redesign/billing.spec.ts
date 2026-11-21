@@ -76,7 +76,7 @@ test('billing malformed subscription never exposes change actions', async ({ pag
 });
 
 for (const [cycle, renewal] of [['monthly', true], ['annual', true], ['annual', false]] as const) {
-test(`the owner can pay a private ${cycle} offer with renewal ${renewal} and verify the return`, async ({ page }) => {
+test(`the owner can pay a private ${cycle} offer with renewal ${renewal} and verify the return`, async ({ page }, info) => {
   const state = await install(page);
   const checkoutCalls: unknown[] = [];
   let verifications = 0;
@@ -117,12 +117,15 @@ test(`the owner can pay a private ${cycle} offer with renewal ${renewal} and ver
   await billing.click();
   await expect(billing).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('heading', { name: 'Offre pilote démo' })).toBeVisible();
+  await page.getByRole('link', { name: 'Utilisation', exact: true }).click();
   await expect(page.getByText('Transcriptions de stock OpenAI')).toBeVisible();
+  await page.getByRole('link', { name: 'Abonnement', exact: true }).click();
   await expect(upgrade(page)).toHaveCount(0);
   await page.getByRole('radio', { name: cycle === 'monthly' ? /^Mensuel/ : /^Annuel/ }).check();
   const pay = page.getByRole('button', { name: 'Continuer vers Verifone' });
   await expect(pay).toBeDisabled();
   await page.getByRole('checkbox', { name: /J’accepte cette version/ }).check();
+  if (cycle === 'monthly') await page.screenshot({ path: info.outputPath('checkout-fr.png'), animations: 'disabled' });
   const mandate = page.getByRole('checkbox', { name: /J’autorise Foody/ });
   await expect(mandate).not.toBeChecked();
   if (cycle === 'monthly') await expect(pay).toBeDisabled();
@@ -225,6 +228,7 @@ test('owner filters, views, downloads and resends the same subscription invoice'
   await page.goto('/1/billing#documents');
   const archive = page.locator('#documents');
   await expect(archive.getByText('#4012')).toBeVisible();
+  await archive.getByRole('button', { name: 'Filtres' }).click();
   await archive.getByLabel('Nº de facture').fill('9999');
   await expect(archive.getByText('Aucun paiement correspondant.')).toBeVisible();
   await archive.getByLabel('Nº de facture').fill('4012');
@@ -264,10 +268,12 @@ test('native invoice waits for a verified original and discloses card registrati
     return route.fulfill({ json: { offer, due: true, monthly_enabled: true, checkout_enabled: true, registration_minor: 1 } });
   });
   await page.goto('/1/billing');
+  await page.getByRole('link', { name: 'Factures', exact: true }).click();
   const archive = page.locator('#documents');
   await expect(archive.getByText(/Facture demandée à Verifone/)).toBeVisible();
   await expect(archive.getByRole('button', { name: 'Voir le PDF' })).toHaveCount(0);
   await expect(archive.getByRole('checkbox', { name: /Transmettre la boîte de test/ })).toBeVisible();
+  await page.getByRole('link', { name: 'Abonnement', exact: true }).click();
   await page.getByRole('radio', { name: /Mensuel/ }).check();
   await expect(page.getByText(/Verifone vérifie d’abord la carte pour 0,01.*confirmez le paiement de 590,00/)).toBeVisible();
 });
@@ -291,4 +297,80 @@ test('production owner navigation uses the scoped Foody billing response', async
   await openAccountNavigation(page);
   await expect(nav.getByRole('link', { name: 'Facturation', exact: true })).toHaveCount(0);
   await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
+for (const locale of ['fr', 'he'] as const) test(`paid portal prioritizes the next charge and keeps invoice navigation in history (${locale})`, async ({ page }, info) => {
+  await install(page, { locale });
+  await page.setViewportSize({ width: locale === 'fr' ? 1366 : 390, height: 860 });
+  await page.clock.setFixedTime(new Date('2026-11-21T12:00:00Z'));
+  const monthly = { net_minor: 50000, vat_minor: 9000, total_minor: 59000 };
+  const offer = { id: 11, version: 3, title: 'Foody Online', includes: 'Foody Online', terms: 'Demo terms.', start_date: '2026-11-19', monthly, annual: monthly };
+  const periodEnd = '2026-12-19T10:00:00Z';
+  const writes: string[] = [];
+  let renews = true;
+  await page.route('**/api/v1/restaurants/1/foody-billing**', route => {
+    const path = new URL(route.request().url()).pathname;
+    if (route.request().method() !== 'GET') {
+      writes.push(path);
+      expect(path).toMatch(/stop-renewal$/);
+      renews = false;
+    }
+    if (path.endsWith('/usage')) return route.fulfill({ json: { month: '2026-11', observed: {}, complete: true } });
+    if (path.endsWith('/documents')) return route.fulfill({ json: { ...emptyDocuments, email_available: true, documents: [{
+      payment_id: 31, title: 'Foody Online', number: 1019, cycle: 'monthly', kind: 'checkout', paid_at: '2026-11-19T10:00:00Z',
+      period_start: '2026-11-19T10:00:00Z', period_end: periodEnd, issue_state: 'ready', mail_state: 'sent', price: monthly,
+    }] } });
+    return route.fulfill({ json: { offer, accepted_offer: offer, agreement: { offer_id: 11, cycle: 'monthly', period_end: periodEnd, renews, card_last_four: '4242' },
+      payment: { id: 31, offer_id: 11, cycle: 'monthly', amount_minor: 59000, status: 'paid' },
+      checkout_enabled: true, monthly_enabled: true, annual_renewal_enabled: true, due: false } });
+  });
+  await page.goto('/1/billing');
+  const hero = page.getByRole('region', { name: locale === 'fr' ? 'Votre abonnement' : 'המנוי שלכם', exact: true });
+  await expect(hero).toContainText('Foody Online');
+  await expect(hero).toContainText('590');
+  await expect(hero).toContainText('19');
+  await expect(page.getByRole('radio')).toHaveCount(0);
+  await expect(page.getByText('•••• 4242')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('overview-' + locale + '.png'), animations: 'disabled' });
+  await page.getByRole('link', { name: locale === 'fr' ? 'Factures' : 'חשבוניות', exact: true }).click();
+  await expect(page.locator('#documents')).toContainText('#1019');
+  await expect(page.getByLabel(locale === 'fr' ? 'Mois du paiement' : 'חודש התשלום')).toBeHidden();
+  await page.screenshot({ path: info.outputPath('invoices-' + locale + '.png'), animations: 'disabled' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.goBack();
+  await expect(hero).toBeVisible();
+  expect(writes).toEqual([]);
+  if (locale === 'fr') {
+    await page.getByText('Gérer le renouvellement', { exact: true }).click();
+    await page.getByRole('button', { name: 'Arrêter le renouvellement automatique' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Annuler' }).click();
+    expect(writes).toEqual([]);
+    await page.getByRole('button', { name: 'Arrêter le renouvellement automatique' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Arrêter le renouvellement automatique' }).click();
+    await expect(hero).toContainText('Fin de la période payée');
+    await expect(hero).not.toContainText('Prochain prélèvement');
+    expect(writes).toHaveLength(1);
+  }
+});
+
+test('an amended offer keeps the accepted plan and its price separate until acceptance', async ({ page }) => {
+  await install(page);
+  const initial = { id: 11, version: 1, title: 'Plan actuel', includes: 'Licence initiale', terms: 'Conditions signées', start_date: '2026-11-19',
+    monthly: { total_minor: 59000, net_minor: 50000, vat_minor: 9000 }, annual: { total_minor: 0, net_minor: 0, vat_minor: 0 } };
+  const candidate = { ...initial, id: 12, version: 2, title: 'Offre suivante', terms: 'Nouvelles conditions', monthly: { total_minor: 70800, net_minor: 60000, vat_minor: 10800 } };
+  await page.route('**/api/v1/restaurants/1/foody-billing**', route => {
+    expect(route.request().method()).toBe('GET');
+    if (route.request().url().endsWith('/usage')) return route.fulfill({ json: { observed: {}, month: '2026-11', complete: true } });
+    return route.fulfill({ json: { offer: candidate, accepted_offer: initial, agreement: { offer_id: 11, cycle: 'monthly', period_end: '2027-12-19T10:00:00Z', renews: true },
+      checkout_enabled: true, monthly_enabled: true, due: false } });
+  });
+  await page.goto('/1/billing');
+  const current = page.getByRole('region', { name: 'Votre abonnement' });
+  await expect(current).toContainText('Plan actuel');
+  await expect(current).not.toContainText('708');
+  await expect(page.getByRole('region', { name: 'Offre suivante' })).toContainText('708');
+  await expect(page.getByRole('radio')).toHaveCount(0);
+  await page.getByText('Détails de votre abonnement', { exact: true }).click();
+  await expect(page.getByText('Conditions signées')).toBeVisible();
 });
