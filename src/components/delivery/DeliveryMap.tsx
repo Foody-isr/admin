@@ -48,6 +48,7 @@ export interface DeliveryMapProps {
   couriers?: CourierMarker[];
   queueOrders?: { id: number; lat: number; lng: number }[];
   onQueueClick?: (orderId: number) => void;
+  onPointCountChange?: (count: number) => void;
   restaurant?: { lat: number; lng: number };
   highlightCourierId?: number | null;
   highlightRouteId?: number | null;
@@ -94,7 +95,7 @@ function numberedIcon(label: string, color: string, selected = false): L.DivIcon
   if (!icon) {
     icon = L.divIcon({
       className: selected ? 'foody-stop-pin foody-selected-pin' : 'foody-stop-pin',
-      html: `<div style="background:${color};color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px;box-shadow:${selected ? '0 0 0 4px #fff,0 0 0 7px #193b39' : '0 1px 4px #0004'};border:2px solid #fff">${label}</div>`,
+      html: `<div style="background:${color};color:#fff;margin:3px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px;box-shadow:${selected ? '0 0 0 4px #fff,0 0 0 7px var(--brand-ink)' : '0 1px 4px #0004'};border:2px solid #fff">${label}</div>`,
       iconSize: [28, 28],
       iconAnchor: [14, 14],
     });
@@ -200,7 +201,7 @@ function FitBounds({ points, couriers = [], request = 0, courier = false }: { po
 }
 
 export default function DeliveryMap({
-  restaurantId, geometry, routingProvider, stops, start, end, routes, couriers, queueOrders, onQueueClick, restaurant, highlightCourierId, highlightRouteId, onRouteSelect, onStopClick, variant = 'default', selectedStopId, className,
+  restaurantId, geometry, routingProvider, stops, start, end, routes, couriers, queueOrders, onQueueClick, onPointCountChange, restaurant, highlightCourierId, highlightRouteId, onRouteSelect, onStopClick, variant = 'default', selectedStopId, className,
 }: DeliveryMapProps) {
   const { t } = useI18n();
   const [provider, setProvider] = useState('unavailable');
@@ -214,6 +215,8 @@ export default function DeliveryMap({
   // Orders without coordinate provenance can be displayed on Google's base map only.
   const queue = useMemo(() => provider === 'google' ? (queueOrders ?? []).filter(point =>
     validZoneCoordinate(point) && (point.lat !== 0 || point.lng !== 0)) : [], [provider, queueOrders]);
+  const pointCount = queue.length + layers.reduce((total, layer) => total + located(layer.stops).length, 0);
+  useEffect(() => { onPointCountChange?.(pointCount); }, [pointCount, onPointCountChange]);
   const points = useMemo<[number, number][]>(() => {
     const pts: [number, number][] = queue.map(point => [point.lat, point.lng]);
     if (restaurant) pts.push([restaurant.lat, restaurant.lng]);
@@ -237,7 +240,7 @@ export default function DeliveryMap({
         <DeliveryTiles restaurantId={restaurantId} onProviderChange={setProvider} />
         {restaurant && <Marker position={[restaurant.lat, restaurant.lng]} icon={HOME_ICON} />}
         {queue.map(point => <Marker key={point.id} position={[point.lat, point.lng]} title={`#${point.id}`}
-          icon={numberedIcon('+', '#326755')} eventHandlers={{ click: () => onQueueClick?.(point.id) }} />)}
+          icon={numberedIcon('+', BRAND)} eventHandlers={{ click: () => onQueueClick?.(point.id) }} />)}
         {layers.map((layer) => {
           const dim = highlightRouteId != null ? layer.routeId !== highlightRouteId : highlightCourierId != null && layer.courierId !== highlightCourierId;
           const seq = located(layer.stops).sort((a, b) => a.sequence - b.sequence);
