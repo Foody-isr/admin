@@ -1,0 +1,51 @@
+{
+  "reviewedAt": "2026-11-21",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "f504a767b837bf208bbe647bd3c078780e2f4d827c7fb9da1abb3e4c7ce9497a",
+      "baseSha256": "319fa0c921baacb248035e7f8c9ae2424353a9ab844c0ecc9c3fd08364aa9146",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "delivery-dispatch",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions",
+        "customers-loyalty-program"
+      ],
+      "reason": "The added types and API call are used only by the restaurant subscription chooser. Guest orders, menus, loyalty accounts, dispatch and POS payments retain their own endpoints and screens."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "179dc5ec0014e059a98da3651de7d2a6903d6f352c51ca5d4839b994ed4491f7",
+      "baseSha256": "fc583b882f8a8a888838246ed599329cb341b601c1a89e1e9e11d86320078dfd",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program"
+      ],
+      "reason": "All added strings belong to the owner subscription chooser and its trial dates. The existing translations used by the other screens mapped to this shared dictionary are unchanged."
+    }
+  ]
+}

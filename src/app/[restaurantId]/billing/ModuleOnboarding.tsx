@@ -1,17 +1,18 @@
 'use client';
 
 import { useRef, useState, type FormEvent } from 'react';
-import { selectFoodyOnboarding, type FoodyBillingOnboarding, type FoodyBillingView, type FoodyModule } from '@/lib/api';
+import { selectFoodyOnboarding, selectFoodyPublicPlan, type FoodyBillingOnboarding, type FoodyBillingView, type FoodyModule } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { LicenceInputs } from './SubscriptionAdditions';
 import { commercialSelection, licenceTariffs } from '@/lib/commercial-catalog';
 import styles from './billing-portal.module.css';
-import { Badge, Button, PageHead } from '@/components/ds';
+import { Button } from '@/components/ds';
 
 /** Presents the catalogue or the configured private trial within owner billing. */
-export function ModuleOnboarding({ restaurantId, view, onConfirmed }: {
+export function ModuleOnboarding({ restaurantId, view, onConfirmed, compare = false }: {
   restaurantId: number;
   view: FoodyBillingView & { onboarding?: FoodyBillingOnboarding };
+  compare?: boolean;
   onConfirmed: (view: FoodyBillingView) => void;
 }) {
   const { t, locale } = useI18n();
@@ -23,9 +24,11 @@ export function ModuleOnboarding({ restaurantId, view, onConfirmed }: {
   const [error, setError] = useState(false);
   const submitting = useRef(false);
   const onboarding = view.onboarding;
-  if (!onboarding) return null;
-  const { catalog, mode, trial_allowed: allowed, trial_days: days } = onboarding;
-  const isPublic = mode === 'public';
+  const catalog = compare ? view.plan_catalog : onboarding?.catalog;
+  if (!catalog) return null;
+  const isPublic = compare || onboarding?.mode === 'public';
+  const days = compare ? 0 : onboarding?.trial_days ?? 0;
+  const allowed = onboarding?.trial_allowed ?? [];
   const products = catalog.products.filter(product => isPublic ? days === 0 || allowed.includes(product.id) : allowed.includes(product.id));
   const preview = commercialSelection(catalog, selection, planId);
   const selectedPlan = catalog.plans?.find(plan => plan.id === planId);
@@ -45,7 +48,10 @@ export function ModuleOnboarding({ restaurantId, view, onConfirmed }: {
     setError(false);
     setBusy(true);
     try {
-      const next = await selectFoodyOnboarding(restaurantId, isPublic ? { modules: selectedPlan ? [] : selection, plan_id: planId, extra_pos_licences: extraPOS, extra_licences: extras } : {});
+      const choice = { modules: selectedPlan ? [] : selection, plan_id: planId, extra_pos_licences: extraPOS, extra_licences: extras };
+      const next = compare && view.plan_catalog
+        ? await selectFoodyPublicPlan(restaurantId, { ...choice, catalog_version: view.plan_catalog.version, expected_offer_id: view.offer?.id ?? 0 })
+        : await selectFoodyOnboarding(restaurantId, isPublic ? choice : {});
       onConfirmed(next);
     } catch {
       setError(true);
@@ -55,19 +61,35 @@ export function ModuleOnboarding({ restaurantId, view, onConfirmed }: {
     }
   }
 
-  return <div className={styles.portal}>
-    <PageHead title={t('foodyModuleOnboarding')} actions={<Badge tone="warning" dot>{t('foodyPilotSandbox')}</Badge>} desc={days > 0
-      ? t('foodyModuleTrialAvailable').replace('{days}', String(days))
-      : t('foodyModulePaymentAccess')} />
-    <section className={styles.panel}><h2>{isPublic ? t('foodyModuleChoose') : t('foodyPilotOffer')}</h2>
+  const plans = catalog.plans?.filter(plan => plan.published && (days === 0 || plan.modules.every(id => allowed.includes(id)))) ?? [];
+  const trialEnd = view.lifecycle?.trial_end;
+  return <section id="subscription" tabIndex={-1} className={styles.panel}>
+    <h2>{t(compare ? 'foodyPlanChoose' : 'foodyModuleOnboarding')}</h2>
+    <p className={styles.hint}>{compare
+      ? trialEnd && (view.lifecycle?.state === 'trial' || view.lifecycle?.state === 'expired')
+        ? t(view.lifecycle.state === 'trial' ? 'foodyPlanTrialUntil' : 'foodyPlanTrialEnded').replace('{date}', new Intl.DateTimeFormat(locale,{dateStyle:'long', timeZone:'Asia/Jerusalem'}).format(new Date(trialEnd)))
+        : t('foodyPlanCompareHint')
+      : days > 0 ? t('foodyModuleTrialAvailable').replace('{days}', String(days)) : t('foodyModulePaymentAccess')}</p>
       <form onSubmit={submit} className={styles.checkout + ' mt-5'}>
         <div className="space-y-4">
         {!isPublic && view.offer && <>
           <h2 className="text-lg font-semibold" dir="auto">{view.offer.title}</h2>
           <p className="text-sm">{t('foodyModuleTrialIncludes')}</p>
         </>}
-        {isPublic && !!catalog.plans?.filter(plan=>plan.published&&(days===0||plan.modules.every(id=>allowed.includes(id)))).length && <label className="block text-sm">{t('foodyUpgradePlans')}<select className="input mt-2 block w-full" value={planId} disabled={busy} onChange={e=>{setPlanId(e.target.value);setSelection([]);setExtras({});}}><option value="">{t('foodyUpgradeIndividual')}</option>{catalog.plans.filter(plan=>plan.published&&(days===0||plan.modules.every(id=>allowed.includes(id)))).map(plan=><option key={plan.id} value={plan.id}>{plan.name[locale]} · {money(plan.monthly_minor)}</option>)}</select></label>}
-        <fieldset className="divide-y divide-[var(--line)] rounded-lg border border-[var(--line)]" disabled={busy || !!planId}>
+        {isPublic && plans.length > 0 && <fieldset className={styles.choices} disabled={busy}>
+          <legend>{t('foodyPlanOptions')}</legend>
+          {plans.map(plan => <label key={plan.id} className={styles.option} data-selectable="true" data-selected={planId === plan.id}>
+            <span className={styles.optionHead}><strong>{plan.name[locale]}</strong>
+              <input type="radio" name="foody-plan" checked={planId === plan.id} onChange={() => {setPlanId(plan.id); setSelection([]); setExtras({});}} /></span>
+            <span className={styles.optionPrice}><bdi>{money(plan.monthly_minor)}</bdi> <small>{t('foodyModuleMonthlyHT')}</small></span>
+            <span className={styles.optionNote}>{catalog.products.filter(product => plan.modules.includes(product.id)).map(product => product.name[locale]).join(' · ')}</span>
+          </label>)}
+          <label className={styles.option} data-selectable="true" data-selected={!planId}>
+            <span className={styles.optionHead}><strong>{t('foodyUpgradeIndividual')}</strong>
+              <input type="radio" name="foody-plan" checked={!planId} onChange={() => {setPlanId(''); setExtras({});}} /></span>
+          </label>
+        </fieldset>}
+        {!planId && <fieldset className="divide-y divide-[var(--line)] rounded-lg border border-[var(--line)]" disabled={busy || !!planId}>
           {products.map(product => (
             <label key={product.id} className="flex flex-wrap items-center gap-3 p-4 text-sm">
               {isPublic && <input type="checkbox" checked={selectedModules.includes(product.id)} onChange={event => {
@@ -78,7 +100,7 @@ export function ModuleOnboarding({ restaurantId, view, onConfirmed }: {
               {isPublic && <span><bdi>{money(product.monthly_minor)}</bdi> {t('foodyModuleMonthlyHT')}</span>}
             </label>
           ))}
-        </fieldset>
+        </fieldset>}
         {isPublic && !editable && hasPOS && <label className="block text-sm">
           {t('foodyModuleExtraPOS')} <bdi>{money(catalog.extra_pos_minor)}</bdi> {t('foodyModuleMonthlyHT')}
           <input className="input mt-2 block max-w-32" type="number" min={0} step={1} value={extra} onChange={event => setExtra(event.target.value)} />
@@ -93,8 +115,7 @@ export function ModuleOnboarding({ restaurantId, view, onConfirmed }: {
           {busy ? t('loading') : days > 0 ? t('foodyModuleStartTrial') : t('foodyModuleReviewOffer')}
         </Button></div>
       </form>
-    </section>
-  </div>;
+    </section>;
 }
 
 /** Displays the active sandbox scope and its date beside the payment summary. */
@@ -107,8 +128,8 @@ export function ModuleAccessSummary({ restaurantId, onboarding }: { restaurantId
   return <div className="space-y-3 rounded-lg border border-[var(--line)] p-4 text-sm">
     <p className="font-semibold">{t('foodyModuleStatus_' + access.status)}{access.status === 'trial' && expires ? ` · ${expires}` : ''}</p>
     {access.plan_name && <p className="font-semibold">{access.plan_name[locale]}</p>}
-    <p>{t('foodyModuleSubscriptionIncludes')} {selected.map(product => product.name[locale]).join(', ')}</p>
-    {access.status === 'trial' && <p>{t('foodyModuleTrialIncludes')} {enabled.map(product => product.name[locale]).join(', ')}</p>}
+    {selected.length > 0 && <p>{t('foodyModuleSubscriptionIncludes')} {selected.map(product => product.name[locale]).join(', ')}</p>}
+    {access.status === 'trial' && enabled.length > 0 && <p>{t('foodyModuleTrialIncludes')} {enabled.map(product => product.name[locale]).join(', ')}</p>}
     {(onboarding.licences.pos > 0 || onboarding.licences.chef > 0 || (onboarding.licences.pos_devices ?? 0) > 0) && <p className="text-[var(--fg-muted)]">
       {t(onboarding.licences.pos_users_unlimited ? 'foodyDeviceLicences' : 'foodyModuleLicences').replace('{pos}', String(onboarding.licences.pos_users_unlimited ? onboarding.licences.pos_devices ?? 0 : onboarding.licences.pos)).replace('{chef}', String(onboarding.licences.chef)).replace('{kds}', String(onboarding.licences.kds))}
     </p>}

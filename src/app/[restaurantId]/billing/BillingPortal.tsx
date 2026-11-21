@@ -66,12 +66,12 @@ export function useBillingSection() {
 }
 
 /** Provides direct links to the owner's agreement, invoice archive and usage. */
-export function BillingHeader({ section }: { section: ReturnType<typeof locationSection> }) {
+export function BillingHeader({ section, showUsage = true }: { section: ReturnType<typeof locationSection>; showUsage?: boolean }) {
   const { t, locale } = useI18n();
   return <>
     <PageHead className={styles.header} title={t('billing')} actions={<Badge tone="warning" dot>{t('foodyPilotSandbox')}</Badge>} />
     <nav className={styles.nav} aria-label={t('billing')}>
-      {links.map(([id, Icon]) => <a key={id} href={'#' + id} aria-current={section === id ? 'page' : undefined}>
+      {links.filter(([id]) => showUsage || id !== 'usage').map(([id, Icon]) => <a key={id} href={'#' + id} aria-current={section === id ? 'page' : undefined}>
         <Icon size={17} aria-hidden="true" />{portalCopy[locale][id]}
       </a>)}
     </nav>

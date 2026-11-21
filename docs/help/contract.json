@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "1a90ad6ac7a77a2f8b99f52d0da9b24b9ce952a5",
-  "documentationRevision": "21206a053768e370802914739b962e4fa4922b0417c7a1b250b89ac593929dc6",
+  "documentationRef": "1505ac5ffa4144ea32fd827a3ee01b7789110f69",
+  "documentationRevision": "d473700964c67bc6dcd2154d4f7ebc613bdff34130246eeeff63126518530e92",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -145,15 +145,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/account/subscription.mdx",
-          "sha256": "9c1894692b86cae9bd534e1d560acbc44451080638dd49c2dcb17d485d4283d6"
+          "sha256": "36a1a24c19b8e9dc33d911fae58a2ee0aa8c26537c862267b89306008702587e"
         },
         "fr": {
           "path": "src/content/help/fr/account/subscription.mdx",
-          "sha256": "ea7d99b259135767dc4f0fb7a5b6a38d70c189553d527e3ad872bbe8fc7a6961"
+          "sha256": "498babc6d65a4dc9b6feda00786a19d4698d1b179c0a12281b75b4e592721357"
         },
         "he": {
           "path": "src/content/help/he/account/subscription.mdx",
-          "sha256": "bb871b9c0d99a53cf8507a709e0070e520655cf6f626d3552ec8841cb70025e1"
+          "sha256": "e06bec00cce08a1734190dfa7251fe2459e379ddcf2863dc814e0922ba1f575d"
         }
       }
     },
@@ -164,15 +164,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/foody-billing-sandbox.md",
-          "sha256": "3b9dd9fbbfcbe3c54e46223835bad8a13c1c51c07f609dce1e77c714787c55aa"
+          "sha256": "80b2d6ddbcdc429a2c6294e14d680d92b7a03c92426c69e83fc70a5e9075fe72"
         },
         "fr": {
           "path": "docs/help/internal/fr/foody-billing-sandbox.md",
-          "sha256": "742b175a60716aa49843e3c88ca7fd6045637b0fee084c25a778bd0940cbb276"
+          "sha256": "8e326a70240d758fa01011a02bffacd4706038237334df57b1cc3867a037b14a"
         },
         "he": {
           "path": "docs/help/internal/he/foody-billing-sandbox.md",
-          "sha256": "7a01aff5f3c4bef09f1093ba1b9ea508b0e3f856e06a2d479d0b7ea69c6fb436"
+          "sha256": "5245bd59e8a46962a706af09144a026b292983226d36cb9da80c9e767b55a7ba"
         }
       }
     },
@@ -2228,19 +2228,19 @@
       ]
     },
     "src/app/[restaurantId]/billing/BillingPortal.tsx": {
-      "sha256": "ca24da0844e192af5548bebf1e5af04c6eef6a4c0b166716938f8cb0633135bd",
+      "sha256": "c8c29863d88cba17c2b0eafbceeeebd06e920510d8911df6b5684403d08ac1e5",
       "features": [
         "foody-billing-sandbox"
       ]
     },
     "src/app/[restaurantId]/billing/ModuleOnboarding.tsx": {
-      "sha256": "170b13235d6e1ca300ee694fcedfead037c59c8d0fd52bcc2be5460352d2ed2f",
+      "sha256": "a34580bb5cc18d086148dd59a60e93b646467d847b71fa66d891624596bdebcc",
       "features": [
         "foody-billing-sandbox"
       ]
     },
     "src/app/[restaurantId]/billing/PrivateBilling.tsx": {
-      "sha256": "2c993777da08c6d8130182fd0e9730cd1479e718976112ee8f9cad15b301b0e8",
+      "sha256": "d96b79e4757452c35be09510c8897aa1f7312c0d996f4c696a4cf17d29b2fbdf",
       "features": [
         "foody-billing-sandbox"
       ]
@@ -6716,7 +6716,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "319fa0c921baacb248035e7f8c9ae2424353a9ab844c0ecc9c3fd08364aa9146",
+      "sha256": "f504a767b837bf208bbe647bd3c078780e2f4d827c7fb9da1abb3e4c7ce9497a",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6935,7 +6935,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "fc583b882f8a8a888838246ed599329cb341b601c1a89e1e9e11d86320078dfd",
+      "sha256": "179dc5ec0014e059a98da3651de7d2a6903d6f352c51ca5d4839b994ed4491f7",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -8460,10 +8460,8 @@
         "foody-billing-sandbox"
       ],
       "labels": [
-        "foodyModuleChoose",
         "foodyModuleExtraPOS",
         "foodyModuleMonthlyHT",
-        "foodyModuleOnboarding",
         "foodyModuleOpenWorkspace",
         "foodyModulePaidStarts",
         "foodyModulePaymentAccess",
@@ -8475,10 +8473,9 @@
         "foodyModuleTotal",
         "foodyModuleTrialAvailable",
         "foodyModuleTrialIncludes",
-        "foodyPilotOffer",
-        "foodyPilotSandbox",
+        "foodyPlanCompareHint",
+        "foodyPlanOptions",
         "foodyUpgradeIndividual",
-        "foodyUpgradePlans",
         "loading"
       ],
       "actions": [
@@ -8527,6 +8524,8 @@
         "foodyPilotVAT",
         "foodyPilotVerify",
         "foodyPilotVersion",
+        "foodyPlanChange",
+        "foodyPlanSelected",
         "foodyUpgradeDueNow",
         "foodyUpgradePeriod",
         "foodyUpgradeReviewHint",
