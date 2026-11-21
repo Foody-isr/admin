@@ -5434,6 +5434,7 @@ export interface CreateOrderComboInput {
 
 export interface CreateOrderInput {
   delivery_address_token?: string;
+  address_choice_observation?: import('./address-field-observation').AddressChoiceOutcome;
   order_type: 'pickup' | 'delivery';
   customer_name: string;
   customer_phone: string;

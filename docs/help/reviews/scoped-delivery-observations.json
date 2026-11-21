@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-21",
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/orders/new/page.tsx",
+      "sha256": "7200e9eee0863769346690404db923ab387e97559a2bcec84d9b348ee3c18539",
+      "disposition": "no-user-impact",
+      "reason": "The internal checkout address field reports aggregate observations for an opted-in restaurant. Staff continue to search, select and submit an address with the same controls.",
+      "baseSha256": "c8b9c6929ecb5b3868870cea53157131f2336c907d21d65c19b206fbfd77adbd",
+      "features": [
+        "orders-managing-orders",
+        "order-detail",
+        "orders-internal-sumit-checkout",
+        "orders-events"
+      ]
+    },
+    {
+      "path": "src/components/delivery/RouteAddressField.tsx",
+      "sha256": "2119f97587b775590228e0a0d01972d420af58c47105dcee4cbdd2a2fc926d21",
+      "disposition": "no-user-impact",
+      "reason": "The internal checkout address field reports aggregate observations for an opted-in restaurant. Staff continue to search, select and submit an address with the same controls.",
+      "baseSha256": "d7b31e7ba941577cc534a0def3a1b0244282d9d92d4e20af944220c65140c10f",
+      "features": [
+        "delivery-dispatch",
+        "maps-usage"
+      ]
+    },
+    {
+      "path": "src/components/orders/NewOrderCheckoutPanel.tsx",
+      "sha256": "d8fcb0eb29b1829876264fcbfe6ce174d40985e8c90d0a28fb3ab5f82f467e61",
+      "disposition": "no-user-impact",
+      "reason": "The internal checkout address field reports aggregate observations for an opted-in restaurant. Staff continue to search, select and submit an address with the same controls.",
+      "baseSha256": "f76448af468229cf8488246d328035320970bbbcf2df53cd2bcfae6fb01473db",
+      "features": [
+        "orders-managing-orders",
+        "order-detail",
+        "orders-internal-sumit-checkout",
+        "orders-events"
+      ]
+    },
+    {
+      "path": "src/lib/address-field-observation.ts",
+      "sha256": "a42335f2015125bfc5313c6f5ff2cb61a881bbd3232cbea8b193b44f3341b7c8",
+      "disposition": "no-user-impact",
+      "reason": "The internal checkout address field reports aggregate observations for an opted-in restaurant. Staff continue to search, select and submit an address with the same controls."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "39dcb61f641476ccca9bf68a2906eed032e47985e7d5217fa8427afa78ef9797",
+      "disposition": "no-user-impact",
+      "reason": "The internal checkout address field reports aggregate observations for an opted-in restaurant. Staff continue to search, select and submit an address with the same controls.",
+      "baseSha256": "48ecfc0e490ccf9c1ba62cf326a5c86a968c0319b35e010e6d1ed87785ba7f89",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "delivery-dispatch",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions",
+        "customers-wallet-studio"
+      ]
+    },
+    {
+      "path": "src/lib/delivery.ts",
+      "sha256": "dc32c9cdc872f4286f58748aeb9a579d550caca23a368e382c3d598accf3c084",
+      "disposition": "no-user-impact",
+      "reason": "The internal checkout address field reports aggregate observations for an opted-in restaurant. Staff continue to search, select and submit an address with the same controls.",
+      "baseSha256": "31fad930a4be817f10c2b2c37c671635376eb4cb5dc6a277c589aebf22ef645e",
+      "features": [
+        "delivery-dispatch",
+        "shared-runtime"
+      ]
+    }
+  ]
+}
