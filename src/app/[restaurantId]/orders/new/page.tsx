@@ -587,6 +587,7 @@ function NewStaffOrder({ restaurantId, staffId }: { restaurantId: number; staffI
           ? {
               delivery_address: data.address.trim(),
               delivery_address_token: data.addressToken,
+              address_choice_observation: data.addressObservation,
               delivery_city: data.city.trim() || undefined,
               delivery_floor: data.floor.trim() || undefined,
               delivery_apt: data.apt.trim() || undefined,
