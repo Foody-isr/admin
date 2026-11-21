@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "b402d55a0b3830b1f8cb3d8eefdd584065742896",
+  "documentationRef": "5a1436b8aaec74cad0d8bc5eade310e017312fc1",
   "documentationRevision": "9b910a9861451c026c00e2f3af3cc0e6b90ee99980e863b5b465b683af47fa0c",
   "articles": {
     "getting-started/first-login": {
@@ -3167,7 +3167,7 @@
       ]
     },
     "src/app/[restaurantId]/orders/new/page.tsx": {
-      "sha256": "c8b9c6929ecb5b3868870cea53157131f2336c907d21d65c19b206fbfd77adbd",
+      "sha256": "7200e9eee0863769346690404db923ab387e97559a2bcec84d9b348ee3c18539",
       "features": [
         "orders-managing-orders",
         "order-detail",
@@ -4264,7 +4264,7 @@
       ]
     },
     "src/components/delivery/RouteAddressField.tsx": {
-      "sha256": "d7b31e7ba941577cc534a0def3a1b0244282d9d92d4e20af944220c65140c10f",
+      "sha256": "2119f97587b775590228e0a0d01972d420af58c47105dcee4cbdd2a2fc926d21",
       "features": [
         "delivery-dispatch",
         "maps-usage"
@@ -5395,7 +5395,7 @@
       ]
     },
     "src/components/orders/NewOrderCheckoutPanel.tsx": {
-      "sha256": "f76448af468229cf8488246d328035320970bbbcf2df53cd2bcfae6fb01473db",
+      "sha256": "d8fcb0eb29b1829876264fcbfe6ce174d40985e8c90d0a28fb3ab5f82f467e61",
       "features": [
         "orders-managing-orders",
         "order-detail",
@@ -6690,6 +6690,12 @@
         "shared-runtime"
       ]
     },
+    "src/lib/address-field-observation.ts": {
+      "sha256": "a42335f2015125bfc5313c6f5ff2cb61a881bbd3232cbea8b193b44f3341b7c8",
+      "features": [
+        "shared-runtime"
+      ]
+    },
     "src/lib/ai-context.tsx": {
       "sha256": "9aae68da557588db2e1c17f006a6db187e51b1eb8425708865ea4c7ab036f3bc",
       "features": [
@@ -6704,7 +6710,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "d36ce3c8a01c54bb64141db4b13d7a38679df0c00c8295e1356b61043dd5a45d",
+      "sha256": "69e033440d2c6cb98f98684437ee0ae179fe6bcd568fafb9560c328e1653b69c",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6864,7 +6870,7 @@
       ]
     },
     "src/lib/delivery.ts": {
-      "sha256": "31fad930a4be817f10c2b2c37c671635376eb4cb5dc6a277c589aebf22ef645e",
+      "sha256": "dc32c9cdc872f4286f58748aeb9a579d550caca23a368e382c3d598accf3c084",
       "features": [
         "delivery-dispatch",
         "shared-runtime"
@@ -16777,7 +16783,9 @@
         "retry",
         "routeAddressSearchUnavailable"
       ],
-      "actions": []
+      "actions": [
+        "accepted"
+      ]
     },
     {
       "id": "foodyadmin:src/components/delivery/RouteSettingsEditor.tsx:ui-controls:1",
