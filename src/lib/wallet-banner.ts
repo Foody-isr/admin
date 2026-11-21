@@ -27,6 +27,19 @@ export function originalImageURL(base64: string): string {
   return 'data:image/' + mime + ';base64,' + base64;
 }
 
+/** Resize uploaded or imported artwork to the Wallet preview dimensions, preserving its aspect ratio. */
+export function walletThumbnail(image: HTMLImageElement, maxWidth: number): string {
+  const scale = Math.min(1, maxWidth / image.naturalWidth, 320 / image.naturalHeight);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Image canvas unavailable');
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/png');
+}
+
 /** Read the exact uploaded bytes, including transparency and source resolution. */
 export async function readBannerOriginal(file: File): Promise<string> {
   const result = await new Promise<string>((resolve, reject) => {

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-21",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "e93957800f806fdc90e1f1b95f4f5a0d7b830fddd2737cd9ec9b0c869e82fda5",
+      "baseSha256": "57910679f8c77b1305324d88767b2e721b694da34860d0acd805140b32c88c8d",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "delivery-dispatch",
+        "delivery-zones",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-events",
+        "orders-internal-sumit-checkout",
+        "payments-how-payments-work",
+        "payments-transactions",
+        "pos-payments",
+        "stancer-cash-guarantee"
+      ],
+      "reason": "The new read-only Wallet Studio request retrieves website branding along with the loyalty earning options added on this branch. Catalog, discounts, payments, profiles and order endpoints keep their previous request and response contracts."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "fc583b882f8a8a888838246ed599329cb341b601c1a89e1e9e11d86320078dfd",
+      "baseSha256": "620ba83cf560446ec7c910741f32d90f718679126095701279e181da17403962",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "delivery-dispatch",
+        "delivery-zones",
+        "google-account-setup",
+        "menu-menus-and-groups",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-internal-sumit-checkout",
+        "payments-transactions",
+        "pos-behavior",
+        "stancer-cash-guarantee",
+        "website-journey",
+        "website-order-design",
+        "website-sections",
+        "whatsapp"
+      ],
+      "reason": "The additional operator labels describe Wallet website artwork suggestions and earning rules on the loyalty screens. Staff using the other Admin features continue to see their existing labels and controls."
+    }
+  ]
+}
