@@ -3,8 +3,8 @@
   "files": [
     {
       "path": "src/lib/api.ts",
-      "sha256": "69e033440d2c6cb98f98684437ee0ae179fe6bcd568fafb9560c328e1653b69c",
-      "baseSha256": "82926288e393bb5644f89da3d38234eaf0657f272e2af45ed53e8c040adf86a5",
+      "sha256": "f504a767b837bf208bbe647bd3c078780e2f4d827c7fb9da1abb3e4c7ce9497a",
+      "baseSha256": "319fa0c921baacb248035e7f8c9ae2424353a9ab844c0ecc9c3fd08364aa9146",
       "disposition": "no-user-impact",
       "features": [
         "customers-profiles",
@@ -17,14 +17,15 @@
         "orders-internal-sumit-checkout",
         "stancer-cash-guarantee",
         "orders-events",
-        "payments-transactions"
+        "payments-transactions",
+        "customers-loyalty-program"
       ],
-      "reason": "The added types and client method are used only by the restaurant subscription chooser. Checkout for customer orders, menus, dispatch and POS payments keep their existing requests and screens."
+      "reason": "The added types and API call are used only by the restaurant subscription chooser. Guest orders, menus, loyalty accounts, dispatch and POS payments retain their own endpoints and screens."
     },
     {
       "path": "src/lib/i18n.tsx",
-      "sha256": "6bb07ac83966b259ff2fbfb7ebb0eef24d9fad1bdd1dd603c529cdd371e8431c",
-      "baseSha256": "620ba83cf560446ec7c910741f32d90f718679126095701279e181da17403962",
+      "sha256": "179dc5ec0014e059a98da3651de7d2a6903d6f352c51ca5d4839b994ed4491f7",
+      "baseSha256": "fc583b882f8a8a888838246ed599329cb341b601c1a89e1e9e11d86320078dfd",
       "disposition": "no-user-impact",
       "features": [
         "customers-profiles",

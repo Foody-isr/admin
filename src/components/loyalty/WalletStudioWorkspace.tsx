@@ -4,27 +4,38 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Crop, Download, ImagePlus, Smartphone } from 'lucide-react';
+import { Crop, Download, ImagePlus, LoaderCircle, Smartphone, Sparkles, Undo2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   Badge, BooleanInput, Button, Card, CardBody, CardHeader, CardTitle, Input, PageHead,
   Tab, Tabs, TabsContent, TabsList,
 } from '@/components/ds';
 import {
-  ApiError, generateWalletStudioTest, getStoredUser, getWalletStudio, publishWalletStudio, saveWalletStudio,
+  ApiError, generateWalletStudioTest, getStoredUser, getWalletStudio, getWalletWebsiteDesign, publishWalletStudio, saveWalletStudio,
   type WalletStudioDesign, type WalletStudioState,
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useI18n } from '@/lib/i18n';
 import { loyaltyCustomerPage } from '@/lib/loyalty-program';
-import { defaultBannerLayout, originalImageURL, readBannerOriginal, renderWalletBanners, sameBannerLayout, walletFrame, type WalletBannerLayout, type WalletPlatform } from '@/lib/wallet-banner';
+import { defaultBannerLayout, originalImageURL, readBannerOriginal, renderWalletBanners, sameBannerLayout, walletFrame, walletThumbnail, type WalletBannerLayout, type WalletPlatform } from '@/lib/wallet-banner';
+import { proposeWebsiteDesign } from '@/lib/wallet-website-design';
 import type { ImageFrame } from '@/lib/website-v3/image-framing';
 import { FramedWalletBanner, WalletBannerControls } from './WalletBannerFraming';
 
 type AssetSlot = 'logo' | 'banner';
 type Draft = { background: string; foreground: string; hideRestaurantName: boolean; logo: string | null; banner: string | null; original: string | null; layout: WalletBannerLayout | null };
-type Action = 'save' | 'publish' | 'generate' | AssetSlot;
+type Action = 'save' | 'publish' | 'generate' | 'website' | AssetSlot;
 const isColor = (value: string) => /^#[0-9a-f]{6}$/i.test(value);
+const palettes = [
+  {label:'earnPaletteCoffee',background:'#3E2924',foreground:'#FFF3DF'},
+  {label:'earnPaletteCitrus',background:'#FFE891',foreground:'#302710'},
+  {label:'earnPaletteHerb',background:'#C4E0C4',foreground:'#18372B'},
+] as const;
+const templates: {name:string;layout:WalletBannerLayout}[] = [
+  {name:'earnLayoutProduct',layout:defaultBannerLayout()},
+  {name:'earnLayoutPanorama',layout:{shared:{fit:'cover',x:50,y:50,zoom:1},apple_counter:'below'}},
+  {name:'earnLayoutOverlay',layout:{shared:{fit:'cover',x:50,y:50,zoom:1},apple_counter:'overlay'}},
+];
 const testBarcode = 'FOODY-WALLET-STUDIO-TEST';
 const legacyLayout: WalletBannerLayout = { shared: { fit: 'cover', x: 50, y: 50, zoom: 1 }, apple_counter: 'overlay' };
 
@@ -49,15 +60,7 @@ async function prepareArtwork(file: File, slot: AssetSlot): Promise<string> {
     const width = image.naturalWidth;
     const height = image.naturalHeight;
     if (!width || !height || (slot === 'banner' && (width > 16384 || height > 16384 || width * height > 50_000_000))) throw new Error('Unreadable image');
-    const scale = Math.min(1, (slot === 'banner' ? 750 : 320) / width, 320 / height);
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(width * scale));
-    canvas.height = Math.max(1, Math.round(height * scale));
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('Image canvas unavailable');
-    context.imageSmoothingQuality = 'high';
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/png');
+    return walletThumbnail(image, slot === 'banner' ? 750 : 320);
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -97,6 +100,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
   const [passURL, setPassURL] = useState<string | null>(null);
   const [platform, setPlatform] = useState<WalletPlatform>('apple');
   const [framing, setFraming] = useState(false);
+  const [websiteImport, setWebsiteImport] = useState<{ before: Draft; parts: string[]; partial: boolean } | null>(null);
   const operation = useRef<AbortController | null>(null);
   const saved = useMemo(() => state && fromDesign(state.design), [state]);
   const frameChanged = !!draft && !!saved && (draft.banner !== saved.banner || draft.original !== saved.original || !sameBannerLayout(draft.layout, saved.layout));
@@ -117,6 +121,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
   useEffect(() => {
     const request = new AbortController();
     setLoading(true);
+    setWebsiteImport(null);
     setError('');
     setImageError(null);
     setMessage('');
@@ -145,6 +150,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
   }, [passURL]);
 
   function change(patch: Partial<Draft>) {
+    setWebsiteImport(null);
     setDraft(current => current && { ...current, ...patch });
     setImageError(current => current && current.slot in patch ? null : current);
     setError('');
@@ -152,6 +158,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
     setPassURL(null);
   }
 
+  const [sample,setSample]=useState(1);
   const layout = draft?.layout ?? legacyLayout;
   function adjustFrame(frame: ImageFrame) {
     change({ layout: platform === 'google' && layout.google ? { ...layout, google: frame } : { ...layout, shared: frame } });
@@ -175,6 +182,8 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
         setError('loyaltyProgramForbidden');
       } else if (failure instanceof ApiError && failure.message === 'loyalty_conflict') {
         setError('walletStudioConflict');
+      } else if (mode === 'website') {
+        setError('walletStudioWebsiteError');
       } else if (mode === 'logo' || mode === 'banner') {
         setImageError({ slot: mode, key: 'walletStudioImageReadError' });
       } else if (mode === 'save' && failure instanceof ApiError && [400, 413, 415].includes(failure.status)) {
@@ -204,6 +213,35 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
     });
   }
 
+  function generateFromWebsite() {
+    if (!state?.can_edit || !draft || stale) return;
+    void perform('website', async signal => {
+      const source = await getWalletWebsiteDesign(rid, signal);
+      if (source.restaurant_id !== rid) throw new Error('Website restaurant mismatch');
+      if (signal.aborted || getStoredUser()?.id !== actor) return;
+      const { patch, missingImages } = await proposeWebsiteDesign(source);
+      if (signal.aborted || getStoredUser()?.id !== actor) return;
+      const parts = [];
+      if (patch.background) parts.push('walletStudioColors');
+      if (patch.logo) parts.push('walletStudioLogo');
+      if (patch.banner) parts.push('walletStudioBanner');
+      if (!parts.length) {
+        if (missingImages) setError('walletStudioWebsiteMediaError');
+        else setMessage('walletStudioWebsiteEmpty');
+        return;
+      }
+      const same = (!patch.background || patch.background === draft.background && patch.foreground === draft.foreground)
+        && (!patch.logo || patch.logo === draft.logo)
+        && (!patch.banner || patch.banner === draft.banner && patch.original === draft.original && sameBannerLayout(patch.layout ?? null, draft.layout));
+      if (same) {
+        setMessage(missingImages ? 'walletStudioWebsitePartial' : 'walletStudioWebsiteCurrent');
+        return;
+      }
+      change(patch);
+      setWebsiteImport({ before: draft, parts, partial: missingImages });
+    });
+  }
+
   function save() {
     if (!state || !draft || !canSave) return;
     void perform('save', async (signal) => {
@@ -222,6 +260,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
       if (signal.aborted) return;
       setState({ ...state, design });
       setDraft(fromDesign(design));
+      setWebsiteImport(null);
       setMessage('walletStudioSaved');
     });
   }
@@ -281,6 +320,30 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
               <CardBody>
                 <fieldset className="min-w-0 space-y-5" disabled={!state.can_edit || !!action || stale}>
                   <legend className="sr-only">{t('walletStudioAppearance')}</legend>
+                  {state.can_edit && <div className="space-y-2 border-b border-[var(--line)] pb-5">
+                    <Button type="button" variant="secondary" onClick={generateFromWebsite} aria-busy={action === 'website'} aria-describedby="wallet-website-help">
+                      {action === 'website' ? <LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Sparkles size={16} aria-hidden="true" />}
+                      {t(action === 'website' ? 'walletStudioWebsiteWorking' : 'generateWithAi')}
+                    </Button>
+                    <p id="wallet-website-help" className="text-sm text-[var(--fg-muted)]">{t('walletStudioWebsiteHelp')}</p>
+                    {websiteImport && <div className="space-y-1">
+                      <p className="text-sm" role="status">{t('walletStudioWebsiteApplied')} {websiteImport.parts.map(key => t(key)).join(' · ')}.
+                        {websiteImport.partial && <> {t('walletStudioWebsitePartial')}</>}
+                      </p>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => change(websiteImport.before)}>
+                        <Undo2 size={15} aria-hidden="true" />{t('walletStudioWebsiteUndo')}
+                      </Button>
+                    </div>}
+                  </div>}
+                  <fieldset className="space-y-2">
+                    <legend className="text-sm font-medium">{t('earnPresets')}</legend>
+                    <div className="grid grid-cols-3 gap-2">{palettes.map(p=><button key={p.label} type="button"
+                      aria-pressed={draft.background.toUpperCase()===p.background && draft.foreground.toUpperCase()===p.foreground}
+                      onClick={()=>change({background:p.background, foreground:p.foreground})}
+                      style={{backgroundColor:p.background,color:p.foreground}}
+                      className="min-w-0 rounded-lg border border-black/10 p-3 text-start text-sm font-semibold focus-visible:outline-2 aria-pressed:ring-2 aria-pressed:ring-[var(--fg)]">
+                      {t(p.label)}</button>)}</div>
+                  </fieldset>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <ColorField id="wallet-background" label={t('walletStudioBackground')} value={draft.background}
                       fallback={state.design.background_color} onChange={background => change({ background })} />
@@ -301,6 +364,21 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
                       error={imageError?.slot === 'banner' ? t(imageError.key) : undefined}
                       onPick={file => pick('banner', file)} onRemove={() => { setFraming(false); change({ banner: null, original: null, layout: null }); }} />
                     {draft.banner && <>
+                      <fieldset className="space-y-2">
+                        <legend className="text-sm font-medium">{t('earnLayouts')}</legend>
+                        <div className="grid grid-cols-3 gap-2">
+                          {templates.map(template => <button key={template.name} type="button"
+                            aria-pressed={sameBannerLayout(layout, template.layout)}
+                            className="overflow-hidden rounded-lg border border-[var(--line)] text-start focus-visible:outline-2 aria-pressed:ring-2 aria-pressed:ring-[var(--fg)]"
+                            onClick={() => change({layout:structuredClone(template.layout)})}>
+                            <span aria-hidden="true" className="relative block h-14" style={{backgroundColor: isColor(draft.background) ? draft.background : state.design.background_color}}>
+                              <Image unoptimized fill alt="" src={draft.original ?? draft.banner!} style={{objectFit:template.layout.shared.fit}} />
+                              {template.layout.apple_counter === 'overlay' && <span className="absolute start-2 bottom-1 font-bold" style={{color:isColor(draft.foreground) ? draft.foreground : state.design.foreground_color}}>8</span>}
+                            </span>
+                            <span className="block px-2 py-2 text-xs font-medium">{t(template.name)}</span>
+                          </button>)}
+                        </div>
+                      </fieldset>
                       <Button type="button" variant="secondary" aria-expanded={framing} aria-controls="wallet-frame-controls" onClick={() => setFraming(!framing)}>
                         <Crop size={16} aria-hidden="true" />{t('walletFrameTitle')}
                       </Button>
@@ -382,9 +460,13 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
                     <Tab value="apple">Apple Wallet</Tab>
                     <Tab value="google">Google Wallet</Tab>
                   </TabsList>
-                  {(['apple', 'google'] as const).map(wallet => <TabsContent key={wallet} value={wallet}><Preview platform={wallet} state={state} draft={draft}
+                  {(['apple', 'google'] as const).map(wallet => <TabsContent key={wallet} value={wallet}><Preview platform={wallet} state={state} draft={draft} sample={sample}
                     onFrame={framing && state.can_edit && !action && !stale ? adjustFrame : undefined} /></TabsContent>)}
                 </Tabs>
+                <label className="mx-auto mt-4 flex max-w-sm items-center gap-2 text-sm">
+                  {t('earnSample')}<input className="min-w-0 flex-1" type="range" min="0" max={Math.max(0,(state.program?.threshold??2)-1)} value={Math.min(sample,(state.program?.threshold??2)-1)} onChange={ev=>setSample(Number(ev.target.value))}/>
+                  <output className="tabular-nums">{Math.min(sample,(state.program?.threshold??2)-1)}</output>
+                </label>
                 <p className="mt-4 text-center text-xs text-[var(--fg-muted)]">{t('walletStudioPreviewHint')}</p>
               </CardBody>
             </Card>
@@ -440,7 +522,7 @@ function AssetField({ id, label, image, error, onPick, onRemove }: {
   );
 }
 
-function Preview({ platform, state, draft, onFrame }: { platform: WalletPlatform; state: WalletStudioState; draft: Draft; onFrame?: (f: ImageFrame) => void }) {
+function Preview({ platform, state, draft, sample, onFrame }: { sample:number; platform: WalletPlatform; state: WalletStudioState; draft: Draft; onFrame?: (f: ImageFrame) => void }) {
   const { t, locale } = useI18n();
   const apple = platform === 'apple';
   const background = isColor(draft.background) ? draft.background : state.design.background_color;
@@ -450,7 +532,7 @@ function Preview({ platform, state, draft, onFrame }: { platform: WalletPlatform
   const title = state.program?.names[locale] || t('loyaltyProgramTitle');
   const unit = t(state.program?.mode === 'points' ? 'loyaltyProgramPoints' : 'loyaltyProgramVisits');
   const threshold = state.program?.threshold ?? 2;
-  const progress = Math.min(1, threshold - 1);
+  const progress = Math.min(sample, threshold - 1);
   const counterBelow = apple && !!draft.banner && draft.layout?.apple_counter === 'below';
   const progressFields = (
     <div data-wallet-counter>

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "5a1436b8aaec74cad0d8bc5eade310e017312fc1",
-  "documentationRevision": "9b910a9861451c026c00e2f3af3cc0e6b90ee99980e863b5b465b683af47fa0c",
+  "documentationRef": "1505ac5ffa4144ea32fd827a3ee01b7789110f69",
+  "documentationRevision": "d473700964c67bc6dcd2154d4f7ebc613bdff34130246eeeff63126518530e92",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -2121,15 +2121,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/customers/loyalty-program.mdx",
-          "sha256": "68d6a7c7e7db16004795ed55d39d6e8e9bba5e880972518d871ad6900a10fac2"
+          "sha256": "2f5c616821c36a3e96ff64718063868473e6f4fdd41c0b10ae95501efeff5e90"
         },
         "fr": {
           "path": "src/content/help/fr/customers/loyalty-program.mdx",
-          "sha256": "3f023c820245d35b64b3026fb0b1a5b143eb5faaac1ed1d99ae56d951a2d846d"
+          "sha256": "c7e2efc68aa3ad6ddb90b8c52d5609596ef7cd9e2c7ce49c146a5bdbb059a363"
         },
         "he": {
           "path": "src/content/help/he/customers/loyalty-program.mdx",
-          "sha256": "e3d2221a4183a357e8d0f4bdbc1379eacaaf0bf1fb920e6c051cc04c31b7b4ca"
+          "sha256": "d45826584a240aa4292f306fd72666f53bca4718e6cfbe5ddcd78144a6f20f01"
         }
       }
     },
@@ -2140,15 +2140,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/wallet-studio.md",
-          "sha256": "9985ccc25b10af21187956138a65982d5ccadc647cec82f55ffa372a4f0ca58c"
+          "sha256": "7c6755fb48e26afa60bca7d0807884c7a5603d1d06b90ddd8fb392f6eb7084c5"
         },
         "fr": {
           "path": "docs/help/internal/fr/wallet-studio.md",
-          "sha256": "025113aab8fb967d3a628691fbc3673b3cf47aac999f6bb320c6f58cbb6731cc"
+          "sha256": "6b68e1a2086a5770f372a550646c5f14183bd80ccca42534b1bfa7dc634f6c25"
         },
         "he": {
           "path": "docs/help/internal/he/wallet-studio.md",
-          "sha256": "bbc8abfaeb03b6025b9ad742f5e502c2f10c80f45849951e5033d254cb002909"
+          "sha256": "a743c44ff6fc81984873b5f0c7660f5cc34c3a3384f42cb58a49268e06e46c2c"
         }
       }
     },
@@ -4575,14 +4575,20 @@
         "shared-runtime"
       ]
     },
+    "src/components/loyalty/LoyaltyEarningEditor.tsx": {
+      "sha256": "7feaeada85074d0dcadc8b11dec93b29851f161113f7298fcd3c36de46ef4f30",
+      "features": [
+        "customers-loyalty-program"
+      ]
+    },
     "src/components/loyalty/LoyaltyProgramOverview.tsx": {
-      "sha256": "9f554e8eb22dc8c9166d42c486b9ee3c49709e4e3aefe3731d73a4831f4c0c28",
+      "sha256": "f17597cec274f51bffa456cfc24274d22f61c41cdc7eb172ddbcb7e1f0ebcfc2",
       "features": [
         "customers-loyalty-program"
       ]
     },
     "src/components/loyalty/LoyaltyProgramWorkspace.tsx": {
-      "sha256": "842b1c2286d7a28dd80cb065be66773e0488482d978ec538779d3dd943d11bdc",
+      "sha256": "01d95bd4c0c8f99915abaa4a30a606fe7998cb5a05e83a852b4561679592459c",
       "features": [
         "customers-loyalty-program",
         "customers-wallet-studio"
@@ -4596,7 +4602,7 @@
       ]
     },
     "src/components/loyalty/WalletStudioWorkspace.tsx": {
-      "sha256": "0c4b4e379ffca2ed7a639837e9ac8b8d8b55c1242efc4c7a66be8932ab4d2b21",
+      "sha256": "0b9b58c4c561964447b2110594c9aeb163b5931d839374b7dc571e34914e615a",
       "features": [
         "customers-loyalty-program",
         "customers-wallet-studio"
@@ -6710,7 +6716,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "69e033440d2c6cb98f98684437ee0ae179fe6bcd568fafb9560c328e1653b69c",
+      "sha256": "f504a767b837bf208bbe647bd3c078780e2f4d827c7fb9da1abb3e4c7ce9497a",
       "features": [
         "customers-profiles",
         "menu-variants-and-sizes",
@@ -6724,6 +6730,7 @@
         "stancer-cash-guarantee",
         "orders-events",
         "payments-transactions",
+        "customers-loyalty-program",
         "customers-wallet-studio"
       ]
     },
@@ -6928,7 +6935,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "6bb07ac83966b259ff2fbfb7ebb0eef24d9fad1bdd1dd603c529cdd371e8431c",
+      "sha256": "179dc5ec0014e059a98da3651de7d2a6903d6f352c51ca5d4839b994ed4491f7",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -7017,7 +7024,7 @@
       ]
     },
     "src/lib/loyalty-program.ts": {
-      "sha256": "ec226d2b797ce98859d07a9def7feb148cbc0bed6573db152a71965323433b2a",
+      "sha256": "5a0b29dc7c692a0c6742d3f9023e87cfbd6366c6cfc717a243547301f1bb122a",
       "features": [
         "shared-runtime",
         "customers-loyalty-program"
@@ -7739,7 +7746,15 @@
       ]
     },
     "src/lib/wallet-banner.ts": {
-      "sha256": "8557f99fb0d6ae791d888a3a36ba6a21dabf4b42d15ffa20539f631909b13e61",
+      "sha256": "0ac24ff6fd681a94b4c1bf28aa71b742e0bc19d3890e645ea41144b6be0f445e",
+      "features": [
+        "shared-runtime",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ]
+    },
+    "src/lib/wallet-website-design.ts": {
+      "sha256": "e0b44dfe78794d932534ae8b000d42036977f447d9a831bc8af47a2a61af8253",
       "features": [
         "shared-runtime",
         "customers-loyalty-program",
@@ -17543,6 +17558,42 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/loyalty/LoyaltyEarningEditor.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/loyalty/LoyaltyEarningEditor.tsx",
+      "line": 1,
+      "features": [
+        "customers-loyalty-program"
+      ],
+      "labels": [
+        "earnAddProduct",
+        "earnCatalogType",
+        "earnCategory",
+        "earnCombine",
+        "earnDateFrom",
+        "earnDateUntil",
+        "earnDirectGift",
+        "earnDouble",
+        "earnEnable",
+        "earnLocalTime",
+        "earnPerUnit",
+        "earnPriority",
+        "earnProducts",
+        "earnProductsOnly",
+        "earnUnits",
+        "loyaltyCheckoutRefresh",
+        "loyaltyProgramCatalogError",
+        "loyaltyProgramChoose",
+        "loyaltyProgramProduct",
+        "loyaltyProgramRewardType",
+        "loyaltyProgramSpend",
+        "walletStudioRemove"
+      ],
+      "actions": [
+        "updateProduct"
+      ]
+    },
+    {
       "id": "foodyadmin:src/components/loyalty/LoyaltyProgramOverview.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/loyalty/LoyaltyProgramOverview.tsx",
@@ -17551,12 +17602,14 @@
         "customers-loyalty-program"
       ],
       "labels": [
+        "earnActivities",
+        "earnProductHeading",
+        "earnSurveyScore",
         "loyaltyProgramAfter",
         "loyaltyProgramCard",
         "loyaltyProgramContent",
         "loyaltyProgramDiscountValue",
         "loyaltyProgramEarnSpend",
-        "loyaltyProgramEarnVisit",
         "loyaltyProgramItem",
         "loyaltyProgramMinimum",
         "loyaltyProgramNoExpiry",
@@ -17584,6 +17637,7 @@
       ],
       "labels": [
         "cancel",
+        "earnActivities",
         "loading",
         "loyaltyCheckoutRefresh",
         "loyaltyProgramAmount",
@@ -17673,6 +17727,9 @@
         "customers-wallet-studio"
       ],
       "labels": [
+        "earnLayouts",
+        "earnPresets",
+        "earnSample",
         "loading",
         "loyaltyProgramForbidden",
         "loyaltyProgramTitle",
@@ -17706,7 +17763,11 @@
         "walletStudioTestCard",
         "walletStudioTestHint",
         "walletStudioThreshold",
-        "walletStudioTitle"
+        "walletStudioTitle",
+        "walletStudioWebsiteApplied",
+        "walletStudioWebsiteHelp",
+        "walletStudioWebsitePartial",
+        "walletStudioWebsiteUndo"
       ],
       "actions": [
         "publish",
@@ -26098,6 +26159,7 @@
         "stancer-cash-guarantee",
         "orders-events",
         "payments-transactions",
+        "customers-loyalty-program",
         "customers-wallet-studio"
       ],
       "labels": [],

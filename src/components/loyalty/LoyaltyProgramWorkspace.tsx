@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Pencil, Plus, RefreshCw } from 'lucide-react';
+import LoyaltyEarningEditor from './LoyaltyEarningEditor';
 import LoyaltyProgramOverview from './LoyaltyProgramOverview';
 import { ApiError, getLoyaltyProgram, getStoredUser, listAllItems, saveLoyaltyProgram, type LoyaltyProgramState, type MenuItem } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useI18n, type Locale } from '@/lib/i18n';
-import { clearProgramIntent, loyaltyLanguages, loyaltyProgramDraft, loyaltyProgramPayload, readProgramIntent, storeProgramIntent, type LoyaltyProgramDraft, type PendingLoyaltyProgram } from '@/lib/loyalty-program';
+import { clearProgramIntent, loyaltyProgressMode, loyaltyLanguages, loyaltyProgramDraft, loyaltyProgramPayload, readProgramIntent, storeProgramIntent, type LoyaltyProgramDraft, type PendingLoyaltyProgram } from '@/lib/loyalty-program';
 import { BooleanInput, Button, ChoiceRow, ConfirmDialog, Field, Input, PageHead, Select, Tab, Tabs, TabsContent, TabsList, Textarea } from '@/components/ds';
 
 /** Remount the form on restaurant/actor changes and remove data after cross-tab sign-out. */
@@ -24,7 +25,7 @@ const loadError = (error: unknown) => error instanceof ApiError && error.status 
 
 function ProgramForm({ rid, actor }: { rid: number; actor: number }) {
   const { t, locale, direction } = useI18n();
-  const [view, setView] = useState<'overview' | 'rules' | 'terms'>('overview');
+  const [view, setView] = useState<'overview' | 'rules' | 'earning' | 'terms'>('overview');
   const [chosenLanguage, setChosenLanguage] = useState<Locale | null>(null);
   const language = chosenLanguage ?? locale;
   const editing = view !== 'overview';
@@ -59,6 +60,13 @@ function ProgramForm({ rid, actor }: { rid: number; actor: number }) {
   useEffect(() => { const guard = (e: BeforeUnloadEvent) => { if (lock.current || dirty && !pending) { e.preventDefault(); e.returnValue = ''; } }; window.addEventListener('beforeunload', guard); return () => window.removeEventListener('beforeunload', guard); }, [dirty, pending]);
   useEffect(() => { if (draft?.reward !== 'item' || items !== null) return; let alive = true; setCatalogError(false); void listAllItems(rid).then(data => { if (alive) setItems(data.filter(item => item.is_active && !item.combo_only && item.item_type !== 'combo' && item.pricing_mode !== 'by_weight')); }).catch(() => { if (alive) setCatalogError(true); }); return () => { alive = false; }; }, [rid, draft?.reward, items, catalogRevision]);
   const patch = (key: keyof LoyaltyProgramDraft, value: string | boolean) => setDraft(old => old ? { ...old, [key]: value } : old);
+  function changeMode(mode:'points'|'visits') {
+    setDraft(old => {
+      if (!old) return old;
+      const bonus = old.earning?.purchase_bonus;
+      return bonus ? {...old, mode, earning:{...old.earning, purchase_bonus:{units:bonus.units, spend_minor:mode==='visits'?100:0}}} : {...old, mode};
+    });
+  }
   const code = state?.program?.rules.currency ?? state?.restaurant_currency ?? '';
   let valid = false;
   if (draft && state) { try { loyaltyProgramPayload(draft, code, state.program?.revision ?? 0, '00000000-0000-4000-8000-000000000001', state.program?.id ?? null); valid = true; } catch { /* Incomplete fields keep Save disabled. */ } }
@@ -118,7 +126,7 @@ function ProgramForm({ rid, actor }: { rid: number; actor: number }) {
     {state && draft && <>
       {!state.can_manage_program && <p className="text-sm text-[var(--fg-muted)]">{t('loyaltyProgramReadOnly')}</p>}
       {code !== state.restaurant_currency && <p role="alert" className="text-sm">{t('loyaltyProgramCurrencyChanged')}</p>}
-      {view === 'overview' ? <LoyaltyProgramOverview rid={rid} program={state.program}
+      {view === 'overview' ? <LoyaltyProgramOverview rid={rid} program={state.program} onEarning={()=>setView('earning')} survey={state.survey}
         item={items?.find(item => item.id === state.program?.rules.reward_item_id)} onTerms={() => { setNotice(''); setView('terms'); }} /> : <>
         {pending && <p role="status" className="border-s-2 border-[var(--warning-500)] ps-4 text-sm">{t('loyaltyProgramPending')}</p>}
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-r-lg bg-[var(--surface-2)] px-5 py-4">
@@ -130,20 +138,20 @@ function ProgramForm({ rid, actor }: { rid: number; actor: number }) {
             disabled={frozen} onChange={event => patch('enabled', event.target.checked)} />
         </div>
         {state.identity_locked && <p className="text-sm text-[var(--fg-muted)]">{t('loyaltyProgramIdentityLocked')}</p>}
-        <Tabs variant="underline" dir={direction} value={view} onValueChange={value => setView(value === 'terms' ? 'terms' : 'rules')}>
+        <Tabs variant="underline" dir={direction} value={view} onValueChange={value => setView(value === 'terms' || value === 'earning' ? value : 'rules')}>
           <TabsList aria-label={t('loyaltyProgramTitle')}>
-            <Tab value="rules">{t('loyaltyProgramRules')}</Tab><Tab value="terms">{t('loyaltyProgramTermsTab')}</Tab>
+            <Tab value="rules">{t('loyaltyProgramRules')}</Tab><Tab value="earning">{t('earnActivities')}</Tab><Tab value="terms">{t('loyaltyProgramTermsTab')}</Tab>
           </TabsList>
           <TabsContent value="rules">
             <fieldset disabled={frozen} className="grid min-w-0 gap-8 pb-2 pt-3 lg:grid-cols-2 lg:gap-12">
               <section className="min-w-0 space-y-4">
                 <h2 className={sectionTitle}>{t('loyaltyProgramEarn')}</h2>
-                <fieldset disabled={state.identity_locked} className="min-w-0 space-y-2">
+                <fieldset disabled={state.identity_locked || draft.earning?.products_only} className="min-w-0 space-y-2">
                   <legend className="sr-only">{t('loyaltyProgramMode')}</legend>
-                  <ChoiceRow type="radio" name="loyalty-mode" label={t('loyaltyProgramVisits')} aria-label={t('loyaltyProgramVisits')} description={t('loyaltyProgramEarnVisit')} checked={draft.mode === 'visits'} onChange={() => patch('mode', 'visits')} />
-                  <ChoiceRow type="radio" name="loyalty-mode" label={t('loyaltyProgramPoints')} aria-label={t('loyaltyProgramPoints')} description={t('loyaltyProgramPointsHint')} checked={draft.mode === 'points'} onChange={() => patch('mode', 'points')} />
+                  <ChoiceRow type="radio" name="loyalty-mode" label={t('loyaltyProgramVisits')} aria-label={t('loyaltyProgramVisits')} description={t('loyaltyProgramEarnVisit')} checked={draft.mode === 'visits'} onChange={() => changeMode('visits')} />
+                  <ChoiceRow type="radio" name="loyalty-mode" label={t('loyaltyProgramPoints')} aria-label={t('loyaltyProgramPoints')} description={t('loyaltyProgramPointsHint')} checked={draft.mode === 'points'} onChange={() => changeMode('points')} />
                 </fieldset>
-                {draft.mode === 'points' && <div className="grid grid-cols-2 gap-4">
+                {draft.mode === 'points' && !draft.earning?.products_only && <div className="grid grid-cols-2 gap-4">
                   <Field label={`${t('loyaltyProgramSpend')} (${code})`}><Input inputMode="decimal" value={draft.step} onChange={e => patch('step', e.target.value)} /></Field>
                   <Field label={t('loyaltyProgramUnits')}><Input inputMode="numeric" value={draft.units} onChange={e => patch('units', e.target.value)} /></Field>
                 </div>}
@@ -158,7 +166,7 @@ function ProgramForm({ rid, actor }: { rid: number; actor: number }) {
                   <ChoiceRow type="radio" name="loyalty-reward" aria-label={t('loyaltyProgramFixed')} label={t('loyaltyProgramFixed')} checked={draft.reward === 'fixed'} onChange={() => patch('reward', 'fixed')} />
                   <ChoiceRow type="radio" name="loyalty-reward" aria-label={t('loyaltyProgramItem')} label={t('loyaltyProgramItem')} checked={draft.reward === 'item'} onChange={() => patch('reward', 'item')} />
                 </fieldset>
-                <Field label={t(draft.mode === 'visits' ? 'loyaltyProgramVisitsThreshold' : 'loyaltyProgramPointsThreshold')}>
+                <Field label={t(loyaltyProgressMode(draft.mode, draft.earning) === 'visits' ? 'loyaltyProgramVisitsThreshold' : 'loyaltyProgramPointsThreshold')}>
                   <Input inputMode="numeric" value={draft.threshold} onChange={e => patch('threshold', e.target.value)} />
                 </Field>
                 {draft.reward === 'fixed' ? <Field label={`${t('loyaltyProgramAmount')} (${code})`}><Input inputMode="decimal" value={draft.amount} onChange={e => patch('amount', e.target.value)} /></Field> : <>
@@ -176,6 +184,11 @@ function ProgramForm({ rid, actor }: { rid: number; actor: number }) {
                 </Field>
                 <p className="text-sm text-[var(--fg-muted)]">{t('loyaltyProgramPromoHint')}</p>
               </section>
+            </fieldset>
+          </TabsContent>
+          <TabsContent value="earning">
+            <fieldset className="min-w-0" disabled={frozen}><legend className="sr-only">{t('earnActivities')}</legend>
+              <LoyaltyEarningEditor restaurant={rid} mode={draft.mode} currency={code} value={draft.earning} onChange={earning => setDraft(old => old ? {...old, earning} : old)} />
             </fieldset>
           </TabsContent>
           <TabsContent value="terms" className="max-w-2xl space-y-5 pb-2 pt-3">
