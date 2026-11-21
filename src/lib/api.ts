@@ -11511,6 +11511,7 @@ export async function setPreparedStock(rid: number, itemId: number, quantity: nu
 export type FoodyBillingCycle = 'monthly' | 'annual';
 export type FoodyBillingPrice = { net_minor: number; vat_minor: number; total_minor: number };
 export type FoodyBillingOffer = {
+  owner_selected?: boolean;
   commercial_source?: { kind: string; valid_until?: string };
   id: number; version: number; title: string; includes: string; terms: string; start_date: string;
  scope?: {modules:FoodyModule[];capabilities:string[];seats:FoodySeatLimits};
@@ -11533,6 +11534,7 @@ export type FoodyModuleAccess = {
   trial_ends_at?: string;
 };
 export type FoodyBillingOnboarding = {
+  inherited_access?: boolean;
   mode: 'public' | 'private';
   trial_days: number;
   trial_allowed: FoodyModule[];
@@ -11542,6 +11544,8 @@ export type FoodyBillingOnboarding = {
   catalog: FoodyCommercialCatalog;
 };
 export type FoodyBillingView = {
+  plan_catalog?: FoodyCommercialCatalog;
+  lifecycle?: {state: 'available'|'paid'|'trial'|'expired'; trial_end?: string};
   offer: FoodyBillingOffer | null;
   onboarding?: FoodyBillingOnboarding;
   accepted_offer: FoodyBillingOffer | null;
@@ -11611,6 +11615,14 @@ export function getFoodyBilling(rid: number, signal?: AbortSignal): Promise<Food
 /** Confirms the public selection or starts the private trial for the signed-in owner. */
 export function selectFoodyOnboarding(rid: number, input: { modules?: FoodyModule[]; plan_id?: string; extra_pos_licences?: number; extra_licences?: Record<string, number> }): Promise<FoodyBillingView> {
   return apiFetch(foodyBillingPath(rid) + '/onboarding', rid, { method: 'POST', body: JSON.stringify(input) });
+}
+
+/** Save the owner's public catalogue choice for a separate checkout. */
+export function selectFoodyPublicPlan(rid: number, input: {
+  modules: FoodyModule[]; plan_id: string; extra_pos_licences: number; extra_licences: Record<string, number>;
+  catalog_version: string; expected_offer_id: number;
+}): Promise<FoodyBillingView> {
+  return apiFetch(foodyBillingPath(rid) + '/select-plan', rid, { method: 'POST', body: JSON.stringify(input) });
 }
 
 /** Authorize a specific offer version and ask for the hosted checkout URL. */

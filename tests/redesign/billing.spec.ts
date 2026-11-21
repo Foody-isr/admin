@@ -374,3 +374,40 @@ test('an amended offer keeps the accepted plan and its price separate until acce
   await page.getByText('Détails de votre abonnement', { exact: true }).click();
   await expect(page.getByText('Conditions signées')).toBeVisible();
 });
+
+test('an expired trial can review a public plan and read invoices before checkout', async ({page}) => {
+  await install(page);
+  const requests:string[]=[];
+  const seats={pos:0,chef:0,kds:0,employees:3,pos_devices:0};
+  const product={id:'ordering',name:{fr:'Commande en ligne',he:'הזמנות',en:'Online ordering'},capabilities:['web_orders'],monthly_minor:50000,included:seats};
+  const plan={id:'studio',name:{fr:'Studio',he:'סטודיו',en:'Studio'},modules:['ordering'],published:true,monthly_minor:55000,included:seats,capabilities:['web_orders']};
+  const initial={offer:null,agreement:null,accepted_offer:null,payment:null,lifecycle:{state:'expired',trial_end:'2026-11-01T11:00:00Z'},
+    plan_catalog:{version:'catalog-4',revision:4,currency:'ILS',minimum_trial_days:14,extra_pos_minor:0,products:[product],plans:[plan]},checkout_enabled:true,monthly_enabled:true,due:true,can_resume:false};
+  const selected={...initial,offer:{id:17,version:1,title:'Studio',owner_selected:true,includes:'Online',terms:'Sandbox',start_date:'2026-11-01',
+    monthly:{net_minor:55000,vat_minor:9900,total_minor:64900},annual:{net_minor:605000,vat_minor:108900,total_minor:713900}}};
+  await page.route('**/api/v1/restaurants/1/foody-billing**',async route=>{
+    const path=new URL(route.request().url()).pathname;
+    if(route.request().method()==='POST') requests.push(path);
+    if(path.endsWith('/documents')) return route.fulfill({json:emptyDocuments});
+    if(path.endsWith('/select-plan')){
+      expect(route.request().postDataJSON()).toEqual({catalog_version:'catalog-4',expected_offer_id:0,modules:[],plan_id:'studio',extra_pos_licences:0,extra_licences:{}});
+      return route.fulfill({json:selected});
+    }
+    if(path.endsWith('/usage'))return route.fulfill({json:{month:'2026-11',observed:{},complete:true}});
+    return route.fulfill({json:initial});
+  });
+  await page.setViewportSize({width:375,height:850});
+  await page.goto('/1/billing#documents');
+  const nav=page.getByRole('navigation',{name:'Facturation',exact:true});
+  await expect(nav.getByRole('link',{name:'Factures'})).toHaveAttribute('aria-current','page');
+  await nav.getByRole('link',{name:'Abonnement'}).click();
+  await expect(page.getByRole('heading',{name:'Choisir ma formule Foody'})).toBeVisible();
+  await expect(page.getByText(/Votre essai a pris fin/)).toBeVisible();
+  await page.getByRole('radio',{name:/Studio/}).check();
+  await page.getByRole('button',{name:'Vérifier mon abonnement'}).click();
+  await expect(page.getByRole('heading',{name:'Studio'})).toBeVisible();
+  await page.getByRole('button',{name:'Modifier mon choix'}).click();
+  await expect(page.getByRole('radio',{name:/Studio/})).toBeVisible();
+  expect(requests).toEqual(['/api/v1/restaurants/1/foody-billing/select-plan']);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});

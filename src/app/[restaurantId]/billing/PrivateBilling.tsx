@@ -20,6 +20,8 @@ export function FoodyBillingEntry({ rid, children }: { rid: number; children: Re
   const { t } = useI18n();
   const [view, setView] = useState<Availability>('loading');
   const [reload, setReload] = useState(0);
+  const [compare, setCompare] = useState(false);
+  const section = useBillingSection();
   const [returnUnverified, setReturnUnverified] = useState(false);
   useEffect(() => {
     const request = new AbortController();
@@ -33,7 +35,7 @@ export function FoodyBillingEntry({ rid, children }: { rid: number; children: Re
         // Ignore and strip gateway query fields; the server verifies its own claim.
         if (!request.signal.aborted) window.history.replaceState(window.history.state, '', window.location.pathname);
       }
-      if (!request.signal.aborted) setView(data?.onboarding || data?.offer?.id ? data : 'error');
+      if (!request.signal.aborted) setView(data?.plan_catalog || data?.onboarding || data?.offer?.id ? data : 'error');
     }).catch((error) => {
       if (request.signal.aborted) return;
       setView(error instanceof ApiError && (error.status === 404 || error.status === 403) ? 'legacy' : 'error');
@@ -45,10 +47,16 @@ export function FoodyBillingEntry({ rid, children }: { rid: number; children: Re
   if (view === 'error') return <div role="alert" className="mx-auto max-w-[980px] space-y-3 py-8">
     <p>{t('billingLoadError')}</p><Button onClick={() => { setView('loading'); setReload((n) => n + 1); }}>{t('retry')}</Button>
   </div>;
-  if (view.onboarding && (!view.offer || view.onboarding.trial_days > 0 && view.onboarding.access.status === 'pending' && !view.payment)) {
-    return <ModuleOnboarding restaurantId={rid} view={view} onConfirmed={setView} />;
+  const comparePublic = !!view.plan_catalog && (compare || !view.offer || !view.offer.owner_selected && view.lifecycle?.state === 'expired');
+  const invitation = view.onboarding && !view.onboarding.inherited_access && (!view.offer || view.onboarding.trial_days > 0 && view.onboarding.access.status === 'pending' && !view.payment);
+  if (comparePublic || invitation) {
+    return <div className={styles.portal}>
+      <BillingHeader section={section === 'usage' ? 'subscription' : section} showUsage={false} />
+      {section === 'documents' ? <SubscriptionDocuments rid={rid} lastPayment={String(view.payment?.id ?? '')} />
+        : <ModuleOnboarding restaurantId={rid} view={view} compare={comparePublic} onConfirmed={next => {setView(next); setCompare(false);}} />}
+    </div>;
   }
-  return <PrivateBilling rid={rid} initial={view} returnUnverified={returnUnverified} />;
+  return <PrivateBilling key={view.offer?.id} rid={rid} initial={view} returnUnverified={returnUnverified} onCompare={next => {setView(next); setCompare(true);}} />;
 }
 
 const openStatus = new Set(['creating', 'pending', 'review']);
@@ -57,7 +65,7 @@ const metricKeys = [
   'twilio_verify_sms_requests', 'anthropic_assistant_input_tokens', 'anthropic_assistant_output_tokens', 'whatsapp_order_messages',
 ];
 
-function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initial: FoodyBillingView; returnUnverified: boolean }) {
+function PrivateBilling({ rid, initial, returnUnverified, onCompare }: { rid: number; initial: FoodyBillingView; returnUnverified: boolean; onCompare: (view: FoodyBillingView) => void }) {
   const { t, locale } = useI18n();
   const section = useBillingSection();
   const c = portalCopy[locale];
@@ -197,8 +205,9 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
       {error && <p role="alert" className={styles.error}>{t(error)}</p>}
       {showOffer && <section className={styles.offer} aria-labelledby="foody-offer">
         <div className={styles.offerHead}>
-          <p className={styles.kicker}>{amended ? c.offer : t('foodyPilotOffer')}</p>
+          <p className={styles.kicker}>{offer.owner_selected ? t('foodyPlanSelected') : amended ? c.offer : t('foodyPilotOffer')}</p>
           <h2 id="foody-offer" dir="auto">{offer.title}</h2>
+          {view.plan_catalog && !open && <Button variant="secondary" onClick={() => onCompare(view)}>{t('foodyPlanChange')}</Button>}
           {amended && <p>{t(upgrade ? 'foodyUpgradeNextPrice' : 'foodyPilotAmended')}</p>}
           <p>{t('foodyPilotAvailable').replace('{date}', date(offer.start_date + 'T12:00:00Z'))}</p>
           {offer.commercial_source?.valid_until && <p>{t('foodyPilotQuoteUntil').replace('{date}', date(offer.commercial_source.valid_until + 'T12:00:00Z'))}</p>}
