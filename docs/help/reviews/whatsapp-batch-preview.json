@@ -1,0 +1,48 @@
+{
+  "files": [
+    {
+      "path": "src/components/orders/OrderWhatsAppComposer.tsx",
+      "baseSha256": "d537b2181524f67d6e036fb958cfcaeffb13cf6991d132220e91c939b7707170",
+      "sha256": "614c1078f465c7c9a5fb73110ddc545abf1eddd7741aedae9c54e09c3b5b5607",
+      "features": [
+        "orders-managing-orders",
+        "order-detail",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The composer requests all fresh previews together, reads the original dispatch for a prior attempt, and shows the same per-order results. Selecting recipients, changing message kind, refreshing and confirming use the published controls."
+    },
+    {
+      "path": "src/components/settings/WhatsAppTemplatePreview.tsx",
+      "baseSha256": "8b466273cfe607cf1ec9aa4d0eb4792c307cd6090f2ceaf2da2c0024815d2433",
+      "sha256": "8559c54138c73618a54d8252138e5d6ee91dc83f6bd5c9209285e65783bf84be",
+      "features": [
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The order review can display the already verified image bytes from a group. Existing gallery and individual preview controls, retry and image access procedures are covered by the current guide."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "baseSha256": "3e0a68ab8704be2186bb760805d920a5afe4cedd2ce21d46854d5de65cc1034a",
+      "sha256": "48ecfc0e490ccf9c1ba62cf326a5c86a968c0319b35e010e6d1ed87785ba7f89",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "delivery-dispatch",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The orders client submits the existing selection in one restaurant-scoped request and decodes the verified photo for the review. Publishing, customer settings, payments and other callers use their existing API contracts."
+    }
+  ]
+}
