@@ -24,7 +24,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   SearchIcon,
-  ListIcon,
+  EyeOffIcon,
+  PlusIcon,
   MapIcon,
   MapPinIcon,
   MessageCircleIcon,
@@ -96,7 +97,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge, Button, Card, CardBody, CardHeader, Drawer, EmptyState, Input, PageHead, Select, Tab, Tabs, TabsList } from '@/components/ds';
+import { Badge, Button, Card, CardBody, CardHeader, Drawer, EmptyState, Input, Select, Tab, Tabs, TabsList } from '@/components/ds';
 import { Checkbox } from '@/components/ui/checkbox';
 
 const DeliveryMap = dynamic(() => import('@/components/delivery/DeliveryMap'), { ssr: false });
@@ -130,6 +131,10 @@ function routePlanningDate(route: DeliveryRoute): string {
   return route.date.slice(0, 10);
 }
 
+function needsAddressReview(route: DeliveryRoute, stop: RouteStop): boolean {
+  return isPendingDeliveryStop(stop) && stop.needs_geocode && !route.routing_error && !route.calculation_pending;
+}
+
 function routeStatusTone(status: DeliveryRoute['status']): 'neutral' | 'success' | 'info' | 'warning' {
   switch (status) {
     case 'active': return 'info';
@@ -142,7 +147,7 @@ function routeStatusTone(status: DeliveryRoute['status']): 'neutral' | 'success'
 
 interface RouteRibbonProps {
   routeNumber: number;
-  stopQuery: string;
+  shownStops: RouteStop[];
   route: DeliveryRoute;
   location?: CourierLocationDTO;
   courier?: StaffMember;
@@ -153,7 +158,6 @@ interface RouteRibbonProps {
   history: boolean;
   onSelectCourier: () => void;
   onSelectStop: (stopId: number) => void;
-  onMessage: (orderId: number) => void;
   onOptimize: () => void;
   onSaveSettings: (input: RouteSettingsInput) => Promise<void>;
   onCancel: () => void;
@@ -165,7 +169,7 @@ interface RouteRibbonProps {
 
 function RouteRibbon({
   routeNumber,
-  stopQuery,
+  shownStops,
   route,
   location,
   courier,
@@ -176,7 +180,6 @@ function RouteRibbon({
   history,
   onSelectCourier,
   onSelectStop,
-  onMessage,
   onOptimize,
   onSaveSettings,
   onCancel,
@@ -187,11 +190,8 @@ function RouteRibbon({
 }: RouteRibbonProps) {
   const delivered = route.stops.filter((stop) => stop.status === 'delivered').length;
   const pending = route.stops.filter(isPendingDeliveryStop);
-  const unresolved = pending.filter((stop) => stop.needs_geocode).length;
-  const ordered = (history ? route.stops : pending)
-    .filter(stop => matchesDeliverySearch(stopQuery, stop.order_id, stop.customer_name, stop.address, stop.city))
-    .sort((a, b) => a.sequence - b.sequence);
-  const progress = route.stops.length > 0 ? (delivered / route.stops.length) * 100 : 0;
+  const unresolved = pending.filter(stop => needsAddressReview(route, stop)).length;
+  const withWindow = pending.filter(stop => deliveryEtaWindow(route, stop, locale) != null).length;
   const reviewableIssue = (stop: RouteStop) => stop.status === 'skipped' && Boolean(route.started_at && stop.issue_reason && stop.issue_review_at);
   const canResetDeparture = route.stops.length > 0 && (
     route.status === 'active' && route.stops.every(stop => (stop.status === 'pending' && !stop.issue_reason) || reviewableIssue(stop)) ||
@@ -200,144 +200,69 @@ function RouteRibbon({
   const courierInk = `color-mix(in srgb, ${color} 40%, var(--fg))`;
 
   return (
-    <Card className="overflow-hidden shadow-none">
-      <CardHeader className="border-s-[3px] px-4 py-3" style={{ borderInlineStartColor: color }}>
-        <button type="button" onClick={onSelectCourier} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-r-md text-start focus-visible:outline-none focus-visible:shadow-ring">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-r-md bg-[var(--surface-2)]" style={{ color: courierInk }}><UserIcon className="h-5 w-5" /></span>
+    <Card className="min-w-0 overflow-hidden shadow-none">
+      <CardHeader className="flex-wrap items-center gap-2 px-4 py-3">
+        <button type="button" aria-label={`${courier?.full_name ?? t('courier')} ${t('mapsRoute')} ${routeNumber}`} onClick={onSelectCourier} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-r-md text-start focus-visible:shadow-ring">
+          <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--surface-2)] text-fs-lg font-bold" style={{ color: courierInk }}>
+            {courier?.full_name.trim().charAt(0) || <UserIcon className="size-5" />}
+          </span>
           <span className="min-w-0">
-            <span className="block truncate text-fs-sm font-semibold text-[var(--fg)]">{courier?.full_name ?? t('courier')}</span>
-            <span className="mt-1 flex items-center gap-2 text-fs-xs text-[var(--fg-muted)]"><span aria-hidden className="h-1 w-5 shrink-0 rounded-full" style={{ background: color }} />{t('mapsRoute')} {routeNumber}</span>
+            <span className="block truncate text-fs-md font-semibold">{courier?.full_name ?? t('courier')} · {t('mapsRoute')} {routeNumber}</span>
+            <span className="block text-fs-xs text-[var(--fg-muted)]"><span>{t('deliveryPlanProgress').replace('{done}', String(delivered)).replace('{total}', String(route.stops.length))}</span>
+              {!history && <> · {t('dispatchWithWindow').replace('{count}', String(withWindow))}</>}
+            </span>
           </span>
         </button>
-        <span className="flex shrink-0 items-center gap-1">
-          {unresolved > 0 && (
-            <Badge tone="warning" title={deliveryLocationWarning(route, t)}>
-              <AlertCircleIcon className="h-3 w-3" />
-              {unresolved}
-            </Badge>
-          )}
-          <Badge tone={routeStatusTone(history ? 'completed' : route.status)}>
-            {history ? t('routeStatusCompleted') : route.status === 'draft' ? t('courierDeparturePending') : t('routeStatusActive')}
-          </Badge>
-        </span>
+        <Badge tone={routeStatusTone(history && route.status !== 'cancelled' ? 'completed' : route.status)}>{t((history && route.status !== 'cancelled') || route.status === 'completed' ? 'routeStatusCompleted' : route.status === 'cancelled' ? 'cancelled' : route.status === 'draft' ? 'courierDeparturePending' : 'routeStatusActive')}</Badge>
       </CardHeader>
-      <CardBody className="px-4 pb-4 pt-0">
+      <CardBody className="p-0">
+        {!history && route.status === 'active' && <CourierLocationStatus location={location && (location.route_id == null || location.route_id === route.id) ? location : null} />}
+        {route.routing_provider === 'approximate' && <p className="px-4 pb-2 text-fs-xs text-[var(--fg-muted)]">{t('deliveryRouteApproximate')}</p>}
+        {(route.needs_recalculation || unresolved > 0 || route.routing_error || route.calculation_pending) && <p role="status" className="flex items-center gap-2 border-t border-[var(--line)] px-4 py-2 text-fs-xs text-[var(--fg-muted)]"><AlertCircleIcon className="size-4 shrink-0" />{deliveryRouteWarning(route, t)}</p>}
+        <div className="max-h-[min(58dvh,680px)] overflow-y-auto">
+          <table className="w-full table-fixed border-collapse text-start text-fs-xs">
+            <caption className="sr-only">{t('mapsRoute')} {routeNumber} · {courier?.full_name ?? t('courier')}</caption>
+            <thead className="sticky top-0 z-[1] bg-[var(--surface-2)] text-[var(--fg-muted)]"><tr>
+              <th scope="col" className="w-12 py-2 text-center font-medium">{t('dispatchStop')}</th>
+              <th scope="col" className="py-2 text-start font-medium">{t('address')}</th>
+              <th scope="col" className="w-[27%] py-2 ps-2 text-start font-medium sm:w-[23%]">{t('dispatchWindow')}</th>
+              <th scope="col" className="w-[4.6rem] pe-2 text-end font-medium">{t('dispatchOrder')}</th>
+            </tr></thead>
+            <tbody>{shownStops.map(stop => {
+              const window = isPendingDeliveryStop(stop) ? deliveryEtaWindow(route, stop, locale) : null;
+              const address = formatDeliveryAddress({ address: stop.address, city: stop.city }, t);
+              const selected = stop.id === selectedStopId;
+              return <tr key={stop.id} data-stop-id={stop.id} data-selected={selected} onClick={() => onSelectStop(stop.id)}
+                className="cursor-pointer border-b border-[var(--line)] last:border-0 hover:bg-[var(--surface-2)] data-[selected=true]:bg-[#e2f1e9] dark:data-[selected=true]:bg-[#234139]">
+                <td className="text-center"><span dir="ltr" className="num inline-grid size-7 place-items-center rounded-full bg-[var(--surface-2)] font-semibold" style={{ color: courierInk }}>{String(stop.sequence).padStart(2, '0')}</span></td>
+                <td className="py-2.5"><button type="button" onClick={event => { event.stopPropagation(); onSelectStop(stop.id); }} aria-pressed={selected}
+                  className="block w-full rounded-r-sm text-start focus-visible:shadow-ring">
+                  <bdi className="block text-fs-sm font-semibold leading-tight">{address?.line1 || t('noAddress')}</bdi>
+                  <bdi className="mt-0.5 block text-[var(--fg-muted)]">{stop.customer_name}</bdi>
+                </button></td>
+                <td className="py-2 ps-2 leading-snug">
+                  {stop.navigation_started_at && isPendingDeliveryStop(stop) && <Badge tone="warning">{t('courierResultPending')}</Badge>}
+                  {!isPendingDeliveryStop(stop) ? <Badge tone={stop.status === 'delivered' ? 'success' : 'neutral'}>{t(stop.issue_reason ? deliveryIssueLabels[stop.issue_reason] : stop.status === 'delivered' ? 'stopStatusDelivered' : 'skipped')}</Badge>
+                    : window ? <bdi dir="ltr" className="num font-medium">{window.label}</bdi>
+                    : <span className={needsAddressReview(route, stop) ? 'font-semibold text-[var(--warning-500)]' : 'text-[var(--fg-muted)]'}>
+                      {route.calculation_pending ? t('deliveryCalculationPending') : stop.needs_geocode ? t(route.routing_error ? 'deliveryLocationPending' : 'dispatchEntrance') : '—'}
+                    </span>}
+                  {stop.estimated_position && <span className="block text-[var(--fg-muted)]">{t('deliveryEstimatedEntrance')}</span>}
+                </td>
+                <td className="pe-2 text-end"><bdi dir="ltr" className="num text-[var(--fg-muted)]">#{stop.order_id}</bdi></td>
+              </tr>;
+            })}</tbody>
+          </table>
+        </div>
+        <section aria-label={t('deliveryDispatchRouteActions')} className="border-t border-[var(--line)] p-3">
+        <div className="mb-3 flex flex-wrap justify-between gap-2 text-fs-xs text-[var(--fg-muted)]">
+          <span>{shownStops.length} {t('deliveryPlanStops')}</span>
+          <span>{t('deliveryPlanDistance')} <bdi dir="ltr">{route.needs_recalculation ? '—' : formatDistance(route.total_distance_m) || '—'}</bdi></span>
+          <DeliveryDuration route={route} t={t} />
+        </div>
         {canResetDeparture && <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={onResetDeparture} className="mb-3">
           <Undo2Icon />{t('deliveryPlanResetDeparture')}
         </Button>}
-        {!history && route.status === 'active' && <CourierLocationStatus location={location && (location.route_id == null || location.route_id === route.id) ? location : null} />}
-        {route.routing_provider === 'approximate' && <p className="mb-2 text-fs-xs text-[var(--fg-muted)]">{t('deliveryRouteApproximate')}</p>}
-        <div className="mb-2 grid grid-cols-3 divide-x divide-[var(--line)] rounded-r-md bg-[var(--surface-2)] px-2 py-1.5 text-center">
-          <div>
-            <div className="num text-fs-sm font-semibold text-[var(--fg)]">{history ? route.stops.length : pending.length}</div>
-            <div className="text-fs-xs text-[var(--fg-subtle)]">{t(history ? 'deliveryPlanStops' : 'deliveryPlanRemaining')}</div>
-          </div>
-          <div>
-            <DeliveryDuration route={route} t={t} />
-          </div>
-          <div>
-            <div className="text-fs-sm font-semibold text-[var(--fg)]"><bdi dir="ltr">{route.needs_recalculation ? '—' : formatDistance(route.total_distance_m) || '—'}</bdi></div>
-            <div className="text-[11px] text-[var(--fg-subtle)]">{t('deliveryPlanDistance')}</div>
-          </div>
-        </div>
-        {(route.needs_recalculation || unresolved > 0) && (
-          <p className="mb-2 flex items-center gap-1.5 text-[11px] leading-snug text-[var(--warning-500)]">
-            <AlertCircleIcon className="h-3 w-3 shrink-0" />
-            {deliveryRouteWarning(route, t)}
-          </p>
-        )}
-
-        <div className="mb-3">
-          <p className="mb-1.5 text-fs-xs text-[var(--fg-muted)]">{t('deliveryPlanProgress').replace('{done}', String(delivered)).replace('{total}', String(route.stops.length))}</p>
-          <div className="h-1 overflow-hidden rounded-full bg-[var(--surface-2)]" role="progressbar" aria-label={t('stopStatusDelivered')} aria-valuenow={delivered} aria-valuemin={0} aria-valuemax={route.stops.length}>
-            <div className="h-full rounded-full bg-[var(--fg)]" style={{ width: `${progress}%` }} />
-          </div>
-        </div>
-
-        <div className="overflow-hidden rounded-r-lg border border-[var(--line)]">
-          <div className="flex flex-col">
-            {ordered.map((stop, index) => {
-              const window = isPendingDeliveryStop(stop) ? deliveryEtaWindow(route, stop, locale) : null;
-              const address = formatDeliveryAddress({
-                address: stop.address,
-                city: stop.city,
-                floor: stop.delivery_floor,
-                apt: stop.delivery_apt,
-                entryCode: stop.delivery_entry_code,
-              }, t);
-              const deliveryNotes = stop.delivery_notes?.trim();
-              const isSelected = selectedStopId === stop.id;
-              return (
-                <div
-                  key={stop.id}
-                  className={`relative flex items-stretch transition-colors ${index < ordered.length - 1 ? 'border-b border-[var(--line)]' : ''} ${
-                    isSelected
-                      ? 'bg-[var(--selection)]'
-                      : 'hover:bg-[var(--surface-2)]'
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => onSelectStop(stop.id)}
-                    className="flex min-w-0 flex-1 items-stretch text-start focus-visible:outline-none focus-visible:shadow-ring"
-                  >
-                    <span className="relative flex w-14 shrink-0 flex-col items-center px-1 py-2.5 text-center">
-                      <span dir="ltr" className="num text-fs-xs font-semibold" style={{ color: courierInk }}>
-                        {String(stop.sequence).padStart(2, '0')}
-                      </span>
-                      {window && (
-                        <span dir="ltr" className="num mt-1.5 text-[10px] leading-tight text-[var(--fg-subtle)]">
-                          {window.start}<br />{window.end}
-                        </span>
-                      )}
-                      {index < ordered.length - 1 && (
-                        <span className="absolute bottom-0 top-[52px] w-0.5 rounded-full opacity-60" style={{ background: color }} />
-                      )}
-                    </span>
-
-                    <span className="min-w-0 flex-1 py-2.5 pe-2">
-                      <span dir="auto" className="block text-fs-sm font-semibold leading-snug text-[var(--fg)]">
-                        {address?.line1 || stop.customer_name}
-                      </span>
-                      {address?.line2 && (
-                        <span className="mt-0.5 block text-[11px] font-medium text-[var(--fg-muted)]">{address.line2}</span>
-                      )}
-                      <span className="mt-1 block truncate text-fs-xs text-[var(--fg-muted)]">{stop.customer_name}</span>
-                      {deliveryNotes && (
-                        <span className="mt-0.5 block line-clamp-1 text-[11px] text-[var(--fg-subtle)]">
-                          {t('deliveryNotes')}: {deliveryNotes}
-                        </span>
-                      )}
-                      {stop.estimated_position && <span className="mt-1 block text-fs-xs text-[var(--fg-muted)]">{t('deliveryEstimatedEntrance')}</span>}
-                      {stop.navigation_started_at && isPendingDeliveryStop(stop) && (
-                        <Badge className="mt-1" tone="warning">{t('courierResultPending')}</Badge>
-                      )}
-                      {!isPendingDeliveryStop(stop) ? (
-                        <Badge className="mt-1" tone={stop.status === 'delivered' ? 'success' : 'neutral'}>{t(stop.issue_reason ? deliveryIssueLabels[stop.issue_reason] : stop.status === 'delivered' ? 'stopStatusDelivered' : 'skipped')}</Badge>
-                      ) : window ? (
-                        <span dir="ltr" className="mt-1 block w-fit text-[11px] font-medium leading-snug text-[var(--info-500)]">
-                          {window.label}
-                        </span>
-                      ) : route.calculation_pending ? <span>{t('deliveryCalculationPending')}</span> : stop.needs_geocode ? (
-                        <span className="mt-1 flex items-center gap-1 text-[11px] font-medium leading-snug text-[var(--warning-500)]">
-                          <AlertCircleIcon className="h-3 w-3 shrink-0" />
-                          {deliveryLocationWarning(route, t)}
-                        </span>
-                      ) : null}
-                    </span>
-                    <span dir="ltr" className="num me-2 mt-2.5 h-fit shrink-0 rounded-r-md bg-[var(--surface)] px-2 py-1 text-[10px] font-semibold text-[var(--fg-muted)] shadow-1">
-                      #{stop.order_id}
-                    </span>
-                  </button>
-                  {stop.customer_phone && !history && (
-                    <button type="button" onClick={() => onMessage(stop.order_id)} className="flex h-9 w-9 items-center justify-center rounded-r-md text-[var(--fg-muted)] hover:bg-[var(--surface-2)]" aria-label={t('deliveryPlanWhatsApp')} title={t('deliveryPlanWhatsApp')}><MessageCircleIcon className="h-4 w-4" /></button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        <section aria-label={t('deliveryDispatchRouteActions')} className="mt-3 border-t border-[var(--line)] pt-3">
         <details className="mb-2 rounded-r-md border border-[var(--line)] px-3">
           <summary className="cursor-pointer py-2.5 text-fs-sm font-medium"><Settings2Icon aria-hidden className="me-2 inline size-4" />{t('dispatchRouteSettings')}</summary>
           <RouteSettingsEditor
@@ -408,6 +333,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [messageTarget, setMessageTarget] = useState<{ orderId?: number } | null>(null);
   const [view, setView] = useState<'open' | 'history'>('open');
   const [showMap, setShowMap] = useState(false);
+  useEffect(() => { setShowMap(window.matchMedia('(min-width: 1024px)').matches); }, []);
+  const [workFilter, setWorkFilter] = useState<'route' | 'queue' | 'address' | null>(null);
   const [queueQuery, setQueueQuery] = useState('');
   const [routeQuery, setRouteQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -909,14 +836,30 @@ export default function DispatcherView({ rid }: { rid: number }) {
     apt: selectedEntry.stop.delivery_apt,
     entryCode: selectedEntry.stop.delivery_entry_code,
   }, t) : null;
+  const filter = view === 'history' ? 'route' : workFilter ?? (!routes.length && unplannedOrders.length ? 'queue' : 'route');
+  const dayOpenRoutes = dayRoutes.filter(isOpenDeliveryRoute);
+  const assignedCount = dayOpenRoutes.reduce((count, route) => count + route.stops.filter(isPendingDeliveryStop).length, 0);
+  const addressCount = dayOpenRoutes.reduce((count, route) => count + route.stops.filter(stop => needsAddressReview(route, stop)).length, 0);
+  const selectFilter = (next: typeof workFilter) => {
+    setWorkFilter(next);
+    setSelectedStopId(null);
+    setSelectedRoute(null);
+    setSelectedCourier(null);
+    setMoveTarget(null);
+  };
   const visibleRoutes = routes.flatMap((route, index) => {
     const number = index + 1;
     const match = matchesDeliverySearch(routeQuery, courierById.get(route.courier_id)?.full_name, `${t('mapsRoute')} ${number}`);
     const stops = view === 'history' ? route.stops : route.stops.filter(isPendingDeliveryStop);
-    return match || stops.some(stop => matchesDeliverySearch(routeQuery, stop.order_id, stop.customer_name, stop.address, stop.city))
-      ? [{ route, number, stopQuery: match ? '' : routeQuery }] : [];
+    const shownStops = stops.filter(stop => (filter !== 'address' || needsAddressReview(route, stop)) &&
+      (match || matchesDeliverySearch(routeQuery, stop.order_id, stop.customer_name, stop.address, stop.city)))
+      .sort((a, b) => a.sequence - b.sequence);
+    return shownStops.length ? [{ route, number, shownStops, filtered: shownStops.length !== stops.length }] : [];
   });
-  const visibleRouteIds = new Set(visibleRoutes.map(({ route }) => route.id));
+  const mapLayers = filter === 'queue' ? [] : visibleRoutes.flatMap(({ route, shownStops, filtered }) => {
+    const layer = layers.find(item => item.routeId === route.id);
+    return layer ? [{ ...layer, stops: shownStops, ...(filtered ? { pinsOnly: true, geometry: undefined, start: undefined, end: undefined } : {}) }] : [];
+  });
   const changeDay = (day: string) => {
     if (!day || day === planningDate) return;
     const url = new URL(window.location.href);
@@ -929,11 +872,14 @@ export default function DispatcherView({ rid }: { rid: number }) {
     setLoading(true);
     setRoutes([]);
     setReady([]);
+    setPlannerOpen(false);
+    setUndoAction(null);
     setPicked(new Set());
     setSelectedStopId(null);
     setSelectedCourier(null);
     setSelectedRoute(null);
     setQueueQuery('');
+    setWorkFilter(null);
     setRouteQuery('');
     setDeparture(`${day}T${(departure || defaultDepartureValue(timeZone)).slice(11)}`);
   };
@@ -971,8 +917,14 @@ export default function DispatcherView({ rid }: { rid: number }) {
         ? selectedZones.length > 0 && selectedZones.every(({ key }) => Boolean(zoneCouriers.get(key)))
         : selectedOrders.length > 0 && selectedOrders.every((order) => Boolean(manualCouriers.get(order.id)))
   );
-  const routeCountLabel = t(routes.length === 1 ? 'deliveryPlanRouteCountOne' : 'deliveryPlanRouteCountMany')
-    .replace('{count}', String(routes.length));
+  const addDelivery = () => {
+    setWorkFilter('queue');
+    setSelectedStopId(null);
+    setQueueQuery('');
+    if (unplannedOrders.length === 1 && insertRoutes.length) setInsertingOrder(unplannedOrders[0]);
+  };
+  const queueMap = visibleOrders.flatMap(order => typeof order.delivery_latitude === 'number' && typeof order.delivery_longitude === 'number'
+    ? [{ id: order.id, lat: order.delivery_latitude, lng: order.delivery_longitude }] : []);
 
   return (
     <div className="flex flex-col gap-5" aria-busy={loading}>
@@ -992,13 +944,19 @@ export default function DispatcherView({ rid }: { rid: number }) {
         </div>
       )}
 
-      <PageHead className="mb-0" title={t('deliveryNavDispatch')} actions={
-        <>
-          {view === 'open' && dayRoutes.some(route => routePlanningDate(route) === planningDate && isOpenDeliveryRoute(route) && route.stops.some(isPendingDeliveryStop)) && <Button variant="secondary" disabled={loading} onClick={() => setMessageTarget({})}><MessageCircleIcon />{t('deliveryWhatsAppTitle')}</Button>}
-          <Button variant="secondary" icon aria-label={t('refresh')} disabled={loading} onClick={() => void load()}><RefreshCwIcon className={loading ? 'animate-spin' : undefined} /></Button>
-        </>
-      } />
-
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="mb-1 flex items-center gap-2 text-fs-sm font-medium text-[var(--fg-muted)]"><CalendarDaysIcon className="size-4" />
+            {new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date((planningDate || defaultDepartureValue(timeZone).slice(0, 10)) + 'T12:00:00Z'))}
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{t('deliveryNavDispatch')}</h1>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {view === 'open' && dayOpenRoutes.length > 0 && <Button variant="secondary" disabled={loading} onClick={() => setMessageTarget({})}><MessageCircleIcon />{t('deliveryWhatsAppTitle')}</Button>}
+          {view === 'open' && <Button className="!bg-[#22594c] !text-white hover:!bg-[#17483c] dark:!bg-[#85c5ae] dark:!text-[#102c23]" disabled={loading || loadFailures.includes('orders')} onClick={addDelivery}><PlusIcon />{t('dispatchAddDelivery')}</Button>}
+          <Button variant="ghost" icon aria-label={t('refresh')} disabled={loading} onClick={() => void load()}><RefreshCwIcon className={loading ? 'animate-spin' : undefined} /></Button>
+        </div>
+      </div>
       {reportedIssues.length > 0 && (
         <section className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-4" aria-label={t('courierReportedIssues')}>
           <h2 className="mb-2 text-fs-sm font-semibold">{t('courierReportedIssues')}</h2>
@@ -1017,12 +975,13 @@ export default function DispatcherView({ rid }: { rid: number }) {
         </section>
       )}
       {inserted && <p role="status" className="flex items-center gap-2 text-fs-sm"><CheckIcon className="h-4 w-4" />{inserted}</p>}
-      <section className="overflow-hidden rounded-r-xl border border-[var(--line)] bg-[var(--surface)]" aria-labelledby="dispatch-service-day">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3 sm:px-5">
-          <div className="flex items-center gap-3">
-            <CalendarDaysIcon aria-hidden className="size-6 shrink-0 text-[var(--info-500)]" />
-            <h2 id="dispatch-service-day" className="text-fs-xl font-semibold tracking-tight first-letter:uppercase">{new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date((planningDate || defaultDepartureValue(timeZone).slice(0, 10)) + 'T12:00:00Z'))}</h2>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] pb-3">
+        <Tabs value={view} onValueChange={value => { setView(value as 'open' | 'history'); selectFilter(null); setRouteQuery(''); }}>
+          <TabsList aria-label={t('deliveries')}>
+            <Tab value="open">{t('deliveryPlanInProgress')}</Tab>
+            <Tab value="history">{t('deliveryPlanHistory')}</Tab>
+          </TabsList>
+        </Tabs>
           <div className="flex flex-wrap items-center gap-1">
             {planningDate !== today && <Button variant="ghost" size="sm" onClick={() => changeDay(today)}>{t('today')}</Button>}
             {nextPlannedDay && planningDate !== nextPlannedDay && <Button variant="secondary" size="sm" onClick={() => changeDay(nextPlannedDay)}>{t('deliveryNextPlannedDay').replace('{date}', new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(nextPlannedDay + 'T12:00:00Z')))}</Button>}
@@ -1031,34 +990,31 @@ export default function DispatcherView({ rid }: { rid: number }) {
             <Button variant="ghost" icon aria-label={t('nextDay')} onClick={() => stepDay(1)}><ChevronRightIcon className="rtl:rotate-180" /></Button>
           </div>
         </div>
-        <dl className="grid grid-cols-2 gap-px bg-[var(--line)] sm:grid-cols-4">
-          {[
-            { label: 'dispatchWaiting', count: unplannedOrders.length },
-            { label: 'dispatchDepartures', count: dayRoutes.filter(route => route.status === 'draft' && isOpenDeliveryRoute(route)).length },
-            { label: 'dispatchOnRoad', count: dayRoutes.filter(route => route.status === 'active' && isOpenDeliveryRoute(route)).length },
-            { label: 'dispatchDelivered', count: dayRoutes.reduce((total, route) => total + route.stops.filter(stop => stop.status === 'delivered').length, 0) },
-          ].map(({ label, count }) => <div key={label} className="flex items-baseline justify-between gap-2 bg-[var(--surface)] px-4 py-3 sm:px-5">
-            <dt className="text-fs-sm text-[var(--fg-muted)]">{t(label)}</dt><dd className="num text-fs-xl font-semibold">{loading ? '—' : count}</dd>
-          </div>)}
-        </dl>
-      </section>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Tabs value={view} onValueChange={(value) => { setView(value as 'open' | 'history'); setRouteQuery(''); setSelectedRoute(null); setSelectedStopId(null); setSelectedCourier(null); }}>
-          <TabsList aria-label={t('deliveries')}>
-            <Tab value="open">{t('deliveryPlanInProgress')} <span className="num">{dayRoutes.filter(isOpenDeliveryRoute).length}</span></Tab>
-            <Tab value="history">{t('deliveryPlanHistory')} <span className="num">{dayRoutes.filter((route) => route.stops.length > 0 && !isOpenDeliveryRoute(route)).length}</span></Tab>
-          </TabsList>
-        </Tabs>
-        {routes.length > 0 && <Button variant="secondary" aria-pressed={showMap} onClick={() => setShowMap(current => !current)}>
-          {showMap ? <ListIcon /> : <MapIcon />}{t(showMap ? 'deliveryPlanShowList' : 'deliveryPlanShowMap')}
-        </Button>}
+      {view === 'open' && <div role="group" aria-label={t('deliveries')} className="flex flex-wrap items-center gap-2">
+        {([
+          ['route', 'mapsRoute', assignedCount, RouteIcon],
+          ['queue', 'dispatchQueue', unplannedOrders.length, ListPlusIcon],
+          ['address', 'dispatchAddresses', addressCount, AlertCircleIcon],
+        ] as const).map(([value, label, count, Icon]) => <Button key={value} size="sm" variant={filter === value ? 'primary' : 'secondary'}
+          aria-pressed={filter === value} onClick={() => selectFilter(value)}>
+          <Icon className={value === 'address' && count > 0 && filter !== value ? 'text-[var(--warning-500)]' : ''} />
+          {t(label)} <span className="num rounded-full px-1.5">{loading || loadFailures.includes('mapsRoute') || (value === 'queue' && (loadFailures.includes('orders') || loadFailures.includes('deliveryPlanRoutes'))) ? '—' : count}</span>
+        </Button>)}
+      </div>}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <label className="relative block min-w-0 max-w-xl flex-1">
+          <SearchIcon aria-hidden className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]" />
+          <Input type="search" className="ps-9" aria-label={t(filter === 'queue' ? 'deliveryQueueSearch' : 'deliveryRouteSearch')}
+            placeholder={t('dispatchSearch')} value={filter === 'queue' ? queueQuery : routeQuery}
+            onChange={event => { (filter === 'queue' ? setQueueQuery : setRouteQuery)(event.target.value); setSelectedStopId(null); setSelectedRoute(null); setSelectedCourier(null); }} />
+        </label>
+        <Button variant="secondary" aria-pressed={showMap} onClick={() => setShowMap(current => !current)}>
+          {showMap ? <EyeOffIcon /> : <MapIcon />}{t(showMap ? 'dispatchHideMap' : 'deliveryPlanShowMap')}
+        </Button>
       </div>
-      <div className={`grid min-h-0 grid-cols-1 items-start gap-4 ${
-        showMap && routes.length ? 'xl:grid-cols-[minmax(330px,0.7fr)_minmax(0,1.3fr)]'
-          : view === 'open' && unplannedOrders.length ? 'lg:grid-cols-[minmax(280px,0.64fr)_minmax(0,1.36fr)]' : ''
-      }`}>
-        {view === 'open' && unplannedOrders.length > 0 && (!showMap || !routes.length) && (
-          <section className={`${showMap && routes.length > 0 ? 'hidden xl:flex' : 'flex'} min-h-0 flex-col overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]`}>
+      <div className={`grid min-w-0 grid-cols-1 items-start gap-4 ${showMap ? 'lg:grid-cols-[minmax(0,1.22fr)_minmax(0,1fr)]' : ''}`}>
+        {filter === 'queue' && (
+          <section className="flex min-w-0 flex-col overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
             <div className="flex items-start gap-3 border-b border-[var(--line)] px-3 py-3">
               <Checkbox checked={allPicked || (visibleOrders.some(order => picked.has(order.id)) ? 'indeterminate' : false)} disabled={!visibleOrders.length} onCheckedChange={toggleAll} aria-label={t('selectAll')} className="mt-0.5" />
               <div className="min-w-0 flex-1">
@@ -1071,12 +1027,8 @@ export default function DispatcherView({ rid }: { rid: number }) {
               </div>
             </div>
 
-            <label className="relative mx-3 my-2 block">
-              <SearchIcon aria-hidden className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]" />
-              <Input type="search" className="ps-9" value={queueQuery} aria-label={t('deliveryQueueSearch')} placeholder={t('deliveryQueueSearchShort')} onChange={event => setQueueQuery(event.target.value)} />
-            </label>
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              {!visibleOrders.length && <EmptyState icon={<SearchIcon />} title={t('noResults')} action={<Button variant="ghost" onClick={() => setQueueQuery('')}>{t('deliveryFiltersClear')}</Button>} />}
+            <div className="max-h-[58dvh] overflow-y-auto">
+              {!visibleOrders.length && <EmptyState icon={<ListPlusIcon />} title={t(loadFailures.length ? 'couldNotLoad' : queueQuery ? 'noResults' : 'dispatchQueueEmpty')} action={queueQuery ? <Button variant="ghost" onClick={() => setQueueQuery('')}>{t('deliveryFiltersClear')}</Button> : undefined} />}
               {visibleOrders.map((order) => {
                 const address = formatDeliveryAddress({
                   address: order.delivery_address,
@@ -1137,31 +1089,15 @@ export default function DispatcherView({ rid }: { rid: number }) {
           </section>
         )}
 
-        <section className={`${showMap && routes.length > 0 ? 'hidden xl:flex' : 'flex'} min-h-0 flex-col overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]`}>
-          <div className="flex items-center justify-between border-b border-[var(--line)] px-4 py-3">
-            <div>
-              <h2 className="text-fs-md font-semibold text-[var(--fg)]">{t(view === 'history' ? 'deliveryPlanHistory' : 'deliveryPlanRoutes')}</h2>
-              <p className="text-fs-xs text-[var(--fg-subtle)]">
-                {routeCountLabel}
-              </p>
-            </div>
-            {routes.length > 0 && <Badge tone="neutral">{routes.length}</Badge>}
-          </div>
-
-          {routes.length > 0 && <label className="relative mx-3 mt-2 block">
-            <SearchIcon aria-hidden className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]" />
-            <Input type="search" className="ps-9" value={routeQuery} aria-label={t('deliveryRouteSearch')} placeholder={t('deliveryRouteSearchShort')}
-              onChange={event => { setRouteQuery(event.target.value); setSelectedRoute(null); setSelectedCourier(null); setSelectedStopId(null); }} />
-          </label>}
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+        {filter !== 'queue' && <section aria-label={t(view === 'history' ? 'deliveryPlanHistory' : 'deliveryPlanRoutes')} className="min-w-0 space-y-3">
             {loadFailures.includes('mapsRoute') ? <p role="status">{t('couldNotLoad')}</p> : routes.length === 0 ? (
               <EmptyState icon={view === 'history' ? <CheckIcon /> : <RouteIcon />} title={t(loading ? 'loading' : view === 'history' ? 'deliveryPlanNoHistory' : 'deliveryPlanNoActiveRoutes')} desc={loading ? undefined : t(view === 'history' ? 'deliveryPlanHistoryHint' : 'deliveryPlanActiveHint')} />
             ) : !visibleRoutes.length ? (
-              <EmptyState icon={<SearchIcon />} title={t('noResults')} action={<Button variant="ghost" onClick={() => setRouteQuery('')}>{t('deliveryFiltersClear')}</Button>} />
-            ) : visibleRoutes.map(({ route, number, stopQuery }) => (
+              <EmptyState icon={<SearchIcon />} title={t(!routeQuery && filter === 'address' ? 'dispatchAddressesClear' : 'noResults')} action={routeQuery ? <Button variant="ghost" onClick={() => setRouteQuery('')}>{t('deliveryFiltersClear')}</Button> : undefined} />
+            ) : visibleRoutes.map(({ route, number, shownStops }) => (
               <RouteRibbon
                 routeNumber={number}
-                stopQuery={stopQuery}
+                shownStops={shownStops}
                 key={route.id}
                 route={route}
                 location={livePositions.get(route.courier_id)}
@@ -1178,7 +1114,6 @@ export default function DispatcherView({ rid }: { rid: number }) {
                   setSelectedCourier(route.courier_id);
                   setMoveTarget(null);
                 }}
-                onMessage={orderId => setMessageTarget({ orderId })}
                 onRemind={() => void sendCourierReminder(route.id)}
                 reminder={reminders[route.id]}
                 onOptimize={() => void recalculateRoute(route.id)}
@@ -1188,31 +1123,48 @@ export default function DispatcherView({ rid }: { rid: number }) {
                 t={t}
               />
             ))}
-          </div>
-        </section>
+        </section>}
 
-        {routes.length > 0 && (showMap || selectedEntry) && <div className={showMap ? "relative min-w-0 xl:sticky xl:top-4" : "fixed inset-x-3 bottom-4 z-40 mx-auto max-w-lg"}>
-          {showMap && <div className="h-[min(65dvh,640px)] min-h-[320px]">
+        {(showMap || selectedEntry) && <aside aria-label={t('dispatchMapDetail')} className={showMap ? "min-w-0 lg:sticky lg:top-3" : "fixed inset-x-3 bottom-4 z-40 mx-auto max-w-lg"}>
+          {showMap && <div className="overflow-hidden rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
+          <div className="flex items-center justify-between gap-2 px-4 py-3 text-fs-sm font-semibold"><span className="flex items-center gap-2"><MapIcon className="size-4" />{t('deliveryPlanShowMap')}</span>
+            <span className="text-fs-xs font-normal text-[var(--fg-muted)]">{filter === 'queue' ? t('dispatchQueue') :
+              selectedEntry ? courierById.get(selectedEntry.route.courier_id)?.full_name ?? t('courier') :
+              visibleRoutes.length === 1 ? courierById.get(visibleRoutes[0].route.courier_id)?.full_name ?? t('courier') : t('mapsAllRoutes')}</span>
+          </div>
           <DeliveryMap
             restaurantId={rid}
-            routes={routeQuery ? layers.filter(layer => layer.routeId != null && visibleRouteIds.has(layer.routeId)) : layers}
-            couriers={routeQuery ? courierMarkers.filter(marker => visibleRoutes.some(({ route }) => route.courier_id === marker.courierId)) : courierMarkers}
+            routes={mapLayers}
+            queueOrders={filter === 'queue' ? queueMap : undefined}
+            onQueueClick={orderId => {
+              const order = visibleOrders.find(item => item.id === orderId);
+              if (!order) return;
+              if (insertRoutes.length) setInsertingOrder(order);
+              else {
+                setQueueQuery(String(order.id));
+                setPicked(new Set([order.id]));
+              }
+            }}
+            selectedStopId={selectedStopId}
+            couriers={filter === 'queue' || filter === 'address' ? [] : courierMarkers.filter(marker => visibleRoutes.some(({ route }) => route.courier_id === marker.courierId))}
             highlightCourierId={selectedCourier}
             highlightRouteId={selectedRoute}
             onRouteSelect={id => { setSelectedRoute(id); setSelectedCourier(null); setSelectedStopId(null); }}
             onStopClick={(stop) => {
               setSelectedStopId(stop.id);
+              const row = document.querySelector<HTMLElement>(`[data-stop-id="${stop.id}"]`);
+              if (row && window.matchMedia('(min-width: 1024px)').matches) row.scrollIntoView({ block: 'nearest' });
               const route = routes.find((candidate) => candidate.stops.some((candidateStop) => candidateStop.id === stop.id));
               setSelectedRoute(route?.id ?? null);
               setSelectedCourier(route?.courier_id ?? null);
               setMoveTarget(null);
             }}
-            className="h-full overflow-hidden rounded-r-lg border border-[var(--line)]"
+            className="h-[clamp(240px,39dvh,440px)] border-t border-[var(--line)]"
           />
           </div>}
 
           {selectedEntry && editingOrder === null && (
-            <div className="relative mt-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-4 max-h-[65dvh] overflow-y-auto shadow-3">
+            <div role="region" aria-label={t('dispatchStopDetail')} className="fixed inset-x-2 bottom-2 z-40 rounded-r-lg lg:static lg:mt-3 border border-[var(--line)] bg-[var(--surface)] p-4 max-h-[65dvh] overflow-y-auto shadow-3">
               <div className="mb-3 flex items-start gap-3">
                 <span
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-fs-sm font-bold text-white"
@@ -1222,7 +1174,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-fs-md font-semibold text-[var(--fg)]">{selectedEntry.stop.customer_name}</p>
+                    <p className="text-fs-md font-semibold text-[var(--fg)]"><bdi>{selectedEntry.stop.customer_name}</bdi> · <bdi>#{selectedEntry.stop.order_id}</bdi></p>
                   </div>
                   {selectedAddress && (
                     <div className="mt-0.5 text-fs-xs text-[var(--fg-muted)]">
@@ -1235,10 +1187,11 @@ export default function DispatcherView({ rid }: { rid: number }) {
                       {buildDeliveryEtaLabel(t('deliveryExpectedArrival'), selectedWindow)}
                     </p>
                   )}
+                  {selectedEntry.stop.estimated_position && <p className="mt-1 text-fs-xs">{t('deliveryEstimatedEntrance')}</p>}
                   {!selectedWindow && selectedEntry.stop.needs_geocode && (
                     <p className="mt-1 flex items-center gap-1 text-fs-xs font-medium leading-snug text-[var(--warning-500)]">
                       <AlertCircleIcon className="h-3.5 w-3.5 shrink-0" />
-                      {deliveryLocationWarning(selectedEntry.route, t)}
+                      {needsAddressReview(selectedEntry.route, selectedEntry.stop) ? t('dispatchSavedAddress') : deliveryLocationWarning(selectedEntry.route, t)}
                     </p>
                   )}
                   <p className="mt-1 flex items-center gap-1 text-[11px] text-[var(--fg-subtle)]">
@@ -1303,7 +1256,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
               </div>
             </div>
           )}
-        </div>}
+        </aside>}
       </div>
 
       <Drawer
@@ -1423,10 +1376,13 @@ export default function DispatcherView({ rid }: { rid: number }) {
         </div>
       </Drawer>
 
-      {insertingOrder && <InsertDeliveryDrawer restaurantId={rid} order={insertingOrder} routes={insertRoutes} couriers={courierById}
+      {insertingOrder && <InsertDeliveryDrawer restaurantId={rid} order={insertingOrder} routes={insertRoutes} initialRouteId={selectedRoute} couriers={courierById}
         onClose={() => setInsertingOrder(null)} onRefresh={load} onSaved={(route, number) => {
           setInserted(t('deliveryInsertSaved').replace('{order}', String(insertingOrder.id)).replace('{route}', String(number)));
           setInsertingOrder(null);
+          setWorkFilter('route');
+          setRouteQuery('');
+          setSelectedStopId(route.stops.find(stop => stop.order_id === insertingOrder.id)?.id ?? null);
           setSelectedRoute(route.id);
           void load();
         }} />}

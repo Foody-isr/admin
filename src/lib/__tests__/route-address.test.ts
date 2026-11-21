@@ -48,6 +48,8 @@ test('delivery search retains partial input in either script, literal labels and
   assert.ok(matchesDeliverySearch('Jaffa', 'תל אביב-יפו'));
   assert.ok(matchesDeliverySearch('Yafo', 'Tel Aviv-Yafo'));
   assert.ok(matchesDeliverySearch('#418', 418));
+  assert.ok(matchesDeliverySearch('רחוב הדגמה 6 Netanya', 'רחוב הדגמה 6', 'נתניה'));
+  assert.equal(matchesDeliverySearch('רחוב הדגמה 6 Haifa', 'רחוב הדגמה 6', 'נתניה'), false);
   assert.ok(matchesDeliverySearch('lea', 'Léa Demo'));
   assert.equal(matchesDeliverySearch('ירושלים', 'Tel Aviv', 418), false);
 });
