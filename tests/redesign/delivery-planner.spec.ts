@@ -342,10 +342,10 @@ test('dispatch shows the stop awaiting a result, preserves reports, and sends a 
 test('planner separates completed deliveries from work and preserves history', async ({ page }, info) => {
   const state = await install(page);
   await page.goto('/1/orders/deliveries');
-  await expect(page.getByRole('heading', { name: 'Répartition', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Répartition des livraisons', exact: true })).toBeVisible();
   await expect(page.getByText('1 sur 3 livrés', { exact: true })).toBeVisible();
-  await expect(page.getByText('Client démo 1', { exact: true })).toHaveCount(0);
-  await expect(page.getByText('Client démo 4', { exact: true })).toHaveCount(0);
+  await expect(page.locator('tbody tr[data-stop-id="1"]')).toHaveCount(0);
+  await expect(page.locator('tbody tr[data-stop-id="4"]')).toHaveCount(0);
   await openMap(page);
   await expect(page.locator('.leaflet-container')).toBeVisible();
   await expect(page.locator('.foody-stop-pin')).toHaveCount(2);
@@ -355,7 +355,7 @@ test('planner separates completed deliveries from work and preserves history', a
   await expect.poll(() => page.locator('.leaflet-tile-loaded').count()).toBeGreaterThan(0);
   await page.screenshot({ path: info.outputPath('delivery-planner-fr.png'), animations: 'disabled' });
   await page.getByRole('tab', { name: /Historique/ }).click();
-  await expect(page.getByText('Client démo 4', { exact: true })).toBeVisible();
+  await expect(page.locator('tbody tr[data-stop-id="4"]')).toBeVisible();
   await expect(page.getByText('Terminée', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Désassigner', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: /4 Rue de démonstration/ }).click();
@@ -371,7 +371,7 @@ test('completed series opens an empty operational view with a usable history dat
   await expect(page.getByText('Aucune livraison en cours', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Désassigner', exact: true })).toHaveCount(0);
   await page.getByRole('tab', { name: /Historique/ }).click();
-  await expect(page.getByText('Client démo 4', { exact: true })).toBeVisible();
+  await expect(page.locator('tbody tr[data-stop-id="4"]')).toBeVisible();
   await page.getByLabel('Date des tournées', { exact: true }).fill('2026-09-18');
   await expect(page.getByText('Aucune tournée terminée à cette date', { exact: true })).toBeVisible();
   expect(state.reads.some(read => read.date === '2026-09-18' && read.rid === '1')).toBe(true);
@@ -525,7 +525,7 @@ for (const progress of ['arrived', 'delivered', 'skipped'] as const) test(`depar
   const state = await install(page);
   state.routes = [route(1, [stop(2, progress), stop(3)], 'active')];
   await page.goto('/1/orders/deliveries');
-  await expect(page.getByRole('heading', { name: 'Répartition', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Répartition des livraisons', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Annuler le départ', exact: true })).toHaveCount(0);
 });
 
@@ -919,7 +919,7 @@ test('bilingual dispatch filters retain selections and change service days indep
   const queue = page.getByRole('searchbox', { name: /Rechercher une commande/ });
   const routes = page.getByRole('searchbox', { name: /Rechercher un livreur/ });
   const select = page.getByRole('checkbox', { name: 'Tout sélectionner', exact: true });
-  await expect(page.getByText('Client démo 2', { exact: true })).toBeVisible();
+  await expect(page.locator('tbody tr[data-stop-id="2"]')).toBeVisible();
   await page.screenshot({ path: info.outputPath('delivery-dispatch-workspace-fr.png'), animations: 'disabled' });
   await page.getByRole('button', { name: /^À affecter/ }).click();
   await expect(page.getByText('Léa Démo', { exact: true })).toBeVisible();
@@ -938,11 +938,11 @@ test('bilingual dispatch filters retain selections and change service days indep
   await expect(select).not.toBeChecked();
   await page.getByRole('button', { name: /^Tournée 3$/ }).click();
   await routes.fill('1003');
-  await expect(page.getByText('Client démo 3', { exact: true })).toBeVisible();
-  await expect(page.getByText('Client démo 2', { exact: true })).toHaveCount(0);
+  await expect(page.locator('tbody tr[data-stop-id="3"]')).toBeVisible();
+  await expect(page.locator('tbody tr[data-stop-id="2"]')).toHaveCount(0);
   await routes.fill('aucun arrêt');
   await page.getByRole('button', { name: 'Effacer les filtres' }).click();
-  await expect(page.getByText('Client démo 2', { exact: true })).toBeVisible();
+  await expect(page.locator('tbody tr[data-stop-id="2"]')).toBeVisible();
   await page.getByRole('button', { name: 'Jour suivant' }).click();
   await expect(page.getByLabel('Date des tournées', { exact: true })).toHaveValue('2026-10-13');
   await page.getByRole('button', { name: 'Jour précédent' }).click();
@@ -1002,5 +1002,68 @@ test('dispatch workspace isolates a missing entrance and preserves all stops whe
   const ids = await page.locator('tbody tr[data-stop-id]').evaluateAll(rows => rows.map(row => Number(row.getAttribute('data-stop-id'))));
   expect(ids.filter(id => id !== 90)).toEqual(stops.map(stop => stop.id));
   expect(ids.slice(3, 6)).toEqual([4, 90, 5]);
+  expect(state.writes).toEqual([]);
+});
+
+test('desktop dispatch matches the reference composition in the Foody palette', async ({ page }, info) => {
+  const state = await install(page);
+  await demoTiles(page);
+  await page.setViewportSize({ width: 1440, height: 812 });
+  const friday = '2026-11-20';
+  await page.clock.setSystemTime(new Date(friday + 'T08:00:00+02:00'));
+  const streets = ['Rue des Oliviers', 'Rue des Cyprès', 'Allée du Jardin', 'רחוב הזית', 'Passage du Marché'];
+  const stops = Array.from({ length: 21 }, (_, i) => ({
+    ...stop(i + 1), address: streets[i % streets.length] + ' ' + (i + 2), city: i < 10 ? 'Tel Aviv' : 'Herzliya',
+    lat: 32.055 + Math.floor(i / 4) * .018 + (i % 4) * .0009,
+    lng: 34.779 + (Math.floor(i / 4) % 2 ? 3 - i % 4 : i % 4) * .013 + Math.floor(i / 4) * .004,
+  }));
+  const last = { ...stops[20], address: 'Allée des Jasmins 6', city: 'Netanya', needs_geocode: true, lat: null, lng: null };
+  state.routes = [{ ...route(1, [...stops.slice(0, 20), last]), date: friday, timezone: 'Asia/Jerusalem',
+    planned_departure_at: friday + 'T09:00:00+02:00', customer_window_minutes: 30,
+    route_geometry: stops.slice(0, 20).map((s, i) => {
+      const prev = stops[Math.max(i - 1, 0)];
+      return { order_id: s.order_id, path: [[prev.lat, prev.lng], [s.lat, prev.lng], [s.lat, s.lng]] };
+    }),
+  }];
+  state.candidates = [{ id: 2900, restaurant_id: 1, order_type: 'delivery', status: 'in_kitchen', customer_name: 'Client test', delivery_address: '12 Rue test', delivery_city: 'Netanya', scheduled_for: friday }];
+  await page.goto('/1/orders/deliveries?date=' + friday);
+  const map = page.getByRole('complementary', { name: 'Carte et détail de l’arrêt' });
+  const panel = page.getByRole('region', { name: 'Tournées des livreurs', exact: true });
+  const footer = panel.getByText('21 livraisons affichées');
+  const detail = map.getByRole('region', { name: 'Détail de l’arrêt' });
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Répartition des livraisons');
+  await expect(page.getByRole('button', { name: 'Tournée 21', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(map.getByText('20 points', { exact: true })).toBeVisible();
+  await expect(detail.getByRole('heading')).toHaveText('Allée des Jasmins 6, Netanya');
+  await expect(footer).toBeVisible();
+  await expect(map.locator('.foody-stop-pin')).toHaveCount(20);
+  await expect.poll(() => map.locator('.leaflet-tile-loaded').count()).toBeGreaterThan(0);
+  await expect(map.locator('.leaflet-control-attribution')).toContainText('Synthetic map data');
+  const left = (await panel.boundingBox())!, right = (await map.boundingBox())!;
+  expect(left.x).toBeGreaterThan(39);
+  expect(left.x).toBeLessThan(48);
+  expect(Math.abs(left.y - right.y)).toBeLessThan(2);
+  expect(left.y).toBeGreaterThan(185);
+  expect(left.y).toBeLessThan(255);
+  expect(left.width / right.width).toBeCloseTo(1.6, 1);
+  expect(Math.abs(left.height - right.height)).toBeLessThan(2);
+  expect((await footer.boundingBox())!.y).toBeLessThan(812);
+  const search = panel.getByRole('searchbox');
+  await expect(search).toBeVisible();
+  const active = page.getByRole('button', { name: 'Ajouter une livraison', exact: true });
+  const buttonColor = await active.evaluate(el => getComputedStyle(el).backgroundColor);
+  const actionColor = await active.evaluate(el => getComputedStyle(el).getPropertyValue('--action').trim());
+  expect(buttonColor).toBe('rgb(23, 23, 23)');
+  expect(actionColor).toBe('#171717');
+  await page.screenshot({ path: info.outputPath('dispatch-foody-desktop.png'), animations: 'disabled' });
+  await search.fill('no such street');
+  await expect(panel.getByText('Aucun résultat')).toBeVisible();
+  await expect(search).toBeFocused();
+  await search.fill('1002');
+  await expect(panel.locator('tbody tr')).toHaveCount(1);
+  await panel.locator('tbody button').click();
+  await expect(detail).toContainText('#1002');
+  await panel.getByRole('button', { name: 'Masquer la carte' }).click();
+  await expect(page.getByRole('region', { name: 'Détail de l’arrêt' })).toContainText('#1002');
   expect(state.writes).toEqual([]);
 });
