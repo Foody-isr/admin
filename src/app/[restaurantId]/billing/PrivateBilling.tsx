@@ -1,13 +1,17 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { ArrowUpRight, CheckCircle2, ChevronDown, FileText, LockKeyhole, ReceiptText } from 'lucide-react';
 import { ApiError, getFoodyBilling, getFoodyBillingUsage, payFoodyBillingRegisteredCard, reconcileFoodyBilling, startFoodyBillingCheckout,
-  stopFoodyBillingRenewal, type FoodyBillingCycle, type FoodyBillingUsage, type FoodyBillingView } from '@/lib/api';
+  stopFoodyBillingRenewal, type FoodyBillingCycle, type FoodyBillingOffer, type FoodyBillingUsage, type FoodyBillingView } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { Badge, Button, ConfirmDialog, PageHead, Section } from '@/components/ds';
+import { Button, ConfirmDialog } from '@/components/ds';
 import { SubscriptionDocuments } from './SubscriptionDocuments';
 import { SubscriptionAdditions } from './SubscriptionAdditions';
 import { ModuleAccessSummary, ModuleOnboarding } from './ModuleOnboarding';
+
+import { AgreementSummary, BillingHeader, PaymentMethod, portalCopy, useBillingSection } from './BillingPortal';
+import styles from './billing-portal.module.css';
 
 type Availability = FoodyBillingView | 'loading' | 'error' | 'legacy';
 
@@ -55,6 +59,8 @@ const metricKeys = [
 
 function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initial: FoodyBillingView; returnUnverified: boolean }) {
   const { t, locale } = useI18n();
+  const section = useBillingSection();
+  const c = portalCopy[locale];
   const [view, setView] = useState(initial);
   const [cycle, setCycle] = useState<FoodyBillingCycle | null>(null);
   const [accept, setAccept] = useState(false);
@@ -82,8 +88,10 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
   const amended = !!agreement && agreement.offer_id !== offer.id;
   const upgrade = amended && offer.previous_offer_id === agreement?.offer_id && !!offer.upgrade_period_end;
   const freeUpgrade = upgrade && offer.upgrade_minor === 0;
-  const auto = !!agreement?.renews && (agreement.cycle === 'annual' ? view.annual_renewal_enabled : view.monthly_enabled) && (!amended || upgrade);
+  const auto = !!agreement?.renews && (agreement.cycle === 'annual' ? !!view.annual_renewal_enabled : view.monthly_enabled) && (!amended || upgrade);
   const canPay = view.due && view.checkout_enabled && !open && (!auto || upgrade);
+  const accepted = !amended ? offer : view.accepted_offer?.id === agreement?.offer_id ? view.accepted_offer : null;
+  const showOffer = !agreement || amended || canPay;
   const price = cycle ? offer[cycle] : null;
   const reset = () => { setCycle(null); setAccept(false); setRenew(false); };
 
@@ -133,91 +141,127 @@ function PrivateBilling({ rid, initial, returnUnverified }: { rid: number; initi
     }
   }
 
-  return <div className="mx-auto max-w-[980px] space-y-6">
-    <PageHead title={t('billing')} desc={t(view.onboarding ? 'foodyModuleOnboarding' : 'foodyPilotIntro')} />
-    {view.onboarding && <ModuleAccessSummary restaurantId={rid} onboarding={view.onboarding} />}
-    <Section title={t('foodyPilotOffer')}>
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2"><Badge tone="warning">{t('foodyPilotSandbox')}</Badge>
-          <span className="text-sm text-[var(--fg-muted)]">{t('foodyPilotVersion').replace('{version}', String(offer.version))}</span></div>
-        <h2 id="foody-offer" className="text-2xl font-semibold" dir="auto">{offer.title}</h2>
- {upgrade && <div className="space-y-2 rounded-lg border border-[var(--line)] p-4 text-sm"><p className="font-semibold">{t('foodyUpgradeDueNow').replace('{amount}', money(offer.upgrade_minor ?? 0))}</p><p>{t('foodyUpgradePeriod').replace('{date}', date(offer.upgrade_period_end!))}</p><p>{t('foodyUpgradeReviewHint')}</p>{offer.scope && <><p>{offer.scope.modules.map(id=>view.onboarding?.catalog.products.find(p=>p.id===id)?.name[locale]??id).join(', ')}</p><ul>{Object.entries(offer.scope.seats).filter(([,n])=>n!=null).map(([key,n])=><li key={key}>{t('foodyLicence_'+key)} · {n}</li>)}</ul></>}</div>}
-        <p className="text-sm text-[var(--fg-muted)]">{t('foodyPilotAvailable').replace('{date}', date(offer.start_date + 'T12:00:00Z'))}</p>
-        {offer.commercial_source?.valid_until && <p className="text-sm">{t('foodyPilotQuoteUntil').replace('{date}', date(offer.commercial_source.valid_until + 'T12:00:00Z'))}</p>}
-        {!view.onboarding && <div><h3 className="text-sm font-semibold">{t('foodyPilotIncludes')}</h3><p className="whitespace-pre-wrap break-words text-sm" dir="auto">{offer.includes}</p></div>}
-        {(offer.terms || view.onboarding?.mode === 'public') && <div><h3 className="text-sm font-semibold">{t('foodyPilotTerms')}</h3><p className="whitespace-pre-wrap break-words text-sm" dir="auto">{view.onboarding?.mode === 'public' ? t('foodyModulePublicTerms') : offer.terms}</p></div>}
-        {agreement && <div className="space-y-2 rounded-lg border border-[var(--line)] p-3 text-sm">
-          <p>{t('foodyPilotPaidUntil').replace('{date}', date(agreement.period_end))} · {t(agreement.cycle === 'monthly' ? 'foodyPilotMonthly' : 'foodyPilotAnnual')}
-            {agreement.card_last_four && <> · <bdi>•••• {agreement.card_last_four}</bdi></>}
-          </p>
-          {amended && <p>{t(upgrade ? 'foodyUpgradeNextPrice' : 'foodyPilotAmended')}</p>}
-          {auto && <p>{t('foodyPilotNextDebit').replace('{date}', date(agreement.period_end)).replace('{total}', money((view.accepted_offer ?? offer)[agreement.cycle].total_minor))}</p>}
-          {!agreement.renews && <p>{t('foodyPilotNoRenewal')}</p>}
-          {amended && view.accepted_offer && <details><summary>{t('foodyPilotAcceptedTerms')}</summary>
-            <p className="whitespace-pre-wrap break-words" dir="auto">{view.accepted_offer.includes}</p>
-            <p className="whitespace-pre-wrap break-words" dir="auto">{view.accepted_offer.terms}</p>
-          </details>}
-          {agreement.renews && <Button variant="secondary" disabled={busy || open} onClick={() => setConfirmStop(true)}>{t('foodyPilotStop')}</Button>}
-        </div>}
-        {payment && <div className="space-y-2 rounded-lg border border-[var(--line)] p-3 text-sm">
-          <p role="status">{t(view.can_pay_registered_card ? 'foodyPilotCardVerified' : 'foodyPilotStatus_' + payment.status)} · <bdi>{money(payment.amount_minor)}</bdi></p>
-          {open && <p className="text-[var(--fg-muted)]">{t('foodyPilotRef')} <bdi>{payment.reference}</bdi></p>}
-          {open && <div className="flex flex-wrap gap-2">
+  return <div className={styles.portal}>
+    <BillingHeader section={section} />
+    {section === 'documents' && <SubscriptionDocuments rid={rid} lastPayment={payment?.id + ':' + payment?.status} />}
+    {section === 'usage' && <section id="usage" tabIndex={-1} className={styles.panel}>
+      <h2>{t('foodyPilotUsage')}</h2>
+      <p className={styles.hint}>{t('foodyPilotUsageHint')}</p>
+      {usageError && <p role="alert">{t('foodyPilotUsageUnavailable')}</p>}
+      {!usage && !usageError && <p role="status">{t('loading')}</p>}
+      {usage && <>
+        <p className={styles.usageMonth}><bdi>{usage.month} UTC</bdi></p>
+        {!usage.complete && <p role="status">{t('foodyPilotUsageUnavailable')}</p>}
+        <dl className={styles.metrics}>{metricKeys.map(key => {
+          const value = usage.observed[key];
+          return value == null ? null : <div key={key}><dt>{t('foodyPilotUsage_' + key)}</dt><dd>{new Intl.NumberFormat(locale).format(value)}</dd></div>;
+        })}</dl>
+      </>}
+    </section>}
+    {section === 'subscription' && <div id="subscription" tabIndex={-1} className={styles.stack}>
+      {agreement && <>
+        <AgreementSummary agreement={agreement} accepted={accepted} scheduled={auto} money={money} date={date} />
+        <div className={styles.accountRow}>
+          {agreement.card_last_four && <PaymentMethod lastFour={agreement.card_last_four} />}
+          {payment?.status === 'paid' && <div className={styles.item}>
+            <CheckCircle2 className={styles.itemIcon} aria-hidden="true" />
+            <div><p className={styles.label}>{c.last}</p><strong role="status">{t('foodyPilotStatus_paid')} · <bdi>{money(payment.amount_minor)}</bdi></strong></div>
+          </div>}
+          <a className={styles.shortcut} href="#documents"><FileText size={16} aria-hidden="true" />{c.history}<ArrowUpRight size={15} aria-hidden="true" /></a>
+        </div>
+        <div className={styles.disclosures}>
+          {accepted && <OfferDetails offer={accepted} publicTerms={view.onboarding?.mode === 'public' && !amended} label={c.detailsAccepted} />}
+          <details className={styles.disclosure}>
+            <summary>{c.manage}<ChevronDown size={16} aria-hidden="true" /></summary>
+            <div className={styles.detailBody}>
+              <p>{t('foodyPilotPaidUntil').replace('{date}', date(agreement.period_end))}</p>
+              {!agreement.renews && <p>{t('foodyPilotNoRenewal')}</p>}
+              {amended && <p>{t(upgrade ? 'foodyUpgradeNextPrice' : 'foodyPilotAmended')}</p>}
+              {agreement.renews && <Button variant="secondary" disabled={busy || open} onClick={() => setConfirmStop(true)}>{t('foodyPilotStop')}</Button>}
+            </div>
+          </details>
+        </div>
+      </>}
+      {payment && (payment.status !== 'paid' || !agreement) && <section className={styles.paymentNotice}>
+        <ReceiptText size={20} aria-hidden="true" /><div>
+          <p role="status"><strong>{t(view.can_pay_registered_card ? 'foodyPilotCardVerified' : 'foodyPilotStatus_' + payment.status)}</strong> · <bdi>{money(payment.amount_minor)}</bdi></p>
+          {open && <p className={styles.hint}>{t('foodyPilotRef')} <bdi>{payment.reference}</bdi></p>}
+          {open && <div className={styles.actions}>
             {view.can_pay_registered_card
               ? <Button disabled={busy} onClick={() => void action('pay-registered')}>{t('foodyPilotPayRegistered').replace('{total}', money(payment.amount_minor))}</Button>
               : <Button variant="secondary" disabled={busy} onClick={() => void action('verify')}>{t('foodyPilotVerify')}</Button>}
             {view.can_resume && <Button disabled={busy} onClick={() => void action('resume')}>{t('foodyPilotResume')}</Button>}
           </div>}
+        </div>
+      </section>}
+      {error && <p role="alert" className={styles.error}>{t(error)}</p>}
+      {showOffer && <section className={styles.offer} aria-labelledby="foody-offer">
+        <div className={styles.offerHead}>
+          <p className={styles.kicker}>{amended ? c.offer : t('foodyPilotOffer')}</p>
+          <h2 id="foody-offer" dir="auto">{offer.title}</h2>
+          {amended && <p>{t(upgrade ? 'foodyUpgradeNextPrice' : 'foodyPilotAmended')}</p>}
+          <p>{t('foodyPilotAvailable').replace('{date}', date(offer.start_date + 'T12:00:00Z'))}</p>
+          {offer.commercial_source?.valid_until && <p>{t('foodyPilotQuoteUntil').replace('{date}', date(offer.commercial_source.valid_until + 'T12:00:00Z'))}</p>}
+        </div>
+        {upgrade && <div className={styles.upgrade}>
+          <strong>{t('foodyUpgradeDueNow').replace('{amount}', money(offer.upgrade_minor ?? 0))}</strong>
+          <p>{t('foodyUpgradePeriod').replace('{date}', date(offer.upgrade_period_end!))}</p>
+          <p>{t('foodyUpgradeReviewHint')}</p>
+          {offer.scope && <><p>{offer.scope.modules.map(id => view.onboarding?.catalog.products.find(p => p.id === id)?.name[locale] ?? id).join(', ')}</p>
+            <ul>{Object.entries(offer.scope.seats).filter(([, n]) => n != null).map(([key, n]) => <li key={key}>{t('foodyLicence_' + key)} · {String(n)}</li>)}</ul></>}
         </div>}
-        {error && <p role="alert" className="text-sm text-[var(--danger-500)]">{t(error)}</p>}
-        {!view.checkout_enabled && <p className="text-sm">{t('foodyPilotCheckoutDisabled')}</p>}
-        {view.checkout_enabled && !view.monthly_enabled && <p className="text-sm">{t('foodyPilotMonthlyDisabled')}</p>}
-        <form onSubmit={(event) => { event.preventDefault(); void action('pay'); }}>
-          <fieldset disabled={busy} className="space-y-3">
-            <legend className="mb-2 font-semibold">{t('foodyPilotChoose')}</legend>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {(['monthly', 'annual'] as const).filter(choice => offer[choice].total_minor > 0 && (!upgrade || choice === offer.upgrade_cycle)).map((choice) => {
+        <OfferDetails key={offer.id} offer={offer} publicTerms={view.onboarding?.mode === 'public'} label={c.details} />
+        {!open && <>
+          {!view.checkout_enabled && <p className={styles.info}>{t('foodyPilotCheckoutDisabled')}</p>}
+          {view.checkout_enabled && !view.monthly_enabled && <p className={styles.info}>{t('foodyPilotMonthlyDisabled')}</p>}
+          <form className={styles.checkout} onSubmit={event => { event.preventDefault(); void action('pay'); }}>
+            <fieldset className={styles.choices} disabled={busy}>
+              <legend>{canPay ? t('foodyPilotChoose') : c.rates}</legend>
+              {(['monthly', 'annual'] as const).filter(choice => offer[choice].total_minor > 0 && (!upgrade || choice === offer.upgrade_cycle)).map(choice => {
                 const rate = offer[choice];
-                return <label key={choice} className={'space-y-1 rounded-lg border p-3 ' + (cycle === choice ? 'border-[var(--fg)]' : 'border-[var(--line)]')}>
-                  <span className="flex items-center gap-2 font-semibold">
-                    <input name="cycle" type="radio" checked={cycle === choice} disabled={!canPay || choice === 'monthly' && !view.monthly_enabled}
-                      onChange={() => { reset(); setCycle(choice); }} />
-                    {t(choice === 'monthly' ? 'foodyPilotMonthly' : 'foodyPilotAnnual')}
+                const selectable = canPay && (choice === 'annual' || view.monthly_enabled);
+                const Option = selectable ? 'label' : 'div';
+                return <Option key={choice} className={styles.option} data-selected={cycle === choice} data-selectable={selectable}>
+                  <span className={styles.optionHead}>
+                    <strong>{t(choice === 'monthly' ? 'foodyPilotMonthly' : 'foodyPilotAnnual')}</strong>
+                    {selectable && <input name="cycle" type="radio" checked={cycle === choice} onChange={() => { reset(); setCycle(choice); }} />}
                   </span>
-                  <span className="block font-semibold"><bdi>{money(rate.total_minor)}</bdi> <span className="text-sm font-normal">{t('foodyPilotGross')}</span></span>
-                  <span className="block text-sm text-[var(--fg-muted)]"><bdi>{money(rate.net_minor)}</bdi> {t('foodyPilotNet')} + <bdi>{money(rate.vat_minor)}</bdi> {t('foodyPilotVAT')}</span>
-                  <span className="block text-sm">{t(choice === 'monthly' ? 'foodyPilotMonthlyNote' : view.annual_renewal_enabled ? 'foodyPilotAnnualOptional' : 'foodyPilotAnnualNote')}</span>
-                </label>;
+                  <span className={styles.optionPrice}><bdi>{money(rate.total_minor)}</bdi> <small>{t('foodyPilotGross')}</small></span>
+                  <span className={styles.hint}><bdi>{money(rate.net_minor)}</bdi> {t('foodyPilotNet')} + <bdi>{money(rate.vat_minor)}</bdi> {t('foodyPilotVAT')}</span>
+                  {selectable && <span className={styles.optionNote}>{t(choice === 'monthly' ? 'foodyPilotMonthlyNote' : view.annual_renewal_enabled ? 'foodyPilotAnnualOptional' : 'foodyPilotAnnualNote')}</span>}
+                </Option>;
               })}
-            </div>
-            {canPay && cycle && price && <>
-              {!!view.registration_minor && !freeUpgrade && (cycle === 'monthly' || renew) && <p className="text-sm">{t('foodyPilotRegistrationAmount').replace('{amount}', money(view.registration_minor)).replace('{total}', money(upgrade ? offer.upgrade_minor! : price.total_minor))}</p>}
-              <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={accept} onChange={(e) => setAccept(e.target.checked)} />{t('foodyPilotAccept')}</label>
-              {!freeUpgrade && (cycle === 'monthly' || view.annual_renewal_enabled) && <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={renew} onChange={(e) => setRenew(e.target.checked)} />{t(cycle === 'monthly' ? 'foodyPilotAuthorize' : 'foodyPilotAuthorizeAnnual').replace('{total}', money(price.total_minor))}</label>}
-              <Button type="submit" disabled={busy || !accept || cycle === 'monthly' && !freeUpgrade && !renew}>{t('foodyPilotPay')}</Button>
-            </>}
-          </fieldset>
-        </form>
-      </div>
-    </Section>
-    {view.onboarding?.access.enforced && <SubscriptionAdditions rid={rid} view={view} onPrepared={next => { setView(next); reset(); }} />}
-    <SubscriptionDocuments key={rid} rid={rid} lastPayment={payment?.id + ':' + payment?.status} />
-    <Section title={t('foodyPilotUsage')}>
-      <p className="text-sm text-[var(--fg-muted)]">{t('foodyPilotUsageHint')}</p>
-      {usageError && <p role="status" className="mt-2 text-sm">{t('foodyPilotUsageUnavailable')}</p>}
-      {usage && <>
-        <p className="mt-2 text-sm"><bdi>{usage.month} UTC</bdi></p>
-        {!usage.complete && <p role="status" className="text-sm">{t('foodyPilotUsageUnavailable')}</p>}
-        <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
-          {metricKeys.map((key) => {
-            const value = usage.observed[key];
-            if (value == null) return null;
-            return <div key={key} className="flex justify-between gap-2 rounded border border-[var(--line)] p-2"><dt>{t('foodyPilotUsage_' + key)}</dt><dd>{new Intl.NumberFormat(locale).format(value)}</dd></div>;
-          })}
-        </dl>
-      </>}
-    </Section>
+            </fieldset>
+            {canPay && <aside className={styles.order}>
+              <h3>{c.summary}</h3>
+              {cycle && price ? <>
+                <div className={styles.total}><span>{c.dueNow}</span><strong><bdi>{money(upgrade ? offer.upgrade_minor! : price.total_minor)}</bdi> <small>{t('foodyPilotGross')}</small></strong></div>
+                {!!view.registration_minor && !freeUpgrade && (cycle === 'monthly' || renew) && <p>{t('foodyPilotRegistrationAmount').replace('{amount}', money(view.registration_minor)).replace('{total}', money(upgrade ? offer.upgrade_minor! : price.total_minor))}</p>}
+                <label><input type="checkbox" checked={accept} disabled={busy} onChange={e => setAccept(e.target.checked)} />{t('foodyPilotAccept')}</label>
+                {!freeUpgrade && (cycle === 'monthly' || view.annual_renewal_enabled) && <label><input type="checkbox" checked={renew} disabled={busy} onChange={e => setRenew(e.target.checked)} />{t(cycle === 'monthly' ? 'foodyPilotAuthorize' : 'foodyPilotAuthorizeAnnual').replace('{total}', money(price.total_minor))}</label>}
+                <Button type="submit" disabled={busy || !accept || cycle === 'monthly' && !freeUpgrade && !renew}>{t(freeUpgrade ? 'confirm' : 'foodyPilotPay')}</Button>
+                {!freeUpgrade && <small className={styles.secure}><LockKeyhole size={14} aria-hidden="true" />{c.payBy}</small>}
+              </> : <p>{c.selectCycle}</p>}
+            </aside>}
+          </form>
+        </>}
+      </section>}
+      {view.onboarding && <ModuleAccessSummary restaurantId={rid} onboarding={view.onboarding} />}
+      {view.onboarding?.access.enforced && <SubscriptionAdditions rid={rid} view={view} onPrepared={next => { setView(next); reset(); }} />}
+    </div>}
     <ConfirmDialog open={confirmStop} title={t('foodyPilotStop')} description={t('foodyPilotStopHint')} confirmLabel={t('foodyPilotStop')}
-      cancelLabel={t('cancel')} onOpenChange={(open) => { if (!open) setConfirmStop(false); }} onConfirm={() => void action('stop')} />
+      cancelLabel={t('cancel')} onOpenChange={next => { if (!next) setConfirmStop(false); }} onConfirm={() => void action('stop')} />
   </div>;
+}
+
+function OfferDetails({ offer, publicTerms, label }: { offer: FoodyBillingOffer; publicTerms?: boolean; label: string }) {
+  const { t } = useI18n();
+  return <details className={styles.disclosure}>
+    <summary>{label}<ChevronDown size={16} aria-hidden="true" /></summary>
+    <div className={styles.detailBody}>
+      <p className={styles.hint}>{t('foodyPilotVersion').replace('{version}', String(offer.version))}</p>
+      {offer.includes && <div><h3>{t('foodyPilotIncludes')}</h3><p dir="auto">{offer.includes}</p></div>}
+      {(publicTerms || offer.terms) && <div><h3>{t('foodyPilotTerms')}</h3><p dir="auto">{publicTerms ? t('foodyModulePublicTerms') : offer.terms}</p></div>}
+    </div>
+  </details>;
 }
