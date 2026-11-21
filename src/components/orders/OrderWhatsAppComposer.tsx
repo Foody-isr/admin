@@ -8,8 +8,8 @@ import { Button, ConfirmDialog, Drawer } from '@/components/ds';
 import { ChoiceRow } from '@/components/ds/Selection';
 import {
   ApiError, getOrder, getOrderWhatsAppStatus, getWhatsAppMediaFile, getMetaWhatsAppTemplateImage, getWhatsAppReceiptFile,
-  listMessageTemplates, previewOrderWhatsApp, sendOrderWhatsApp,
-  type CheckoutConfig, type MessageTemplate, type Order,
+  listMessageTemplates, previewOrderWhatsApp, previewOrderWhatsAppBatch, sendOrderWhatsApp,
+  type CheckoutConfig, type MessageTemplate, type Order, type OrderWhatsAppBatchImage, type OrderWhatsAppPreview, type OrderWhatsAppPreviewResult,
 } from '@/lib/api';
 import { getDeliveryCustomerWindow } from '@/lib/delivery';
 import { useI18n } from '@/lib/i18n';
@@ -52,6 +52,7 @@ export function OrderWhatsAppComposer(props: Props) {
   const [rows, setRows] = useState<WhatsAppRecipient[]>([]);
   const [activeId, setActiveId] = useState<number>();
   const [drafts, setDrafts] = useState<Record<number, Draft>>({});
+  const [batchImage, setBatchImage] = useState<(OrderWhatsAppBatchImage & { scope: string; kind: WhatsAppMessageKind })>();
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -70,6 +71,7 @@ export function OrderWhatsAppComposer(props: Props) {
   const attempts = useRef(new Map<string, NonNullable<WhatsAppRecipient['preview']>>());
 
   useEffect(() => {
+    setBatchImage(undefined);
     if (!open) return;
     setChannel(initialChannel); setKind(initialKind); setDrafts({}); setError(''); setConfirmSend(false); setPendingChange(null); setBusy(false);
     setActiveId(ordersRef.current[0]?.id);
@@ -84,8 +86,9 @@ export function OrderWhatsAppComposer(props: Props) {
     const valid = () => generation.current === version && !abort.signal.aborted;
     const recipients = ordersRef.current;
     // A lost response is checked against its original dispatch, never a new preview.
-    const previous = loadedKind.current === `${channel}:${kind}` ? rowsRef.current : [];
-    loadedKind.current = `${channel}:${kind}`;
+    const reviewKey = JSON.stringify([currentScope.current, channel, kind]);
+    const previous = loadedKind.current === reviewKey ? rowsRef.current : [];
+    loadedKind.current = reviewKey;
     setLoading(true); setError(''); setConfirmSend(false);
     setRows(recipients.map(order => ({ order, state: 'loading' })));
     let savedTemplates: MessageTemplate[] = [];
@@ -98,6 +101,28 @@ export function OrderWhatsAppComposer(props: Props) {
         return;
       }
     }
+    const priorPreview = (id: number) => attempts.current.get(`${kind}:${id}`) ?? previous.find(row => row.order.id === id)?.preview;
+    let batch: Map<number, OrderWhatsAppPreviewResult> | undefined;
+    if (channel === 'business' && kind !== 'receipt' && recipients.length > 1) {
+      const freshIds = recipients.filter(order => {
+        const prior = priorPreview(order.id);
+        return !prior || prior.status === 'ready';
+      }).map(order => order.id);
+      if (freshIds.length > 0) {
+        const scope = currentScope.current;
+        try {
+          const { results, templateImage } = await previewOrderWhatsAppBatch(restaurantId, freshIds, kind, abort.signal);
+          if (!valid()) return;
+          batch = new Map(results.map(result => [result.order_id, result]));
+          setBatchImage(templateImage ? { ...templateImage, scope, kind } : undefined);
+        } catch {
+          // Surface the shared failure on each fresh row. Retrying individually would repeat the provider lookup.
+          if (!valid()) return;
+          setBatchImage(undefined);
+          batch = new Map();
+        }
+      }
+    }
     let next = 0;
     const worker = async () => {
       while (valid() && next < recipients.length) {
@@ -106,10 +131,17 @@ export function OrderWhatsAppComposer(props: Props) {
           if (channel === 'business') {
             if (kind === 'receipt') throw new Error('Unsupported API action');
             const attemptKey = `${kind}:${order.id}`;
-            const attempted = attempts.current.get(attemptKey) ?? previous.find(row => row.order.id === order.id)?.preview;
-            const preview = attempted && attempted.status !== 'ready'
-              ? { ...attempted, ...(await getOrderWhatsAppStatus(restaurantId, order.id, attempted.id)) }
-              : await previewOrderWhatsApp(restaurantId, order.id, kind, abort.signal);
+            const attempted = priorPreview(order.id);
+            let preview: OrderWhatsAppPreview;
+            if (attempted && attempted.status !== 'ready') {
+              preview = { ...attempted, ...(await getOrderWhatsAppStatus(restaurantId, order.id, attempted.id)) };
+            } else if (batch) {
+              const result = batch.get(order.id);
+              if (!result?.preview) throw new Error(result?.error ?? 'whatsapp_preview_unavailable');
+              preview = result.preview;
+            } else {
+              preview = await previewOrderWhatsApp(restaurantId, order.id, kind, abort.signal);
+            }
             if (valid()) {
               if (preview.status !== 'ready') attempts.current.set(attemptKey, preview);
               setRows(old => old.map(row => row.order.id === order.id ? { order, state: 'ready', preview } : row));
@@ -138,7 +170,8 @@ export function OrderWhatsAppComposer(props: Props) {
           }
         } catch (cause) {
           const unavailableReason = cause instanceof Error && cause.message === 'whatsapp_recipient_invalid' ? 'invalid_phone' as const : undefined;
-          if (valid()) setRows(old => old.map(row => row.order.id === order.id ? { ...row, state: 'unavailable', unavailableReason, preview: previous.find(item => item.order.id === order.id)?.preview } : row));
+          const prior = channel === 'business' ? priorPreview(order.id) : undefined;
+          if (valid()) setRows(old => old.map(row => row.order.id === order.id ? { ...row, state: 'unavailable', unavailableReason, preview: prior?.status === 'ready' ? undefined : prior } : row));
         }
       }
     };
@@ -169,6 +202,8 @@ export function OrderWhatsAppComposer(props: Props) {
   const active = rows.find(row => row.order.id === activeId) ?? rows[0];
   const draft = active ? drafts[active.order.id] : undefined;
   const preview = active?.preview;
+  const reviewedImage = batchImage && batchImage.scope === signature && batchImage.kind === kind &&
+    preview?.attachment?.source === 'meta' && preview.attachment.template_id === batchImage.templateId ? batchImage.file : undefined;
   const ready = rows.filter(canSendWhatsApp);
   const message = channel === 'business' ? preview?.message ?? '' : draft?.message ?? '';
   const messageLanguage = channel === 'business' ? preview?.language : draft?.locale;
@@ -239,7 +274,9 @@ export function OrderWhatsAppComposer(props: Props) {
     const version = generation.current, attachment = preview.attachment;
     setBusy(true); setError('');
     try {
-      const blob = attachment.source === 'meta' ? await getMetaWhatsAppTemplateImage(restaurantId, attachment.template_id ?? '') : attachment.source === 'receipt' ? await getWhatsAppReceiptFile(restaurantId, active.order.id, preview.language) : await getWhatsAppMediaFile(restaurantId, attachment.asset_id ?? '');
+      const blob = reviewedImage ?? await (attachment.source === 'meta'
+        ? getMetaWhatsAppTemplateImage(restaurantId, attachment.template_id ?? '')
+        : attachment.source === 'receipt' ? getWhatsAppReceiptFile(restaurantId, active.order.id, preview.language) : getWhatsAppMediaFile(restaurantId, attachment.asset_id ?? ''));
       if (generation.current !== version) { tab.close(); return; }
       const url = URL.createObjectURL(blob); tab.location.replace(url); setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch { tab.close(); if (generation.current === version) setError(t('waAttachmentPreviewFailed')); }
@@ -318,7 +355,7 @@ export function OrderWhatsAppComposer(props: Props) {
             </div>
             {channel === 'business' && preview && <p className={styles.sender}>{t('waOrderFrom')}: <bdi dir="ltr">{preview.from}</bdi><span>{t(preview.provider === 'meta' ? 'waOrderProviderMeta' : 'waOrderProviderTwilio')}</span></p>}
             <div className={styles.conversation}>
-              {channel === 'business' && preview?.attachment?.format === 'IMAGE' && <WhatsAppImagePreview key={preview.id} rid={restaurantId} templateId={preview.attachment.source === 'meta' ? preview.attachment.template_id : undefined} assetId={preview.attachment.asset_id} />}
+              {channel === 'business' && preview?.attachment?.format === 'IMAGE' && <WhatsAppImagePreview key={reviewedImage ? batchImage?.templateId : preview.id} file={reviewedImage} rid={restaurantId} templateId={preview.attachment.source === 'meta' ? preview.attachment.template_id : undefined} assetId={preview.attachment.asset_id} />}
               <textarea aria-label={t('waOrderExactPreview')} readOnly={channel === 'business'} disabled={busy || active.state !== 'ready'} value={message} dir={messageLanguage?.startsWith('he') ? 'rtl' : 'ltr'} rows={12}
                 onChange={event => { const value = event.target.value; setCopied(false); setDrafts(old => ({ ...old, [active.order.id]: { ...old[active.order.id], message: value, edited: true } })); }} />
               {preview?.attachment && channel === 'business' && <Button variant="secondary" disabled={busy} onClick={() => void previewAttachment()}><FileText />{preview.attachment.filename}</Button>}

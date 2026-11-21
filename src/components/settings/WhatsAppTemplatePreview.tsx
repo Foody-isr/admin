@@ -7,7 +7,7 @@ import { useI18n } from '@/lib/i18n';
 import { metaTemplateBody, metaTemplateHeader } from '@/lib/whatsapp-meta-templates';
 
 /** Show the actual authenticated image without exposing Meta's expiring URL or credentials. */
-export function WhatsAppImagePreview({ rid, templateId, assetId, revision }: { rid: number; templateId?: string; assetId?: string; revision?: unknown }) {
+export function WhatsAppImagePreview({ rid, templateId, assetId, revision, file }: { rid: number; templateId?: string; assetId?: string; revision?: unknown; file?: Blob }) {
  const { t } = useI18n();
  const [image, setImage] = useState('');
  const [failed, setFailed] = useState(false);
@@ -15,13 +15,13 @@ export function WhatsAppImagePreview({ rid, templateId, assetId, revision }: { r
  useEffect(() => {
   let active = true, objectURL = '';
   setImage(''); setFailed(false);
-  const request = templateId ? getMetaWhatsAppTemplateImage(rid, templateId) : getWhatsAppMediaFile(rid, assetId ?? '');
+  const request = file ? Promise.resolve(file) : templateId ? getMetaWhatsAppTemplateImage(rid, templateId) : getWhatsAppMediaFile(rid, assetId ?? '');
   void request.then(blob => {
    if (!blob.type.startsWith('image/')) throw new Error('Invalid image');
    if (active) { objectURL = URL.createObjectURL(blob); setImage(objectURL); }
   }).catch(() => { if (active) setFailed(true); });
   return () => { active = false; if (objectURL) URL.revokeObjectURL(objectURL); };
- }, [rid, templateId, assetId, revision, retry]);
+ }, [rid, templateId, assetId, revision, retry, file]);
  return <div className="mb-3 overflow-hidden rounded-r-md border border-[var(--line)] bg-[var(--surface)]">
   {image && !failed ? /* eslint-disable-next-line @next/next/no-img-element -- Authenticated, short-lived blob preview. */
    <img src={image} alt={t('waMetaImageAlt')} className="max-h-64 w-full object-contain" onError={() => setFailed(true)} /> :

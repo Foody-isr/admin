@@ -11199,6 +11199,36 @@ export async function previewOrderWhatsApp(restaurantId: number, orderId: number
   });
 }
 
+export type OrderWhatsAppPreviewResult =
+  | { order_id: number; preview: OrderWhatsAppPreview; error?: never }
+  | { order_id: number; error: 'whatsapp_recipient_invalid' | 'whatsapp_preview_unavailable'; preview?: never };
+
+export interface OrderWhatsAppBatchImage {
+  templateId: string;
+  file: Blob;
+}
+
+/** Prepares all selected orders and decodes the verified Meta header image once for the review. */
+export async function previewOrderWhatsAppBatch(restaurantId: number, orderIds: number[], kind: OrderWhatsAppPreview['kind'], signal?: AbortSignal) {
+  const { results, template_image: image } = await apiFetch<{
+    results: OrderWhatsAppPreviewResult[];
+    template_image?: { template_id: string; mime: string; data: string };
+  }>(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/preview`, restaurantId, {
+    method: 'POST', body: JSON.stringify({ kind, order_ids: orderIds }), signal,
+  });
+  let templateImage: OrderWhatsAppBatchImage | undefined;
+  if (image) {
+    if (!['image/jpeg', 'image/png'].includes(image.mime) || !image.data || image.data.length > 4 * Math.ceil(5 * 1024 * 1024 / 3)) {
+      throw new Error('Invalid WhatsApp template image');
+    }
+    const binary = atob(image.data);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < bytes.length; index++) bytes[index] = binary.charCodeAt(index);
+    templateImage = { templateId: image.template_id, file: new Blob([bytes], { type: image.mime }) };
+  }
+  return { results, templateImage };
+}
+
 /** Confirms a reviewed dispatch; repeated requests with the same preview never resend it. */
 export async function sendOrderWhatsApp(restaurantId: number, orderId: number, previewId: string): Promise<{ status: OrderWhatsAppPreview['status'] }> {
   return apiFetch(`/api/v1/restaurants/${restaurantId}/whatsapp/orders/${orderId}/send`, restaurantId, {
