@@ -3,8 +3,10 @@ import { createFixture } from "./fixtures.mjs";
 
 async function install(page: Page, locale = "fr", full = false, permissions?: string[]) {
   const fixture = createFixture({ carte: true, library: true, ...(permissions ? { permissions } : {}) });
-  const menu = fixture.menus[0];
-  menu.is_weekly_rotating = true;
+  const menu = Object.assign(fixture.menus[0], {
+    is_weekly_rotating: true,
+    publication_enabled: false,
+  });
   const key = fixture.batchConfig.upcoming_cycles[0].fulfillment_days[0].date;
   const docs = new Map<string, any>();
   let publishedName = menu.name;
@@ -47,15 +49,15 @@ async function install(page: Page, locale = "fr", full = false, permissions?: st
   }
   const overrides = new Map<number, string>();
   let rejectAvailability = false;
-  const initial = () => ({
+  const initial = (series: string) => ({
     menu_id: menu.id,
-    series_key: key,
+    series_key: series,
     revision: 0,
     base_revision: 0,
     base_fingerprint: "test-fingerprint",
     published_revision: 0,
     has_draft: false,
-    is_weekly_rotating: true,
+    is_weekly_rotating: menu.is_weekly_rotating,
     payload: structuredClone(payload),
   });
   await page.addInitScript(
@@ -80,8 +82,8 @@ async function install(page: Page, locale = "fr", full = false, permissions?: st
     const req = route.request();
     const url = new URL(req.url());
     const path = url.pathname;
-    const series = url.searchParams.get("serie_date") || key;
-    const data = docs.get(series) ?? initial();
+    const series = url.searchParams.get("serie_date") ?? key;
+    const data = docs.get(series) ?? initial(series);
     if (path === `/api/v1/menu/menus/${menu.id}/draft`) {
       if (req.method() === "PUT") {
         writes.push("draft");
@@ -103,13 +105,16 @@ async function install(page: Page, locale = "fr", full = false, permissions?: st
     }
     if (path === `/api/v1/menu/menus/${menu.id}/publish`) {
       writes.push("publish");
+      if (!data.has_draft || req.postDataJSON().revision !== data.revision)
+        return route.fulfill({ status: 409, json: { error: "revision_conflict" } });
       publishedName = data.payload.name;
+      menu.publication_enabled = true;
       const next = {
         ...data,
         has_draft: false,
         revision: data.revision + 1,
-        published_revision: 1,
-        base_revision: 1,
+        published_revision: data.published_revision + 1,
+        base_revision: data.published_revision + 1,
       };
       docs.set(series, next);
       return route.fulfill({ json: next });
@@ -228,6 +233,74 @@ async function rename(page: Page, name: string) {
     .click();
 }
 
+test("an unchanged carte can be published once for the selected new series", async ({ page }) => {
+  const f = await install(page, "fr", true);
+  f.menu.publication_enabled = true;
+  const nextSeries = f.batchConfig.upcoming_cycles[1].fulfillment_days[0].date;
+  await page.goto(`/1/menu/menus/${f.menu.id}`);
+  const publish = header(page).getByRole("button", { name: "Publier", exact: true });
+  await page.getByRole("combobox", { name: "Choisir une série" }).selectOption("1");
+  await expect(header(page).getByRole("status")).toHaveText("À publier");
+  await expect(header(page).getByRole("button", { name: "Enregistrer le brouillon" })).toBeDisabled();
+  await publish.click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Annuler" }).click();
+  expect(f.writes).toEqual([]);
+
+  await publish.click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Publier" }).click();
+  await expect(header(page).getByRole("status")).toHaveText("Publiée");
+  await expect(publish).toBeDisabled();
+  expect(f.writes).toEqual(["draft", "publish"]);
+  expect(Array.from(f.docs.keys())).toEqual([nextSeries]);
+  expect(f.docs.get(nextSeries)).toMatchObject({ payload: f.payload, published_revision: 1, has_draft: false });
+
+  const seriesPicker = page.getByRole("combobox", { name: "Choisir une série" });
+  await seriesPicker.selectOption("0");
+  await expect(publish).toBeEnabled();
+  await seriesPicker.selectOption("1");
+  await expect(header(page).getByRole("status")).toHaveText("Publiée");
+  await expect(publish).toBeDisabled();
+  expect(f.writes).toEqual(["draft", "publish"]);
+});
+
+test("publishing an unchanged series requires edit permission", async ({ page }) => {
+  const f = await install(page, "fr", false, ["menu.view"]);
+  f.menu.publication_enabled = true;
+  await page.goto(`/1/menu/menus/${f.menu.id}`);
+  await expect(header(page).getByRole("status")).toHaveText("À publier");
+  await expect(header(page).getByRole("button", { name: "Publier", exact: true })).toBeDisabled();
+  expect(f.writes).toEqual([]);
+});
+
+test("retrying an unchanged series reuses the draft saved before publication failed", async ({ page }) => {
+  const f = await install(page);
+  f.menu.publication_enabled = true;
+  await page.route(`**/api/v1/menu/menus/${f.menu.id}/publish?*`, (route) =>
+    route.fulfill({ status: 503, json: { error: "publication_unavailable" } }), { times: 1 });
+  await page.goto(`/1/menu/menus/${f.menu.id}`);
+  const publish = header(page).getByRole("button", { name: "Publier", exact: true });
+  await publish.click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Publier" }).click();
+  await expect(page.getByRole("alert").getByText("L’opération n’a pas abouti.")).toBeVisible();
+  await expect(header(page).getByRole("status")).toHaveText("Brouillon enregistré");
+  expect(f.docs.get(f.key)).toMatchObject({ has_draft: true, published_revision: 0, payload: f.payload });
+
+  await publish.click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Publier" }).click();
+  await expect(header(page).getByRole("status")).toHaveText("Publiée");
+  expect(f.writes).toEqual(["draft", "publish"]);
+});
+
+test("a nonrotating carte with no changes keeps Publish disabled", async ({ page }) => {
+  const f = await install(page);
+  f.menu.publication_enabled = true;
+  f.menu.is_weekly_rotating = false;
+  await page.goto(`/1/menu/menus/${f.menu.id}`);
+  await expect(page.getByText("Plats", { exact: true }).first()).toBeVisible();
+  await expect(header(page).getByRole("button", { name: "Publier", exact: true })).toBeDisabled();
+  expect(f.writes).toEqual([]);
+});
+
 test("private save, preview and explicit publication are separate", async ({
   page,
 }) => {
@@ -271,6 +344,9 @@ test("private save, preview and explicit publication are separate", async ({
     path: "test-results/carte-published-fr.png",
     fullPage: true,
   });
+  await page.getByRole("combobox", { name: "Choisir une série" }).selectOption("1");
+  await expect(header(page).getByRole("status")).toHaveText("À publier");
+  await expect(header(page).getByRole("button", { name: "Publier", exact: true })).toBeEnabled();
 });
 test("failed save keeps the editor and draft mounted during departure", async ({
   page,

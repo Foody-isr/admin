@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "src/components/menu/publication/CarteEditor.tsx",
+      "sha256": "8f8ff7b1bb2b1b263f2006aa0a7a406a41df7723f5ed9fa53a3e17d01c964735",
+      "baseSha256": "027f54ebbd513b1c6f3c9d6968b48a53877f078c62d438b25c9d856927e77d14",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Event order setup uses the existing carte settings and group selection. The new publication action applies to dated rotating menus and is documented in the menus and groups guide."
+    }
+  ]
+}

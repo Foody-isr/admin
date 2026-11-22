@@ -313,6 +313,12 @@ function CarteEditor({
     const row = stock?.rows.find((r) => r.item.id === limit.menu_item_id);
     return !row || stockErrors(limit, row);
   });
+  const hasChanges = dirty || !!state?.has_draft;
+  const seriesNeedsPublication =
+    menu?.publication_enabled && state?.is_weekly_rotating && state.published_revision === 0;
+  const canPublish =
+    canEdit && !busy && !loading && !invalidStock && state?.series_key === date &&
+    (hasChanges || seriesNeedsPublication);
   const run = async <T,>(action: () => Promise<T>): Promise<T | undefined> => {
     if (lock.current) return;
     lock.current = true;
@@ -345,9 +351,9 @@ function CarteEditor({
     return false;
   }
   async function publish() {
-    if (!doc || !state || date === null || !canEdit || invalidStock) return;
+    if (!canPublish || !doc || !state || date === null) return;
     await run(async () => {
-      const saved = dirty
+      const saved = dirty || !state.has_draft
         ? await saveCarteDraft(rid, mid, date, {
             revision: state.revision,
             base_revision: state.base_revision,
@@ -358,6 +364,7 @@ function CarteEditor({
       accept(saved);
       const published = await publishCarteDraft(rid, mid, date, saved.revision);
       accept(published);
+      setMenu((current) => current && { ...current, publication_enabled: true });
       setStock(await getSalesStock(rid, date));
     });
   }
@@ -453,7 +460,6 @@ function CarteEditor({
     edit({ groups: [...doc.groups, value] });
     setGroupKey(value.key);
   }
-  const hasChanges = dirty || !!state?.has_draft;
   const statusText = busy
     ? t("saving")
     : dirty
@@ -462,7 +468,9 @@ function CarteEditor({
         ? t("carteSaved")
         : state?.published_revision
           ? t("cartePublished")
-          : t("carteLiveStatus");
+          : seriesNeedsPublication
+            ? t("cartePendingChange")
+            : t("carteLiveStatus");
   const navigate = (path: string) =>
     guard.requestAction(() => router.push(path));
   return (
@@ -587,7 +595,7 @@ function CarteEditor({
             {t("carteSaveDraft")}
           </Button>
           <Button
-            disabled={!canEdit || busy || invalidStock || !hasChanges}
+            disabled={!canPublish}
             onClick={() => setConfirmation("publish")}
           >
             {t("cartePublish")}
@@ -737,7 +745,7 @@ function CarteEditor({
               {t("carteSaveDraft")}
             </Button>
             <Button
-              disabled={!canEdit || busy || invalidStock}
+              disabled={!canPublish}
               onClick={() => setConfirmation("publish")}
             >
               {t("cartePublish")}
