@@ -27,7 +27,7 @@ import { HeaderInspector } from "./HeaderInspector";
 import { FooterBrandingEditor } from "./FooterBrandingEditor";
 import { FooterEditor } from "./FooterEditor";
 import { MissingFooter } from "./MissingFooter";
-import { SiteInspector } from "./SiteInspector";
+import { SiteInspector, type MainLogoActions } from "./SiteInspector";
 
 /** Routes selection to the editor for that page, section or shared element. */
 export function Inspector({
@@ -45,8 +45,7 @@ export function Inspector({
   onPageChange,
   onSectionChange,
   onCreateFooter,
-  onRestaurantLogoUpload,
-  onRestaurantLogoRemove,
+  mainLogo,
 }: {
   restaurantId: number;
   restaurant: Restaurant;
@@ -62,8 +61,7 @@ export function Inspector({
   onPageChange: (key: string, path: StatePath, value: unknown) => void;
   onSectionChange: (key: string, path: StatePath, value: unknown) => void;
   onCreateFooter: () => void;
-  onRestaurantLogoUpload: (file: File) => Promise<void>;
-  onRestaurantLogoRemove: () => Promise<void>;
+  mainLogo: MainLogoActions;
 }) {
   const page = useMemo(
     () => resolveSelectedPage(state, selection),
@@ -128,8 +126,7 @@ export function Inspector({
             (candidate) => !isTechnicalSitePage(candidate),
           )}
           onChange={onConfigChange}
-          onRestaurantLogoUpload={onRestaurantLogoUpload}
-          onRestaurantLogoRemove={onRestaurantLogoRemove}
+          mainLogo={mainLogo}
         />
       ) : section ? (
         <SectionInspector

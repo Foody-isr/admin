@@ -11,12 +11,12 @@ import {
   addNavigationPage,
   removeNavigationPage,
 } from "@/lib/website-v3/navigation-links";
-import { headerFromLegacy, resolvePageHeader } from "@/lib/website-v3/header";
+import { headerFromLegacy, headerSafeUrl, resolvePageHeader, updateWebsiteMainLogo } from "@/lib/website-v3/header";
 import { resolveSelectedPage } from "@/lib/website-v3/editor-selection";
 import { addSiteFooter } from "@/lib/website-v3/footer";
 import { websiteOrderChoicesAvailable } from "@/lib/website-v3/fulfillment";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ApiError,
   discardWebsiteDraft,
@@ -288,6 +288,7 @@ function DesktopWebsiteV3Builder({
   const [draftChanged, setDraftChanged] = useState(false);
   const [serverErrors, setServerErrors] = useState<FieldError[]>([]);
   const [busy, setBusy] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [pendingDeleteSection, setPendingDeleteSection] = useState<string | null>(null);
   const [sidebarResetRevision, setSidebarResetRevision] = useState(0);
@@ -318,6 +319,8 @@ function DesktopWebsiteV3Builder({
   const editRevisionRef = useRef(0);
   const lifecycleRef = useRef(0);
   const busyRef = useRef(false);
+  const logoUploadInProgress = useRef(false);
+  const localDraft = useRef<DraftStatePayload | null>(null);
   const deviceRef = useRef<PreviewDevice>("desktop");
   const slugManualRef = useRef(new Set<string>());
   const storiesNavigationAvailableRef = useRef<boolean | undefined>(undefined);
@@ -452,6 +455,9 @@ function DesktopWebsiteV3Builder({
   }, [autosave, restaurantId, retryToken, webOrigin]);
 
   const state = loaded?.draft.state ?? null;
+  useLayoutEffect(() => {
+    localDraft.current = state;
+  }, [state]);
   const supportsMobileExperience = loaded?.runtimeCapabilities.mobile_experience === 1;
   const availableReferences = useMemo(
     () => ({
@@ -653,12 +659,15 @@ function DesktopWebsiteV3Builder({
   );
 
   const setLocalState = useCallback(
-    (nextState: DraftStatePayload, recordHistory = true) => {
-      if (!loaded || busyRef.current) return;
+    (edit: DraftStatePayload | ((current: DraftStatePayload) => DraftStatePayload), recordHistory = true) => {
+      const previous = localDraft.current;
+      if (!previous || busyRef.current) return;
+      const nextState = typeof edit === "function" ? edit(previous) : edit;
+      localDraft.current = nextState;
       if (recordHistory)
         historyRef.current = recordDraftEdit(
           historyRef.current,
-          loaded.draft.state,
+          previous,
           nextState,
         );
       const editRevision = editRevisionRef.current + 1;
@@ -720,7 +729,7 @@ function DesktopWebsiteV3Builder({
           }
         });
     },
-    [activePage, autosave, bumpPreview, loaded, showSaveError, t],
+    [activePage, autosave, bumpPreview, showSaveError, t],
   );
 
   const updateConfig = (path: StatePath, value: unknown) => {
@@ -728,19 +737,27 @@ function DesktopWebsiteV3Builder({
     setLocalState(updateDraftAtPath(state, ["config", ...path], value));
   };
 
-  const uploadMainLogo = async (file: File) => {
-    if (!state) return;
-    const logoUrl = await uploadRestaurantLogo(restaurantId, file);
-    setLocalState(
-      updateDraftAtPath(state, ["config", "restaurant_logo_url"], logoUrl),
-    );
+  const updateMainLogo = (logoUrl: string) => {
+    setLocalState((current) => ({
+      ...current,
+      config: updateWebsiteMainLogo(current.config, logoUrl),
+    }));
   };
 
-  const removeMainLogo = async () => {
-    if (!state) return;
-    setLocalState(
-      updateDraftAtPath(state, ["config", "restaurant_logo_url"], ""),
-    );
+  const uploadMainLogo = async (file: File) => {
+    if (busyRef.current || logoUploadInProgress.current) {
+      throw new Error("Another website operation is in progress");
+    }
+    logoUploadInProgress.current = true;
+    setLogoUploading(true);
+    try {
+      const logoUrl = headerSafeUrl(await uploadRestaurantLogo(restaurantId, file), true);
+      if (!logoUrl) throw new Error("Logo upload returned no image URL");
+      updateMainLogo(logoUrl);
+    } finally {
+      logoUploadInProgress.current = false;
+      setLogoUploading(false);
+    }
   };
 
   const updatePage = (key: string, path: StatePath, value: unknown) => {
@@ -1120,7 +1137,7 @@ function DesktopWebsiteV3Builder({
   };
 
   const retrySave = async () => {
-    if (!state || busyRef.current) return;
+    if (!state || busyRef.current || logoUploadInProgress.current) return;
     if (draftChanged) {
       lockEditor();
       lifecycleRef.current += 1;
@@ -1144,7 +1161,7 @@ function DesktopWebsiteV3Builder({
   };
 
   const publish = async () => {
-    if (!loaded || !state || busyRef.current) return;
+    if (!loaded || !state || busyRef.current || logoUploadInProgress.current) return;
     const errors = validateDraftForPublish(state, availableReferences);
     const mobileError = mobilePublicationIssue(state);
     if (mobileError) errors.push({ fieldId: "site.mobile_experience", message: t(mobileError) });
@@ -1230,7 +1247,7 @@ function DesktopWebsiteV3Builder({
   };
 
   const discard = async () => {
-    if (!loaded || busyRef.current) return;
+    if (!loaded || busyRef.current || logoUploadInProgress.current) return;
     if (
       loaded.draft.draft_dirty &&
       !window.confirm(
@@ -1399,7 +1416,7 @@ function DesktopWebsiteV3Builder({
         device={device}
         publicUrl={publicUrl}
         publishBlockedReason={publishBlockedReason}
-        busy={busy}
+        busy={busy || logoUploading}
         onDeviceChange={changeDevice}
         onDiscard={discard}
         onPublish={() => {
@@ -1521,7 +1538,7 @@ function DesktopWebsiteV3Builder({
                   <div role="alert" className="sqe-error">
                     {globalError}
                     {saveStatus === "error" && (
-                      <button onClick={() => void retrySave()} disabled={busy}>
+                      <button onClick={() => void retrySave()} disabled={busy || logoUploading}>
                         {draftChanged ? t("editorDraftRecover") : "Réessayer l’enregistrement"}
                       </button>
                     )}
@@ -1601,8 +1618,11 @@ function DesktopWebsiteV3Builder({
                 onPageChange={updatePage}
                 onSectionChange={updateSection}
                 onCreateFooter={createFooter}
-                onRestaurantLogoUpload={uploadMainLogo}
-                onRestaurantLogoRemove={removeMainLogo}
+                mainLogo={{
+                  uploading: logoUploading,
+                  onUpload: uploadMainLogo,
+                  onRemove: () => updateMainLogo(""),
+                }}
               />
             }
           />

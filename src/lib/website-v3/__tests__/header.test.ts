@@ -2,9 +2,11 @@ import { orderHeaderPresentation, resolvePageHeader } from "../header";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  draftRestaurantLogo,
   headerFromLegacy,
   normalizeWebsiteHeader,
   headerSafeUrl,
+  updateWebsiteMainLogo,
 } from "../header";
 
 test("menu icon presentation retains legacy defaults and bounds authored controls", () => {
@@ -47,6 +49,21 @@ test("editing a migrated Header preserves explicit empty links, logo removal and
   assert.equal(restored.logo.image, "");
   assert.equal(restored.layout, "stacked");
   assert.equal(restored.icons.cart, false);
+});
+
+test("main logo changes preserve legacy navigation and distinguish removal from inheritance", () => {
+  const config = {
+    nav_layout: { links: [] },
+    navbar_scrolled_logo_url: "/alternate.png",
+  };
+  assert.equal(draftRestaurantLogo(config, "/published.png"), "/published.png");
+  const added = updateWebsiteMainLogo(config, "/new.png");
+  assert.deepEqual(added, { ...config, restaurant_logo_url: "/new.png" });
+  assert.equal(draftRestaurantLogo(added, "/published.png"), "/new.png");
+
+  const removed = updateWebsiteMainLogo(added, "");
+  assert.deepEqual(removed, { ...config, restaurant_logo_url: "" });
+  assert.equal(draftRestaurantLogo(removed, "/published.png"), "");
 });
 test("changing Header layout does not replace its content, links or style", () => {
   const header = normalizeWebsiteHeader({

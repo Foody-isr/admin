@@ -430,8 +430,7 @@ test("builder exposes system links without inventing rail pages", () => {
         restaurantId: 24,
         pages: [],
         onChange: () => undefined,
-        onRestaurantLogoUpload: async () => undefined,
-        onRestaurantLogoRemove: async () => undefined,
+        mainLogo: { uploading: false, onUpload: async () => undefined, onRemove: () => undefined },
       }),
     ),
   );
