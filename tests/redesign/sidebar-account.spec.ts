@@ -111,7 +111,7 @@ for (const locale of ['fr', 'he']) test(`mobile account and navigation preserve 
   await page.screenshot({ path: info.outputPath(`account-mobile-${locale}.png`), animations: 'disabled' });
   await page.keyboard.press('Escape');
   await expect(trigger).toBeFocused();
-  await page.locator('header').getByRole('button', { name: locale === 'fr' ? 'Articles et cartes' : 'פריטים ותפריטים', exact: true }).click();
+  await page.locator('header').getByRole('button', { name: locale === 'fr' ? 'Navigation principale' : 'ניווט ראשי', exact: true }).click();
   const sidebar = page.locator('aside');
   await sidebar.getByRole('button', { name: 'Atelier Foody', exact: true }).click();
   await expect(panel).toBeVisible();

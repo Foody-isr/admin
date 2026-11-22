@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import L from 'leaflet';
 import { createLeafletContext, LeafletProvider, type LeafletContextInterface } from '@react-leaflet/core';
 
@@ -13,11 +13,14 @@ export function LeafletSurface({ center, options, children }: {
   const container = useRef<HTMLDivElement>(null);
   const initial = useRef({ center, options });
   const [context, setContext] = useState<LeafletContextInterface | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!container.current) return;
     const map = L.map(container.current, initial.current.options).setView(initial.current.center, 13);
     setContext(createLeafletContext(map));
-    return () => { map.remove(); };
+    return () => {
+      setContext(null);
+      map.remove();
+    };
   }, []);
   return <div ref={container} className="h-full w-full">{context && <LeafletProvider value={context}>{children}</LeafletProvider>}</div>;
 }

@@ -1,25 +1,24 @@
 'use client';
 
 import Link from 'next/link';
-import board from './DispatchWorkspace.module.css';
-import { Check, ChevronDown, Map, MapPinned, Route, Truck } from 'lucide-react';
+import { Check, ChevronDown, MapPinned, Route, Truck } from 'lucide-react';
 import { Button, Menu, MenuContent, MenuItem, MenuTrigger } from '@/components/ds';
 import type { FoodyModuleAccess } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { deliveryDestinations } from '@/lib/delivery-navigation';
 import { usePermissions } from '@/lib/permissions-context';
 
-const icons = { deliveryNavDispatch: Route, courierMode: Truck, deliveryNavZones: MapPinned, deliveryNavMaps: Map } as const;
+const icons = { deliveryNavDispatch: Route, courierMode: Truck, deliveryNavZones: MapPinned } as const;
 
 /** Moves staff between the delivery workspaces available to their restaurant and role. */
-export function DeliveryNavigation({ rid, pathname, access, compact = false }: { rid: number; pathname: string; access?: FoodyModuleAccess; compact?: boolean }) {
+export function DeliveryNavigation({ rid, pathname, access }: { rid: number; pathname: string; access?: FoodyModuleAccess }) {
   const { t, direction } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const destinations = deliveryDestinations(rid, access, hasAnyPermission).map(page => ({ ...page, icon: icons[page.label] }));
   const current = destinations.find(page => pathname === `/${rid}${page.path}`);
   if (!current || destinations.length < 2) return null;
   return (
-    <nav aria-label={t('deliveryNavLabel')} className={compact ? board.navigation : "mb-4 min-w-0 shrink-0 border-b border-[var(--line)]"}>
+    <nav aria-label={t('deliveryNavLabel')} className="mb-4 min-w-0 shrink-0 border-b border-[var(--line)]">
       <div className="hidden flex-wrap gap-x-4 xl:flex">
         {destinations.map(({ path, label, icon: Icon }) => (
           <Link key={path} href={`/${rid}${path}`} aria-current={current.path === path ? 'page' : undefined}

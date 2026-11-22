@@ -16,8 +16,6 @@ import { SidebarProvider, useSidebar } from '@/lib/sidebar-context';
 import Sidebar from '@/components/Sidebar';
 import { SettingsBreadcrumb } from '@/components/settings/SettingsBreadcrumb';
 import TopBar from '@/components/TopBar';
-import FoodyLogo from '@/components/brand/FoodyLogo';
-import board from '@/components/delivery/DispatchWorkspace.module.css';
 import { useDesktopNavigation } from '@/components/common/NavigationFrame';
 import PermissionRouteGuard from '@/components/PermissionRouteGuard';
 import { PushResync } from '@/components/common/PushResync';
@@ -265,23 +263,6 @@ function RestaurantShell({
   const { collapsed } = useSidebar();
   const desktop = useDesktopNavigation();
   const { t } = useI18n();
-  const { hasAnyPermission } = usePermissions();
-  if (pathname === `/${restaurantId}/orders/deliveries` && hasAnyPermission('orders.manage')) {
-    return <div className={board.shell}>
-      <a href="#workspace-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-[var(--surface)] focus:p-3">{t('skipToContent')}</a>
-      <header className={board.masthead}>
-        <div className={board.bar}>
-          <Link href={`/${restaurantId}/dashboard`} className={board.home} aria-label={`Foody · ${t('dashboard')}`}>
-            <FoodyLogo width={58} decorative /><span>Admin</span>
-          </Link>
-          <span aria-hidden className={board.slash}>/</span>
-          <span className={board.sectionName}>{t('deliveries')}</span>
-          <DeliveryNavigation rid={restaurantId} pathname={pathname} access={restaurant.module_access} compact />
-        </div>
-      </header>
-      <main data-workspace-shell id="workspace-content" tabIndex={-1}>{children}</main>
-    </div>;
-  }
   // Sidebar widths come from tokens (260 / 72) — keep these arbitrary classes
   // in sync with --sidebar-w / --sidebar-w-collapsed in globals.css.
   const marginClass = collapsed
