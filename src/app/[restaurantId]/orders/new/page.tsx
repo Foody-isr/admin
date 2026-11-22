@@ -4,11 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getMenu, listAllItems, createOrder, ApiError, getInternalCheckoutCapabilities,
-  getStaffBatchFulfillmentConfig, listGroupMemberships,
+  getStaffBatchFulfillmentConfig,
   type Menu, type MenuItem, type PaymentStatus,
-  type BatchFulfillmentConfigResponse, type MenuGroupMembership,
+  type BatchFulfillmentConfigResponse,
 } from '@/lib/api';
-import { isMembershipActiveOn } from '@/lib/membership';
 import { itemSizeOptions } from '@/lib/item-options';
 import { isItemSoldOut } from '@/lib/orders/itemAvailability';
 import {
@@ -43,6 +42,7 @@ import {
 } from 'lucide-react';
 
 interface Section { id: number; name: string; items: MenuItem[] }
+interface SeriesCatalogue { date: string; menus: Menu[] | null }
 
 function uid(): string {
   return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `l-${Date.now()}-${Math.random()}`;
@@ -107,7 +107,7 @@ function NewStaffOrder({ restaurantId, staffId }: { restaurantId: number; staffI
   const [menus, setMenus] = useState<Menu[]>([]);
   const [itemMap, setItemMap] = useState<Map<number, MenuItem>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState('');
   const [mobilePane, setMobilePane] = useState<'catalogue' | 'ticket'>('catalogue');
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -175,35 +175,29 @@ function NewStaffOrder({ restaurantId, staffId }: { restaurantId: number; staffI
   const [activeSection, setActiveSection] = useState<number | 'all'>('all');
   // The library is independent of menu membership, channels and rotation.
   const [activeMenuId, setActiveMenuId] = useState<number | 'library' | null>(null);
-  // Weekly-rotating carte state (only populated when the active carte rotates).
-  const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
   const [selectedCycleIndex, setSelectedCycleIndex] = useState(0);
-  const [membershipsByGroup, setMembershipsByGroup] = useState<Map<number, MenuGroupMembership[]>>(new Map());
-  // The internal order flow deliberately uses the staff config: unlike the
-  // public config, it also exposes the current in-production série after its
-  // ordering cutoff. This lets an admin add a late manual order to that série.
-  // It remains independent of the rotating carte batchConfig below.
+  const [otherSeries, setOtherSeries] = useState<SeriesCatalogue | null>(null);
+  const [seriesLoadAttempt, setSeriesLoadAttempt] = useState(0);
+  // Keep the picker and checkout on the staff schedule, including the current
+  // series in production after the online ordering cutoff.
   const [fulfillmentBatchConfig, setFulfillmentBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    getStaffBatchFulfillmentConfig(restaurantId)
-      .then((cfg) => { if (!cancelled) setFulfillmentBatchConfig(cfg); })
-      .catch(() => { if (!cancelled) setFulfillmentBatchConfig(null); });
-    return () => { cancelled = true; };
-  }, [restaurantId]);
 
   useEffect(() => {
     if (!restaurantId) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
-      setLoadError(null);
+      setLoadError(false);
       try {
-        const [menuList, items] = await Promise.all([
-          getMenu(restaurantId),
+        const [config, items] = await Promise.all([
+          getStaffBatchFulfillmentConfig(restaurantId),
           listAllItems(restaurantId),
         ]);
         if (cancelled) return;
+        const currentDay = config.upcoming_cycles?.[0]?.fulfillment_days?.[0]?.date;
+        const menuList = await getMenu(restaurantId, currentDay);
+        if (cancelled) return;
+        setFulfillmentBatchConfig(config);
         setMenus(menuList);
         setItemMap(new Map(items.map((it) => [it.id, it])));
         // Default to the first POS carte in sort_order (matches the Cartes page).
@@ -211,9 +205,12 @@ function NewStaffOrder({ restaurantId, staffId }: { restaurantId: number; staffI
           [...menuList]
             .filter((m) => m.pos_enabled !== false)
             .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id)[0];
-        setActiveMenuId((prev) => prev ?? firstCarte?.id ?? 'library');
-      } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : String(err));
+        setActiveMenuId((prev) => {
+          if (prev === 'library' || menuList.some((menu) => menu.id === prev && menu.pos_enabled !== false)) return prev;
+          return firstCarte?.id ?? 'library';
+        });
+      } catch {
+        if (!cancelled) setLoadError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -331,40 +328,33 @@ function NewStaffOrder({ restaurantId, staffId }: { restaurantId: number; staffI
 
   // Weekly-rotation context for the active carte.
   const isRotating = !!activeMenu?.is_weekly_rotating;
-  const cycles = batchConfig?.upcoming_cycles ?? [];
+  const cycles = fulfillmentBatchConfig?.upcoming_cycles ?? [];
   const selectedCycle = cycles[Math.min(selectedCycleIndex, Math.max(cycles.length - 1, 0))] ?? null;
-  // The ISO day used to filter rotating items: the cycle's primary fulfilment
-  // day, falling back to its cutoff date.
-  const selectedDay =
-    selectedCycle?.fulfillment_days?.[0]?.date ??
-    (selectedCycle?.cutoff_at ? selectedCycle.cutoff_at.slice(0, 10) : null);
+  const selectedDay = isRotating ? selectedCycle?.fulfillment_days?.[0]?.date ?? null : null;
+  const currentDay = cycles[0]?.fulfillment_days?.[0]?.date;
+  const alternateDay = selectedDay !== currentDay ? selectedDay : null;
+  const datedResult = otherSeries?.date === alternateDay ? otherSeries : null;
+  const displayedMenu = alternateDay ? datedResult?.menus?.find((menu) => menu.id === activeMenuId) : activeMenu;
+  const catalogueLoading = loading || (!!alternateDay && !datedResult);
+  const catalogueError = loadError || datedResult?.menus === null;
 
-  // When the active carte rotates, load its staff-visible batch cycles + per-group
-  // memberships so items can be filtered to the selected week. The same closed
-  // current série offered at checkout must be selectable here too, otherwise the
-  // operator would browse next week's composition while ordering for this week.
   useEffect(() => {
-    if (!activeMenu?.is_weekly_rotating) {
-      setBatchConfig(null);
-      setMembershipsByGroup(new Map());
-      return;
-    }
+    if (!alternateDay) return;
     let cancelled = false;
-    (async () => {
-      const groupList = activeMenu.groups ?? [];
-      const [config, ...memberships] = await Promise.all([
-        getStaffBatchFulfillmentConfig(restaurantId).catch(() => null),
-        ...groupList.map((g) => listGroupMemberships(restaurantId, g.id).catch(() => [] as MenuGroupMembership[])),
-      ]);
-      if (cancelled) return;
-      setBatchConfig(config);
-      setSelectedCycleIndex(0);
-      const next = new Map<number, MenuGroupMembership[]>();
-      groupList.forEach((g, idx) => next.set(g.id, memberships[idx] ?? []));
-      setMembershipsByGroup(next);
-    })();
+    getMenu(restaurantId, alternateDay)
+      .then((menus) => { if (!cancelled) setOtherSeries({ date: alternateDay, menus }); })
+      .catch(() => { if (!cancelled) setOtherSeries({ date: alternateDay, menus: null }); });
     return () => { cancelled = true; };
-  }, [activeMenu, restaurantId]);
+  }, [restaurantId, alternateDay, seriesLoadAttempt]);
+
+  function retryCatalogue() {
+    if (alternateDay && !loadError) {
+      setOtherSeries(null);
+      setSeriesLoadAttempt((attempt) => attempt + 1);
+    } else {
+      setLoadAttempt((attempt) => attempt + 1);
+    }
+  }
 
   // Customer-facing, orderable sections for the active carte: visible POS groups
   // with active items, filtered to the selected week when the carte rotates.
@@ -377,39 +367,26 @@ function NewStaffOrder({ restaurantId, staffId }: { restaurantId: number; staffI
         .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id);
       return items.length > 0 ? [{ id: 0, name: libraryLabel, items }] : [];
     }
-    if (!activeMenu) return out;
-    // For a weekly-rotating carte, the staff menu endpoint (GET /menu/) pre-filters
-    // each group's items to TODAY. That hides items whose série window opens on a
-    // later fulfilment day (e.g. next Friday's Poissons), so the picker showed far
-    // fewer items than the customer's web menu for the selected batch. Rebuild each
-    // group from the série-aware memberships instead — active on the selected day —
-    // and resolve full item data (variants, modifiers, combos) from itemMap
-    // (GET /menu/items, which is série-agnostic and carries every item). Fall back
-    // to group.items until memberships have loaded to avoid a transient empty grid.
-    const useMemberships = isRotating && !!selectedDay && membershipsByGroup.size > 0;
-    for (const group of activeMenu.groups ?? []) {
+    for (const group of displayedMenu?.groups ?? []) {
       if (group.is_hidden || group.pos_enabled === false) continue;
-      const source: MenuItem[] = useMemberships
-        ? (membershipsByGroup.get(group.id) ?? [])
-            .filter((m) => isMembershipActiveOn(m, selectedDay as string))
-            .map((m) => itemMap.get(m.menu_item_id) ?? m.item)
-            .filter((it): it is MenuItem => !!it)
-        : (group.items ?? []).map((gi) => itemMap.get(gi.id) ?? gi);
+      // A dated carte also carries the selected series' stock and option states.
+      const groupItems = group.items ?? [];
+      const source = selectedDay ? groupItems : groupItems.map((item) => itemMap.get(item.id) ?? item);
       const items = source
         .filter((it) => it.is_active)
         .filter((it) => !q || it.name.toLowerCase().includes(q));
       if (items.length > 0) out.push({ id: group.id, name: group.name, items });
     }
     return out;
-  }, [activeMenuId, activeMenu, itemMap, search, isRotating, selectedDay, membershipsByGroup, libraryLabel]);
+  }, [activeMenuId, displayedMenu, itemMap, search, selectedDay, libraryLabel]);
 
   // Drop the category filter if the active section disappears (e.g. cleared by
   // a search), so the grid never ends up showing nothing unexpectedly.
   useEffect(() => {
-    if (activeSection !== 'all' && !sections.some((s) => s.id === activeSection)) {
+    if (!catalogueLoading && !catalogueError && activeSection !== 'all' && !sections.some((s) => s.id === activeSection)) {
       setActiveSection('all');
     }
-  }, [sections, activeSection]);
+  }, [sections, activeSection, catalogueLoading, catalogueError]);
 
   // Sections actually rendered: a single category when one is picked, else all.
   const displaySections = useMemo(
@@ -437,8 +414,7 @@ function NewStaffOrder({ restaurantId, staffId }: { restaurantId: number; staffI
     return m;
   }, [lines]);
 
-  function handleTile(it: MenuItem) {
-    const full = itemMap.get(it.id) ?? it;
+  function handleTile(full: MenuItem) {
     // Defensive: sold-out tiles are rendered disabled, but never let a stale
     // click add a line the order-time guard would reject.
     if (isItemSoldOut(full)) return;
@@ -741,7 +717,14 @@ function NewStaffOrder({ restaurantId, staffId }: { restaurantId: number; staffI
                   <button
                     key={m.id}
                     type="button"
-                    onClick={() => { setActiveMenuId(m.id); setActiveSection('all'); }}
+                    onClick={() => {
+                      if (!active) {
+                        setActiveMenuId(m.id);
+                        setSelectedCycleIndex(0);
+                        setOtherSeries(null);
+                      }
+                      setActiveSection('all');
+                    }}
                     aria-pressed={active}
                     className={cn(
                       'relative shrink-0 whitespace-nowrap px-[var(--s-2)] pb-[var(--s-2)] text-fs-sm font-medium transition-colors',
@@ -778,10 +761,13 @@ function NewStaffOrder({ restaurantId, staffId }: { restaurantId: number; staffI
                 )}
               </div>
               {isRotating && cycles.length > 0 && (
-                <BatchPicker cycles={cycles} selectedIndex={selectedCycleIndex} onChange={setSelectedCycleIndex} />
+                <BatchPicker cycles={cycles} selectedIndex={selectedCycleIndex} onChange={(index) => {
+                  setOtherSeries(null);
+                  setSelectedCycleIndex(index);
+                }} />
               )}
             </div>
-            {activeMenuId !== 'library' && sections.length > 0 && (
+            {!catalogueLoading && !catalogueError && activeMenuId !== 'library' && sections.length > 0 && (
               <div className="no-scrollbar -mx-[var(--s-4)] flex gap-[var(--s-2)] overflow-x-auto px-[var(--s-4)] pb-[var(--s-3)]">
                 <button
                   type="button"
@@ -826,22 +812,22 @@ function NewStaffOrder({ restaurantId, staffId }: { restaurantId: number; staffI
 
           {/* Scrollable item grid */}
           <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--bg)] p-[var(--s-4)]">
-            {loading && (
+            {catalogueLoading && (
               <div className={checkoutStyles.itemGrid}>
                 {Array.from({ length: 8 }).map((_, i) => (
                   <div key={i} className="h-[100px] animate-pulse rounded-lg border border-[var(--line)] bg-[var(--surface-2)]" />
                 ))}
               </div>
             )}
-            {loadError && <div role="alert" className="text-fs-sm text-[var(--danger-500)]"><p>{loadError}</p><Button className="mt-3" onClick={() => setLoadAttempt(n => n + 1)}>{t('retry')}</Button></div>}
-            {!loading && !loadError && sections.length === 0 && (
+            {!catalogueLoading && catalogueError && <div role="alert" className="text-fs-sm text-[var(--danger-500)]"><p>{t('loadFailed')}</p><Button className="mt-3" onClick={retryCatalogue}>{t('retry')}</Button></div>}
+            {!catalogueLoading && !catalogueError && sections.length === 0 && (
               <div className="flex flex-col items-center justify-center gap-[var(--s-2)] py-[var(--s-12)] text-center">
                 <SearchIcon className="size-7 text-[var(--fg-subtle)]" />
                 <p className="text-fs-sm text-[var(--fg-muted)]">{t('noItemsFound')}</p>
               </div>
             )}
 
-            {!loading && (
+            {!catalogueLoading && !catalogueError && (
               <div className="flex flex-col gap-[var(--s-6)]">
                 {displaySections.map((section) => {
                   const color = sectionColorById.get(section.id);

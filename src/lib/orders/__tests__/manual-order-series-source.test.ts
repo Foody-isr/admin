@@ -9,13 +9,10 @@ const newOrderPage = readFileSync(
 );
 
 test("manual order creation loads staff-visible séries for checkout and rotating cartes", () => {
-  const staffConfigCalls = newOrderPage.match(/getStaffBatchFulfillmentConfig\(restaurantId\)/g) ?? [];
-
-  assert.equal(
-    staffConfigCalls.length,
-    2,
-    "the checkout and rotating-carte pickers must both include the current closed série",
-  );
+  assert.match(newOrderPage, /getStaffBatchFulfillmentConfig\(restaurantId\)/);
+  assert.match(newOrderPage, /getMenu\(restaurantId, currentDay\)/);
+  assert.match(newOrderPage, /getMenu\(restaurantId, alternateDay\)/);
+  assert.match(newOrderPage, /batchConfig=\{fulfillmentBatchConfig\}/);
   assert.doesNotMatch(
     newOrderPage,
     /getBatchFulfillmentConfig/,
