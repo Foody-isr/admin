@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "1505ac5ffa4144ea32fd827a3ee01b7789110f69",
-  "documentationRevision": "d473700964c67bc6dcd2154d4f7ebc613bdff34130246eeeff63126518530e92",
+  "documentationRef": "4ea5f97741f539984e62ea656997d05ff2bbf30b",
+  "documentationRevision": "70ea00878e34a80975905b869636478732fe67f150ac4c9d2cb6ace6babb64ff",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -2045,15 +2045,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/end-of-day.mdx",
-          "sha256": "6b74cf0aa98622aa810719c9bd71f61e7c27f84428e793f272a0a04979419ea7"
+          "sha256": "66b5001d874365fd2a321dcaf5caed644c00bc58b9d04d9fa6d5e3ef6d4bb36c"
         },
         "fr": {
           "path": "src/content/help/fr/payments/end-of-day.mdx",
-          "sha256": "a59d96ed21d26e36df4145498d23b3a19e2e40681632c7dbc2e7512b0b666332"
+          "sha256": "9945d54b5ad0e6197d6ac89259104b3deb6c0cd9afca11ff74ebdbb5aa43af16"
         },
         "he": {
           "path": "src/content/help/he/payments/end-of-day.mdx",
-          "sha256": "f4938256564cc019e707e549b51c844cf6395b5978c0ab0d9dfb019e1f905674"
+          "sha256": "f44f4adffa382a2a648892f962c762b48871c2b190525293c4d27d6b733edd44"
         }
       }
     },
@@ -2240,7 +2240,7 @@
       ]
     },
     "src/app/[restaurantId]/billing/PrivateBilling.tsx": {
-      "sha256": "d96b79e4757452c35be09510c8897aa1f7312c0d996f4c696a4cf17d29b2fbdf",
+      "sha256": "a37421ab3cdd84f8e6d4aae80563b2a8caf29e745d27b4394d9a0c5f9fb86218",
       "features": [
         "foody-billing-sandbox"
       ]
@@ -3889,7 +3889,7 @@
       ]
     },
     "src/components/Sidebar.tsx": {
-      "sha256": "0759fd73c159e7ac556dd17041c9eb948e50999137d25e212087d6188cff750f",
+      "sha256": "56bc0f39f0feaa9f78ef9a0edf3697103ada6438275ac7ed8f55cfb901ca0dc1",
       "features": [
         "billing",
         "pos-payments",
@@ -7103,7 +7103,7 @@
       ]
     },
     "src/lib/module-navigation.ts": {
-      "sha256": "04a603871252072ee80ac5d2ea0f4d94b8304c9f301155996a8aa6a4340dcb2b",
+      "sha256": "ccc669e3ff7cf840ae5571312a0afe7125d8a5287eca43d487fe5327c233cf7c",
       "features": [
         "foody-billing-sandbox"
       ]

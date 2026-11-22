@@ -1,0 +1,39 @@
+{
+  "reviewedAt": "2026-11-22",
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/billing/PrivateBilling.tsx",
+      "sha256": "a37421ab3cdd84f8e6d4aae80563b2a8caf29e745d27b4394d9a0c5f9fb86218",
+      "baseSha256": "d96b79e4757452c35be09510c8897aa1f7312c0d996f4c696a4cf17d29b2fbdf",
+      "disposition": "no-user-impact",
+      "features": [
+        "foody-billing-sandbox"
+      ],
+      "reason": "The billing page recognizes the same private offers, invitations and public catalog as before. The three subscription guides already describe selecting a public plan and opening invoices before subscribing."
+    },
+    {
+      "path": "src/components/Sidebar.tsx",
+      "sha256": "56bc0f39f0feaa9f78ef9a0edf3697103ada6438275ac7ed8f55cfb901ca0dc1",
+      "baseSha256": "0759fd73c159e7ac556dd17041c9eb948e50999137d25e212087d6188cff750f",
+      "disposition": "no-user-impact",
+      "features": [
+        "billing",
+        "pos-payments",
+        "global-search",
+        "payments-transactions",
+        "customers-loyalty-program"
+      ],
+      "reason": "Restores Settings → Account → Billing when the owner has only a public catalog, a path already documented in all three subscription guides. Payment, global search and loyalty destinations keep their existing labels and permission checks."
+    },
+    {
+      "path": "src/lib/module-navigation.ts",
+      "sha256": "ccc669e3ff7cf840ae5571312a0afe7125d8a5287eca43d487fe5327c233cf7c",
+      "baseSha256": "04a603871252072ee80ac5d2ea0f4d94b8304c9f301155996a8aa6a4340dcb2b",
+      "disposition": "no-user-impact",
+      "features": [
+        "foody-billing-sandbox"
+      ],
+      "reason": "The owner-scoped response now supplies one availability check to the sidebar and the billing page. The documented private offer, invitation and public catalog paths all use the same existing Billing destination."
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 import type { FoodyModuleAccess } from '@/lib/api';
 import { deliveryDestinations, isDeliveryPage } from '@/lib/delivery-navigation';
-import { allowsModulePath } from '@/lib/module-navigation';
+import { allowsModulePath, hasFoodyBillingPortal } from '@/lib/module-navigation';
 
 import Link from 'next/link';
 import { loyaltyCheckoutEnabled } from '@/lib/loyalty-checkout';
@@ -103,14 +103,14 @@ export default function Sidebar({ restaurantId, restaurantName, moduleAccess, is
 
   const [lowStockCount, setLowStockCount] = useState(0);
   const [lowPrepCount, setLowPrepCount] = useState(0);
-  const [privateBillingAccess, setPrivateBillingAccess] = useState<string | null>(null);
+  const [billingAccessScope, setBillingAccessScope] = useState<string | null>(null);
   const [expansion, setExpansion] = useState<{ pathname: string; overrides: Record<string, boolean> }>({ pathname, overrides: {} });
   const overrides = expansion.pathname === pathname ? expansion.overrides : {};
   const billingScope = !permissionsLoading && isOwner && userId
     ? `${restaurantId}:${userId}`
     : null;
   const settingsGroups = visibleSettingsNavigation(
-    restaurantId, hasAnyPermission, billingScope !== null && privateBillingAccess === billingScope,
+    restaurantId, hasAnyPermission, billingScope !== null && billingAccessScope === billingScope,
   );
 
   useEffect(() => {
@@ -118,11 +118,10 @@ export default function Sidebar({ restaurantId, restaurantName, moduleAccess, is
     const request = new AbortController();
     getFoodyBilling(restaurantId, request.signal)
       .then((view) => {
-        if (!request.signal.aborted) setPrivateBillingAccess(view.offer?.id || view.onboarding ? billingScope : null);
+        if (!request.signal.aborted) setBillingAccessScope(hasFoodyBillingPortal(view) ? billingScope : null);
       })
       .catch(() => {
-        // Offer availability comes from the scoped API. Hide the link when it cannot confirm access.
-        if (!request.signal.aborted) setPrivateBillingAccess(null);
+        if (!request.signal.aborted) setBillingAccessScope(null);
       });
     return () => request.abort();
   }, [billingScope, restaurantId]);

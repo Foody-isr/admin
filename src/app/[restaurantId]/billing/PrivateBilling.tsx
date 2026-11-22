@@ -5,6 +5,7 @@ import { ArrowUpRight, CheckCircle2, ChevronDown, FileText, LockKeyhole, Receipt
 import { ApiError, getFoodyBilling, getFoodyBillingUsage, payFoodyBillingRegisteredCard, reconcileFoodyBilling, startFoodyBillingCheckout,
   stopFoodyBillingRenewal, type FoodyBillingCycle, type FoodyBillingOffer, type FoodyBillingUsage, type FoodyBillingView } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { hasFoodyBillingPortal } from '@/lib/module-navigation';
 import { Button, ConfirmDialog } from '@/components/ds';
 import { SubscriptionDocuments } from './SubscriptionDocuments';
 import { SubscriptionAdditions } from './SubscriptionAdditions';
@@ -15,7 +16,7 @@ import styles from './billing-portal.module.css';
 
 type Availability = FoodyBillingView | 'loading' | 'error' | 'legacy';
 
-/** Show the private offer to its owner; other accounts retain legacy billing. */
+/** Opens owner billing for a published offer, onboarding invitation or public plan catalog. */
 export function FoodyBillingEntry({ rid, children }: { rid: number; children: ReactNode }) {
   const { t } = useI18n();
   const [view, setView] = useState<Availability>('loading');
@@ -35,7 +36,7 @@ export function FoodyBillingEntry({ rid, children }: { rid: number; children: Re
         // Ignore and strip gateway query fields; the server verifies its own claim.
         if (!request.signal.aborted) window.history.replaceState(window.history.state, '', window.location.pathname);
       }
-      if (!request.signal.aborted) setView(data?.plan_catalog || data?.onboarding || data?.offer?.id ? data : 'error');
+      if (!request.signal.aborted) setView(hasFoodyBillingPortal(data) ? data : 'error');
     }).catch((error) => {
       if (request.signal.aborted) return;
       setView(error instanceof ApiError && (error.status === 404 || error.status === 403) ? 'legacy' : 'error');
