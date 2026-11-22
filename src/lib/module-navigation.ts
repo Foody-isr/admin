@@ -1,4 +1,9 @@
-import type { FoodyModuleAccess } from './api';
+import type { FoodyBillingView, FoodyModuleAccess } from './api';
+
+/** Determines whether the scoped billing response offers an owner a billing portal. */
+export function hasFoodyBillingPortal(view: FoodyBillingView | null | undefined): boolean {
+  return Boolean(view?.offer?.id || view?.onboarding || view?.plan_catalog);
+}
 
 /** Filters UI destinations for the resolved sandbox workspace. The API owns access. */
 export function allowsModulePath(access: FoodyModuleAccess | undefined, href: string): boolean {

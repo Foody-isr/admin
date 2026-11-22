@@ -375,14 +375,44 @@ test('an amended offer keeps the accepted plan and its price separate until acce
   await expect(page.getByText('Conditions signées')).toBeVisible();
 });
 
+const includedSeats = { pos: 0, chef: 0, kds: 0, employees: 3, pos_devices: 0 };
+const publicPlanCatalog = {
+  version: 'catalog-4', revision: 4, currency: 'ILS', minimum_trial_days: 14, extra_pos_minor: 0,
+  products: [{
+    id: 'ordering', name: { fr: 'Commande en ligne', he: 'הזמנות', en: 'Online ordering' },
+    capabilities: ['web_orders'], monthly_minor: 50000, included: includedSeats,
+  }],
+  plans: [{
+    id: 'studio', name: { fr: 'Studio', he: 'סטודיו', en: 'Studio' }, modules: ['ordering'],
+    published: true, monthly_minor: 55000, included: includedSeats, capabilities: ['web_orders'],
+  }],
+};
+
+test('an owner with only a public catalog can open plans and invoices from the branches sidebar', async ({ page }) => {
+  await install(page);
+  await page.route('**/api/v1/restaurants/1/foody-billing', route => route.fulfill({
+    json: { offer: null, plan_catalog: publicPlanCatalog, lifecycle: { state: 'available' } },
+  }));
+  await page.route('**/api/v1/restaurants/1/foody-billing/documents**', route => route.fulfill({ json: emptyDocuments }));
+
+  await page.goto('/1/chain/branches');
+  const sidebar = await openAccountNavigation(page);
+  const billing = sidebar.getByRole('link', { name: 'Facturation', exact: true });
+  await expect(billing).toHaveAttribute('href', '/1/billing');
+  await billing.click();
+  await expect(page.getByRole('heading', { name: 'Choisir ma formule Foody' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: /Studio/ })).toBeVisible();
+  const invoices = page.getByRole('link', { name: 'Factures', exact: true });
+  await invoices.click();
+  await expect(invoices).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('heading', { name: 'Factures d’abonnement' })).toBeVisible();
+});
+
 test('an expired trial can review a public plan and read invoices before checkout', async ({page}) => {
   await install(page);
   const requests:string[]=[];
-  const seats={pos:0,chef:0,kds:0,employees:3,pos_devices:0};
-  const product={id:'ordering',name:{fr:'Commande en ligne',he:'הזמנות',en:'Online ordering'},capabilities:['web_orders'],monthly_minor:50000,included:seats};
-  const plan={id:'studio',name:{fr:'Studio',he:'סטודיו',en:'Studio'},modules:['ordering'],published:true,monthly_minor:55000,included:seats,capabilities:['web_orders']};
   const initial={offer:null,agreement:null,accepted_offer:null,payment:null,lifecycle:{state:'expired',trial_end:'2026-11-01T11:00:00Z'},
-    plan_catalog:{version:'catalog-4',revision:4,currency:'ILS',minimum_trial_days:14,extra_pos_minor:0,products:[product],plans:[plan]},checkout_enabled:true,monthly_enabled:true,due:true,can_resume:false};
+    plan_catalog:publicPlanCatalog,checkout_enabled:true,monthly_enabled:true,due:true,can_resume:false};
   const selected={...initial,offer:{id:17,version:1,title:'Studio',owner_selected:true,includes:'Online',terms:'Sandbox',start_date:'2026-11-01',
     monthly:{net_minor:55000,vat_minor:9900,total_minor:64900},annual:{net_minor:605000,vat_minor:108900,total_minor:713900}}};
   await page.route('**/api/v1/restaurants/1/foody-billing**',async route=>{
