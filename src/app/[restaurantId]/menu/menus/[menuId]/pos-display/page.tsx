@@ -81,6 +81,7 @@ function PosDisplayEditor() {
   const level = path[path.length - 1] ?? null;
   const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
   const [saving, setSaving] = React.useState(false);
+  const [uploadingTileImage, setUploadingTileImage] = React.useState(false);
   const [preview, setPreview] = React.useState(false);
   const [addOpen, setAddOpen] = React.useState(false);
   const [discard, setDiscard] = React.useState(false);
@@ -298,7 +299,7 @@ function PosDisplayEditor() {
 
   // ── Save ──
   const save = async () => {
-    if (!canEdit || busyRef.current || loading || loadFailed) return;
+    if (!canEdit || busyRef.current || uploadingTileImage || loading || loadFailed) return;
     busyRef.current = true;
     setSaving(true);
     setError(null);
@@ -333,7 +334,7 @@ function PosDisplayEditor() {
   };
 
   return <><FullScreenEditor open onOpenChange={open => { if (!open) closeBack(); }} title={t('posLayoutTitle')} subtitle={menuName || undefined} showCancel={false}
-    onSave={canEdit && !loading && !loadFailed && menu ? save : undefined} saveLabel={t(saving ? 'saving' : 'save')} saveDisabled={saving || !dirty}>
+    onSave={canEdit && !loading && !loadFailed && menu ? save : undefined} saveLabel={t(saving ? 'saving' : 'save')} saveDisabled={saving || uploadingTileImage || !dirty}>
     {loading ? <p role="status" className="py-16 text-center text-fg-secondary">{t('loading')}</p>
     : loadFailed ? <div role="alert" className="space-y-4 rounded-r-lg border border-[var(--line)] p-5"><p className="text-[var(--danger-500)]">{t(error || 'libraryOperationFailed')}</p><Button variant="secondary" onClick={() => setRetry(value => value + 1)}>{t('retry')}</Button></div>
     : !menu ? <p role="status" className="py-12 text-center text-fg-secondary">{t('menuNotFound')}</p>
@@ -358,17 +359,31 @@ function PosDisplayEditor() {
       </nav>}
       <div className={`grid min-w-0 gap-5 ${!preview && canEdit ? 'lg:grid-cols-[minmax(0,1fr)_320px]' : ''}`}>
         <section className="min-w-0 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-3 sm:p-4" aria-label={t('posLayoutTitle')}>
-          {!preview && canEdit && <div className="mb-4 flex flex-wrap items-center gap-2"><Button variant="primary" disabled={saving} onClick={() => setAddOpen(true)}><Plus />{t('posAddTile')}</Button><Button variant="secondary" className="lg:hidden" onClick={() => inspector.current?.scrollIntoView({ block: 'start' })}><SlidersHorizontal />{t('posTileSettings')}</Button></div>}
-          <div className="overflow-x-auto p-1" tabIndex={0} role="region" aria-label={t('posLayoutTitle')}><fieldset disabled={saving} className="min-w-0">
+          {!preview && canEdit && <div className="mb-4 flex flex-wrap items-center gap-2"><Button variant="primary" disabled={saving || uploadingTileImage} onClick={() => setAddOpen(true)}><Plus />{t('posAddTile')}</Button><Button variant="secondary" className="lg:hidden" onClick={() => inspector.current?.scrollIntoView({ block: 'start' })}><SlidersHorizontal />{t('posTileSettings')}</Button></div>}
+          <div className="overflow-x-auto p-1" tabIndex={0} role="region" aria-label={t('posLayoutTitle')}><fieldset disabled={saving || uploadingTileImage} className="min-w-0">
             {preview || !canEdit ? <PreviewGrid tiles={currentTiles} resolve={resolve} onDrill={onDrill} /> : <PosTileCanvas tiles={currentTiles} resolve={resolve} selectedIndex={selectedIndex} onSelect={onSelect} onDrill={onDrill} onAdd={() => setAddOpen(true)} onReorder={onReorder} />}
           </fieldset></div>
           {!currentTiles.length && <p className="py-5 text-center text-sm text-fg-secondary">{t('posNoTiles')}</p>}
         </section>
         {!preview && canEdit && <aside ref={inspector} aria-label={t('posTileSettings')} className="min-w-0 scroll-mt-4 self-start rounded-r-lg border border-[var(--line)] bg-[var(--surface)]">
           <h2 className="rounded-t-r-lg bg-[var(--summary-bg)] p-4 font-semibold text-[var(--summary-fg)]">{t('posTileSettings')}</h2>
-          <fieldset disabled={saving} className="min-w-0 space-y-5 p-4">
+          <fieldset disabled={saving || uploadingTileImage} className="min-w-0 space-y-5 p-4">
             {selectedTile && <div className="space-y-3 border-b border-[var(--line)] pb-4"><p className="break-words font-semibold" dir="auto">{resolve(selectedTile).name}</p><div className="flex flex-wrap gap-2"><Button variant="secondary" size="sm" disabled={selectedIndex === 0} onClick={() => moveSelected(-1)}><ArrowUp />{t('moveUp')}</Button><Button variant="secondary" size="sm" disabled={selectedIndex === currentTiles.length - 1} onClick={() => moveSelected(1)}><ArrowDown />{t('moveDown')}</Button></div></div>}
-            <PosTileInspector tile={selectedTile} linkedImageUrl={selectedLinkedImageUrl} onSort={applySort} onSizeChange={(size: PosTileSize) => updateSelectedTile({ size })} onBgTypeChange={(bg_type: PosBgType) => updateSelectedTile({ bg_type })} onColorPick={color => updateSelectedTile({ color })} onImageUrlChange={image_url => updateSelectedTile({ image_url })} onRenameGroup={renameSelectedGroup} onDrill={() => { if (selectedIndex !== null) onDrill(selectedIndex); }} onRemove={removeSelectedTile} />
+            <PosTileInspector
+              key={`${level ?? 'root'}:${selectedIndex ?? 'sort'}`}
+              restaurantId={rid}
+              tile={selectedTile}
+              linkedImageUrl={selectedLinkedImageUrl}
+              onSort={applySort}
+              onSizeChange={(size: PosTileSize) => updateSelectedTile({ size })}
+              onBgTypeChange={(bg_type: PosBgType) => updateSelectedTile({ bg_type })}
+              onColorPick={color => updateSelectedTile({ color })}
+              onImageUrlChange={image_url => updateSelectedTile({ image_url })}
+              onImagePendingChange={setUploadingTileImage}
+              onRenameGroup={renameSelectedGroup}
+              onDrill={() => { if (selectedIndex !== null) onDrill(selectedIndex); }}
+              onRemove={removeSelectedTile}
+            />
           </fieldset>
         </aside>}
       </div>

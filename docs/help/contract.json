@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "00e5053f00b8a64783d1eb3238e57b6c90289ceb",
-  "documentationRevision": "a17818b82f40c0fe39862abd607b67ddeffe12bf884d89f9f3b17decf57e9b5a",
+  "documentationRef": "a3ce51d1eada1fdb9331359e8ee2d908b79398d3",
+  "documentationRevision": "f61050334174fff1b19bd034b3a06ef45314e3f3515e7d5dcef6c7e97f963b59",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -411,15 +411,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/menus-and-groups.mdx",
-          "sha256": "2d5a7dc055e153c867fa09b483674ddd4138382963157962a555f16feaf2b40d"
+          "sha256": "05de9cb13ceb9a15292f298b62b506e610790a497445e0783e85d26dc87aad06"
         },
         "fr": {
           "path": "src/content/help/fr/menu/menus-and-groups.mdx",
-          "sha256": "5c3ee72299f0756954c6404713647d936e280a88630ec6b38b692f9a73f1daaf"
+          "sha256": "05ecaec911d22f10f11c86c75845131e912623cdb1449e5b171d476cfb4bca6f"
         },
         "he": {
           "path": "src/content/help/he/menu/menus-and-groups.mdx",
-          "sha256": "3a8a0701b742bfa3886b4c58f469394301b62f34daaeca2ae0de2462f4b8efbe"
+          "sha256": "780408f8a185409230b69a50fc703d44b1280c835335eec1ac2186d7ba4f9c00"
         }
       }
     },
@@ -430,15 +430,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/subgroups.mdx",
-          "sha256": "6946613aa7159af48eba24c378d1eaafe5d5439f08cfc849c38d738f4dff9545"
+          "sha256": "8ec1e29f3f82e954d7cf83c4f48668f4fbd83c699b7b7844c52384d16c2e97db"
         },
         "fr": {
           "path": "src/content/help/fr/menu/subgroups.mdx",
-          "sha256": "f058a2aff652cc286df58b8c2a2a62d8b832656010076b3222ebb6e5f6d002fa"
+          "sha256": "ae2634754cac7c3c834c4ce3c640c5f0434a8aef46ffc87ad515c3eb69cf94b5"
         },
         "he": {
           "path": "src/content/help/he/menu/subgroups.mdx",
-          "sha256": "d08312413f2e3e01e9e0a16bad534d16ae556391b9d7b0709fcd2ae317b53feb"
+          "sha256": "d155ceef6a4ce990a0e447562d0232083ef575a6643bf7fc2fba3b03023c21c2"
         }
       }
     },
@@ -3021,7 +3021,7 @@
       ]
     },
     "src/app/[restaurantId]/menu/menus/[menuId]/pos-display/page.tsx": {
-      "sha256": "3aecf76109f5d45cb655f0607987fb24cdb2ec8364a07e169ca43f7a43f5ff71",
+      "sha256": "d063d98257070dd1ae7b2f7cb7e71ebd033f1394a7c462f5d1b74267241a8773",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -5244,6 +5244,13 @@
         "menu-menus-and-groups"
       ]
     },
+    "src/components/menu/MenuImageField.tsx": {
+      "sha256": "703aa42ef2a646e26873ca2869003678158613fc0175205032cb42930b7b0aba",
+      "features": [
+        "menu-menus-and-groups",
+        "menu-subgroups"
+      ]
+    },
     "src/components/menu/PosAddTileModal.tsx": {
       "sha256": "8124c6f088e4ee1e35279b2f747e8405af514e0d6a221b2a4ab8745fa61cbc9d",
       "features": [
@@ -5264,9 +5271,10 @@
       ]
     },
     "src/components/menu/PosTileInspector.tsx": {
-      "sha256": "4b96af57acc4731d15787e4932ec48928a2bbae4542a5d55adb27dcd3f95bb4e",
+      "sha256": "265d2fb1d9bfb6cfdee2a302ffec18ccb628c15931cb193cfd3233b5305edb50",
       "features": [
-        "menu-menus-and-groups"
+        "menu-menus-and-groups",
+        "menu-subgroups"
       ]
     },
     "src/components/menu/publication/AvailabilityPopover.tsx": {
@@ -5282,7 +5290,7 @@
       ]
     },
     "src/components/menu/publication/CarteEditor.tsx": {
-      "sha256": "d27c94117104e6c7a5638529c6c92277b7af51b029c499e3d8fda28aeb8bf78c",
+      "sha256": "65115927be91eb5b13c1460ff82c907fa0ebc16eb1251b150958cb548ddad69d",
       "features": [
         "menu-menus-and-groups",
         "menu-subgroups",
@@ -6753,9 +6761,10 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "e1b3ef2a03b03ea0fb5ec99241ba140d4bd6d9a53700dcd78d42eb8b47742981",
+      "sha256": "9defe067c4e3036a1ada4bea473247b4e671e7d68fe81002f249f70d6ef38b45",
       "features": [
         "customers-profiles",
+        "menu-subgroups",
         "menu-variants-and-sizes",
         "payments-how-payments-work",
         "delivery-zones",
@@ -19481,6 +19490,21 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/menu/MenuImageField.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/menu/MenuImageField.tsx",
+      "line": 1,
+      "features": [
+        "menu-menus-and-groups",
+        "menu-subgroups"
+      ],
+      "labels": [
+        "groupUploadImage",
+        "itemPhotosInvalid"
+      ],
+      "actions": []
+    },
+    {
       "id": "foodyadmin:src/components/menu/PosAddTileModal.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/menu/PosAddTileModal.tsx",
@@ -19530,7 +19554,8 @@
       "source": "src/components/menu/PosTileInspector.tsx",
       "line": 1,
       "features": [
-        "menu-menus-and-groups"
+        "menu-menus-and-groups",
+        "menu-subgroups"
       ],
       "labels": [
         "background",
@@ -23848,16 +23873,6 @@
       ]
     },
     {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:147",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 147,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.is_visible"
-    },
-    {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:694",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
@@ -26158,6 +26173,16 @@
       "field": "section.delete"
     },
     {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:147",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 147,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.is_visible"
+    },
+    {
       "id": "foodyadmin:src/components/website/CheckoutEditor.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/website/CheckoutEditor.tsx",
@@ -26241,6 +26266,7 @@
       "line": 1,
       "features": [
         "customers-profiles",
+        "menu-subgroups",
         "menu-variants-and-sizes",
         "payments-how-payments-work",
         "delivery-zones",

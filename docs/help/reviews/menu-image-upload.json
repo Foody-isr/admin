@@ -1,0 +1,48 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/menu/menus/[menuId]/pos-display/page.tsx",
+      "sha256": "d063d98257070dd1ae7b2f7cb7e71ebd033f1394a7c462f5d1b74267241a8773",
+      "baseSha256": "3aecf76109f5d45cb655f0607987fb24cdb2ec8364a07e169ca43f7a43f5ff71",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The layout editor waits for a tile image upload before saving its draft URL. The catalogue, item editor, ingredient, portion and variant procedures keep their current controls and request contracts."
+    },
+    {
+      "path": "src/components/menu/publication/CarteEditor.tsx",
+      "sha256": "65115927be91eb5b13c1460ff82c907fa0ebc16eb1251b150958cb548ddad69d",
+      "baseSha256": "d27c94117104e6c7a5638529c6c92277b7af51b029c499e3d8fda28aeb8bf78c",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the group image field in the settings dialog changes. The event window controls and series publication flows continue to use the same code paths and API calls."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "9defe067c4e3036a1ada4bea473247b4e671e7d68fe81002f249f70d6ef38b45",
+      "baseSha256": "e1b3ef2a03b03ea0fb5ec99241ba140d4bd6d9a53700dcd78d42eb8b47742981",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "delivery-dispatch",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The API client adds one multipart request for preparing restaurant menu assets. Existing endpoints, request contracts and authorization for the listed features remain as previously documented."
+    }
+  ]
+}
