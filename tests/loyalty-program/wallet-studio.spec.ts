@@ -2,10 +2,10 @@ import { expect, test, type Page } from '@playwright/test';
 import { createFixture } from '../redesign/fixtures.mjs';
 import type { WalletStudioArtwork } from '../../src/lib/api';
 
-async function studio(page: Page, locale: 'fr' | 'he' = 'fr', canSign = true, legacyBanner?: string) {
+async function studio(page: Page, locale: 'fr' | 'he' = 'fr', canSign = true, legacyBanner?: string, manual = false) {
   const fixtureOptions = { empty: false, permissions: ['settings.view', 'settings.edit'] };
   const fixture = createFixture(fixtureOptions);
-  const writes: { method: string; path: string; data: Partial<WalletStudioArtwork> & { expected_revision: number; apple_strip_png?: string; google_hero_png?: string } }[] = [];
+  const writes: { method: string; path: string; data: Partial<WalletStudioArtwork> & { expected_revision: number; apple_strip_png?: string; google_hero_png?: string; poster_png?: string } }[] = [];
   let design: WalletStudioArtwork & { revision: number } = { revision: legacyBanner ? 1 : 0, background_color: '#FFFFFF', foreground_color: '#15292F', logo_png: null, banner_png: legacyBanner ?? null };
   let publishedRevision = 0;
   await page.addInitScript((lang) => {
@@ -25,9 +25,9 @@ async function studio(page: Page, locale: 'fr' | 'he' = 'fr', canSign = true, le
       expect(rid).toBe(1);
       expect(req.headers()['authorization']).toBe('Bearer isolated-wallet-studio');
       if (req.method() === 'GET') return route.fulfill({ json: {
-        restaurant_id: rid, restaurant_name: 'Bella Italia', can_edit: true, can_sign_test: canSign, design,
+        restaurant_id: rid, restaurant_name: 'Bella Italia', can_edit: true, can_sign_test: canSign, design, composition_version:manual?1:undefined,
         published_revision: publishedRevision,
-        program: { enabled: true, mode: 'visits', threshold: 2, names: { en: 'Bella rewards', fr: 'Les habitués de Bella', he: 'מועדון Bella' } },
+        program: { enabled: true, mode: 'visits', threshold: manual?10:2, reward_labels: {fr:'Café glacé',en:'Iced coffee',he:'קפה קר'}, names: { en: 'Bella rewards', fr: 'Les habitués de Bella', he: 'מועדון Bella' } },
       } });
       const data = req.postDataJSON();
       writes.push({ method: req.method(), path, data });
@@ -397,4 +397,57 @@ test('preserves a square original, separate Wallet frames and the Apple counter 
   expect(writes[1].data.banner_original).toBeUndefined();
   await page.reload();
   await expect(apple.getByRole('img')).toHaveAttribute('src', 'data:image/png;base64,' + source);
+});
+
+test('builds both manual models, exports each size, and reopens the editable draft', async ({page})=>{
+  const writes=await studio(page,'fr',true,undefined,true);
+  const picker=page.locator('[data-wallet-composer]');
+  await picker.getByRole('button',{name:'Carnet de table'}).click();
+  await expect(page.locator('[data-wallet-poster]')).toBeVisible();
+  await picker.getByText('Titre du visuel',{exact:true}).click();
+  await picker.getByLabel('Texte sur une ou deux lignes').fill('À notre table');
+  const source = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 10; canvas.height = 20;
+    const context = canvas.getContext('2d')!;
+    context.fillStyle = '#134f40';
+    context.fillRect(2, 4, 6, 10);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+  await page.route('**/api/v1/loyalty/wallet-studio/website-design', route =>
+    route.fulfill({json:{restaurant_id:1,banner:source,logo:source,missing_images:false,palette:{bg:'#000000'}}}));
+  await page.getByRole('button', {name: 'Utiliser la photo du site'}).click();
+  await expect(page.getByRole('button',{name:'Retirer Bannière de la carte'})).toBeVisible();
+  await page.getByRole('button',{name:'Enregistrer le brouillon'}).click();
+  await expect.poll(()=>writes.filter(w=>w.method==='PUT').length).toBe(1);
+  expect(writes[0].data.composition).toMatchObject({template:'table',title:'À notre table'});
+  expect(writes[0].data).toMatchObject({background_color:'#FBF1DB',logo_png:null,banner_original:source});
+  const dimensions=(s:string|undefined)=>{const bytes=Buffer.from(s!,'base64');return [bytes.readUInt32BE(16),bytes.readUInt32BE(20)];};
+  expect(dimensions(writes[0].data.poster_png)).toEqual([1074,1344]);
+  expect(dimensions(writes[0].data.apple_strip_png)).toEqual([1125,432]);
+  expect(dimensions(writes[0].data.google_hero_png)).toEqual([1032,812]);
+  await page.reload();await picker.getByText('Titre du visuel',{exact:true}).click();
+  await expect(picker.getByLabel('Texte sur une ou deux lignes')).toHaveValue('À notre table');
+
+  await picker.getByRole('button',{name:'Affiche café'}).click();
+  await page.getByRole('button',{name:'Utiliser le logo du site'}).click();
+  await expect(page.getByRole('button',{name:'Retirer Logo du restaurant'})).toBeVisible();
+  await page.getByLabel('Format Apple').selectOption('classic');
+  await expect(page.locator('canvas[data-wallet-art="apple"]')).toBeVisible();
+  await page.getByRole('tab',{name:'Google Wallet'}).click();
+  await expect(page.locator('canvas[data-wallet-art="google"]')).toBeVisible();
+  await expect(page.locator('[data-wallet-preview="google"]')).toContainText('Café glacé');
+  await page.getByRole('tab',{name:'Apple Wallet'}).click();
+  await page.getByLabel('Format Apple').selectOption('poster');
+  await expect(page.locator('[data-wallet-poster]')).toContainText('1 / 10');
+  await picker.getByText('Motif et fond',{exact:true}).click();
+  await picker.getByLabel('Motif',{exact:true}).selectOption('none');
+  await page.getByRole('button',{name:'Enregistrer le brouillon'}).click();
+  await expect.poll(()=>writes.filter(w=>w.method==='PUT').length).toBe(2);
+  expect(writes[1].data.composition).toMatchObject({template:'cafe',pattern:'none',title:'Coffee\nClub'});
+  await picker.getByRole('button',{name:'Classique',exact:true}).click();
+  await page.getByRole('button',{name:'Enregistrer le brouillon'}).click();
+  await expect.poll(()=>writes.filter(w=>w.method==='PUT').length).toBe(3);
+  expect(writes[2].data.composition).toEqual({version:1,template:'classic'});
+  expect(writes[2].data.poster_png).toBeUndefined();
 });

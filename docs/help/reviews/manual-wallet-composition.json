@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-22",
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "ebeac6cbdaef677aa7c66efcee68a3e9e6045dd1e12206bf2f1ad8aea483b74d",
+      "baseSha256": "d6688103155a3e0992165c135ce4c4077420252973528d368ec0d47a696e51fa",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "delivery-dispatch",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions"
+      ],
+      "reason": "The additions extend only the private Wallet Studio request and response with the composition, its PNG renditions and preview labels. The rest of the Admin API client retains its existing endpoints and payloads."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "c12eb08b9542cdc8f5d2252864da4e49a970d8c7962dbe57cac242a08db768b8",
+      "baseSha256": "b23da613d83e7ffcac0dcb784ad7dae6113146104f3fb8c0869cb48077580337",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions"
+      ],
+      "reason": "Only the Wallet Studio dictionaries gain labels for editable artwork, device previews and the manual source picker. The existing text and actions in the features listed here are byte-for-byte unchanged."
+    }
+  ]
+}
