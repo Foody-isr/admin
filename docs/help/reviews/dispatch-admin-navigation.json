@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-22",
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/layout.tsx",
+      "features": [
+        "payments-transactions"
+      ],
+      "baseSha256": "1cd872147a1fe9119769a623b315d6fde22c764e0527f6ec9ecec6184103db7b",
+      "sha256": "b407181fab9746fefe978ed7110fdf5005f0de58cb78906fd8bb3da76ad4790c",
+      "disposition": "no-user-impact",
+      "reason": "The layout now shares the same restaurant menu on Dispatch. The transaction workflow, amounts, account access and its sidebar destination keep their documented paths."
+    },
+    {
+      "path": "src/components/TopBar.tsx",
+      "features": [
+        "global-search"
+      ],
+      "baseSha256": "e0109bbb9f0ccabd57a4ab99f273ded54596c591e811ce2426c2d871fb25ccf4",
+      "sha256": "7170e569c580b42ced138caedb0a06c872fb9ee43c75c63e450204b89cbb7a90",
+      "disposition": "no-user-impact",
+      "reason": "The mobile menu button now announces the existing main navigation label, covered in the dispatch guide. The search trigger, shortcut, permissions and search results keep their existing behaviour."
+    },
+    {
+      "path": "src/components/common/NavigationFrame.tsx",
+      "features": [
+        "shared-runtime"
+      ],
+      "baseSha256": "7963fc9a7c8fd8e28f5169d328184432a5ad88cdae84529115a763bf0e4a4f95",
+      "sha256": "c654017b50a0f4987d0f1c00623a9d4e720c14c0c34457607f9015215cb1b578",
+      "disposition": "no-user-impact",
+      "reason": "The mobile dialog announces main navigation. The dispatch guide describes access through that menu. The internal shared-runtime guide has no public navigation procedure."
+    }
+  ]
+}

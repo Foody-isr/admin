@@ -23,24 +23,7 @@
   .archiveRow { padding: 11px 12px; gap: 8px; }
   .archiveRow .avatar { display: none; }
 }
-.shell {
-  min-height: 100dvh;
-  background: var(--surface-2);
-  color: var(--fg);
-  padding-bottom: env(safe-area-inset-bottom);
-}
-.masthead { background: var(--action); color: var(--action-fg); padding-top: env(safe-area-inset-top); }
-.bar, .content { max-width: 1640px; margin-inline: auto; padding-inline: clamp(16px, 3vw, 48px); }
-.bar { display: flex; align-items: center; min-height: 54px; gap: 8px; }
-.home { display: inline-flex; align-items: center; gap: 18px; min-height: 44px; color: inherit; }
-.home > span, .sectionName, .slash { font-size: 14px; }
-.slash { opacity: .65; }
-.navigation { min-width: 0; margin-inline-start: auto; font-size: 13px; }
-.navigation a, .navigation button { color: inherit; }
-.masthead .navigation a[aria-current="page"], .masthead .navigation a:hover { color: inherit; border-color: currentColor; }
-.navigation button:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
-.bar :is(a,button):focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-.content { padding-block: 20px 32px; }
+.content { max-width: 1640px; margin-inline: auto; }
 .content > [role="alert"], .content > section, .content > [role="status"] { margin-block: 8px; }
 .pageHead, .filtersBar, .toolbar, .routeHeading, .mapHeading, .footer, .detailHead {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -67,7 +50,7 @@
 .utilities [data-slot="tab"] { min-height: 32px; font-size: 12px; }
 .utilities > button { min-width: 34px; height: 34px; }
 .grid { display: grid; grid-template-columns: minmax(0,1fr); align-items: stretch; gap: 14px; }
-.grid[data-map="true"] { grid-template-columns: minmax(0,1.6fr) minmax(300px,1fr); }
+.grid[data-map="true"] { grid-template-columns: minmax(0,1.6fr) minmax(245px,1fr); }
 .panel, .mapPanel, .floatingPanel, .routeTools { min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .panel, .mapPanel { overflow: hidden; display: flex; flex-direction: column; height: clamp(385px, calc(100dvh - 266px), 820px); }
 .routeHeading, .queueHead, .groupHeading, .mapHeading { padding: 15px 18px; border-bottom: 1px solid var(--line); }
@@ -113,18 +96,11 @@
 .floatingPanel .detail { max-height: 55dvh; }
 .tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 390px), 1fr)); gap: 14px; margin-top: 24px; }
 .routeTools { padding: 14px 18px; }
-@media(max-width: 1023px) {
-  .bar, .content { padding-inline: 16px; }
-  .grid[data-map="true"] { grid-template-columns: minmax(0,1.45fr) minmax(250px,1fr); }
+@media(max-width: 1199px) {
   .filtersBar { gap: 6px; }
   .table td, .table th { padding-inline: 8px; }
 }
 @media(max-width: 720px) {
-  .bar, .content { padding-inline: 12px; }
-  .bar { min-height: 48px; gap: 5px; }
-  .home { gap: 10px; }
-  .bar .home svg { width: 48px; }
-  .content { padding-block: 16px; }
   .pageHead { align-items: flex-start; flex-direction: column; gap: 10px; }
   .filtersBar { padding-block: 12px; }
   .filters { gap: 2px; }
