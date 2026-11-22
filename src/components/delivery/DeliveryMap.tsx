@@ -161,7 +161,8 @@ function FitBounds({ points, couriers = [], request = 0, courier = false }: { po
 
     const fitToPoints = () => {
       const { width, height } = container.getBoundingClientRect();
-      if (width < 2 || height < 2) return;
+      // A queued resize can run after navigation has removed this map.
+      if (width < 2 || height < 2 || !map.getPane('mapPane')) return;
 
       map.invalidateSize({ animate: false });
       // Include the latest GPS when fitting, without snapping back on each update.
@@ -180,7 +181,6 @@ function FitBounds({ points, couriers = [], request = 0, courier = false }: { po
     };
 
     const onResize = () => {
-      map.invalidateSize({ animate: false });
       if (settleTimer) clearTimeout(settleTimer);
       // The mobile map opens with a height transition. Fit after it settles so
       // Leaflet measures the final viewport instead of the initial 0px box.

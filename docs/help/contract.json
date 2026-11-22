@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "d27afe0f838fb37291740c903f9e2ada36fbcf61",
-  "documentationRevision": "63dff5d4a0fc1f5333094f5f32180604f89ade6c97445eb251b683cddff231d9",
+  "documentationRef": "087a2018e0a1bc0991d7048380f91cb5c0513194",
+  "documentationRevision": "cbf0224eb2f2bdbdef465cd21771baa469018e7a091e84e4cd74d17bd6e12a40",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "362dfe796a84c6bac015d18e05403d9bf6397f431ad7c72362b2020d25520a98"
+          "sha256": "ccd51666fa6000dc7afc626c65d37d953a14ff03bf4c09db7d3e94a8a2fef88b"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "e9e2fc1ae44c50bcebba0682fbdfc1098ca845d17dad71988f09403c1eba6703"
+          "sha256": "03b8da5a3aa31cf2f053bc7d2344b7e4f93005e34541252ce66f98135f71b63f"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "99f4735612f03341e1e1088029948b01a7a31a64ab2f9c114b6e9dd83dcc0c30"
+          "sha256": "71e7d4fb94ee0f9f05dedfc46fbf1774d535fe7cd79ba79217b50d18c882390c"
         }
       }
     },
@@ -2045,15 +2045,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/end-of-day.mdx",
-          "sha256": "6b74cf0aa98622aa810719c9bd71f61e7c27f84428e793f272a0a04979419ea7"
+          "sha256": "66b5001d874365fd2a321dcaf5caed644c00bc58b9d04d9fa6d5e3ef6d4bb36c"
         },
         "fr": {
           "path": "src/content/help/fr/payments/end-of-day.mdx",
-          "sha256": "a59d96ed21d26e36df4145498d23b3a19e2e40681632c7dbc2e7512b0b666332"
+          "sha256": "9945d54b5ad0e6197d6ac89259104b3deb6c0cd9afca11ff74ebdbb5aa43af16"
         },
         "he": {
           "path": "src/content/help/he/payments/end-of-day.mdx",
-          "sha256": "f4938256564cc019e707e549b51c844cf6395b5978c0ab0d9dfb019e1f905674"
+          "sha256": "f44f4adffa382a2a648892f962c762b48871c2b190525293c4d27d6b733edd44"
         }
       }
     },
@@ -2827,7 +2827,7 @@
       ]
     },
     "src/app/[restaurantId]/layout.tsx": {
-      "sha256": "1cd872147a1fe9119769a623b315d6fde22c764e0527f6ec9ecec6184103db7b",
+      "sha256": "b407181fab9746fefe978ed7110fdf5005f0de58cb78906fd8bb3da76ad4790c",
       "features": [
         "delivery-dispatch",
         "payments-transactions"
@@ -3881,7 +3881,7 @@
       ]
     },
     "src/components/TopBar.tsx": {
-      "sha256": "e0109bbb9f0ccabd57a4ab99f273ded54596c591e811ce2426c2d871fb25ccf4",
+      "sha256": "7170e569c580b42ced138caedb0a06c872fb9ee43c75c63e450204b89cbb7a90",
       "features": [
         "global-search"
       ]
@@ -4042,7 +4042,7 @@
       ]
     },
     "src/components/common/NavigationFrame.tsx": {
-      "sha256": "7963fc9a7c8fd8e28f5169d328184432a5ad88cdae84529115a763bf0e4a4f95",
+      "sha256": "c654017b50a0f4987d0f1c00623a9d4e720c14c0c34457607f9015215cb1b578",
       "features": [
         "shared-runtime"
       ]
@@ -4172,13 +4172,13 @@
       ]
     },
     "src/components/delivery/DeliveryMap.tsx": {
-      "sha256": "a4657e11779abf1c832ee777189f1adc6244b6dc1da585dde0a3a8932ae3d767",
+      "sha256": "3d90e434ac2bf5a90a803bbc70759ed66720ab2aff5cf4324242c12b6bf5af71",
       "features": [
         "delivery-dispatch"
       ]
     },
     "src/components/delivery/DeliveryNavigation.tsx": {
-      "sha256": "a265bf4cae70471bc72c0d7be88d1e4fe0b23d0b9a89eb21cfe473ade05df083",
+      "sha256": "92adeb483387b126946b668365bb2e2715e8040909a39f7fead605f2981f25aa",
       "features": [
         "delivery-dispatch"
       ]
@@ -4197,7 +4197,7 @@
       ]
     },
     "src/components/delivery/DispatchWorkspace.module.css": {
-      "sha256": "98230aeefe903832c5bf22df13e11ee3fdaf9567a6cc285fe904296f2d3f98ed",
+      "sha256": "d0229605db4065304f9a234ca570f4b83e3dbc80aea019171f1032258eb5822a",
       "features": [
         "delivery-dispatch"
       ]
@@ -4215,7 +4215,7 @@
       ]
     },
     "src/components/delivery/LeafletSurface.tsx": {
-      "sha256": "bd78b3a6d62ea116a2f000e9699c269b46d4567356238c5d458f386578af7509",
+      "sha256": "5486abb14efb24a1b30b2894e5748b35439ac3c331960c50360d97833620cf22",
       "features": [
         "delivery-dispatch"
       ]
@@ -10992,8 +10992,6 @@
       ],
       "labels": [
         "billing",
-        "dashboard",
-        "deliveries",
         "foodyModulePaymentAccess",
         "foodyModuleStatus_",
         "retry",
@@ -15412,7 +15410,7 @@
         "global-search"
       ],
       "labels": [
-        "menu"
+        "mainNavigation"
       ],
       "actions": []
     },
@@ -16032,7 +16030,7 @@
         "shared-runtime"
       ],
       "labels": [
-        "menu"
+        "mainNavigation"
       ],
       "actions": []
     },
@@ -23647,6 +23645,16 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:147",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 147,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.is_visible"
+    },
+    {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:694",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
@@ -25945,16 +25953,6 @@
         "website-qr-customize-your-site"
       ],
       "field": "section.delete"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:147",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 147,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.is_visible"
     },
     {
       "id": "foodyadmin:src/components/website/CheckoutEditor.tsx:ui-controls:1",

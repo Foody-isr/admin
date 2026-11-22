@@ -31,7 +31,7 @@ export function NavigationFrame({ open, onClose, className, children }: {
       <Dialog.Overlay className="fixed inset-0 z-30 bg-[var(--overlay)]" />
       <Dialog.Content {...focus} asChild aria-describedby={undefined}>
         <aside className={className}>
-          <Dialog.Title className="sr-only">{t('menu')}</Dialog.Title>
+          <Dialog.Title className="sr-only">{t('mainNavigation')}</Dialog.Title>
           {children}
         </aside>
       </Dialog.Content>

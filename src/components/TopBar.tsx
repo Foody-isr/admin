@@ -17,7 +17,7 @@ export default function TopBar({ restaurantId, restaurantName, onToggleSidebar }
   const { t } = useI18n();
   return (
     <header className="sticky top-0 z-20 lg:hidden h-[var(--topbar-total-h)] flex items-center gap-3 pt-safe-t px-4 sm:px-6 lg:px-8 border-b border-[var(--line)] bg-[var(--topbar-bg)] text-[var(--fg)]">
-      <button type="button" onClick={onToggleSidebar} className="lg:hidden size-11 shrink-0 grid place-items-center rounded-r-md hover:bg-[var(--sidebar-hover)]" aria-label={t('menu')}>
+      <button type="button" onClick={onToggleSidebar} className="lg:hidden size-11 shrink-0 grid place-items-center rounded-r-md hover:bg-[var(--sidebar-hover)]" aria-haspopup="dialog" aria-label={t('mainNavigation')}>
         <Menu className="size-5" />
       </button>
       <div className="min-w-0 flex-1 text-sm"><RestaurantAccountMenu restaurantId={restaurantId} restaurantName={restaurantName} /></div>

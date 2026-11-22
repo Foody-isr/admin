@@ -75,11 +75,11 @@ test('empty dashboard has no fabricated green comparison',async({page})=>{
 
 test('mobile menu traps focus and returns to the trigger',async({page})=>{
   await page.setViewportSize({width:375,height:812});await install(page);await page.goto('/1/dashboard');
-  const menu=page.getByRole('button',{name:'Articles et cartes',exact:true});await menu.click();
-  await expect(page.getByRole('dialog',{name:'Articles et cartes'})).toBeVisible();
+  const menu=page.getByRole('button',{name:'Navigation principale',exact:true});await menu.click();
+  await expect(page.getByRole('dialog',{name:'Navigation principale'})).toBeVisible();
   for (let i=0;i<20;i++) {
     await page.keyboard.press('Tab');
-    expect(await page.getByRole('dialog',{name:'Articles et cartes'}).evaluate(el=>el.contains(document.activeElement))).toBe(true);
+    expect(await page.getByRole('dialog',{name:'Navigation principale'}).evaluate(el=>el.contains(document.activeElement))).toBe(true);
   }
   await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(menu).toBeFocused();

@@ -1023,7 +1023,7 @@ test('dispatch workspace isolates a missing entrance and preserves all stops whe
   expect(state.writes).toEqual([]);
 });
 
-test('desktop dispatch matches the reference composition in the Foody palette', async ({ page }, info) => {
+test('desktop dispatch shares the Admin sidebar and keeps the table beside the map', async ({ page }, info) => {
   const state = await install(page);
   await demoTiles(page);
   await page.setViewportSize({ width: 1440, height: 812 });
@@ -1057,12 +1057,13 @@ test('desktop dispatch matches the reference composition in the Foody palette', 
   await expect(map.locator('.foody-stop-pin')).toHaveCount(20);
   await expect.poll(() => map.locator('.leaflet-tile-loaded').count()).toBeGreaterThan(0);
   await expect(map.locator('.leaflet-control-attribution')).toContainText('Synthetic map data');
+  const sidebar = page.getByRole('navigation', { name: 'Navigation principale', exact: true });
+  await expect(sidebar.getByRole('link', { name: 'Livraisons', exact: true })).toHaveAttribute('aria-current', 'page');
   const left = (await panel.boundingBox())!, right = (await map.boundingBox())!;
-  expect(left.x).toBeGreaterThan(39);
-  expect(left.x).toBeLessThan(48);
+  const rail = (await sidebar.boundingBox())!;
+  expect(left.x).toBeGreaterThanOrEqual(rail.x + rail.width);
+  expect(left.x + left.width).toBeLessThan(right.x);
   expect(Math.abs(left.y - right.y)).toBeLessThan(2);
-  expect(left.y).toBeGreaterThan(185);
-  expect(left.y).toBeLessThan(255);
   expect(left.width / right.width).toBeCloseTo(1.6, 1);
   expect(Math.abs(left.height - right.height)).toBeLessThan(2);
   expect((await footer.boundingBox())!.y).toBeLessThan(812);
@@ -1083,6 +1084,11 @@ test('desktop dispatch matches the reference composition in the Foody palette', 
   await expect(detail).toContainText('#1002');
   await panel.getByRole('button', { name: 'Masquer la carte' }).click();
   await expect(page.getByRole('region', { name: 'Détail de l’arrêt' })).toContainText('#1002');
+  await sidebar.getByRole('link', { name: 'Accueil', exact: true }).click();
+  await expect(page).toHaveURL(/\/1\/dashboard$/);
+  await page.goBack();
+  await expect(page).toHaveURL('/1/orders/deliveries?date=' + friday);
+  await expect(panel).toBeVisible();
   expect(state.writes).toEqual([]);
 });
 
