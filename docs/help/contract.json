@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "087a2018e0a1bc0991d7048380f91cb5c0513194",
-  "documentationRevision": "cbf0224eb2f2bdbdef465cd21771baa469018e7a091e84e4cd74d17bd6e12a40",
+  "documentationRef": "46c644a442c3e0b59d6d7fc287681d577276b267",
+  "documentationRevision": "ad9f8e8c39f914dbb438fff159bee946fd539d407050a638dbac95a4003e145f",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -411,15 +411,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/menus-and-groups.mdx",
-          "sha256": "ad30bc0deabeb1a3e598dc78e73ec18c2224fe89f8d0ae3d740b8f7b5792b383"
+          "sha256": "56a556f3c169b131869b9c464a636c1b0df22812dad6424c8de477ac5f04fc03"
         },
         "fr": {
           "path": "src/content/help/fr/menu/menus-and-groups.mdx",
-          "sha256": "574d34fbb60ea13051ddea37d9f7171ee9cb2b9fd253ffc20cf3b040df6fc227"
+          "sha256": "eb4a2f0dfbbe49bfcef0e7d01fdf006bd1682b3acb4f30ece7beecdd18585b1c"
         },
         "he": {
           "path": "src/content/help/he/menu/menus-and-groups.mdx",
-          "sha256": "4f538f0e2bd6275f63dbeba30106c9b6a346e18898c9d35607095d4fa7f7a484"
+          "sha256": "cdb6e91ebc451d3d53f8a1878740ecc2451d81c13fcb58e65daba52e0fa475a6"
         }
       }
     },
@@ -2045,15 +2045,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/end-of-day.mdx",
-          "sha256": "66b5001d874365fd2a321dcaf5caed644c00bc58b9d04d9fa6d5e3ef6d4bb36c"
+          "sha256": "7561c35c859ed8557e3de30d258f76605fb73cddf128a8747918bb311ba1b719"
         },
         "fr": {
           "path": "src/content/help/fr/payments/end-of-day.mdx",
-          "sha256": "9945d54b5ad0e6197d6ac89259104b3deb6c0cd9afca11ff74ebdbb5aa43af16"
+          "sha256": "dbac193399d8cd22911baa92f396f034f7697aa41032e9585e78221a3053fd3f"
         },
         "he": {
           "path": "src/content/help/he/payments/end-of-day.mdx",
-          "sha256": "f44f4adffa382a2a648892f962c762b48871c2b190525293c4d27d6b733edd44"
+          "sha256": "7cb5e3a9bc6e085dae240eaa3f32dfcbc0c5a55bd53fedb7779d4e881043ea43"
         }
       }
     },
@@ -5217,7 +5217,7 @@
       ]
     },
     "src/components/menu/publication/CarteEditor.tsx": {
-      "sha256": "027f54ebbd513b1c6f3c9d6968b48a53877f078c62d438b25c9d856927e77d14",
+      "sha256": "8f8ff7b1bb2b1b263f2006aa0a7a406a41df7723f5ed9fa53a3e17d01c964735",
       "features": [
         "menu-menus-and-groups",
         "orders-events"
@@ -19428,6 +19428,7 @@
         "carteLocalChangesHint",
         "carteMenuActions",
         "carteParentGroup",
+        "cartePendingChange",
         "cartePosAndWeb",
         "cartePosChannel",
         "cartePosLayoutShort",
