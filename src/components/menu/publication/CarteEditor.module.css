@@ -224,6 +224,13 @@
 .groupBody {
   padding: 0 12px 12px;
 }
+.subgroups {
+  display: grid;
+  gap: 10px;
+  margin-inline-start: clamp(4px, 1.5vw, 16px);
+  padding-inline-start: clamp(6px, 1.5vw, 16px);
+  border-inline-start: 2px solid var(--line);
+}
 .tableScroll {
   width: 100%;
   overflow-x: auto;

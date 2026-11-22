@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "a9ca746cfa3b96d9bda9b14a6686b4ad423cbd5c",
-  "documentationRevision": "f414ca995d3bff0216eb7e9a735fe5323a6940f364507243eacbb318127864c2",
+  "documentationRef": "00e5053f00b8a64783d1eb3238e57b6c90289ceb",
+  "documentationRevision": "a17818b82f40c0fe39862abd607b67ddeffe12bf884d89f9f3b17decf57e9b5a",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -411,15 +411,34 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/menus-and-groups.mdx",
-          "sha256": "260666e3fe80510953d882b975bd419521aaed8a2d60c63ef92a477b68aa3324"
+          "sha256": "2d5a7dc055e153c867fa09b483674ddd4138382963157962a555f16feaf2b40d"
         },
         "fr": {
           "path": "src/content/help/fr/menu/menus-and-groups.mdx",
-          "sha256": "06d74acc03486b91d1236edcaf75687ab5d66a53d2558710326560002febf935"
+          "sha256": "5c3ee72299f0756954c6404713647d936e280a88630ec6b38b692f9a73f1daaf"
         },
         "he": {
           "path": "src/content/help/he/menu/menus-and-groups.mdx",
-          "sha256": "6583f99d22ee048c7bf594d59a072db3a78432349a8f170baaf701c4cd954713"
+          "sha256": "3a8a0701b742bfa3886b4c58f469394301b62f34daaeca2ae0de2462f4b8efbe"
+        }
+      }
+    },
+    "menu/subgroups": {
+      "feature": "menu-subgroups",
+      "audience": "public",
+      "status": "available",
+      "translations": {
+        "en": {
+          "path": "src/content/help/en/menu/subgroups.mdx",
+          "sha256": "6946613aa7159af48eba24c378d1eaafe5d5439f08cfc849c38d738f4dff9545"
+        },
+        "fr": {
+          "path": "src/content/help/fr/menu/subgroups.mdx",
+          "sha256": "f058a2aff652cc286df58b8c2a2a62d8b832656010076b3222ebb6e5f6d002fa"
+        },
+        "he": {
+          "path": "src/content/help/he/menu/subgroups.mdx",
+          "sha256": "d08312413f2e3e01e9e0a16bad534d16ae556391b9d7b0709fcd2ae317b53feb"
         }
       }
     },
@@ -563,15 +582,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/taking-an-order-pos.mdx",
-          "sha256": "9ebc8786a60499bafe1890e270ed30f0131e403fff99b21d8a45680fed9fbbdb"
+          "sha256": "3bbef3bdadb85c9fb9d61a5b642a8a26fae6bf6ab74fd4b5525df91d108070e8"
         },
         "fr": {
           "path": "src/content/help/fr/orders/taking-an-order-pos.mdx",
-          "sha256": "983b22e7eb82c3385ebef1d5b6d7cad7126265bb2a8f6b16fea33bcfac74ee99"
+          "sha256": "b7faa9264f4b377494776583ca0216cafcbb103d2edb5fc62f523efeff3eb285"
         },
         "he": {
           "path": "src/content/help/he/orders/taking-an-order-pos.mdx",
-          "sha256": "17d020afbf6afb2d7007d3c0335f206ae62fda07bcba87a46ae5a5e2d0de9fe5"
+          "sha256": "19ba697e4d0e70c2a9466af26168b37da8adf9a9ed782e7884684b41600600b3"
         }
       }
     },
@@ -1019,15 +1038,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/order-page.mdx",
-          "sha256": "7e25bf52d133f2572d634fb18a891db4279da14b9fdc74659ed799d75c1456be"
+          "sha256": "e34753d80d5d11cf833a6558b58c5575fcb996a57140786effe6e6a1c1cb9529"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/order-page.mdx",
-          "sha256": "aba07e79d421e822a390dd8db2da5c5641f14fdc0c353d7bc9bc0590745ad685"
+          "sha256": "9bed91b0ea6d5db0cc1e5d2b58924cea4f5a8ef8c2a2a7b8762ea250c9a6fc7b"
         },
         "he": {
           "path": "src/content/help/he/website-qr/order-page.mdx",
-          "sha256": "74b270bc34618ba0a93b2f122cb307a6c9edc03166628a346ac2f8a9abe15359"
+          "sha256": "1fe0832bc5b452bb43de588a70d61ec24a8c431ac2f05b6b14531854b82e7c03"
         }
       }
     },
@@ -1608,15 +1627,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "a549db1dad1a350b5123ae707ce951af8a5ddb8597c38ad917a6ed6934e31e50"
+          "sha256": "7146acb9fccb0dca4825c058fd44c6ed0a614ae02654be1fcf46f4c74b397308"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "b37a7bf81c84fe97d68fe732ae837fa928c60d9dd35546645af897942b896675"
+          "sha256": "c7cb7541d03b725e76489e37d06107ae14048715f95d01f196afaeaa1fca3959"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "b5975849d14e8c419a35a39620ae1eb37bf23bb7d9c5b7214eabeedae9492d32"
+          "sha256": "6462544b5b560c6ad8cf4de19cbfc74fc5a74dfd93e664d3c1852bb3ab3109a5"
         }
       }
     },
@@ -1817,15 +1836,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "14c9c214e61ea4ebbcd0ead78fb2bc2a8595133878d04ff6b319735c7612bd59"
+          "sha256": "c756ca43f647c142df1526857e87e8d81cefcfab306350016b463717802a5bb8"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "ffdbdb289e0c94aced19c1ac48deef1a4871977e54a31f3c25acd39be42e135b"
+          "sha256": "ee7797d260e7ab7c405d7926acc91fb34f4f358f23c9bde615c8022eaff750e2"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "1117041707ad6be268ebe20d1ea9f4de19739825cda9d1ca18f879fceade1151"
+          "sha256": "9d57bfce2791f60c967d8f0801461f9126cc905af068fe852222a16eba10b46f"
         }
       }
     },
@@ -3002,12 +3021,13 @@
       ]
     },
     "src/app/[restaurantId]/menu/menus/[menuId]/pos-display/page.tsx": {
-      "sha256": "5f4e25201fa6a9bde8e09ba250c3b13ad4484d636ba43c0a5b74f98afc2fb92c",
+      "sha256": "3aecf76109f5d45cb655f0607987fb24cdb2ec8364a07e169ca43f7a43f5ff71",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
+        "menu-subgroups",
         "menu-variants-and-sizes"
       ]
     },
@@ -5225,9 +5245,10 @@
       ]
     },
     "src/components/menu/PosAddTileModal.tsx": {
-      "sha256": "c29fc2a1f307970a64d6b2ebb3609dce3fc277fe0fccb7eb179fb1d29a5bf9b6",
+      "sha256": "8124c6f088e4ee1e35279b2f747e8405af514e0d6a221b2a4ab8745fa61cbc9d",
       "features": [
-        "menu-menus-and-groups"
+        "menu-menus-and-groups",
+        "menu-subgroups"
       ]
     },
     "src/components/menu/PosTile.tsx": {
@@ -5255,22 +5276,24 @@
       ]
     },
     "src/components/menu/publication/CarteEditor.module.css": {
-      "sha256": "4a2c9ec88dd5f3fbd7704881786a5d495b5ca5bfc52f62f9fafc521b3c39f367",
+      "sha256": "e3d3bb6eb1a20394d608f4d3ef0db3fe9d7411a0d5b006cf8eebc4ad30fc9826",
       "features": [
         "menu-menus-and-groups"
       ]
     },
     "src/components/menu/publication/CarteEditor.tsx": {
-      "sha256": "8f8ff7b1bb2b1b263f2006aa0a7a406a41df7723f5ed9fa53a3e17d01c964735",
+      "sha256": "d27c94117104e6c7a5638529c6c92277b7af51b029c499e3d8fda28aeb8bf78c",
       "features": [
         "menu-menus-and-groups",
+        "menu-subgroups",
         "orders-events"
       ]
     },
     "src/components/menu/publication/CarteGroups.tsx": {
-      "sha256": "cd144ea966972e9defc7c8ff7584646113072ea5bb817ebc719b2a16bbb7821f",
+      "sha256": "adfd0fed49770df18780d99a30d4ef3c2ea95e4d0aa75f8e2ea6d3d693040d63",
       "features": [
-        "menu-menus-and-groups"
+        "menu-menus-and-groups",
+        "menu-subgroups"
       ]
     },
     "src/components/menu/publication/CarteItemPicker.module.css": {
@@ -6762,9 +6785,10 @@
       ]
     },
     "src/lib/carte-editor.ts": {
-      "sha256": "66aad853effeb4e6b01749ad5005a1d9622b4047e57dd65ba94bf9b94e6ac559",
+      "sha256": "dccb36f005479b88125cc2f840f8aea750fa154c97d8ce03a9651eb1a4210196",
       "features": [
         "menu-menus-and-groups",
+        "menu-subgroups",
         "shared-runtime"
       ]
     },
@@ -6949,7 +6973,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "f255e362d684509f3302d86afa5bafa60a0fb95ea42ab337d7d2be6a56792779",
+      "sha256": "ba3043d534326a7354fe42a9d82990152128326401ab6c4905ef3b5673a714b0",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -7475,8 +7499,10 @@
       ]
     },
     "src/lib/posDisplay.ts": {
-      "sha256": "727a9e2c593336384d2af85a7e7796016a56f544e8137fbbb0f7d39090e9e37e",
+      "sha256": "9faa909c8eeb4aa8ade967fe7b3fadfa672cc64c4b3bfd23e2500f2e5be87c0e",
       "features": [
+        "menu-menus-and-groups",
+        "menu-subgroups",
         "shared-runtime"
       ]
     },
@@ -11672,6 +11698,7 @@
         "menu-creating-a-menu-item",
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
+        "menu-subgroups",
         "menu-variants-and-sizes"
       ],
       "route": "/[restaurantId]/menu/menus/[menuId]/pos-display"
@@ -11686,6 +11713,7 @@
         "menu-creating-a-menu-item",
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
+        "menu-subgroups",
         "menu-variants-and-sizes"
       ],
       "labels": [
@@ -11718,7 +11746,6 @@
         "onReorder",
         "onSelect",
         "removeSelectedTile",
-        "removed",
         "save",
         "saveGroupName",
         "saved",
@@ -19459,13 +19486,13 @@
       "source": "src/components/menu/PosAddTileModal.tsx",
       "line": 1,
       "features": [
-        "menu-menus-and-groups"
+        "menu-menus-and-groups",
+        "menu-subgroups"
       ],
       "labels": [
         "items",
         "noResults",
         "posAddToLayout",
-        "posAllGroupsPlaced",
         "posGroups",
         "search"
       ],
@@ -19575,6 +19602,7 @@
       "line": 1,
       "features": [
         "menu-menus-and-groups",
+        "menu-subgroups",
         "orders-events"
       ],
       "labels": [
@@ -19658,13 +19686,15 @@
       "source": "src/components/menu/publication/CarteGroups.tsx",
       "line": 1,
       "features": [
-        "menu-menus-and-groups"
+        "menu-menus-and-groups",
+        "menu-subgroups"
       ],
       "labels": [
         "actions",
         "availability",
         "cancel",
         "carteAddItems",
+        "carteAddSubgroup",
         "carteAllChannels",
         "carteAlwaysAvailable",
         "carteAvailabilityTitle",
