@@ -1,0 +1,23 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "d6688103155a3e0992165c135ce4c4077420252973528d368ec0d47a696e51fa",
+      "baseSha256": "ffaa537dcb1a0ef3ad8fc2945bd2869d201a379de70bcaeac4acce5a05d7e581",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "delivery-dispatch",
+        "pos-payments",
+        "menu-product-photos",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The added date and response check apply to the New order catalogue. Customer, item editing, payment, delivery, photo and loyalty screens use their existing API calls and request arguments."
+    }
+  ]
+}

@@ -3790,10 +3790,16 @@ export async function applyTranslations(
 
 // ─── Menu ─────────────────────────────────────────────────────────────────────
 
-export async function getMenu(restaurantId: number): Promise<Menu[]> {
-  const data = await apiFetch<{ menus: Menu[] }>(
-    `/api/v1/menu/?restaurant_id=${restaurantId}`, restaurantId
+/** Loads the POS catalogue, optionally for the series containing a fulfillment day. */
+export async function getMenu(restaurantId: number, seriesDate?: string): Promise<Menu[]> {
+  const query = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (seriesDate) query.set('serie_date', seriesDate);
+  const data = await apiFetch<{ menus: Menu[]; serie_date?: string }>(
+    `/api/v1/menu/?${query}`, restaurantId, seriesDate ? { cache: 'no-store' } : undefined,
   );
+  if (seriesDate && (data.serie_date !== seriesDate || !Array.isArray(data.menus))) {
+    throw new ApiError('menu_series_mismatch', 502);
+  }
   return data.menus ?? [];
 }
 

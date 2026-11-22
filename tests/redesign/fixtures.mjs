@@ -284,7 +284,11 @@ export function createFixture({ empty = false, denied = false, fail = false, per
     if(p==='/api/v1/menu/items') return {json:{items}};
     if(/^\/api\/v1\/menu\/items\/\d+$/.test(p)) return {json:{item:items.find(i=>i.id===Number(p.split('/').pop()))??items[0]}};
     if(p==='/api/v1/menu/item-categories') return {json:{categories}};
-    if(p==='/api/v1/menu' || p==='/api/v1/menu/menus') return {json:{menus:menus.map(menu=>({...menu,availability_hours:menuHours[menu.id]??[]}))}};
+    if (p === '/api/v1/menu' || p === '/api/v1/menu/menus') {
+      const catalogue = menus.map(menu => ({ ...menu, availability_hours: menuHours[menu.id] ?? [] }));
+      const date = p === '/api/v1/menu' ? q.get('serie_date') : null;
+      return { json: { menus: catalogue, ...(date ? { serie_date: date } : {}) } };
+    }
     if(p.endsWith('/website-config')) return {json:{config:{},website_config:{}}};
     if(/^\/api\/v1\/stock\/menu-items\/\d+\/ingredients$/.test(p)) return {json:{ingredients:empty?[]:recipeByItem[Number(p.split('/')[5])]??[]}};
     if(/^\/api\/v1\/menu\/items\/\d+\/option-prices$/.test(p)) return {json:{item_options:itemOptionOverrides[Number(p.split('/')[5])]??[]}};
