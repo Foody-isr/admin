@@ -22,8 +22,12 @@ import { proposeWebsiteDesign } from '@/lib/wallet-website-design';
 import type { ImageFrame } from '@/lib/website-v3/image-framing';
 import { FramedWalletBanner, WalletBannerControls } from './WalletBannerFraming';
 
+import { compositionPresets, exportComposition, sameComposition, type Composition } from '@/lib/wallet-composition';
+import { WalletCompositionEditor } from './WalletCompositionEditor';
+import { WalletCompositionPreview } from './WalletCompositionPreview';
+
 type AssetSlot = 'logo' | 'banner';
-type Draft = { background: string; foreground: string; hideRestaurantName: boolean; logo: string | null; banner: string | null; original: string | null; layout: WalletBannerLayout | null };
+type Draft = { composition: Composition | null; background: string; foreground: string; hideRestaurantName: boolean; logo: string | null; banner: string | null; original: string | null; layout: WalletBannerLayout | null };
 type Action = 'save' | 'publish' | 'generate' | 'website' | AssetSlot;
 const isColor = (value: string) => /^#[0-9a-f]{6}$/i.test(value);
 const palettes = [
@@ -41,6 +45,7 @@ const legacyLayout: WalletBannerLayout = { shared: { fit: 'cover', x: 50, y: 50,
 
 function fromDesign(design: WalletStudioDesign): Draft {
   return {
+    composition: design.composition && design.composition.template !== 'classic' ? design.composition : null,
     background: design.background_color,
     foreground: design.foreground_color,
     hideRestaurantName: design.hide_restaurant_name ?? false,
@@ -99,14 +104,16 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
   const [imageError, setImageError] = useState<{ slot: AssetSlot; key: string } | null>(null);
   const [passURL, setPassURL] = useState<string | null>(null);
   const [platform, setPlatform] = useState<WalletPlatform>('apple');
+  const [appleClassic,setAppleClassic] = useState(false);
   const [framing, setFraming] = useState(false);
+  const [beforeTemplate, setBeforeTemplate] = useState<Draft | null>(null);
   const [websiteImport, setWebsiteImport] = useState<{ before: Draft; parts: string[]; partial: boolean } | null>(null);
   const operation = useRef<AbortController | null>(null);
   const saved = useMemo(() => state && fromDesign(state.design), [state]);
   const frameChanged = !!draft && !!saved && (draft.banner !== saved.banner || draft.original !== saved.original || !sameBannerLayout(draft.layout, saved.layout));
   const dirty = !!draft && !!saved && (
     draft.background !== saved.background || draft.foreground !== saved.foreground ||
-    draft.hideRestaurantName !== saved.hideRestaurantName || draft.logo !== saved.logo || frameChanged
+    draft.hideRestaurantName !== saved.hideRestaurantName || draft.logo !== saved.logo || frameChanged || !sameComposition(draft.composition, saved.composition)
   );
   const valid = !!draft && isColor(draft.background) && isColor(draft.foreground);
   const stale = error === 'walletStudioConflict';
@@ -121,6 +128,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
   useEffect(() => {
     const request = new AbortController();
     setLoading(true);
+    setBeforeTemplate(null);
     setWebsiteImport(null);
     setError('');
     setImageError(null);
@@ -150,6 +158,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
   }, [passURL]);
 
   function change(patch: Partial<Draft>) {
+    setBeforeTemplate(null);
     setWebsiteImport(null);
     setDraft(current => current && { ...current, ...patch });
     setImageError(current => current && current.slot in patch ? null : current);
@@ -208,8 +217,44 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
       const value = await prepareArtwork(file, slot);
       if (slot === 'banner') {
         const original = await readBannerOriginal(file);
-        if (!signal.aborted) change({ banner: value, original, layout: draft?.layout ?? defaultBannerLayout() });
+        if (!signal.aborted) change({ banner: value, original, layout: draft?.layout ?? (draft?.composition?.template==='table'?{...defaultBannerLayout(),shared:{...defaultBannerLayout().shared,fit:'cover'}}:defaultBannerLayout()) });
       } else if (!signal.aborted) change({ logo: value });
+    });
+  }
+
+  function chooseTemplate(template: 'classic' | Composition['template']) {
+    if (!draft) return;
+    setAppleClassic(false);
+    setFraming(false);
+    if (template === 'classic') {
+      change({ composition: null });
+      setBeforeTemplate(draft);
+      return;
+    }
+    const preset=compositionPresets[template];
+    const layout=structuredClone(draft.layout??defaultBannerLayout());
+    layout.shared.fit=template==='table'?'cover':'contain';
+    layout.apple_counter='below';
+    change({...preset,composition:{...preset.composition},hideRestaurantName:true,
+      layout:draft.banner?layout:null,original:draft.original??draft.banner});
+    setBeforeTemplate(draft);
+  }
+
+  function chooseWebsiteAsset(slot:AssetSlot) {
+    if (!state?.can_edit || !draft || stale) return;
+    void perform(slot,async signal=>{
+      const source=await getWalletWebsiteDesign(rid,signal);
+      if (source.restaurant_id!==rid) throw new Error('Website restaurant mismatch');
+      if(signal.aborted || getStoredUser()?.id!==actor) return;
+      const bytes=source[slot];
+      if(!bytes) {setImageError({slot,key:'walletArtNoSiteImage'});return;}
+      const original=originalImageURL(bytes);
+      const image=new window.Image();
+      image.src=original;await image.decode();
+      const thumbnail=walletThumbnail(image,slot==='logo'?320:750);
+      if(signal.aborted || getStoredUser()?.id!==actor) return;
+      change(slot==='logo'?{logo:thumbnail}:{banner:thumbnail,original,layout:draft.layout??{
+        ...defaultBannerLayout(),shared:{...defaultBannerLayout().shared,fit:draft.composition?.template==='table'?'cover':'contain'}}});
     });
   }
 
@@ -245,9 +290,12 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
   function save() {
     if (!state || !draft || !canSave) return;
     void perform('save', async (signal) => {
-      const renders = frameChanged && draft.layout && draft.banner ? await renderWalletBanners(draft.original ?? draft.banner, draft.layout) : {};
+      const renders = draft.composition
+        ? await exportComposition(draft.composition,draft.background,draft.original??draft.banner,draft.layout??defaultBannerLayout())
+        : (frameChanged || saved?.composition) && draft.layout && draft.banner ? await renderWalletBanners(draft.original ?? draft.banner, draft.layout) : {};
       if (signal.aborted) return;
       const design = await saveWalletStudio(rid, state.design.revision, {
+        ...(state.composition_version===1 && {composition:draft.composition??{version:1 as const,template:'classic' as const}}),
         background_color: draft.background,
         foreground_color: draft.foreground,
         hide_restaurant_name: draft.hideRestaurantName,
@@ -260,6 +308,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
       if (signal.aborted) return;
       setState({ ...state, design });
       setDraft(fromDesign(design));
+      setBeforeTemplate(null);
       setWebsiteImport(null);
       setMessage('walletStudioSaved');
     });
@@ -320,7 +369,11 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
               <CardBody>
                 <fieldset className="min-w-0 space-y-5" disabled={!state.can_edit || !!action || stale}>
                   <legend className="sr-only">{t('walletStudioAppearance')}</legend>
-                  {state.can_edit && <div className="space-y-2 border-b border-[var(--line)] pb-5">
+                  {state.composition_version===1 && <WalletCompositionEditor value={draft.composition} onTemplate={chooseTemplate} onChange={composition=>change({composition})}/>}
+                  {beforeTemplate && <Button type="button" size="sm" variant="ghost" onClick={()=>change(beforeTemplate)}>
+                    <Undo2 size={15} aria-hidden="true"/>{t('walletArtUndoModel')}
+                  </Button>}
+                  {state.can_edit && !draft.composition && <div className="space-y-2 border-b border-[var(--line)] pb-5">
                     <Button type="button" variant="secondary" onClick={generateFromWebsite} aria-busy={action === 'website'} aria-describedby="wallet-website-help">
                       {action === 'website' ? <LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Sparkles size={16} aria-hidden="true" />}
                       {t(action === 'website' ? 'walletStudioWebsiteWorking' : 'generateWithAi')}
@@ -355,6 +408,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
                     <AssetField id="wallet-logo" label={t('walletStudioLogo')} image={draft.logo}
                       error={imageError?.slot === 'logo' ? t(imageError.key) : undefined}
                       onPick={file => pick('logo', file)} onRemove={() => change({ logo: null })} />
+                    {draft.composition && state.can_edit && <Button type="button" size="sm" variant="secondary" onClick={()=>chooseWebsiteAsset('logo')}>{t('walletArtSiteLogo')}</Button>}
                     <div className="flex items-center justify-between gap-3 py-1">
                       <label htmlFor="wallet-show-name" className="text-sm font-medium">{t('walletStudioShowRestaurantName')}</label>
                       <BooleanInput id="wallet-show-name" checked={!draft.hideRestaurantName}
@@ -363,8 +417,9 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
                     <AssetField id="wallet-banner" label={t('walletStudioBanner')} image={draft.banner}
                       error={imageError?.slot === 'banner' ? t(imageError.key) : undefined}
                       onPick={file => pick('banner', file)} onRemove={() => { setFraming(false); change({ banner: null, original: null, layout: null }); }} />
+                    {draft.composition && state.can_edit && <Button type="button" size="sm" variant="secondary" onClick={()=>chooseWebsiteAsset('banner')}>{t('walletArtSitePhoto')}</Button>}
                     {draft.banner && <>
-                      <fieldset className="space-y-2">
+                      {!draft.composition && <fieldset className="space-y-2">
                         <legend className="text-sm font-medium">{t('earnLayouts')}</legend>
                         <div className="grid grid-cols-3 gap-2">
                           {templates.map(template => <button key={template.name} type="button"
@@ -378,11 +433,11 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
                             <span className="block px-2 py-2 text-xs font-medium">{t(template.name)}</span>
                           </button>)}
                         </div>
-                      </fieldset>
+                      </fieldset>}
                       <Button type="button" variant="secondary" aria-expanded={framing} aria-controls="wallet-frame-controls" onClick={() => setFraming(!framing)}>
                         <Crop size={16} aria-hidden="true" />{t('walletFrameTitle')}
                       </Button>
-                      {framing && <WalletBannerControls layout={layout} platform={platform} onPlatform={setPlatform}
+                      {framing && <WalletBannerControls showCounter={!draft.composition} layout={layout} platform={platform} onPlatform={setPlatform}
                         onChange={next => change({ layout: next })} onFrame={adjustFrame} />}
                     </>}
                     <p className="text-xs text-[var(--fg-muted)]">{t('walletStudioImageHint')}</p>
@@ -460,8 +515,15 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
                     <Tab value="apple">Apple Wallet</Tab>
                     <Tab value="google">Google Wallet</Tab>
                   </TabsList>
-                  {(['apple', 'google'] as const).map(wallet => <TabsContent key={wallet} value={wallet}><Preview platform={wallet} state={state} draft={draft} sample={sample}
-                    onFrame={framing && state.can_edit && !action && !stale ? adjustFrame : undefined} /></TabsContent>)}
+                  {draft.composition && platform==='apple' && <label className="mx-auto my-3 flex max-w-sm items-center justify-center gap-2 text-xs">{t('walletArtAppleFormat')}
+                    <select value={appleClassic?'classic':'poster'} onChange={e=>setAppleClassic(e.target.value==='classic')} className="rounded border border-[var(--line)] bg-[var(--surface)] p-1">
+                      <option value="poster">{t('walletArtPoster')}</option><option value="classic">{t('walletArtOlderApple')}</option></select></label>}
+                  {(['apple', 'google'] as const).map(wallet => <TabsContent key={wallet} value={wallet}>
+                    {draft.composition ? <WalletCompositionPreview design={draft.composition} format={wallet==='apple'&&!appleClassic?'poster':wallet} state={state}
+                      sample={sample} banner={draft.original??draft.banner} logo={draft.logo} layout={layout} hideName={draft.hideRestaurantName}
+                      background={isColor(draft.background)?draft.background:state.design.background_color} foreground={isColor(draft.foreground)?draft.foreground:state.design.foreground_color}/>
+                      : <Preview platform={wallet} state={state} draft={draft} sample={sample}
+                      onFrame={framing && state.can_edit && !action && !stale ? adjustFrame : undefined}/>}</TabsContent>)}
                 </Tabs>
                 <label className="mx-auto mt-4 flex max-w-sm items-center gap-2 text-sm">
                   {t('earnSample')}<input className="min-w-0 flex-1" type="range" min="0" max={Math.max(0,(state.program?.threshold??2)-1)} value={Math.min(sample,(state.program?.threshold??2)-1)} onChange={ev=>setSample(Number(ev.target.value))}/>

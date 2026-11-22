@@ -8,12 +8,13 @@ import { defaultBannerLayout, walletBannerSize, walletFrame, type WalletBannerLa
 import { imageFrameRect, type ImageFrame } from '@/lib/website-v3/image-framing';
 
 type ControlsProps = {
+  showCounter?: boolean;
   layout: WalletBannerLayout; platform: WalletPlatform; onPlatform: (p: WalletPlatform) => void;
   onChange: (layout: WalletBannerLayout) => void; onFrame: (f: ImageFrame) => void;
 };
 
 /** Accessible framing controls work with the selected live Wallet preview. */
-export function WalletBannerControls({ layout, platform, onPlatform, onChange, onFrame }: ControlsProps) {
+export function WalletBannerControls({ layout, platform, onPlatform, onChange, onFrame, showCounter = true }: ControlsProps) {
   const { t } = useI18n();
   const frame = walletFrame(layout, platform);
   const selectClass = 'h-10 rounded-md border border-[var(--line)] bg-[var(--surface)] px-2 text-sm';
@@ -47,7 +48,7 @@ export function WalletBannerControls({ layout, platform, onPlatform, onChange, o
       <input {...range} id={'wallet-frame-' + key} type="range" dir="ltr" className="w-full accent-current" value={frame[key]}
         onChange={e => onFrame({ ...frame, [key]: Number(e.target.value) })} />
     </div>)}
-    {platform === 'apple' && <label className="grid gap-1 text-sm font-medium">{t('walletFrameCounter')}
+    {showCounter && platform === 'apple' && <label className="grid gap-1 text-sm font-medium">{t('walletFrameCounter')}
       <select className={selectClass} value={layout.apple_counter} onChange={e => onChange({ ...layout, apple_counter: e.target.value as WalletBannerLayout['apple_counter'] })}>
         <option value="below">{t('walletFrameBelow')}</option><option value="overlay">{t('walletFrameOverlay')}</option>
       </select>
