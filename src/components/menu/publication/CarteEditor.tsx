@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import {
@@ -42,7 +42,7 @@ import {
   type AvailabilityOverride,
 } from "@/lib/api";
 import { useDialogReturnFocus } from "@/lib/use-dialog-return-focus";
-import { stockErrors } from "@/lib/carte-editor";
+import { carteGroupChildren, carteGroupHasAncestor, stockErrors } from "@/lib/carte-editor";
 import { useCurrency, useI18n } from "@/lib/i18n";
 import { usePermissions } from "@/lib/permissions-context";
 import { Button, ConfirmDialog } from "@/components/ds";
@@ -149,6 +149,30 @@ const blankGroup = (): CarteDraftGroup => ({
   banner_focal_y: 50,
   item_ids: [],
 });
+
+type PreviewGroup = Pick<CarteDraftGroup, "key" | "parent_key" | "name"> & { items: MenuItem[] };
+
+function previewGroupCards(
+  children: Map<string, PreviewGroup[]>,
+  money: (amount: number) => string,
+  parentKey = "",
+): ReactNode {
+  return children.get(parentKey)?.map((group) => (
+    <section key={group.key} className="space-y-3">
+      <h3 className="text-xl font-semibold">{group.name}</h3>
+      {group.items.length > 0 && <div className="divide-y">
+        {group.items.map((item) => (
+          <div className="flex justify-between gap-4 py-3" key={item.id}>
+            <span>{item.name}</span>
+            <span>{money(item.price)}</span>
+          </div>
+        ))}
+      </div>}
+      {children.has(group.key) && <div className={styles.subgroups}>{previewGroupCards(children, money, group.key)}</div>}
+    </section>
+  ));
+}
+
 export default function CarteEditorPage() {
   const { restaurantId, menuId, groupId } = useParams();
   const pathname = usePathname();
@@ -203,7 +227,7 @@ function CarteEditor({
   const [groupKey, setGroupKey] = useState<string | null>(null);
   const [picker, setPicker] = useState<string | null>(null);
   const [choosePickerTarget, setChoosePickerTarget] = useState(false);
-  const [preview, setPreview] = useState<Menu | null>(null);
+  const [preview, setPreview] = useState<{ name: string; groups: PreviewGroup[] } | null>(null);
   const [historyItem, setHistoryItem] = useState<number | null>(null);
   const [confirmation, setConfirmation] = useState<
     "publish" | "discard" | null
@@ -303,6 +327,10 @@ function CarteEditor({
       setDoc((prev) => (prev ? { ...prev, ...patch } : prev));
   };
   const group = doc?.groups.find((g) => g.key === groupKey);
+  const groupsByKey = new Map(doc?.groups.map((entry) => [entry.key, entry]));
+  const parentOptions = group && doc ? doc.groups.filter((entry) =>
+    entry.key !== group.key && !carteGroupHasAncestor(groupsByKey, entry.key, group.key),
+  ) : [];
   const updateGroup = (key: string, patch: Partial<CarteDraftGroup>) => {
     if (doc)
       edit({
@@ -388,7 +416,16 @@ function CarteEditor({
     if (!doc || date === null) return;
     const result = await run(() => previewCarteDraft(rid, mid, date, doc));
     if (result) {
-      setPreview(result.menu);
+      const groups = doc.groups.flatMap((group, index) => {
+        const projected = result.menu.groups?.[index];
+        return projected && projected.web_enabled && !projected.is_hidden ? [{
+          key: group.key,
+          parent_key: group.parent_key,
+          name: projected.name,
+          items: projected.items ?? [],
+        }] : [];
+      });
+      setPreview({ name: result.menu.name, groups });
       setPanel("preview");
     }
   }
@@ -454,9 +491,9 @@ function CarteEditor({
       setGroupKey(null);
       setPicker(null);
     });
-  function addGroup() {
-    if (!doc || !canEdit) return;
-    const value = blankGroup();
+  function addGroup(parentKey = "") {
+    if (!doc || !canEdit || busy) return;
+    const value = { ...blankGroup(), parent_key: parentKey };
     edit({ groups: [...doc.groups, value] });
     setGroupKey(value.key);
   }
@@ -650,7 +687,7 @@ function CarteEditor({
             {
               label: t("carteAddGroup"),
               disabled: !canEdit || busy || !doc,
-              onClick: addGroup,
+              onClick: () => addGroup(),
             },
           ]}
         >
@@ -697,6 +734,7 @@ function CarteEditor({
             busy={busy}
             onEdit={edit}
             onGroupSettings={setGroupKey}
+            onAddSubgroup={addGroup}
             onChooseItems={(key) => {
               setPicker(key);
               setChoosePickerTarget(false);
@@ -718,7 +756,7 @@ function CarteEditor({
               type="button"
               className={styles.addGroup}
               disabled={busy}
-              onClick={addGroup}
+              onClick={() => addGroup()}
             >
               <Plus aria-hidden />
               <span>{t("carteAddGroupCard")}</span>
@@ -847,24 +885,7 @@ function CarteEditor({
           {panel === "preview" && preview && (
             <div className="space-y-6">
               <h2 className="text-2xl font-semibold">{preview.name}</h2>
-              {preview.groups
-                ?.filter((g) => g.web_enabled && !g.is_hidden)
-                .map((g, i) => (
-                  <section key={`${g.id}.${i}`}>
-                    <h3 className="text-xl mb-3 font-semibold">{g.name}</h3>
-                    <div className="divide-y">
-                      {g.items?.map((item) => (
-                        <div
-                          className="py-3 flex justify-between gap-4"
-                          key={item.id}
-                        >
-                          <span>{item.name}</span>
-                          <span>{money(item.price)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                ))}
+              {previewGroupCards(carteGroupChildren(preview.groups), money)}
               {doc?.stocks?.length ? (
                 <p className="text-sm">{t("cartePreviewStocksHint")}</p>
               ) : null}
@@ -923,8 +944,7 @@ function CarteEditor({
                   }
                 >
                   <option value="">{t("none")}</option>
-                  {doc?.groups
-                    .filter((v) => v.key !== group.key)
+                  {parentOptions
                     .map((v) => (
                       <option value={v.key} key={v.key}>
                         {v.name || t("carteUntitled")}

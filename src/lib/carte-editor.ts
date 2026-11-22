@@ -1,9 +1,39 @@
 import type {
   CarteDocument,
+  CarteDraftGroup,
   SaleStockLimit,
   SaleStockRow,
   SaleStockSeries,
 } from "./api";
+
+type CarteGroupLink = Pick<CarteDraftGroup, "key" | "parent_key">;
+
+/** Tests ancestry in the draft, including groups that have no published ID yet. */
+export function carteGroupHasAncestor(groups: Map<string, CarteGroupLink>, key: string, ancestor: string): boolean {
+  const seen = new Set<string>();
+  let current = groups.get(key)?.parent_key;
+  while (current && !seen.has(current)) {
+    if (current === ancestor) return true;
+    seen.add(current);
+    current = groups.get(current)?.parent_key;
+  }
+  return false;
+}
+
+/** Indexes siblings by parent key, preserving draft order and keeping invalid legacy groups reachable. */
+export function carteGroupChildren<T extends CarteGroupLink>(groups: T[]): Map<string, T[]> {
+  const byKey = new Map(groups.map((group) => [group.key, group]));
+  const result = new Map<string, T[]>();
+  for (const group of groups) {
+    const parent = group.parent_key && byKey.has(group.parent_key) && !carteGroupHasAncestor(byKey, group.key, group.key)
+      ? group.parent_key : "";
+    const siblings = result.get(parent) ?? [];
+    siblings.push(group);
+    result.set(parent, siblings);
+  }
+  return result;
+}
+
 /** Copy INITIAL allowances, never last week's remaining quantities or override. */
 export function stockLimit(
   row: SaleStockRow,

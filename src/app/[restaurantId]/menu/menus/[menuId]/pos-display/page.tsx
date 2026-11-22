@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, Eye, Pencil, ArrowUp, ArrowDown, SlidersHorizontal, Plus } from 'lucide-react';
+import { ChevronRight, Eye, Pencil, ArrowUp, ArrowDown, SlidersHorizontal, Plus } from 'lucide-react';
 import { Button, FullScreenEditor, ConfirmDialog } from '@/components/ds';
 import Modal from '@/components/Modal';
 import { useI18n } from '@/lib/i18n';
@@ -18,23 +18,14 @@ import {
   POS_GRID_COLUMNS,
   POS_PALETTE,
   POS_TILE_SPANS,
+  defaultPosTiles,
+  posGroupsByParent,
+  posShortcutLoops,
   type PosBgType,
   type PosDisplayTile,
   type PosTileSize,
 } from '@/lib/posDisplay';
 
-/** Build the default item tiles for a group, mirroring the POS fallback. */
-function seedGroupTiles(items: MenuItem[]): PosDisplayTile[] {
-  return items.map((item, idx) => ({
-    tile_type: 'item',
-    ref_item_id: item.id,
-    size: 'petit',
-    bg_type: 'color',
-    color: POS_PALETTE[idx % POS_PALETTE.length],
-    image_url: '',
-    position: idx,
-  }));
-}
 import {
   getPosDisplay,
   listAllItems,
@@ -86,7 +77,8 @@ function PosDisplayEditor() {
   const [groupTiles, setGroupTiles] = React.useState<Record<string, PosDisplayTile[]>>({});
 
   // Editor UI state.
-  const [level, setLevel] = React.useState<number | 'menu'>('menu');
+  const [path, setPath] = React.useState<number[]>([]);
+  const level = path[path.length - 1] ?? null;
   const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [preview, setPreview] = React.useState(false);
@@ -122,9 +114,12 @@ function PosDisplayEditor() {
         setMenu(found);
         setGroupMap(new Map((found?.groups ?? []).map((g) => [g.id, g])));
         setItemMap(new Map(items.map((it) => [it.id, it])));
-        setTiles(layout.tiles ?? []);
+        const rootTiles = layout.automatic ? [] : layout.tiles ?? [];
+        setTiles(rootTiles);
         setGroupTiles(layout.group_tiles ?? {});
-        baseline.current = JSON.stringify({ tiles: layout.tiles ?? [], group_tiles: layout.group_tiles ?? {} });
+        setPath([]);
+        setSelectedIndex(null);
+        baseline.current = JSON.stringify({ tiles: rootTiles, group_tiles: layout.group_tiles ?? {} });
       })
       .catch((e) => {
         if (!cancelled) { setError(e instanceof Error ? e.message : 'libraryOperationFailed'); setLoadFailed(true); }
@@ -137,24 +132,19 @@ function PosDisplayEditor() {
     };
   }, [rid, mid, retry]);
 
-  // ── Current container ──
-  // Inside a group, fall back to synthesized item tiles when no layout is
-  // saved (or it was saved empty). Mirrors the Flutter POS fallback so the
-  // editor never opens onto a blank group when items exist.
+  const children = React.useMemo(() => posGroupsByParent(groupMap.values()), [groupMap]);
   const currentTiles = React.useMemo<PosDisplayTile[]>(() => {
-    if (level === 'menu') return tiles;
-    const saved = groupTiles[String(level)];
-    if (saved && saved.length > 0) return saved;
-    const items = groupMap.get(level)?.items ?? [];
-    return seedGroupTiles(items);
-  }, [level, tiles, groupTiles, groupMap]);
+    const saved = level === null ? tiles : groupTiles[level] ?? [];
+    const defaults = defaultPosTiles(children.get(level) ?? [], level === null ? [] : groupMap.get(level)?.items);
+    return (saved.length ? saved : defaults).filter((tile) => !path.includes(tile.ref_group_id ?? -1));
+  }, [children, level, tiles, groupTiles, groupMap, path]);
 
   const setCurrentTiles = React.useCallback(
     (next: PosDisplayTile[]) => {
       if (!canEdit || busyRef.current) return;
       setSaved(false);
       const positioned = withPositions(next);
-      if (level === 'menu') {
+      if (level === null) {
         setTiles(positioned);
       } else {
         setGroupTiles((prev) => ({ ...prev, [String(level)]: positioned }));
@@ -201,14 +191,15 @@ function PosDisplayEditor() {
 
   const onDrill = (i: number) => {
     const tile = currentTiles[i];
-    if (tile?.tile_type !== 'group' || tile.ref_group_id == null) return;
+    if (tile?.tile_type !== 'group' || tile.ref_group_id == null || !groupMap.has(tile.ref_group_id)) return;
     const gid = tile.ref_group_id;
-    setLevel(gid);
+    if (path.includes(gid)) return;
+    setPath([...path, gid]);
     setSelectedIndex(null);
   };
 
-  const goToMenuLevel = () => {
-    setLevel('menu');
+  const goToLevel = (depth: number) => {
+    setPath((previous) => previous.slice(0, depth));
     setSelectedIndex(null);
   };
 
@@ -229,18 +220,8 @@ function PosDisplayEditor() {
 
   const removeSelectedTile = () => {
     if (selectedIndex == null) return;
-    const removed = currentTiles[selectedIndex] ?? null;
     setCurrentTiles(currentTiles.filter((_, i) => i !== selectedIndex));
     setSelectedIndex(null);
-    // Drop the inner-tile bucket so orphaned group tiles don't accumulate in
-    // the saved payload.
-    if (removed?.tile_type === 'group' && removed.ref_group_id != null) {
-      setGroupTiles((prev) => {
-        const next = { ...prev };
-        delete next[String(removed.ref_group_id)];
-        return next;
-      });
-    }
   };
 
   const onAddTiles = (newTiles: PosDisplayTile[]) => {
@@ -323,9 +304,10 @@ function PosDisplayEditor() {
     setError(null);
     try {
       const layout = await savePosDisplay(rid, mid, { tiles, group_tiles: groupTiles });
-      setTiles(layout.tiles ?? []);
+      const rootTiles = layout.automatic ? [] : layout.tiles ?? [];
+      setTiles(rootTiles);
       setGroupTiles(layout.group_tiles ?? {});
-      baseline.current = JSON.stringify({ tiles: layout.tiles ?? [], group_tiles: layout.group_tiles ?? {} });
+      baseline.current = JSON.stringify({ tiles: rootTiles, group_tiles: layout.group_tiles ?? {} });
       setSaved(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : t('libraryOperationFailed'));
@@ -335,18 +317,13 @@ function PosDisplayEditor() {
     }
   };
 
-  // ── Derived: placed top-level group ids (to exclude in picker) ──
-  const placedGroupIds = React.useMemo(
-    () =>
-      tiles
-        .filter((t) => t.tile_type === 'group' && t.ref_group_id != null)
-        .map((t) => t.ref_group_id as number),
-    [tiles],
-  );
+  const availableGroups = React.useMemo(() => {
+    const placed = new Set(currentTiles.map(({ ref_group_id }) => ref_group_id));
+    return Array.from(groupMap.values()).filter((group) => group.pos_enabled !== false && !group.is_hidden &&
+      !placed.has(group.id) && !posShortcutLoops(group.id, path, children, groupTiles));
+  }, [children, currentTiles, groupMap, groupTiles, path]);
 
   const menuName = menu?.name ?? '';
-  const currentGroupName =
-    level !== 'menu' ? groupMap.get(level)?.name ?? t('groupName') : '';
 
   const moveSelected = (delta: number) => {
     if (selectedIndex === null || !canEdit || busyRef.current) return;
@@ -367,7 +344,18 @@ function PosDisplayEditor() {
         <span role="status">{dirty ? t('settingsUnsaved') : saved ? t('posLayoutSaved') : ''}</span>
       </div>
       {error && <p role="alert" className="rounded-r-md bg-[var(--danger-50)] p-3 text-sm text-[var(--danger-500)]">{t(error)}</p>}
-      {level !== 'menu' && <nav aria-label={t('menus')} className="flex flex-wrap items-center gap-2 text-sm"><Button variant="secondary" onClick={goToMenuLevel}><ChevronLeft className="rtl:rotate-180" />{menuName}</Button><span className="break-words font-semibold" dir="auto">{currentGroupName}</span></nav>}
+      {path.length > 0 && <nav aria-label={t('menus')} className="flex flex-wrap items-center gap-2 text-sm">
+        <Button variant="secondary" onClick={() => goToLevel(0)}>{menuName}</Button>
+        {path.map((id, index) => {
+          const name = groupMap.get(id)?.name ?? t('groupName');
+          return <React.Fragment key={id}>
+            <ChevronRight aria-hidden className="size-4 rtl:rotate-180" />
+            {index === path.length - 1
+              ? <span aria-current="page" className="break-words font-semibold" dir="auto">{name}</span>
+              : <Button variant="secondary" onClick={() => goToLevel(index + 1)}>{name}</Button>}
+          </React.Fragment>;
+        })}
+      </nav>}
       <div className={`grid min-w-0 gap-5 ${!preview && canEdit ? 'lg:grid-cols-[minmax(0,1fr)_320px]' : ''}`}>
         <section className="min-w-0 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-3 sm:p-4" aria-label={t('posLayoutTitle')}>
           {!preview && canEdit && <div className="mb-4 flex flex-wrap items-center gap-2"><Button variant="primary" disabled={saving} onClick={() => setAddOpen(true)}><Plus />{t('posAddTile')}</Button><Button variant="secondary" className="lg:hidden" onClick={() => inspector.current?.scrollIntoView({ block: 'start' })}><SlidersHorizontal />{t('posTileSettings')}</Button></div>}
@@ -384,7 +372,7 @@ function PosDisplayEditor() {
           </fieldset>
         </aside>}
       </div>
-      <PosAddTileModal open={addOpen} onOpenChange={setAddOpen} level={level} menu={menu} items={Array.from(itemMap.values())} placedGroupIds={placedGroupIds} onAdd={onAddTiles} />
+      <PosAddTileModal open={addOpen} onOpenChange={setAddOpen} groups={availableGroups} items={Array.from(itemMap.values())} onAdd={onAddTiles} />
     </div>}
   </FullScreenEditor>
   <ConfirmDialog open={discard} onOpenChange={setDiscard} title={t('discardChanges')} description={t('libraryDiscardDescription')} confirmLabel={t('discardChanges')} cancelLabel={t('cancel')} onConfirm={() => router.push(`/${rid}/menu/menus/${mid}`)} />
