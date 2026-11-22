@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "1feb9078a6e268194725c86d80b3f6bb5a388d22",
-  "documentationRevision": "0c3db0b9afe3e625eb0c58009d4348e14fcc48c7f1a8f03849bae0297b3b7b67",
+  "documentationRef": "a9ca746cfa3b96d9bda9b14a6686b4ad423cbd5c",
+  "documentationRevision": "f414ca995d3bff0216eb7e9a735fe5323a6940f364507243eacbb318127864c2",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -1608,15 +1608,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "c35eb46d1cdc73fcab88dad2d60614a2e42cf3d4ffab94b2e06dc4388a9fd381"
+          "sha256": "a549db1dad1a350b5123ae707ce951af8a5ddb8597c38ad917a6ed6934e31e50"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "e6f4636cb4cdd2f27e485090328aea64352424ff7d3c14c040ad65dedbd5209c"
+          "sha256": "b37a7bf81c84fe97d68fe732ae837fa928c60d9dd35546645af897942b896675"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "b43defb292a84f564f4e862737d6dc41067d78000d482c6dc58db7e3c657ab84"
+          "sha256": "b5975849d14e8c419a35a39620ae1eb37bf23bb7d9c5b7214eabeedae9492d32"
         }
       }
     },
