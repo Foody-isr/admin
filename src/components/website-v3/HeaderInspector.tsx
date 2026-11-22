@@ -7,6 +7,7 @@ import { ChevronDown, ArrowLeft, Link as LinkIcon, Star } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import {
   HEADER_LAYOUTS,
+  draftRestaurantLogo,
   restaurantInfoLayout,
   headerFromLegacy,
   orderHeaderPresentation,
@@ -69,13 +70,8 @@ export function HeaderInspector({
     config.nav_layout && typeof config.nav_layout === "object"
       ? (config.nav_layout as Record<string, unknown>)
       : {};
-  const sharedHeader = headerFromLegacy(
-    config,
-    pages,
-    typeof config.restaurant_logo_url === "string"
-      ? config.restaurant_logo_url
-      : restaurantLogoUrl,
-  );
+  const logoUrl = draftRestaurantLogo(config, restaurantLogoUrl);
+  const sharedHeader = headerFromLegacy(config, pages, logoUrl);
   const customOrderHeader = page?.type === "order" && page.appearance_overrides.order_header?.version === 1;
   const header = resolvePageHeader(sharedHeader, page?.type, page?.appearance_overrides);
   const pageScroll = page?.appearance_overrides.website_order?.fulfillment_scroll;
@@ -288,7 +284,7 @@ export function HeaderInspector({
                       onClick={() => layout === "restaurant" ? saveHeader({
                         ...header, layout,
                         background: {...header.background, mode: "image"},
-                        logo: {...header.logo, type: header.logo.image || restaurantLogoUrl ? "image" : header.logo.type, size: 140},
+                        logo: {...header.logo, type: header.logo.image || logoUrl ? "image" : header.logo.type, size: 140},
                         icons: {...header.icons, cart: false, search: false},
                       }) : set("layout", layout)}
                     >
@@ -469,7 +465,7 @@ export function HeaderInspector({
                   restaurantId={restaurantId}
                   framing={header.logo.framing}
                   onFramingChange={framing => patch("logo", {framing})}
-                  value={header.logo.image || (restaurantLayout ? restaurantLogoUrl || "" : "")}
+                  value={header.logo.image || (restaurantLayout ? logoUrl : "")}
                   onChange={(image) => patch("logo", { image, ...(restaurantLayout && !image ? {type: "text" as const} : {}) })}
                   copy={c}
                 />

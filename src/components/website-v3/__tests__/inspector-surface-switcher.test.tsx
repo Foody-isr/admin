@@ -66,8 +66,7 @@ function render(
         onPageChange: () => undefined,
         onSectionChange: () => undefined,
         onCreateFooter: () => undefined,
-        onRestaurantLogoUpload: async () => undefined,
-        onRestaurantLogoRemove: async () => undefined,
+        mainLogo: { uploading: false, onUpload: async () => undefined, onRemove: () => undefined },
       }),
     ),
   );

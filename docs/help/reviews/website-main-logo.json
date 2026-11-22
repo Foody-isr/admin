@@ -1,0 +1,15 @@
+{
+  "files": [
+    {
+      "path": "src/components/website-v3/WebsiteV3Builder.tsx",
+      "sha256": "ed53a1fe4bde075e28c1b07d032fa40acac6e2f4e326aa7df5b786ce6c5ec91e",
+      "baseSha256": "0e9ef58ebf6fd7fb8959603a637750f2cf88400bfb27a983108e4d2f89f1cb09",
+      "features": [
+        "website-sections",
+        "website-pages"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The logo upload applies its update to the current draft to preserve edits made while the request runs. Page and section controls use their existing field paths, validation and publication procedures."
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 import { normalizeImageFraming, type ImageFraming } from "./image-framing";
+import type { DraftConfigPayload } from "./types";
 
 /** Persisted Header component contract. Kept identical in Admin, Web and the server validator. */
 export type WebsiteHeader = {
@@ -123,6 +124,30 @@ export function headerSafeUrl(value: unknown, media = false): string {
     return v;
   if (!/^[a-z][a-z\d+.-]*:/i.test(v)) return v;
   return "";
+}
+
+/** Uses the draft logo when explicitly set, including an empty string for removal. */
+export function draftRestaurantLogo(config: DraftConfigPayload, publishedLogoUrl = ""): string {
+  return text(config.restaurant_logo_url, publishedLogoUrl);
+}
+
+/** Changes the main logo and the existing header image as one draft edit. */
+export function updateWebsiteMainLogo(config: DraftConfigPayload, image: string): DraftConfigPayload {
+  const nav = record(config.nav_layout);
+  const header = record(nav.header);
+  if (header.version !== 1) return { ...config, restaurant_logo_url: image };
+
+  return {
+    ...config,
+    restaurant_logo_url: image,
+    nav_layout: {
+      ...nav,
+      header: {
+        ...header,
+        logo: { ...record(header.logo), image, type: image ? "image" : "text" },
+      },
+    },
+  };
 }
 
 /** Normalizes an authored target without accepting script or cross-protocol URLs. */

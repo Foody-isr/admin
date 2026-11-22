@@ -258,6 +258,7 @@ if (mobileDemo) {
 let published = structuredClone(draft),
   dirty = false,
   revision = 0;
+let publishedLogoUrl;
 const response = () => ({
   state: structuredClone(dirty ? draft : published),
   revision: String(revision),
@@ -284,6 +285,7 @@ const restaurant = () => ({
     cover_url:"https://foody-menu-images.s3.eu-north-1.amazonaws.com/restaurants/5/background/6b7dbb85-ccf7-417c-a09a-ba21150b5474.JPG",
   } : {}),
   ...(headerChoices ? {name: "Atelier — aperçu local", pickup_enabled: true, delivery_enabled: process.env.FOODY_HEADER_CHOICES !== "scheduled-pickup", scheduling_enabled: true, batch_fulfillment_enabled: process.env.FOODY_HEADER_CHOICES === "batch"} : {}),
+  ...(publishedLogoUrl !== undefined ? { logo_url: publishedLogoUrl } : {}),
   ...((featuredRegression || process.env.FOODY_ITEM_MODAL === "1") ? { opening_hours_config: Object.fromEntries(
     ["dine_in", "pickup", "delivery"].map((service) => [service, Object.fromEntries(
       ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map((day) => [day, {closed: false, open: "00:00", close: "00:00"}]),
@@ -319,6 +321,7 @@ http
         : "http://localhost:3003",
     );
     res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader(
       "Access-Control-Allow-Headers",
       "content-type, authorization, x-restaurant-id, x-website-draft-revision",
@@ -385,6 +388,10 @@ http
         pages: draft.pages.map(({tmp_id, ...page}, index) => ({...page, id: page.id ?? index + 100})),
         sections: draft.sections.map(({tmp_id, page_tmp_id, ...section}, index) => ({...section, id: section.id ?? index + 1000, ...(page_tmp_id ? {page_id: pageIds.get(page_tmp_id)} : {})})),
       };
+      if (typeof published.config.restaurant_logo_url === "string") {
+        publishedLogoUrl = published.config.restaurant_logo_url;
+        delete published.config.restaurant_logo_url;
+      }
       dirty = false;
       revision += 1;
       result = { json: response() };

@@ -4,6 +4,7 @@ import React, { useRef, useState } from "react";
 import Link from "next/link";
 import { SectionImageUploader } from "./SupportingContentEditors";
 import { useI18n } from "@/lib/i18n";
+import { draftRestaurantLogo, headerFromLegacy } from "@/lib/website-v3/header";
 import {
   type DraftConfigPayload,
   type DraftPagePayload,
@@ -16,6 +17,16 @@ import {
   controlClass,
 } from "./controls";
 import { HeaderInspector } from "./HeaderInspector";
+import { headerCopy } from "./header-copy";
+
+export type MainLogoActions = {
+  uploading: boolean;
+  onUpload: (file: File) => Promise<void>;
+  onRemove: () => void;
+};
+
+const MAIN_LOGO_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+const MAIN_LOGO_MAX_BYTES = 2 * 1024 * 1024;
 
 /** Edits shared site identity and links to the dedicated Stories settings. */
 export function SiteInspector({
@@ -27,8 +38,7 @@ export function SiteInspector({
   pages,
   sections,
   onChange,
-  onRestaurantLogoUpload,
-  onRestaurantLogoRemove,
+  mainLogo,
 }: {
   config: DraftConfigPayload;
   restaurantId: number;
@@ -38,16 +48,13 @@ export function SiteInspector({
   pages: DraftPagePayload[];
   sections: DraftSectionPayload[];
   onChange: (path: readonly (string | number)[], value: unknown) => void;
-  onRestaurantLogoUpload: (file: File) => Promise<void>;
-  onRestaurantLogoRemove: () => Promise<void>;
+  mainLogo: MainLogoActions;
 }) {
-  const { t } = useI18n();
-  const effectiveRestaurantLogoUrl = Object.prototype.hasOwnProperty.call(
-    config,
-    "restaurant_logo_url",
-  )
-    ? string(config.restaurant_logo_url)
-    : restaurantLogoUrl;
+  const { t, locale } = useI18n();
+  const c = headerCopy(locale);
+  const draftLogoUrl = draftRestaurantLogo(config, restaurantLogoUrl);
+  const headerLogo = draftLogoUrl ? undefined : headerFromLegacy(config, pages).logo;
+  const currentLogoUrl = draftLogoUrl || (headerLogo?.type === "image" ? headerLogo.image : "");
   const [editingHeader, setEditingHeader] = useState(false);
   const shareImageUrl = string(config.share_image_url);
   const shareImageMode =
@@ -66,14 +73,10 @@ export function SiteInspector({
           <textarea data-field-id="site.tagline" value={string(config.tagline)} onChange={event => onChange(["tagline"], event.target.value)} className={`${controlClass} min-h-20 py-2.5`} />
         </InspectorField>
       </InspectorGroup>
-      <InspectorGroup
-        title="Logos et identité"
-        description="Le logo principal est partagé par le site. Les variantes permettent de garder un bon contraste."
-      >
+      <InspectorGroup title={c.siteIdentity}>
         <RestaurantLogoUploader
-          currentUrl={effectiveRestaurantLogoUrl}
-          onUpload={onRestaurantLogoUpload}
-          onRemove={onRestaurantLogoRemove}
+          currentUrl={currentLogoUrl}
+          {...mainLogo}
         />
         <RangeField
           fieldId="site.hero_logo_size"
@@ -181,39 +184,33 @@ export function SiteInspector({
   );
 }
 
-/** Uploads or removes the shared restaurant logo and surfaces persistence errors. */
-export function RestaurantLogoUploader({
+function RestaurantLogoUploader({
   currentUrl,
+  uploading,
   onUpload,
   onRemove,
-}: {
-  currentUrl?: string;
-  onUpload: (file: File) => Promise<void>;
-  onRemove: () => Promise<void>;
-}) {
+}: MainLogoActions & { currentUrl: string }) {
+  const { locale } = useI18n();
+  const c = headerCopy(locale);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function run(action: () => Promise<void>) {
-    setBusy(true);
+  async function upload(file: File) {
     setError(null);
+    if (!MAIN_LOGO_IMAGE_TYPES.includes(file.type) || file.size === 0 || file.size > MAIN_LOGO_MAX_BYTES) {
+      setError(c.mainLogoFileError);
+      return;
+    }
     try {
-      await action();
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Impossible de modifier le logo.",
-      );
-    } finally {
-      setBusy(false);
-      if (inputRef.current) inputRef.current.value = "";
+      await onUpload(file);
+    } catch {
+      setError(c.uploadError);
     }
   }
 
   return (
-    <InspectorField label="Logo principal" error={error ?? undefined}>
+    <div role="group" aria-label={c.mainLogo} aria-busy={uploading}>
+      <p className="mb-1.5 text-xs font-semibold text-slate-600">{c.mainLogo}</p>
       <div className="flex items-center gap-3">
         {currentUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -224,26 +221,29 @@ export function RestaurantLogoUploader({
           />
         ) : (
           <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-dashed border-slate-300 text-[10px] text-slate-400">
-            Logo
+            {c.logo}
           </div>
         )}
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            disabled={busy}
+            disabled={uploading}
             onClick={() => inputRef.current?.click()}
             className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
-            {busy ? "Envoi…" : currentUrl ? "Remplacer" : "Téléverser"}
+            {uploading ? c.busy : currentUrl ? c.replace : c.mainLogoAdd}
           </button>
           {currentUrl ? (
             <button
               type="button"
-              disabled={busy}
-              onClick={() => void run(onRemove)}
+              disabled={uploading}
+              onClick={() => {
+                setError(null);
+                onRemove();
+              }}
               className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
             >
-              Supprimer
+              {c.remove}
             </button>
           ) : null}
         </div>
@@ -251,14 +251,17 @@ export function RestaurantLogoUploader({
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept={MAIN_LOGO_IMAGE_TYPES.join(",")}
+        disabled={uploading}
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0];
-          if (file) void run(() => onUpload(file));
+          event.target.value = "";
+          if (file) void upload(file);
         }}
       />
-    </InspectorField>
+      {error && <p role="alert" className="mt-1.5 text-xs font-medium text-red-600">{error}</p>}
+    </div>
   );
 }
 
