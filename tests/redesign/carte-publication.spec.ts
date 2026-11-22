@@ -291,6 +291,103 @@ test("the POS layout opens nested tiles and saves subgroup shortcuts", async ({ 
     { tile_type: 'group', ref_group_id: 12 },
   ] } });
 });
+
+const menuImage = {
+  name: "example.png",
+  mimeType: "image/png",
+  buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a460AAAAASUVORK5CYII=", "base64"),
+};
+const uploadedMenuImage = "https://media.example.test/restaurants/1/menu-assets/example.png";
+
+test("a new group image is uploaded before saving the carte draft", async ({ page }) => {
+  const fixture = await install(page, "fr", true);
+  let attempts = 0;
+  await page.route("**/api/v1/menu/upload/image", (route) => {
+    const request = route.request();
+    expect(request.method()).toBe("POST");
+    expect(request.headers()["x-restaurant-id"]).toBe("1");
+    expect(request.headers()["content-type"]).toMatch(/^multipart\/form-data/);
+    attempts++;
+    return attempts === 1
+      ? route.fulfill({ status: 500, json: { error: "storage unavailable" } })
+      : route.fulfill({ json: { image_url: uploadedMenuImage } });
+  });
+  await page.goto(`/1/menu/menus/${fixture.menu.id}`);
+  await page.getByRole("button", { name: "Actions du groupe Boissons" }).click();
+  await page.getByText("Ajouter un sous-groupe", { exact: true }).click();
+  const settings = page.getByRole("dialog", { name: "Paramètres du groupe" });
+  const imageUrl = settings.getByLabel("Adresse de l’image du groupe");
+  await settings.getByLabel("Nom", { exact: true }).fill("Bouteilles");
+  await imageUrl.fill("https://media.example.test/previous.png");
+
+  const changeImage = settings.getByRole("button", { name: "Changer l'image" });
+  const [failedPicker] = await Promise.all([page.waitForEvent("filechooser"), changeImage.click()]);
+  await failedPicker.setFiles(menuImage);
+  await expect(settings.getByRole("alert")).toContainText("Échec de l'envoi");
+  await expect(imageUrl).toHaveValue("https://media.example.test/previous.png");
+  const [retryPicker] = await Promise.all([page.waitForEvent("filechooser"), changeImage.click()]);
+  await retryPicker.setFiles(menuImage);
+  await expect(imageUrl).toHaveValue(uploadedMenuImage);
+  expect(fixture.writes).toEqual([]);
+
+  await settings.getByRole("button", { name: "Fermer", exact: true }).click();
+  await header(page).getByRole("button", { name: "Enregistrer le brouillon" }).click();
+  await expect(page.getByRole("status")).toHaveText("Brouillon enregistré");
+  expect(fixture.writes).toEqual(["draft"]);
+  expect(Array.from(fixture.docs.values())[0].payload.groups).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: 0, name: "Bouteilles", parent_key: "group-2", image_url: uploadedMenuImage }),
+  ]));
+});
+
+test("a tile image uploads before saving the POS layout", async ({ page }) => {
+  const fixture = await install(page);
+  const menuId = fixture.menu.id;
+  const group = { id: 10, name: "Boissons", pos_enabled: true, items: [] };
+  const layout = {
+    tiles: [{ tile_type: "group", ref_group_id: group.id, size: "petit", bg_type: "color", color: "#1C1C1E", image_url: "", position: 0 }],
+    group_tiles: {},
+  };
+  const writes: unknown[] = [];
+  let finishUpload!: () => void;
+  const uploadPending = new Promise<void>(resolve => { finishUpload = resolve; });
+  await page.route("**/api/v1/menu/menus?*", route => route.fulfill({ json: { menus: [{ ...fixture.menu, groups: [group] }] } }));
+  await page.route(`**/api/v1/menu/menus/${menuId}/pos-display?*`, route => {
+    if (route.request().method() === "GET") return route.fulfill({ json: layout });
+    const saved = route.request().postDataJSON();
+    writes.push(saved);
+    return route.fulfill({ json: saved });
+  });
+  await page.route("**/api/v1/menu/upload/image", async (route) => {
+    expect(route.request().headers()["x-restaurant-id"]).toBe("1");
+    await uploadPending;
+    await route.fulfill({ json: { image_url: uploadedMenuImage } });
+  });
+  await page.goto(`/1/menu/menus/${menuId}/pos-display`);
+  await page.getByRole("button", { name: "Boissons", exact: true }).click();
+  const inspector = page.getByRole("complementary", { name: "Réglages de la tuile" });
+  await inspector.getByRole("button", { name: "Image", exact: true }).click();
+  const save = page.getByRole("button", { name: "Enregistrer", exact: true });
+  await expect(save).toBeEnabled();
+  try {
+    const [picker] = await Promise.all([
+      page.waitForEvent("filechooser"),
+      inspector.getByRole("button", { name: "Importer une image", exact: true }).click(),
+    ]);
+    await picker.setFiles(menuImage);
+    await expect(save).toBeDisabled();
+    expect(writes).toEqual([]);
+  } finally {
+    finishUpload();
+  }
+  await expect(inspector.getByLabel("URL de l’image")).toHaveValue(uploadedMenuImage);
+  await save.click();
+  await expect(page.getByText("Présentation enregistrée", { exact: true })).toBeVisible();
+  expect(writes).toEqual([{
+    ...layout,
+    tiles: [{ ...layout.tiles[0], bg_type: "image", image_url: uploadedMenuImage }],
+  }]);
+});
+
 async function carteAction(page: Page, label: string) {
   await page
     .getByRole("button", { name: "Actions de la carte", exact: true })

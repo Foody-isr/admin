@@ -4422,6 +4422,27 @@ export async function uploadGroupImage(restaurantId: number, groupId: number, fi
   return data.image_url as string;
 }
 
+/** Prepares a group or tile image without changing the saved menu or POS layout. */
+export async function uploadMenuImage(restaurantId: number, file: File, signal: AbortSignal): Promise<string> {
+  const form = new FormData();
+  form.append('image', file);
+  const token = getToken();
+  const response = await portalRequest(API_URL, `${API_URL}/api/v1/menu/upload/image`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: form,
+    signal,
+  });
+  if (!response.ok) throw new ApiError('Upload failed', response.status);
+
+  const data = await response.json();
+  if (typeof data?.image_url !== 'string' || !data.image_url) throw new Error('Missing uploaded image URL');
+  return data.image_url;
+}
+
 // ─── Modifiers ────────────────────────────────────────────────────────────────
 
 export interface ModifierInput {

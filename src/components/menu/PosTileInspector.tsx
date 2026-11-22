@@ -18,6 +18,7 @@ import {
 } from '@/lib/posDisplay';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
+import { MenuImageField } from './MenuImageField';
 
 /** Available "Trier par" strategies shown when no tile is selected. */
 export type PosSortKey = 'menu' | 'az' | 'color' | 'type' | 'color_type';
@@ -37,6 +38,7 @@ const SIZE_OPTIONS: { key: PosTileSize; label: string }[] = [
 ];
 
 export interface PosTileInspectorProps {
+  restaurantId: number;
   /** Selected tile, or null when nothing is selected (shows sort options). */
   tile: PosDisplayTile | null;
   /** Image URL already set on the referenced group / item, offered as a one-click pick. */
@@ -48,6 +50,7 @@ export interface PosTileInspectorProps {
   onBgTypeChange: (bg: PosBgType) => void;
   onColorPick: (color: string) => void;
   onImageUrlChange: (url: string) => void;
+  onImagePendingChange: (pending: boolean) => void;
   onRenameGroup: () => void;
   onDrill: () => void;
   onRemove: () => void;
@@ -69,6 +72,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
  *   and options (rename group / drill in for group tiles, remove for all).
  */
 export function PosTileInspector({
+  restaurantId,
   tile,
   linkedImageUrl,
   onSort,
@@ -76,6 +80,7 @@ export function PosTileInspector({
   onBgTypeChange,
   onColorPick,
   onImageUrlChange,
+  onImagePendingChange,
   onRenameGroup,
   onDrill,
   onRemove,
@@ -187,13 +192,12 @@ export function PosTileInspector({
                 onPick={() => onImageUrlChange(linkedImageUrl)}
               />
             )}
-            <input
-              aria-label={t('posImageUrl')}
-              dir="ltr"
+            <MenuImageField
+              restaurantId={restaurantId}
+              label={t('posImageUrl')}
               value={tile.image_url}
-              onChange={(e) => onImageUrlChange(e.target.value)}
-              placeholder="https://…/image.jpg"
-              className="input"
+              onChange={onImageUrlChange}
+              onPendingChange={onImagePendingChange}
             />
           </div>
         )}

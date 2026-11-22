@@ -54,6 +54,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { BatchPicker } from "@/components/menu/BatchPicker";
+import { MenuImageField } from "@/components/menu/MenuImageField";
 import ItemUnsavedDialog from "@/components/menu-item/ItemUnsavedDialog";
 import { useItemLeaveGuard } from "@/components/menu-item/useItemLeaveGuard";
 import { StockPreparation } from "./StockPreparation";
@@ -921,18 +922,14 @@ function CarteEditor({
                   }
                 />
               </label>
-              <label className="block space-y-1">
-                <span>{t("carteGroupImage")}</span>
-                <input
-                  className="input"
-                  type="url"
-                  value={group.image_url}
-                  disabled={!canEdit || busy}
-                  onChange={(e) =>
-                    updateGroup(group.key, { image_url: e.target.value })
-                  }
-                />
-              </label>
+              <MenuImageField
+                key={group.key}
+                restaurantId={rid}
+                label={t("carteGroupImage")}
+                value={group.image_url}
+                disabled={!canEdit || busy}
+                onChange={(image_url) => updateGroup(group.key, { image_url })}
+              />
               <label className="block space-y-1">
                 <span>{t("carteParentGroup")}</span>
                 <select
