@@ -786,7 +786,7 @@ Run `npm run build` before marking a PR ready to merge. Iterative feature-branch
 
 ## Deployment (Vercel)
 
-The Vercel project builds the application once from `develop`. The development domain tracks the generated `dev-portal-routing` branch in the Preview environment. Its static rewrite forwards to the exact application deployment verified by the **Publish development portal** workflow. Keep this domain assigned to that branch when editing project domains. Use the workflow's manual run on `develop` to retry publication. The response header `X-Foody-Login-Revision` on `/login` identifies the application commit served to a browser.
+The Vercel project builds the application once from `develop`. The development domain tracks the generated `dev-portal-routing` branch in the Preview environment. Its homepage redirects to `/login` on the development domain. Other paths go to the exact application deployment. The **Publish development portal** workflow verifies the homepage redirect and the `X-Foody-Login-Revision` header on `/login` before reporting success. Keep this domain assigned to the routing branch when editing project domains. Use the workflow's manual run on `develop` to retry publication.
 
 Vercel's Git integration deploys `develop` to the development environment. Production is a manual promotion of a verified `develop` deployment; no second PR to `main` and no GitHub Actions rebuild are required.
 

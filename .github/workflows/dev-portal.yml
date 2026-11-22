@@ -22,4 +22,4 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - uses: Foody-isr/backoffice/.github/actions/dev-portal@00b1be6d5242ba78873ae69b7e1b5fa42829c1b5
+      - uses: Foody-isr/backoffice/.github/actions/dev-portal@2173cd08a1a5d028837eb64362ae2a831f9ab996
