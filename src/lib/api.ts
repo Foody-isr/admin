@@ -2528,6 +2528,7 @@ export async function saveLoyaltyProgram(saved: PendingLoyaltyProgram): Promise<
 }
 
 export interface WalletStudioArtwork {
+  composition?: import('./wallet-composition').Composition | {version:1;template:'classic'};
   background_color: string;
   foreground_color: string;
   hide_restaurant_name?: boolean;
@@ -2542,13 +2543,14 @@ export interface WalletStudioDesign extends WalletStudioArtwork {
 }
 
 export interface WalletStudioState {
+  composition_version?: number;
   restaurant_id: number;
   restaurant_name: string;
   can_edit: boolean;
   can_sign_test: boolean;
   published_revision?: number;
   design: WalletStudioDesign;
-  program: { enabled?: boolean; mode: LoyaltyRules['mode']; threshold: number; names: Record<'en' | 'fr' | 'he', string> } | null;
+  program: { enabled?: boolean; mode: LoyaltyRules['mode']; threshold: number; names: Record<'en' | 'fr' | 'he', string>; reward_labels?: Record<string,string> } | null;
 }
 
 const walletStudioPath = '/api/v1/loyalty/wallet-studio';
@@ -2573,7 +2575,7 @@ export function getWalletWebsiteDesign(rid: number, signal: AbortSignal): Promis
 }
 
 /** Replace the draft only if its saved revision still matches. */
-export function saveWalletStudio(rid: number, revision: number, artwork: WalletStudioArtwork & { apple_strip_png?: string; google_hero_png?: string }, signal?: AbortSignal): Promise<WalletStudioDesign> {
+export function saveWalletStudio(rid: number, revision: number, artwork: WalletStudioArtwork & { poster_png?: string; apple_strip_png?: string; google_hero_png?: string }, signal?: AbortSignal): Promise<WalletStudioDesign> {
   return apiFetch(walletStudioPath, rid, {
     method: 'PUT', cache: 'no-store', signal,
     body: JSON.stringify({ expected_revision: revision, ...artwork }),
