@@ -1,0 +1,50 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/menu/menus/[menuId]/pos-display/page.tsx",
+      "sha256": "3aecf76109f5d45cb655f0607987fb24cdb2ec8364a07e169ca43f7a43f5ff71",
+      "baseSha256": "5f4e25201fa6a9bde8e09ba250c3b13ad4484d636ba43c0a5b74f98afc2fb92c",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The editor adds nested grid navigation and group shortcuts. Item creation, categories, recipes and variants still use their own existing screens and save workflows."
+    },
+    {
+      "path": "src/components/menu/publication/CarteEditor.tsx",
+      "sha256": "d27c94117104e6c7a5638529c6c92277b7af51b029c499e3d8fda28aeb8bf78c",
+      "baseSha256": "8f8ff7b1bb2b1b263f2006aa0a7a406a41df7723f5ed9fa53a3e17d01c964735",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Draft group settings, nesting and preview change here. Event usage retains the same controls, permissions and separate save operation."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "c3d861064639af6ba8e3c4d8f73f97fe4ff921356293a3c4749a9311bde77301",
+      "baseSha256": "179dc5ec0014e059a98da3651de7d2a6903d6f352c51ca5d4839b994ed4491f7",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Three translations add the group action for creating a subgroup. Existing labels and descriptions for the other listed workflows retain their text."
+    }
+  ]
+}

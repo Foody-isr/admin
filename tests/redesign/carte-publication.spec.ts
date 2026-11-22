@@ -218,6 +218,79 @@ async function install(page: Page, locale = "fr", full = false, permissions?: st
 function header(page: Page) {
   return page.locator("[data-carte-editor-header]");
 }
+
+test("a submenu is created inside its parent and saved with the draft", async ({ page }) => {
+  const fixture = await install(page, "fr", true);
+  await page.goto(`/1/menu/menus/${fixture.menu.id}`);
+  const parent = page.locator('[data-carte-group="group-2"]');
+  await parent.getByRole("button", { name: "Actions du groupe Boissons" }).click();
+  await page.getByText("Ajouter un sous-groupe", { exact: true }).click();
+  const settings = page.getByRole("dialog", { name: "Paramètres du groupe" });
+  await expect(settings.getByLabel("Groupe parent")).toHaveValue("group-2");
+  await settings.getByLabel("Nom", { exact: true }).fill("Bouteilles");
+  await settings.getByRole("button", { name: "Fermer", exact: true }).click();
+  const subgroup = parent.getByRole("heading", { name: "Bouteilles", exact: true });
+  await expect(subgroup).toBeVisible();
+  const parentToggle = parent.getByRole("button", { name: "Boissons", exact: true });
+  await parentToggle.click();
+  await expect(subgroup).toHaveCount(0);
+  await parentToggle.click();
+  await expect(subgroup).toBeVisible();
+  await parent.getByRole("button", { name: "Actions du groupe Boissons" }).click();
+  await page.getByText("Modifier le groupe", { exact: true }).click();
+  await expect(settings.getByLabel("Groupe parent").locator("option", { hasText: "Bouteilles" })).toHaveCount(0);
+  await settings.getByRole("button", { name: "Fermer", exact: true }).click();
+  expect(fixture.writes).toEqual([]);
+  await header(page).getByRole("button", { name: "Aperçu", exact: true }).click();
+  const preview = page.getByRole("dialog", { name: "Aperçu" });
+  const previewParent = preview.locator("section").filter({ has: page.getByRole("heading", { name: "Boissons", exact: true }) });
+  await expect(previewParent.getByRole("heading", { name: "Bouteilles", exact: true })).toBeVisible();
+  await preview.getByRole("button", { name: "Fermer", exact: true }).click();
+  await header(page).getByRole("button", { name: "Enregistrer le brouillon" }).click();
+  await expect(page.getByRole("status")).toHaveText("Brouillon enregistré");
+  expect(Array.from(fixture.docs.values())[0].payload.groups).toEqual(expect.arrayContaining([
+    expect.objectContaining({ name: "Bouteilles", parent_key: "group-2" }),
+  ]));
+});
+
+test("the POS layout opens nested tiles and saves subgroup shortcuts", async ({ page }) => {
+  const fixture = await install(page);
+  const item = fixture.items[0];
+  const menuId = fixture.menu.id;
+  const groups = [
+    { id: 10, name: "Boissons", pos_enabled: true, items: [] },
+    { id: 11, name: "Bouteilles", parent_id: 10, pos_enabled: true, items: [item] },
+    { id: 12, name: "Desserts", pos_enabled: true, items: [] },
+  ];
+  const writes: unknown[] = [];
+  await page.route("**/api/v1/menu/menus?*", route => route.fulfill({ json: { menus: [{ ...fixture.menu, groups }] } }));
+  await page.route(`**/api/v1/menu/menus/${menuId}/pos-display?*`, (route) => {
+    if (route.request().method() === "PUT") {
+      const layout = route.request().postDataJSON();
+      writes.push(layout);
+      return route.fulfill({ json: layout });
+    }
+    return route.fulfill({ json: { automatic: true, tiles: [], group_tiles: {} } });
+  });
+  await page.goto(`/1/menu/menus/${menuId}/pos-display`);
+  await page.getByRole("button", { name: "Aperçu", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Bouteilles", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Boissons", exact: true }).click();
+  await page.getByRole("button", { name: "Bouteilles", exact: true }).click();
+  await expect(page.getByText(item.name, { exact: true })).toBeVisible();
+  await page.getByRole("navigation", { name: "Cartes" }).getByRole("button", { name: "Boissons", exact: true }).click();
+  await page.getByRole("button", { name: "Modifier", exact: true }).click();
+  await page.getByRole("button", { name: "Ajouter une tuile", exact: true }).first().click();
+  const picker = page.getByRole("dialog", { name: "Ajouter à la présentation POS" });
+  await expect(picker.getByRole("button", { name: "Boissons", exact: true })).toHaveCount(0);
+  await picker.getByRole("button", { name: "Desserts", exact: true }).click();
+  await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0]).toMatchObject({ tiles: [], group_tiles: { '10': [
+    { tile_type: 'group', ref_group_id: 11 },
+    { tile_type: 'group', ref_group_id: 12 },
+  ] } });
+});
 async function carteAction(page: Page, label: string) {
   await page
     .getByRole("button", { name: "Actions de la carte", exact: true })

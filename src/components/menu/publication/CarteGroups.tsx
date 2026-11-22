@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowDown,
@@ -19,7 +19,7 @@ import type {
   SaleStockOverview,
   SaleStockLimit,
 } from "@/lib/api";
-import { moveEntry } from "@/lib/carte-editor";
+import { carteGroupChildren, moveEntry } from "@/lib/carte-editor";
 import { useCurrency, useI18n } from "@/lib/i18n";
 import ActionMenu from "@/components/common/ActionMenu";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -38,6 +38,7 @@ interface Props {
   busy: boolean;
   onEdit: (patch: Partial<CarteDocument>) => void;
   onGroupSettings: (key: string) => void;
+  onAddSubgroup: (parentKey: string) => void;
   onChooseItems: (key: string) => void;
   onRemoveGroup: (key: string) => void;
   onHistory: (id: number) => void;
@@ -61,6 +62,7 @@ export function CarteGroups({
   busy,
   onEdit,
   onGroupSettings,
+  onAddSubgroup,
   onChooseItems,
   onRemoveGroup,
   onHistory,
@@ -79,6 +81,7 @@ export function CarteGroups({
     ids: number[];
   } | null>(null);
   const [drag, setDrag] = useState<{ group: string; id?: number } | null>(null);
+  const children = useMemo(() => carteGroupChildren(doc.groups), [doc.groups]);
   const itemHref = (id: number) =>
     `/${rid}/menu/items/${id}?from=${encodeURIComponent(`/${rid}/menu/menus/${mid}`)}`;
   const library = new Map(items.map((item) => [item.id, item]));
@@ -115,11 +118,23 @@ export function CarteGroups({
     setSelected(null);
   }
 
-  return (
-    <div className={styles.groups} aria-label={t("carteGroups")}>
-      {doc.groups.map((group, groupIndex) => {
+  function reorderGroup(sourceKey: string, targetKey: string) {
+    if (sourceKey === targetKey) return;
+    const groups = [...doc.groups];
+    const source = groups.findIndex((group) => group.key === sourceKey);
+    const target = groups.findIndex((group) => group.key === targetKey);
+    if (source < 0 || target < 0) return;
+    const [moved] = groups.splice(source, 1);
+    groups.splice(target, 0, moved);
+    onEdit({ groups });
+  }
+
+  function renderGroups(parentKey = ""): ReactNode {
+    const siblings = children.get(parentKey) ?? [];
+    return siblings.map((group, groupIndex) => {
+        const hasChildren = children.has(group.key);
         const open =
-          expanded[group.key] ?? (groupIndex === 0 || group.id === 0);
+          expanded[group.key] ?? (hasChildren || (!parentKey && groupIndex === 0) || group.id === 0);
         const checked = selected?.group === group.key ? selected.ids : [];
         const name = group.name || t("carteUntitled");
         const controlId = `carte-group-${group.key}`;
@@ -128,19 +143,15 @@ export function CarteGroups({
             key={group.key}
             className={styles.group}
             data-carte-group={group.key}
-            onDragOver={(event) => event.preventDefault()}
+            onDragOver={(event) => {
+              event.stopPropagation();
+              if (drag?.id === undefined && siblings.some(({ key }) => key === drag?.group)) event.preventDefault();
+            }}
             onDrop={(event) => {
+              event.stopPropagation();
               event.preventDefault();
               if (!drag || drag.id !== undefined || !canEdit || busy) return;
-              const source = doc.groups.findIndex(
-                (value) => value.key === drag.group,
-              );
-              if (source >= 0 && source !== groupIndex) {
-                const groups = [...doc.groups];
-                const [moved] = groups.splice(source, 1);
-                groups.splice(groupIndex, 0, moved);
-                onEdit({ groups });
-              }
+              if (siblings.some(({ key }) => key === drag.group)) reorderGroup(drag.group, group.key);
               setDrag(null);
             }}
           >
@@ -182,6 +193,15 @@ export function CarteGroups({
                       disabled: busy,
                     },
                     {
+                      label: t("carteAddSubgroup"),
+                      icon: <Plus />,
+                      onClick: () => {
+                        setExpanded((value) => ({ ...value, [group.key]: true }));
+                        onAddSubgroup(group.key);
+                      },
+                      disabled: busy,
+                    },
+                    {
                       label: t("carteChooseItems"),
                       onClick: () => onChooseItems(group.key),
                       disabled: busy,
@@ -190,19 +210,13 @@ export function CarteGroups({
                       label: t("carteMoveUp"),
                       icon: <ArrowUp />,
                       disabled: busy || groupIndex === 0,
-                      onClick: () =>
-                        onEdit({
-                          groups: moveEntry(doc.groups, groupIndex, -1),
-                        }),
+                      onClick: () => reorderGroup(group.key, siblings[groupIndex - 1].key),
                     },
                     {
                       label: t("carteMoveDown"),
                       icon: <ArrowDown />,
-                      disabled: busy || groupIndex === doc.groups.length - 1,
-                      onClick: () =>
-                        onEdit({
-                          groups: moveEntry(doc.groups, groupIndex, 1),
-                        }),
+                      disabled: busy || groupIndex === siblings.length - 1,
+                      onClick: () => reorderGroup(group.key, siblings[groupIndex + 1].key),
                     },
                     {
                       label: t("delete"),
@@ -259,7 +273,7 @@ export function CarteGroups({
                     </button>
                   </div>
                 )}
-                <div className={styles.tableScroll}>
+                {(group.item_ids.length > 0 || !hasChildren) && <div className={styles.tableScroll}>
                   <table className={styles.table} aria-label={name}>
                     <colgroup>
                       <col className={styles.selectionColumn} />
@@ -580,7 +594,7 @@ export function CarteGroups({
                       })}
                     </tbody>
                   </table>
-                </div>
+                </div>}
                 {canEdit && (
                   <button
                     type="button"
@@ -594,11 +608,13 @@ export function CarteGroups({
                     <span>{t("carteAddItems")}</span>
                   </button>
                 )}
+                {hasChildren && <div className={styles.subgroups}>{renderGroups(group.key)}</div>}
               </div>
             )}
           </section>
         );
-      })}
-    </div>
-  );
+    });
+  }
+
+  return <div className={styles.groups} aria-label={t("carteGroups")}>{renderGroups()}</div>;
 }

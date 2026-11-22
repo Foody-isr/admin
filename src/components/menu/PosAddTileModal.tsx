@@ -7,21 +7,17 @@ import {
   POS_DEFAULT_COLOR,
   type PosDisplayTile,
 } from '@/lib/posDisplay';
-import type { Menu, MenuItem } from '@/lib/api';
+import type { MenuGroup, MenuItem } from '@/lib/api';
 import { usePermissions } from '@/lib/permissions-context';
 import { useCurrency, useI18n } from '@/lib/i18n';
 
 export interface PosAddTileModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Current container: 'menu' = top level, a number = inside that group. */
-  level: 'menu' | number;
-  /** Menu whose groups can be added (only relevant at the top level). */
-  menu: Menu;
+  /** Groups that can be added to the current grid without creating a loop. */
+  groups: MenuGroup[];
   /** Full item catalog, searched by name. */
   items: MenuItem[];
-  /** Group ids already placed on the top grid — excluded from the group list. */
-  placedGroupIds: number[];
   /** Append the built tiles to the current container. */
   onAdd: (tiles: PosDisplayTile[]) => void;
 }
@@ -37,24 +33,12 @@ function baseTile(): Omit<PosDisplayTile, 'tile_type'> {
   };
 }
 
-/**
- * Drawer-based picker for adding tiles to a POS display layout.
- *
- * - At the top level (`level === 'menu'`): shows a "Groupes" section (menu
- *   groups not already placed) and an "Articles" search section.
- * - Inside a group (`level` is a number): only the "Articles" search, since
- *   nested groups are not supported on the POS display.
- *
- * Clicking a row builds the matching `PosDisplayTile` and calls `onAdd`, then
- * closes the drawer.
- */
+/** Picks a group or item tile for the current POS grid. */
 export function PosAddTileModal({
   open,
   onOpenChange,
-  level,
-  menu,
+  groups,
   items,
-  placedGroupIds,
   onAdd,
 }: PosAddTileModalProps) {
   const { money } = useCurrency();
@@ -68,14 +52,6 @@ export function PosAddTileModal({
   React.useEffect(() => {
     if (open) setSearch('');
   }, [open]);
-
-  const isMenuLevel = level === 'menu';
-
-  const availableGroups = React.useMemo(() => {
-    if (!isMenuLevel) return [];
-    const placed = new Set(placedGroupIds);
-    return (menu.groups ?? []).filter((g) => !placed.has(g.id));
-  }, [isMenuLevel, menu.groups, placedGroupIds]);
 
   const filteredItems = React.useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -104,19 +80,13 @@ export function PosAddTileModal({
       width={420}
     >
       <div className="space-y-[var(--s-6)]">
-        {/* ── Groupes (top level only) ── */}
-        {isMenuLevel && (
+        {groups.length > 0 && (
           <section>
             <h3 className="text-fs-sm font-semibold text-[var(--fg-muted)] mb-[var(--s-3)]">
               {t('posGroups')}
             </h3>
-            {availableGroups.length === 0 ? (
-              <p className="text-fs-sm text-[var(--fg-subtle)]">
-                {t('posAllGroupsPlaced')}
-              </p>
-            ) : (
               <div className="space-y-[var(--s-1)]">
-                {availableGroups.map((g) => (
+                {groups.map((g) => (
                   <button
                     key={g.id}
                     type="button"
@@ -141,7 +111,6 @@ export function PosAddTileModal({
                   </button>
                 ))}
               </div>
-            )}
           </section>
         )}
 
