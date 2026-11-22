@@ -11,6 +11,7 @@ const logoUrl = (name: string) => `http://localhost:3003/__logo-fixture/${name}.
 
 test("the main logo updates the existing header in preview, draft and publication", async ({ page, context, request }) => {
   await page.addInitScript(() => {
+    localStorage.setItem("foody_restaurant_token", "isolated-ui-fixture");
     localStorage.setItem("foody_restaurant_portal_session", "fp1p.e30.fixture.00");
     localStorage.setItem("foody_restaurant_user", JSON.stringify({ id: 1, full_name: "Demo", role: "manager", email: "demo@foody.test" }));
     localStorage.setItem("foody_restaurant_ids", "[1]");
