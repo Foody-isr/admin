@@ -704,7 +704,8 @@ export interface ComboStep {
   max_per_item?: number;
   /** Per-item overrides of max_per_item. */
   item_limits?: ComboStepItemLimit[];
-  items: ComboStepItem[];
+  /** The API can return null before any eligible items have been resolved. */
+  items: ComboStepItem[] | null;
 }
 
 export interface ComboStepInput {

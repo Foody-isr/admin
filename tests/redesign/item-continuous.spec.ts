@@ -44,11 +44,13 @@ async function install(
       json: result.json ?? {},
     });
   });
-  await page.route('**/*', (route) =>
-    ['localhost', '127.0.0.1'].includes(new URL(route.request().url()).hostname)
+  const appOrigin = test.info().project.use.baseURL;
+  await page.route('**/*', (route) => {
+    const url = new URL(route.request().url());
+    return url.origin === appOrigin || url.pathname.startsWith('/api/v1/')
       ? route.fallback()
-      : route.abort(),
-  );
+      : route.abort();
+  });
   return fixture;
 }
 
@@ -215,6 +217,94 @@ test('combo composition and stock remain on the same page', async ({
   await expect(page.locator('#item-availability')).toBeVisible();
   await expect(page.locator('#item-recipe')).toHaveCount(0);
   await expect(page.locator('#item-personalizations')).toHaveCount(0);
+});
+
+test('a combo with a null group item list opens and saves its composition', async ({ page }) => {
+  const fixture = await install(page, { combo: true });
+  fixture.menus[0].groups.push({ id: 2, name: 'Weekly sides', items: [] });
+  Object.assign(fixture.items[0], {
+    combo_steps: [
+      {
+        id: 1,
+        name: 'Choice of side',
+        source_type: 'group',
+        source_group_id: 2,
+        source_variant_label: 'Individual',
+        min_picks: 1,
+        max_picks: 2,
+        max_per_item: 1,
+        items: null,
+      },
+      {
+        id: 2,
+        name: 'Choice of main',
+        source_type: 'explicit',
+        min_picks: 1,
+        max_picks: 2,
+        items: [{ menu_item_id: 2, price_delta: 5, force_off_carte: true }],
+      },
+    ],
+  });
+
+  await page.goto('/1/menu/items/1');
+  await expect(page.locator('#menu-item-name')).toHaveValue(fixture.items[0].name);
+  const composition = page.locator('#item-composition');
+  await composition.getByRole('button', { name: 'Choice of side', exact: true }).click();
+  await expect(composition.getByRole('combobox', { name: 'Choose a carte group…' })).toHaveValue('2');
+  await expect(composition.getByRole('button', { name: 'Choice of main', exact: true })).toBeVisible();
+  expect(fixture.writes).toEqual([]);
+
+  await page.locator('#menu-item-name').fill('Updated combo');
+  const update = page.waitForResponse(response =>
+    response.request().method() === 'PUT' && new URL(response.url()).pathname === '/api/v1/menu/items/1',
+  );
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  expect((await update).ok()).toBe(true);
+  expect(fixture.writes).toEqual(['/api/v1/menu/items/1']);
+  expect(fixture.items[0]).toMatchObject({
+    name: 'Updated combo',
+    combo_steps: [
+      {
+        source_type: 'group',
+        source_group_id: 2,
+        source_variant_label: 'Individual',
+        min_picks: 1,
+        max_picks: 2,
+        max_per_item: 1,
+        items: [],
+      },
+      {
+        source_type: 'explicit',
+        items: [{ menu_item_id: 2, price_delta: 5, force_off_carte: true }],
+      },
+    ],
+  });
+  await expect(page).toHaveURL('/1/menu/items', { timeout: 30_000 });
+});
+
+test('an unavailable manual combo item list blocks saving until retry', async ({ page }) => {
+  const fixture = await install(page, { combo: true });
+  const step = {
+    id: 1,
+    name: 'Choice of main',
+    source_type: 'explicit',
+    min_picks: 1,
+    max_picks: 2,
+  };
+  Object.assign(fixture.items[0], { combo_steps: [{ ...step, items: null }] });
+
+  await page.goto('/1/menu/items/1');
+  await expect(page.getByRole('alert').filter({ hasText: 'The operation could not be completed. Try again.' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+  expect(fixture.writes).toEqual([]);
+
+  Object.assign(fixture.items[0], {
+    combo_steps: [{ ...step, items: [{ menu_item_id: 2, price_delta: 5 }] }],
+  });
+  await page.getByRole('button', { name: 'Retry', exact: true }).click();
+  await expect(page.locator('#menu-item-name')).toHaveValue(fixture.items[0].name);
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+  expect(fixture.writes).toEqual([]);
 });
 
 for (const locale of ['en', 'he'])

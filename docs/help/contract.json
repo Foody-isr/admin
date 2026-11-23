@@ -2949,7 +2949,7 @@
       ]
     },
     "src/app/[restaurantId]/menu/items/[itemId]/page.tsx": {
-      "sha256": "a28a96590409b42de6e68b191357bad17199d321dfff4d854cdefc1c74652d83",
+      "sha256": "2a3ba0cde583f38846df9f3270573ce802157d5280bffe5f3fc6b5e93b934e05",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -6761,7 +6761,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "9defe067c4e3036a1ada4bea473247b4e671e7d68fe81002f249f70d6ef38b45",
+      "sha256": "a4be39184ab692ec04cb6538d5a70939f72748f7cd19426c02b96d6e683c6922",
       "features": [
         "customers-profiles",
         "menu-subgroups",

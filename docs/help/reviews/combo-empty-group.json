@@ -1,0 +1,16 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/menu/items/[itemId]/page.tsx",
+      "sha256": "2a3ba0cde583f38846df9f3270573ce802157d5280bffe5f3fc6b5e93b934e05",
+      "disposition": "no-user-impact",
+      "reason": "The documented combo editor opens when a carte group currently resolves to no choices. Group selection, choice limits, variant rules and explicit Save follow the published procedure. A missing manual list blocks saving and uses the documented Retry action."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "a4be39184ab692ec04cb6538d5a70939f72748f7cd19426c02b96d6e683c6922",
+      "disposition": "no-user-impact",
+      "reason": "The TypeScript declaration describes the nullable combo item list already returned by the API. The compiler erases the declaration when generating the client JavaScript."
+    }
+  ]
+}

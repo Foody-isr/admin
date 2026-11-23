@@ -322,6 +322,12 @@ function EditItemEditor() {
           setPhotos(itemPhotos(found));
           if (found.item_type === 'combo' && found.combo_steps) {
             setComboSteps(found.combo_steps.map((s) => {
+              // Group choices are resolved from the carte and can be null.
+              // A manual list must be loaded before it can be saved again.
+              const items = s.items;
+              if (items == null && s.source_type !== 'group') {
+                throw new Error('libraryOperationFailed');
+              }
               const draft: ComboStepDraft = {
                 key: crypto.randomUUID(),
                 name: s.name,
@@ -343,7 +349,7 @@ function EditItemEditor() {
                   menu_item_id: l.menu_item_id,
                   max_qty: l.max_qty,
                 })),
-                items: s.items.map((si) => ({
+                items: (items ?? []).map((si) => ({
                   menu_item_id: si.menu_item_id,
                   price_delta: si.price_delta,
                   // Server defaults this column to TRUE on migration, so any
