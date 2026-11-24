@@ -253,7 +253,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
     const layout=structuredClone(draft.layout??defaultBannerLayout());
     layout.shared.fit=template==='table'?'cover':'contain';
     layout.apple_counter='below';
-    change({...preset,stamps:null,composition:{...preset.composition},hideRestaurantName:true,
+    change({...preset,composition:{...preset.composition},hideRestaurantName:true,
       layout:draft.banner?layout:null,original:draft.original??draft.banner});
     setBeforeTemplate(draft);
   }
@@ -309,12 +309,16 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
     if (!state || !draft || !canSave) return;
     void perform('save', async (signal) => {
       const renders = draft.composition
-        ? await exportComposition(draft.composition,draft.background,draft.original??draft.banner,draft.layout??defaultBannerLayout())
+        ? await exportComposition(
+            draft.composition, draft.background, draft.original ?? draft.banner,
+            draft.layout ?? defaultBannerLayout(), !!draft.stamps,
+          )
         : (frameChanged || saved?.composition) && draft.layout && draft.banner ? await renderWalletBanners(draft.original ?? draft.banner, draft.layout) : {};
       if (signal.aborted) return;
       const design = await saveWalletStudio(rid, state.design.revision, {
         ...(state.composition_version===1 && {composition:draft.composition??{version:1 as const,template:'classic' as const}}),
         ...(state.visit_stamps && { stamp_style: draft.stamps ?? { enabled: false as const } }),
+        ...(state.composed_visit_stamps && { composed_visit_stamps: true }),
         background_color: draft.background,
         foreground_color: draft.foreground,
         hide_restaurant_name: draft.hideRestaurantName,
@@ -389,9 +393,9 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
                 <fieldset className="min-w-0 space-y-5" disabled={!state.can_edit || !!action || stale}>
                   <legend className="sr-only">{t('walletStudioAppearance')}</legend>
                   {state.visit_stamps && (state.program?.mode === 'visits' || draft.stamps) &&
-                    <WalletStampEditor style={draft.stamps} canEnable={state.program?.mode === 'visits'}
-                      onChange={stamps => { change({ stamps, ...(stamps && { composition: null }) }); setBeforeTemplate(draft); }}/>}
-                  {state.composition_version===1 && !draft.stamps && <WalletCompositionEditor value={draft.composition} onTemplate={chooseTemplate} onChange={composition=>change({composition})}/>}
+                    <WalletStampEditor style={draft.stamps} canEnable={state.program?.mode === 'visits' && (!draft.composition || !!state.composed_visit_stamps)}
+                      onChange={stamps => change({ stamps })}/>}
+                  {state.composition_version===1 && (!draft.stamps || state.composed_visit_stamps) && <WalletCompositionEditor value={draft.composition} onTemplate={chooseTemplate} onChange={composition=>change({composition})}/>}
                   {beforeTemplate && <Button type="button" size="sm" variant="ghost" onClick={()=>change(beforeTemplate)}>
                     <Undo2 size={15} aria-hidden="true"/>{t('walletArtUndoModel')}
                   </Button>}
@@ -547,7 +551,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
                       <option value="poster">{t('walletArtPoster')}</option><option value="classic">{t('walletArtOlderApple')}</option></select></label>}
                   {(['apple', 'google'] as const).map(wallet => <TabsContent key={wallet} value={wallet}>
                     {draft.composition ? <WalletCompositionPreview design={draft.composition} format={wallet==='apple'&&!appleClassic?'poster':wallet} state={state}
-                      sample={sample} banner={draft.original??draft.banner} logo={draft.logo} layout={layout} hideName={draft.hideRestaurantName}
+                      sample={previewSample} stamps={state.program?.mode === 'visits' ? draft.stamps : null} banner={draft.original??draft.banner} logo={draft.logo} layout={layout} hideName={draft.hideRestaurantName}
                       background={isColor(draft.background)?draft.background:state.design.background_color} foreground={isColor(draft.foreground)?draft.foreground:state.design.foreground_color}/>
                       : <Preview platform={wallet} state={state} draft={draft} sample={sample}
                       onFrame={framing && state.can_edit && !action && !stale ? adjustFrame : undefined}/>}</TabsContent>)}

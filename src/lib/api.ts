@@ -2561,6 +2561,7 @@ export interface WalletStudioDesign extends WalletStudioArtwork {
 }
 
 export interface WalletStudioState {
+  composed_visit_stamps?: boolean;
   visit_stamps?: boolean;
   composition_version?: number;
   restaurant_id: number;
@@ -2594,7 +2595,7 @@ export function getWalletWebsiteDesign(rid: number, signal: AbortSignal): Promis
 }
 
 /** Replace the draft only if its saved revision still matches. */
-export function saveWalletStudio(rid: number, revision: number, artwork: WalletStudioArtwork & { poster_png?: string; apple_strip_png?: string; google_hero_png?: string }, signal?: AbortSignal): Promise<WalletStudioDesign> {
+export function saveWalletStudio(rid: number, revision: number, artwork: WalletStudioArtwork & { composed_visit_stamps?: boolean; poster_png?: string; apple_strip_png?: string; google_hero_png?: string }, signal?: AbortSignal): Promise<WalletStudioDesign> {
   return apiFetch(walletStudioPath, rid, {
     method: 'PUT', cache: 'no-store', signal,
     body: JSON.stringify({ expected_revision: revision, ...artwork }),

@@ -25,7 +25,7 @@ async function studio(page: Page, locale: 'fr' | 'he' = 'fr', canSign = true, le
       expect(rid).toBe(1);
       expect(req.headers()['authorization']).toBe('Bearer fp1p.e30.fixture.00');
       if (req.method() === 'GET') return route.fulfill({ json: {
-        restaurant_id: rid, restaurant_name: restaurantName, can_edit: true, can_sign_test: canSign, design, visit_stamps: manual, composition_version:manual?1:undefined,
+        restaurant_id: rid, restaurant_name: restaurantName, can_edit: true, can_sign_test: canSign, design, visit_stamps: manual, composed_visit_stamps: manual, composition_version:manual?1:undefined,
         published_revision: publishedRevision,
         program: { enabled: true, mode: 'visits', threshold: manual?10:2, reward_labels: {fr:'Café glacé',en:'Iced coffee',he:'קפה קר'}, names: { en: 'Bella rewards', fr: 'Les habitués de Bella', he: 'מועדון Bella' } },
       } });
@@ -33,6 +33,7 @@ async function studio(page: Page, locale: 'fr' | 'he' = 'fr', canSign = true, le
       writes.push({ method: req.method(), path, data });
       if (req.method() === 'PUT') {
         const { expected_revision, ...artwork } = data;
+        delete artwork.composed_visit_stamps;
         if (expected_revision !== design.revision) return route.fulfill({ status: 409, json: { error: 'loyalty_conflict' } });
         design = { ...artwork, banner_original: artwork.banner_png ? artwork.banner_original ?? design.banner_original : undefined, revision: expected_revision + 1 };
         return route.fulfill({ json: design });
@@ -450,6 +451,97 @@ test('builds both manual models, exports each size, and reopens the editable dra
   await expect.poll(()=>writes.filter(w=>w.method==='PUT').length).toBe(3);
   expect(writes[2].data.composition).toEqual({version:1,template:'classic'});
   expect(writes[2].data.poster_png).toBeUndefined();
+});
+
+test('fits two large visit rows under the header while preserving the editable poster and native QR', async ({ page }, info) => {
+  const writes = await studio(page, 'fr', true, undefined, true, 'Café du marché');
+  const composer = page.locator('[data-wallet-composer]');
+  const selectCafe = composer.getByRole('button', { name: 'Affiche café' });
+  const toggle = page.getByRole('switch', { name: 'Carte à tampons' });
+  const sample = page.getByRole('slider', { name: /Solde de démonstration/ });
+  const save = page.getByRole('button', { name: 'Enregistrer le brouillon' });
+  await selectCafe.click();
+  await page.getByLabel('Bannière de la carte', { exact: true }).setInputFiles('public/images/login/cafe-israel.webp');
+  await expect(page.getByRole('button', { name: 'Retirer Bannière de la carte' })).toBeVisible();
+  const poster = page.locator('[data-wallet-poster]');
+  const canvas = poster.locator('canvas[data-wallet-art="poster"]');
+  await composer.getByText('Titre du visuel', { exact: true }).click();
+  await composer.getByRole('slider', { name: 'Inclinaison', exact: true }).fill('-9');
+  await sample.fill('4');
+  await save.click();
+  await expect(page.getByText('Brouillon enregistré.', { exact: true })).toBeVisible();
+  await expect.poll(() => canvas.evaluate((node: HTMLCanvasElement) => node.width)).toBe(720);
+  const decoration = await canvas.evaluate((node: HTMLCanvasElement) => node.toDataURL());
+  await toggle.check();
+  await expect(selectCafe).toHaveAttribute('aria-pressed', 'true');
+  const grid = poster.locator('[data-wallet-stamps="10"]');
+  await expect(grid.locator('.lucide-check')).toHaveCount(4);
+  await expect(grid.locator('.lucide-coffee')).toHaveCount(6);
+  await expect(poster).toContainText('4 / 10');
+  await expect.poll(() => canvas.evaluate((node: HTMLCanvasElement, previous) => node.toDataURL() !== previous, decoration)).toBe(true);
+  const card = (await poster.boundingBox())!;
+  const counter = (await poster.getByText('4 / 10', { exact: true }).boundingBox())!;
+  const qr = (await poster.locator('svg[aria-label]').boundingBox())!;
+  const circles = await grid.locator('circle').evaluateAll(nodes => nodes.map(node => {
+    const { left, right, top, bottom, width } = node.getBoundingClientRect();
+    return { left, right, top, bottom, width };
+  }));
+  expect(circles.every(circle => circle.width > card.width * 0.12 && circle.top > counter.y + counter.height && circle.bottom < qr.y)).toBe(true);
+  expect(circles[0].left).toBeLessThan(card.x + card.width * 0.15);
+  expect(circles[4].right).toBeGreaterThan(card.x + card.width * 0.85);
+  expect(circles.map(circle => circle.top)).toEqual([...Array(5).fill(circles[0].top), ...Array(5).fill(circles[5].top)]);
+  expect(circles[5].top).toBeGreaterThan(circles[0].bottom);
+  await poster.screenshot({ path: info.outputPath('affiche-cafe-4-sur-10.png'), animations: 'disabled' });
+
+  await page.getByLabel('Format Apple').selectOption('classic');
+  const strip = page.locator('[data-wallet-preview="apple"]');
+  await expect(strip.locator('canvas[data-wallet-art="apple"]')).toBeVisible();
+  await expect(strip.locator('[data-wallet-stamps]')).toHaveAttribute('data-stamps-earned', '4');
+  const stripArt = (await strip.locator('canvas').boundingBox())!;
+  const lastAppleStamp = (await strip.locator('[data-wallet-stamps] circle').last().boundingBox())!;
+  expect(lastAppleStamp.width).toBeGreaterThan(stripArt.width * 0.096);
+  expect(lastAppleStamp.y + lastAppleStamp.height).toBeLessThan(stripArt.y + stripArt.height * 0.62);
+  await expect(strip).toContainText('Récompense');
+  await page.getByRole('tab', { name: 'Google Wallet' }).click();
+  const google = page.locator('[data-wallet-preview="google"]');
+  await expect(google.locator('canvas[data-wallet-art="google"]')).toBeVisible();
+  await expect(google.locator('[data-wallet-stamps] rect')).toHaveCount(0);
+  await expect(google.locator('[data-wallet-stamps] .lucide-coffee')).toHaveCount(6);
+  const googleCanvas = google.locator('canvas[data-wallet-art="google"]');
+  await expect.poll(() => googleCanvas.evaluate((node: HTMLCanvasElement) => node.width)).toBe(720);
+  const googleArt = (await googleCanvas.boundingBox())!;
+  const lastGoogleStamp = (await google.locator('[data-wallet-stamps] circle').last().boundingBox())!;
+  expect(lastGoogleStamp.width).toBeGreaterThan(googleArt.width * 0.12);
+  expect(lastGoogleStamp.y + lastGoogleStamp.height).toBeLessThan(googleArt.y + googleArt.height * 0.41);
+  const googleBackground = await googleCanvas.evaluate((node: HTMLCanvasElement) => node.toDataURL());
+  await google.screenshot({ path: info.outputPath('affiche-cafe-google.png'), animations: 'disabled' });
+  await sample.fill('10');
+  await expect(google.locator('[data-wallet-stamps] .lucide-check')).toHaveCount(10);
+  await expect(google).toContainText('10 / 10');
+  expect(await googleCanvas.evaluate((node: HTMLCanvasElement, previous) => node.toDataURL() === previous, googleBackground)).toBe(true);
+  await save.click();
+  await expect(page.getByText('Brouillon enregistré.', { exact: true })).toBeVisible();
+  expect(writes[1].data).toMatchObject({ expected_revision: 1, composed_visit_stamps: true,
+    composition: { template: 'cafe', pattern: 'waves', title_angle: -9 }, stamp_style: { enabled: true, icon: 'coffee' } });
+  for (const key of ['poster_png', 'google_hero_png', 'apple_strip_png'] as const) {
+    expect(writes[1].data[key] === writes[0].data[key]).toBe(false);
+  }
+  await page.getByRole('button', { name: 'Générer une carte de test Apple' }).click();
+  await expect(page.getByRole('link', { name: 'Télécharger le .pkpass' })).toBeVisible();
+  expect(writes[2].data).toMatchObject({ expected_revision: 2, sample: 10 });
+  await page.reload();
+  await expect(toggle).toBeChecked();
+  await expect(selectCafe).toHaveAttribute('aria-pressed', 'true');
+  await toggle.uncheck();
+  await expect(poster.locator('[data-wallet-stamps]')).toHaveCount(0);
+  await expect.poll(async () => (await canvas.evaluate((node: HTMLCanvasElement) => node.toDataURL())) === decoration).toBe(true);
+  await toggle.check();
+  await composer.getByRole('button', { name: 'Carnet de table' }).click();
+  await expect(toggle).toBeChecked();
+  await expect(poster.locator('[data-wallet-stamps] circle')).toHaveCount(10);
+  await save.click();
+  await expect(page.getByText('Brouillon enregistré.', { exact: true })).toBeVisible();
+  expect(writes[3].data).toMatchObject({ composition: { template: 'table', pattern: 'gingham' }, stamp_style: { enabled: true } });
 });
 
 test('selects restaurant motifs in both Wallet previews and reopens a saved sushi design', async ({ page }, info) => {
