@@ -5,6 +5,7 @@ import { isMFAChallenge, requireCompleteAuth, type MFAReply, type MFAPrompt, typ
 // Calls foodyserver at /api/v1/* using JWT auth.
 
 import { parseLoyaltyCheckoutDetail, parseLoyaltyCheckoutPage, parseLoyaltyCloseResult } from './loyalty-checkout';
+import type { WalletStampIcon } from './wallet-stamp-icons';
 
 import type {
   Draft,
@@ -2514,6 +2515,7 @@ export interface LoyaltyEarningOptions {
   referral?: number;
   birthday?: number;
   birthday_gift?: boolean;
+  welcome_gift?: boolean;
 }
 export interface LoyaltyRules { earning?: LoyaltyEarningOptions; mode: 'points' | 'visits'; currency: string; spend_step_minor: number; units_per_step: number; minimum_purchase_minor: number; reward_threshold: number; reward_type: 'fixed' | 'item'; reward_amount_minor: number; reward_item_id?: number; reward_variant_id?: number; reward_validity_days: number; terms_version: string }
 export interface LoyaltyProgram { id: string; version_id: string; revision: number; enabled: boolean; rules: LoyaltyRules; content: Record<'en' | 'fr' | 'he', { name: string; terms: string }>; updated_at: string }
@@ -2528,7 +2530,17 @@ export async function saveLoyaltyProgram(saved: PendingLoyaltyProgram): Promise<
   return checkedProgramAck(await apiFetch<unknown>('/api/v1/loyalty/program', saved.restaurant, { method: 'PUT', cache: 'no-store', body: JSON.stringify(saved.input) }), saved);
 }
 
+/** Appearance of one restaurant's visit stamps, independent of the reward threshold. */
+export interface WalletStampStyle {
+  enabled: true;
+  icon: WalletStampIcon;
+  columns: number;
+  paper: string;
+  ink: string;
+}
+
 export interface WalletStudioArtwork {
+  stamp_style?: WalletStampStyle | {enabled: false};
   composition?: import('./wallet-composition').Composition | {version:1;template:'classic'};
   background_color: string;
   foreground_color: string;
@@ -2544,6 +2556,7 @@ export interface WalletStudioDesign extends WalletStudioArtwork {
 }
 
 export interface WalletStudioState {
+  visit_stamps?: boolean;
   composition_version?: number;
   restaurant_id: number;
   restaurant_name: string;
@@ -2596,10 +2609,10 @@ export async function publishWalletStudio(rid: number, revision: number, signal?
 }
 
 /** Request the native archive without putting staff credentials in a URL. */
-export async function generateWalletStudioTest(rid: number, revision: number, signal?: AbortSignal): Promise<Blob> {
+export async function generateWalletStudioTest(rid: number, revision: number, signal?: AbortSignal, sample?: number): Promise<Blob> {
   const response = await apiResponse(`${walletStudioPath}/apple-test`, rid, {
     method: 'POST', cache: 'no-store', signal,
-    body: JSON.stringify({ expected_revision: revision }),
+    body: JSON.stringify({ expected_revision: revision, sample }),
   });
   if (response.headers.get('content-type') !== 'application/vnd.apple.pkpass') {
     throw new ApiError('wallet_studio_invalid_pass', 502);

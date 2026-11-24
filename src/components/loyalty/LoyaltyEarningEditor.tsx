@@ -343,7 +343,10 @@ export default function LoyaltyEarningEditor({
           </div>
         )}
       </Row>
-      {activities.map(([key, Icon, label]) => {
+      <Row icon={Gift} title={t('firstVisitCoupon')}><label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" checked={!!e.welcome_gift} onChange={ev => patch({ welcome_gift: ev.target.checked, ...(ev.target.checked && {welcome: undefined}) })}/>
+        {t('firstVisitCouponHelp')}</label></Row>
+      {activities.filter(([key]) => key !== 'welcome' || !e.welcome_gift).map(([key, Icon, label]) => {
         const active =
           e[key] !== undefined || (key === 'birthday' && e.birthday_gift);
         return (

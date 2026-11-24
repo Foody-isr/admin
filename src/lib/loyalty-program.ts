@@ -31,7 +31,7 @@ export function validEarning(value: unknown, mode?: unknown): boolean {
   const e = value as Record<string, unknown>;
   const number = (n: unknown, max: number, min = 0) => typeof n === 'number' && Number.isSafeInteger(n) && n >= min && n <= max;
   if (['welcome', 'survey', 'referral', 'birthday'].some(k => e[k] !== undefined && !number(e[k], 1000000))) return false;
-  if ((e.double_days !== undefined && !number(e.double_days, 127)) || (e.birthday_gift !== undefined && typeof e.birthday_gift !== 'boolean') || (e.products_only !== undefined && typeof e.products_only !== 'boolean') || (e.birthday_gift && e.birthday)) return false;
+  if ((e.double_days !== undefined && !number(e.double_days, 127)) || (e.birthday_gift !== undefined && typeof e.birthday_gift !== 'boolean') || (e.products_only !== undefined && typeof e.products_only !== 'boolean') || (e.birthday_gift && e.birthday) || (e.welcome_gift !== undefined && typeof e.welcome_gift !== 'boolean') || (e.welcome_gift && e.welcome)) return false;
   if (e.purchase_bonus !== undefined) {
     const bonus = e.purchase_bonus;
     if (!object(bonus) || e.products_only || !number(bonus.units, 1000000, 1) ||

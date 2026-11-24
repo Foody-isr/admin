@@ -12,7 +12,7 @@ import {
 } from '@/components/ds';
 import {
   ApiError, generateWalletStudioTest, getStoredUser, getWalletStudio, getWalletWebsiteDesign, publishWalletStudio, saveWalletStudio,
-  type WalletStudioDesign, type WalletStudioState,
+  type WalletStudioDesign, type WalletStudioState, type WalletStampStyle,
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useI18n } from '@/lib/i18n';
@@ -24,10 +24,11 @@ import { FramedWalletBanner, WalletBannerControls } from './WalletBannerFraming'
 
 import { compositionPresets, exportComposition, sameComposition, type Composition } from '@/lib/wallet-composition';
 import { WalletCompositionEditor } from './WalletCompositionEditor';
+import { WalletStampEditor, WalletStampGrid } from './WalletVisitStamps';
 import { WalletCompositionPreview } from './WalletCompositionPreview';
 
 type AssetSlot = 'logo' | 'banner';
-type Draft = { composition: Composition | null; background: string; foreground: string; hideRestaurantName: boolean; logo: string | null; banner: string | null; original: string | null; layout: WalletBannerLayout | null };
+type Draft = { stamps: WalletStampStyle | null; composition: Composition | null; background: string; foreground: string; hideRestaurantName: boolean; logo: string | null; banner: string | null; original: string | null; layout: WalletBannerLayout | null };
 type Action = 'save' | 'publish' | 'generate' | 'website' | AssetSlot;
 const isColor = (value: string) => /^#[0-9a-f]{6}$/i.test(value);
 const palettes = [
@@ -45,6 +46,7 @@ const legacyLayout: WalletBannerLayout = { shared: { fit: 'cover', x: 50, y: 50,
 
 function fromDesign(design: WalletStudioDesign): Draft {
   return {
+    stamps: design.stamp_style?.enabled ? design.stamp_style : null,
     composition: design.composition && design.composition.template !== 'classic' ? design.composition : null,
     background: design.background_color,
     foreground: design.foreground_color,
@@ -111,11 +113,13 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
   const operation = useRef<AbortController | null>(null);
   const saved = useMemo(() => state && fromDesign(state.design), [state]);
   const frameChanged = !!draft && !!saved && (draft.banner !== saved.banner || draft.original !== saved.original || !sameBannerLayout(draft.layout, saved.layout));
+  const stampChanged = draft?.stamps?.icon !== saved?.stamps?.icon || draft?.stamps?.columns !== saved?.stamps?.columns ||
+    draft?.stamps?.paper !== saved?.stamps?.paper || draft?.stamps?.ink !== saved?.stamps?.ink;
   const dirty = !!draft && !!saved && (
-    draft.background !== saved.background || draft.foreground !== saved.foreground ||
+    stampChanged || draft.background !== saved.background || draft.foreground !== saved.foreground ||
     draft.hideRestaurantName !== saved.hideRestaurantName || draft.logo !== saved.logo || frameChanged || !sameComposition(draft.composition, saved.composition)
   );
-  const valid = !!draft && isColor(draft.background) && isColor(draft.foreground);
+  const valid = !!draft && isColor(draft.background) && isColor(draft.foreground) && (!draft.stamps || draft.stamps.ink !== draft.stamps.paper);
   const stale = error === 'walletStudioConflict';
   const canSave = state?.can_edit && valid && (dirty || state.design.revision === 0) && !stale;
   const publishedRevision = state?.published_revision;
@@ -167,7 +171,21 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
     setPassURL(null);
   }
 
-  const [sample,setSample]=useState(1);
+  const [sample, setSample] = useState(1);
+  const sampleMax = Math.max(0, (state?.program?.threshold ?? 2) - (draft?.stamps ? 0 : 1));
+  const previewSample = Math.min(sample, sampleMax);
+  const [showEnrollmentQR, setShowEnrollmentQR] = useState(false);
+  const qrRef = useRef<SVGSVGElement>(null);
+  function downloadEnrollmentQR() {
+    if (!qrRef.current) return;
+    const blob = new Blob([new XMLSerializer().serializeToString(qrRef.current)], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'foody-loyalty-' + rid + '.svg';
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
   const layout = draft?.layout ?? legacyLayout;
   function adjustFrame(frame: ImageFrame) {
     change({ layout: platform === 'google' && layout.google ? { ...layout, google: frame } : { ...layout, shared: frame } });
@@ -235,7 +253,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
     const layout=structuredClone(draft.layout??defaultBannerLayout());
     layout.shared.fit=template==='table'?'cover':'contain';
     layout.apple_counter='below';
-    change({...preset,composition:{...preset.composition},hideRestaurantName:true,
+    change({...preset,stamps:null,composition:{...preset.composition},hideRestaurantName:true,
       layout:draft.banner?layout:null,original:draft.original??draft.banner});
     setBeforeTemplate(draft);
   }
@@ -296,6 +314,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
       if (signal.aborted) return;
       const design = await saveWalletStudio(rid, state.design.revision, {
         ...(state.composition_version===1 && {composition:draft.composition??{version:1 as const,template:'classic' as const}}),
+        ...(state.visit_stamps && { stamp_style: draft.stamps ?? { enabled: false as const } }),
         background_color: draft.background,
         foreground_color: draft.foreground,
         hide_restaurant_name: draft.hideRestaurantName,
@@ -317,7 +336,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
   function generate() {
     if (!state?.can_edit || !state.can_sign_test || !state.program || !state.design.revision || dirty || stale) return;
     void perform('generate', async (signal) => {
-      const pass = await generateWalletStudioTest(rid, state.design.revision, signal);
+      const pass = await generateWalletStudioTest(rid, state.design.revision, signal, draft?.stamps ? previewSample : undefined);
       if (signal.aborted) return;
       setPassURL(URL.createObjectURL(pass));
       setMessage('walletStudioReady');
@@ -369,7 +388,10 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
               <CardBody>
                 <fieldset className="min-w-0 space-y-5" disabled={!state.can_edit || !!action || stale}>
                   <legend className="sr-only">{t('walletStudioAppearance')}</legend>
-                  {state.composition_version===1 && <WalletCompositionEditor value={draft.composition} onTemplate={chooseTemplate} onChange={composition=>change({composition})}/>}
+                  {state.visit_stamps && (state.program?.mode === 'visits' || draft.stamps) &&
+                    <WalletStampEditor style={draft.stamps} canEnable={state.program?.mode === 'visits'}
+                      onChange={stamps => { change({ stamps, ...(stamps && { composition: null }) }); setBeforeTemplate(draft); }}/>}
+                  {state.composition_version===1 && !draft.stamps && <WalletCompositionEditor value={draft.composition} onTemplate={chooseTemplate} onChange={composition=>change({composition})}/>}
                   {beforeTemplate && <Button type="button" size="sm" variant="ghost" onClick={()=>change(beforeTemplate)}>
                     <Undo2 size={15} aria-hidden="true"/>{t('walletArtUndoModel')}
                   </Button>}
@@ -419,7 +441,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
                       onPick={file => pick('banner', file)} onRemove={() => { setFraming(false); change({ banner: null, original: null, layout: null }); }} />
                     {draft.composition && state.can_edit && <Button type="button" size="sm" variant="secondary" onClick={()=>chooseWebsiteAsset('banner')}>{t('walletArtSitePhoto')}</Button>}
                     {draft.banner && <>
-                      {!draft.composition && <fieldset className="space-y-2">
+                      {!draft.composition && !draft.stamps && <fieldset className="space-y-2">
                         <legend className="text-sm font-medium">{t('earnLayouts')}</legend>
                         <div className="grid grid-cols-3 gap-2">
                           {templates.map(template => <button key={template.name} type="button"
@@ -437,7 +459,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
                       <Button type="button" variant="secondary" aria-expanded={framing} aria-controls="wallet-frame-controls" onClick={() => setFraming(!framing)}>
                         <Crop size={16} aria-hidden="true" />{t('walletFrameTitle')}
                       </Button>
-                      {framing && <WalletBannerControls showCounter={!draft.composition} layout={layout} platform={platform} onPlatform={setPlatform}
+                      {framing && <WalletBannerControls showCounter={!draft.composition && !draft.stamps} layout={layout} platform={platform} onPlatform={setPlatform}
                         onChange={next => change({ layout: next })} onFrame={adjustFrame} />}
                     </>}
                     <p className="text-xs text-[var(--fg-muted)]">{t('walletStudioImageHint')}</p>
@@ -470,6 +492,7 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
                     )}
                     {state.program && (
                       <>
+                        <Button variant="secondary" aria-expanded={showEnrollmentQR} onClick={() => setShowEnrollmentQR(open => !open)}>{t('stampEnrollmentQR')}</Button>
                         <Button variant="ghost" onClick={copyCustomerLink} disabled={!!action}>{t('walletStudioCopyLink')}</Button>
                         <Button variant="ghost" asChild>
                           <a href={customerPage} target="_blank" rel="noopener noreferrer">
@@ -479,6 +502,10 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
                       </>
                     )}
                   </div>
+                  {state.program && showEnrollmentQR && <div className="flex flex-wrap items-center gap-4">
+                    <QRCodeSVG ref={qrRef} value={customerPage} title={t('stampEnrollmentQR')} size={160} marginSize={4}/>
+                    <Button variant="secondary" onClick={downloadEnrollmentQR}><Download size={16} aria-hidden="true"/>{t('stampDownloadQR')}</Button>
+                  </div>}
                 </CardBody>
               </Card>
             )}
@@ -526,8 +553,9 @@ function Studio({ rid, actor }: { rid: number; actor: number }) {
                       onFrame={framing && state.can_edit && !action && !stale ? adjustFrame : undefined}/>}</TabsContent>)}
                 </Tabs>
                 <label className="mx-auto mt-4 flex max-w-sm items-center gap-2 text-sm">
-                  {t('earnSample')}<input className="min-w-0 flex-1" type="range" min="0" max={Math.max(0,(state.program?.threshold??2)-1)} value={Math.min(sample,(state.program?.threshold??2)-1)} onChange={ev=>setSample(Number(ev.target.value))}/>
-                  <output className="tabular-nums">{Math.min(sample,(state.program?.threshold??2)-1)}</output>
+                  {t('earnSample')}<input className="min-w-0 flex-1" type="range" min="0" max={sampleMax} value={previewSample} disabled={!!action}
+                    onChange={ev => { setSample(Number(ev.target.value)); if (draft.stamps && passURL) { setPassURL(null); setMessage(''); } }}/>
+                  <output className="tabular-nums">{previewSample}</output>
                 </label>
                 <p className="mt-4 text-center text-xs text-[var(--fg-muted)]">{t('walletStudioPreviewHint')}</p>
               </CardBody>
@@ -594,8 +622,9 @@ function Preview({ platform, state, draft, sample, onFrame }: { sample:number; p
   const title = state.program?.names[locale] || t('loyaltyProgramTitle');
   const unit = t(state.program?.mode === 'points' ? 'loyaltyProgramPoints' : 'loyaltyProgramVisits');
   const threshold = state.program?.threshold ?? 2;
-  const progress = Math.min(sample, threshold - 1);
-  const counterBelow = apple && !!draft.banner && draft.layout?.apple_counter === 'below';
+  const stamps = state.program?.mode === 'visits' ? draft.stamps : null;
+  const progress = Math.min(sample, stamps ? threshold : threshold - 1);
+  const counterBelow = !stamps && apple && !!draft.banner && draft.layout?.apple_counter === 'below';
   const progressFields = (
     <div data-wallet-counter>
       <div className="text-xs font-medium">{unit}</div>
@@ -604,9 +633,10 @@ function Preview({ platform, state, draft, sample, onFrame }: { sample:number; p
   );
   const banner = (draft.original ?? draft.banner);
   const frame = draft.layout ?? legacyLayout;
-  const overlay = apple && !counterBelow && <div className="pointer-events-none absolute inset-0 px-4 py-3">{progressFields}</div>;
-  const bannerElement = banner && <FramedWalletBanner source={banner} platform={platform} legacy={!draft.layout}
-    frame={walletFrame(frame, platform)} onFrame={onFrame}>{overlay}</FramedWalletBanner>;
+  const stampGrid = stamps && <WalletStampGrid style={stamps} progress={progress} threshold={threshold} platform={platform} overPhoto={!!banner}/>;
+  const overlay = !stamps && apple && !counterBelow && <div className="pointer-events-none absolute inset-0 px-4 py-3">{progressFields}</div>;
+  const bannerElement = banner && <FramedWalletBanner source={banner} platform={platform} legacy={!draft.layout && !stamps}
+    frame={walletFrame(frame, platform)} onFrame={onFrame}>{stampGrid ?? overlay}</FramedWalletBanner>;
   return (
     <div data-wallet-preview={platform} className="mx-auto max-w-[23rem] overflow-hidden rounded-[1.35rem] border border-black/10 shadow-2"
       style={{ backgroundColor: background, color: apple ? text : googleText }}>
@@ -621,15 +651,23 @@ function Preview({ platform, state, draft, sample, onFrame }: { sample:number; p
             {apple ? (!draft.hideRestaurantName && state.restaurant_name) : title}
           </div>
         </div>
-        {apple && <span className="max-w-[45%] text-end text-xs font-medium">{t('walletStudioTestCard')}</span>}
+        {apple && <span className="max-w-[45%] text-end text-xs font-medium">{stamps ? <span data-wallet-counter>{unit} <b dir="ltr">{progress} / {threshold}</b></span> : t('walletStudioTestCard')}</span>}
       </div>
-      {apple && bannerElement ? bannerElement : <div className="px-4 pb-2">{progressFields}</div>}
+      {stamps ? <>
+        {!apple && <div className="px-4 text-sm">{unit} <b dir="ltr">{progress} / {threshold}</b></div>}
+        {apple && (bannerElement || <div className="relative aspect-[1125/432]">{stampGrid}</div>)}
+        <div className="flex flex-wrap justify-between gap-3 px-4 py-3 text-xs">
+          <div>{t('loyaltyProgramReward')}<strong className="block">{state.program?.reward_labels?.[locale] || title}</strong></div>
+          <div>{t('stampRemaining')}<strong className="block">{threshold - progress}</strong></div>
+        </div>
+        {!apple && (bannerElement || <div className="relative aspect-[1032/812]">{stampGrid}</div>)}
+      </> : <>{apple && bannerElement ? bannerElement : <div className="px-4 pb-2">{progressFields}</div>}
       <div className={(counterBelow ? 'grid grid-cols-[auto_minmax(0,1fr)_minmax(0,0.8fr)]' : 'flex flex-wrap justify-between') + ' gap-3 px-4 py-3 text-xs'}>
         {counterBelow && progressFields}
         {apple && <span className="break-words font-medium">{title}</span>}
         <span>{t('walletStudioThreshold')} <b className={counterBelow ? 'block text-lg leading-tight tabular-nums' : 'tabular-nums'}>{threshold}</b></span>
       </div>
-      {!apple && bannerElement}
+      {!apple && bannerElement}</>}
       <div className="flex flex-col items-center gap-2 p-4">
         <div className="rounded-lg bg-white p-2" aria-hidden="true"><QRCodeSVG value={testBarcode} size={90} marginSize={1} /></div>
         <a className="text-[11px] hover:underline focus-visible:underline" href="https://foody-pos.co.il/?utm_source=wallet&utm_medium=powered_by"
