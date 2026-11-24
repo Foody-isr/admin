@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   SearchIcon,
@@ -25,8 +25,11 @@ import ActionsDropdown from '@/components/common/ActionsDropdown';
 import {
   fetchProductionSheet,
   fetchProductionDays,
+  getBatchFulfillmentConfig,
+  getSalesStock,
   listAllItems,
   type MenuItem,
+  type SaleStockRow,
   ProductionSheetResponse,
   ProductionSheetOrder,
   ProductionDay,
@@ -50,6 +53,12 @@ import { ItemAvailabilityPopover } from '@/components/menu/ItemAvailabilityPopov
 import { orderDetailPath } from '@/lib/orders/routes';
 
 type ProductionTab = 'clients' | 'items' | 'status';
+
+type ProductionStock = {
+  restaurantId: number;
+  seriesKey: string;
+  rows: Map<number, SaleStockRow> | null;
+};
 
 const productionTabs = [
   { id: 'clients', label: 'productionViewClients' },
@@ -84,9 +93,7 @@ export default function ProductionPage() {
   const [fullscreen, setFullscreen] = useState(false);
   const [splitMode, setSplitMode] = useState<'none' | 'category' | 'customer' | 'carte'>('carte');
   const [loadedCatalog, setLoadedCatalog] = useState<{ restaurantId: number; items: MenuItem[] | null }>();
-  const [catalogReload, setCatalogReload] = useState(0);
   const catalog = loadedCatalog?.restaurantId === restaurantId ? loadedCatalog : undefined;
-  const catalogById = useMemo(() => new Map(catalog?.items?.map(item => [item.id, item])), [catalog]);
   // Portions (grams) vs units (container counts) display for weighed columns:
   // page-wide default + per-article overrides, persisted per restaurant.
   const display = useProductionDisplay(restaurantId);
@@ -96,6 +103,14 @@ export default function ProductionPage() {
   const { hasPermission } = usePermissions();
   const canEditLayout = hasPermission('settings.edit');
   const canEditAvailability = hasPermission('menu.view') && hasPermission('menu.edit');
+  const [loadedStock, setLoadedStock] = useState<ProductionStock>();
+  const [stockReload, setStockReload] = useState(0);
+  const stockRequest = useRef(0);
+  const stockSeriesKey = sheet?.stock_series_key;
+  const showStock = canEditAvailability && view === 'production' && productionTab !== 'status' && !!sheet?.items.length && !loadFailed;
+  const stock = loadedStock?.restaurantId === restaurantId && loadedStock.seriesKey === stockSeriesKey
+    ? loadedStock
+    : undefined;
   // Restaurant-wide column layout (category + item order), shared across all
   // staff/devices — seeded from the layout the server returns with the sheet.
   const { applyOrder, setCategoryOrder, setItemOrder, reset: resetColumns, hasCustomOrder } =
@@ -152,10 +167,39 @@ export default function ProductionPage() {
         if (!stopped) setLoadedCatalog({ restaurantId, items: null });
       });
     return () => { stopped = true; };
-  }, [restaurantId, catalogReload]);
+  }, [restaurantId]);
+
+  // The catalog carries restaurant-wide item data. Use the selected series'
+  // stock for every badge, sharing the read across the plan's item surfaces.
+  useEffect(() => {
+    if (!showStock || stockSeriesKey === undefined) return;
+    let stopped = false;
+    const request = ++stockRequest.current;
+    const scope = { restaurantId, seriesKey: stockSeriesKey };
+    Promise.all([getSalesStock(restaurantId, stockSeriesKey), getBatchFulfillmentConfig(restaurantId)])
+      .then(([overview, config]) => {
+        if (stopped || stockRequest.current !== request) return;
+        if ((config.enabled ? overview.series_key : '') !== stockSeriesKey) {
+          throw new Error('Stock series differs from the production plan');
+        }
+        setLoadedStock({ ...scope, rows: new Map(overview.rows.map(row => [row.item.id, row])) });
+      })
+      .catch(() => {
+        if (!stopped && stockRequest.current === request) setLoadedStock({ ...scope, rows: null });
+      });
+    return () => { stopped = true; };
+  }, [restaurantId, showStock, stockSeriesKey, stockReload]);
+
+  const refreshPlan = useCallback(() => {
+    setRefreshKey(key => key + 1);
+    setStockReload(key => key + 1);
+  }, []);
 
   useEffect(()=>{if(lastEvent&&(lastEvent.type==='production.plan.updated'||lastEvent.type.startsWith('order.')||lastEvent.type==='payment.completed'))setRefreshKey(k=>k+1);},[lastEvent]);
-  useEffect(()=>{const reload=()=>setRefreshKey(k=>k+1);window.addEventListener('focus',reload);return()=>window.removeEventListener('focus',reload);},[]);
+  useEffect(() => {
+    window.addEventListener('focus', refreshPlan);
+    return () => window.removeEventListener('focus', refreshPlan);
+  }, [refreshPlan]);
 
   // Refresh rows and day counts together without resetting the selected handover day.
   useEffect(() => {
@@ -433,17 +477,26 @@ export default function ProductionPage() {
   );
 
   function renderAvailability(itemId: number) {
-    const item = catalogById.get(itemId);
-    const stockSeriesKey = sheet?.stock_series_key;
-    if (!canEditAvailability || loadFailed || !item?.is_active || stockSeriesKey === undefined) return null;
+    const row = stock?.rows?.get(itemId);
+    if (!showStock || !row?.item.is_active || stockSeriesKey === undefined) return null;
     return (
       <ItemAvailabilityPopover
         key={`${restaurantId}:${stockSeriesKey}:${itemId}`}
         rid={restaurantId}
-        item={item}
+        item={row.item}
+        stockRow={row}
         canEdit={canEditAvailability}
         stockSeriesKey={stockSeriesKey}
-        triggerLabel={t('availability')}
+        compactTrigger
+        portalContainer={fullscreen ? fsRef.current : undefined}
+        onChanged={(updated) => {
+          // An overview requested before Apply must not replace the refreshed row.
+          stockRequest.current++;
+          setLoadedStock(current => {
+            if (current?.restaurantId !== restaurantId || current.seriesKey !== stockSeriesKey || !current.rows) return current;
+            return { ...current, rows: new Map(current.rows).set(itemId, updated) };
+          });
+        }}
       />
     );
   }
@@ -461,13 +514,14 @@ export default function ProductionPage() {
       );
     }
     if (productionTab === 'status') return <ProductionStatus {...orderProps} />;
-    if (isMobile) return <ProductionMobile {...orderProps} portioner={portioner} unitDisplayIds={unitDisplayIds} />;
+    if (isMobile) return <ProductionMobile {...orderProps} portioner={portioner} unitDisplayIds={unitDisplayIds} itemAction={renderAvailability} />;
     return (
       <ProductionMatrix
         {...orderProps}
         portioner={portioner}
         unitDisplayIds={unitDisplayIds}
         onToggleItemDisplay={display.toggleItem}
+        itemAction={renderAvailability}
         sticky={main}
         onReorderCategories={main && canEditLayout ? setCategoryOrder : undefined}
         onReorderItems={main && canEditLayout ? setItemOrder : undefined}
@@ -509,7 +563,7 @@ export default function ProductionPage() {
             desc={t('productionLiveSub')}
             actions={
               <>
-                <button type="button" className="inline-flex h-11 items-center gap-2 rounded-r-lg border border-[var(--line-strong)] px-4 text-fs-sm" onClick={()=>setRefreshKey(k=>k+1)} disabled={loading} aria-label={t('refresh')}><RotateCcwIcon className="size-4"/>{t('refresh')}</button>
+                <button type="button" className="inline-flex h-11 items-center gap-2 rounded-r-lg border border-[var(--line-strong)] px-4 text-fs-sm" onClick={refreshPlan} disabled={loading} aria-label={t('refresh')}><RotateCcwIcon className="size-4"/>{t('refresh')}</button>
                 {date && <DateStepper date={date} days={days} onChange={setDate} />}
                 <ActionsDropdown
                   actions={[
@@ -606,10 +660,10 @@ export default function ProductionPage() {
         </div>
       )}
 
-      {view === 'production' && productionTab === 'items' && canEditAvailability && catalog?.items === null && (
+      {showStock && stock?.rows === null && (
         <div className="mb-4 flex flex-wrap items-center gap-2 text-fs-sm print:hidden">
           <p role="alert" className="text-[var(--danger-500)]">{t('saleStockError')}</p>
-          <button className="underline" type="button" onClick={() => setCatalogReload(value => value + 1)}>
+          <button className="underline" type="button" onClick={refreshPlan}>
             {t('retry')}
           </button>
         </div>
@@ -652,6 +706,7 @@ export default function ProductionPage() {
                 portioner={portioner}
                 unitDisplayIds={unitDisplayIds}
                 onToggleItemDisplay={display.toggleItem}
+                itemAction={renderAvailability}
                 doneIds={doneIds}
                 onToggleDone={toggleDone}
               />
@@ -679,6 +734,7 @@ export default function ProductionPage() {
                   portioner={portioner}
                   unitDisplayIds={unitDisplayIds}
                   onToggleItemDisplay={display.toggleItem}
+                  itemAction={renderAvailability}
                   doneIds={doneIds}
                   onToggleDone={toggleDone}
                   reorderDone={false}

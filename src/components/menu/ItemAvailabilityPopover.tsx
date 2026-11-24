@@ -11,6 +11,7 @@ import {
   type MenuItem,
   type SaleStockLimit,
   type SaleStockOverview,
+  type SaleStockRow,
 } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { AvailabilityPopover, type AvailabilityRuleSelection } from "./publication/AvailabilityPopover";
@@ -19,21 +20,28 @@ import { AvailabilityPopover, type AvailabilityRuleSelection } from "./publicati
 export function ItemAvailabilityPopover({
   rid,
   item,
+  stockRow,
   canEdit,
   onChanged,
   date,
   stockSeriesKey,
   triggerLabel,
+  compactTrigger,
+  portalContainer,
   ruleSelection,
 }: {
   rid: number;
   item: MenuItem;
+  /** Stock already read for this item and the editor's scope. */
+  stockRow?: SaleStockRow;
   canEdit: boolean;
-  onChanged?: () => Promise<unknown>;
+  onChanged?: (row: SaleStockRow) => void | Promise<unknown>;
   date?: string;
   /** Explicit stock scope from the production plan, including persistent stock. */
   stockSeriesKey?: string;
   triggerLabel?: string;
+  compactTrigger?: boolean;
+  portalContainer?: HTMLElement | null;
   ruleSelection?: AvailabilityRuleSelection;
 }) {
   const { t } = useI18n();
@@ -87,10 +95,13 @@ export function ItemAvailabilityPopover({
     if (value) void reload(true);
   }
   async function refresh() {
+    const token = request.current;
     const overview = await getSalesStock(rid, snapshot?.overview.series_key ?? date ?? "", item.id);
-    if (!overview.rows.some((row) => row.item.id === item.id)) throw new Error();
+    const row = overview.rows.find((row) => row.item.id === item.id);
+    if (!row || (stockSeriesKey && overview.series_key !== stockSeriesKey)) throw new Error();
+    if (token !== request.current) return;
     setSnapshot((current) => current ? { ...current, overview } : current);
-    await onChanged?.();
+    await onChanged?.(row);
     setRefreshError(false);
   }
   async function apply(
@@ -120,7 +131,7 @@ export function ItemAvailabilityPopover({
   }
   const row = (open ? snapshot?.overview.rows.find(
     (row) => row.item.id === item.id,
-  ) : null) ?? {
+  ) : null) ?? stockRow ?? {
     item,
     managed: false,
     config: null,
@@ -136,6 +147,8 @@ export function ItemAvailabilityPopover({
     <AvailabilityPopover
       row={row}
       triggerLabel={triggerLabel}
+      compactTrigger={compactTrigger}
+      portalContainer={portalContainer}
       ruleSelection={ruleSelection ? {...ruleSelection,value:row.item.availability_rule_id ?? 0} : undefined}
       series={snapshot?.series ?? false}
       open={open}

@@ -346,11 +346,6 @@
   align-items: flex-start;
   gap: 2px;
 }
-.availabilityContent :global(.list-availability-pill) {
-  min-height: 30px;
-  white-space: nowrap;
-  max-width: 100%;
-}
 .stockSummary {
   font-size: 12px;
   line-height: 16px;
@@ -794,9 +789,6 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 4px 8px;
-  }
-  .availabilityContent :global(.list-availability-pill) {
-    min-height: 44px;
   }
   .addItems {
     padding-inline-start: 44px;

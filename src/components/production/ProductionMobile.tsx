@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ChevronDownIcon } from 'lucide-react';
 import { EventOrderBadge } from '@/components/orders/EventOrderBadge';
 import { useI18n } from '@/lib/i18n';
@@ -30,6 +30,7 @@ interface Props {
    *  land here too — otherwise the toggle looks inert on the phone while the
    *  desktop shows containers for the same sheet. */
   unitDisplayIds?: Set<number>;
+  itemAction?: (itemId: number) => ReactNode;
 }
 
 /** Delivery / pickup time chip, mirroring the desktop matrix badge. */
@@ -69,6 +70,7 @@ export function ProductionMobile({
   onToggleDone,
   portioner,
   unitDisplayIds,
+  itemAction,
 }: Props) {
   const { t } = useI18n();
   const itemsById = new Map(sheet.items.map((i) => [i.menu_item_id, i]));
@@ -131,17 +133,23 @@ export function ProductionMobile({
             </div>
             {open && (
               <div className="border-t border-[var(--line)] px-[var(--s-4)] py-[var(--s-3)] flex flex-col gap-[var(--s-2)]">
-                {lines.map(({ item }) => (
-                  <div
-                    key={item.menu_item_id}
-                    className="flex items-center justify-between gap-[var(--s-3)] text-fs-sm"
-                  >
-                    <span className="min-w-0 truncate">{item.name}</span>
-                    <span className="shrink-0 font-semibold tabular-nums text-[var(--brand-500)]">
-                      {fmtQty(o, item, portioner, unitDisplayIds)}
-                    </span>
-                  </div>
-                ))}
+                {lines.map(({ item }) => {
+                  const action = itemAction?.(item.menu_item_id);
+                  return (
+                    <div
+                      key={item.menu_item_id}
+                      className="flex items-center justify-between gap-[var(--s-3)] text-fs-sm"
+                    >
+                      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="min-w-0 max-w-full truncate">{item.name}</span>
+                        {action && <div className="print:hidden">{action}</div>}
+                      </div>
+                      <span className="shrink-0 font-semibold tabular-nums text-[var(--brand-500)]">
+                        {fmtQty(o, item, portioner, unitDisplayIds)}
+                      </span>
+                    </div>
+                  );
+                })}
                 <button
                   onClick={() => onRowClick(o.order_id)}
                   className="mt-[var(--s-1)] self-start text-fs-xs font-medium text-[var(--brand-500)]"
@@ -158,7 +166,7 @@ export function ProductionMobile({
 }
 
 /** Progress overview with separate lists of orders to prepare and completed orders. */
-export function ProductionStatus({ sheet, onRowClick, doneIds, onToggleDone }: Omit<Props, 'portioner' | 'unitDisplayIds'>) {
+export function ProductionStatus({ sheet, onRowClick, doneIds, onToggleDone }: Omit<Props, 'portioner' | 'unitDisplayIds' | 'itemAction'>) {
   const { t } = useI18n();
   const total = sheet.orders.length;
   const toPrepare = sheet.orders.filter((o) => !doneIds.has(o.order_id));

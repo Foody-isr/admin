@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { GripVerticalIcon } from 'lucide-react';
 import { EventOrderBadge } from '@/components/orders/EventOrderBadge';
 import { useI18n } from '@/lib/i18n';
@@ -34,6 +34,7 @@ interface Props {
   /** Flip one article's portions/units display. Renders a small g/u chip on
    *  each weighed column header when set. */
   onToggleItemDisplay?: (itemId: number) => void;
+  itemAction?: (itemId: number) => ReactNode;
   /** Pin the 3-row header + first column, scrolling the grid inside its own
    *  viewport. Enabled for the main/fullscreen table; off for split views. */
   sticky?: boolean;
@@ -103,6 +104,7 @@ export function ProductionMatrix({
   portioner,
   unitDisplayIds,
   onToggleItemDisplay,
+  itemAction,
   sticky = false,
   onReorderCategories,
   onReorderItems,
@@ -288,6 +290,7 @@ export function ProductionMatrix({
           {cats.flatMap((cat) =>
             cat.item_ids.map((id) => {
               const item = itemsById.get(id);
+              const action = itemAction?.(id);
               return (
                 <DataTableHeadCell
                   key={`n-${id}`}
@@ -354,6 +357,11 @@ export function ProductionMatrix({
                       </button>
                     )}
                   </span>
+                  {action && (
+                    <div className="mt-1 cursor-default normal-case tracking-normal print:hidden">
+                      {action}
+                    </div>
+                  )}
                 </DataTableHeadCell>
               );
             }),

@@ -475,6 +475,7 @@ export function CarteGroups({
                                 {status ? (
                                   <AvailabilityPopover
                                     row={status} series={series} canEdit={canEdit} busy={busy}
+                                    compactTrigger
                                     error={availabilityError} open={availabilityKey === `${group.key}:${id}`}
                                     onOpenChange={open => { if (open) onAvailabilityOpen(); setAvailabilityKey(open ? `${group.key}:${id}` : null); }}
                                     onReload={onReloadStock}
