@@ -22,14 +22,17 @@ export function ItemAvailabilityPopover({
   canEdit,
   onChanged,
   date,
+  stockSeriesKey,
   triggerLabel,
   ruleSelection,
 }: {
   rid: number;
   item: MenuItem;
   canEdit: boolean;
-  onChanged: () => Promise<unknown>;
+  onChanged?: () => Promise<unknown>;
   date?: string;
+  /** Explicit stock scope from the production plan, including persistent stock. */
+  stockSeriesKey?: string;
   triggerLabel?: string;
   ruleSelection?: AvailabilityRuleSelection;
 }) {
@@ -56,15 +59,16 @@ export function ItemAvailabilityPopover({
     setLoading(true);
     setError("");
     try {
+      const expectedDate = stockSeriesKey ?? date;
+      const requestedDate = initial ? expectedDate : snapshot?.overview.series_key ?? expectedDate;
       const [overview, config] = await Promise.all([
-        getSalesStock(
-          rid,
-          initial ? (date ?? "") : (snapshot?.overview.series_key ?? date ?? ""),
-          item.id,
-        ),
+        getSalesStock(rid, requestedDate, item.id),
         getBatchFulfillmentConfig(rid),
       ]);
       if (!overview.rows.some((row) => row.item.id === item.id))
+        throw new Error();
+      const loadedStockScope = config.enabled ? overview.series_key : "";
+      if (stockSeriesKey !== undefined && stockSeriesKey !== loadedStockScope)
         throw new Error();
       if (token !== request.current) return;
       setSnapshot({ overview, series: config.enabled });
@@ -86,7 +90,7 @@ export function ItemAvailabilityPopover({
     const overview = await getSalesStock(rid, snapshot?.overview.series_key ?? date ?? "", item.id);
     if (!overview.rows.some((row) => row.item.id === item.id)) throw new Error();
     setSnapshot((current) => current ? { ...current, overview } : current);
-    await onChanged();
+    await onChanged?.();
     setRefreshError(false);
   }
   async function apply(

@@ -5938,6 +5938,8 @@ export interface ProductionPortioning {
 export interface ProductionSheetResponse {
   sections?: { menu_id: number; name: string; is_catering: boolean; sheet: ProductionSheetResponse }[];
   date: string;
+  /** Stock pool for sales on this handover date. Empty for persistent stock. */
+  stock_series_key?: string;
   categories: ProductionSheetCategory[];
   items: ProductionSheetItem[];
   orders: ProductionSheetOrder[];
@@ -5962,6 +5964,7 @@ export async function fetchProductionSheet(
   );
   return {
     date: data.date,
+    stock_series_key: data.stock_series_key,
     sections: data.sections ?? [],
     categories: data.categories ?? [],
     items: data.items ?? [],

@@ -1,0 +1,59 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/orders/production/page.tsx",
+      "sha256": "f576c52fc35ce042968b8417b3840995507904b60ace45ef00a023e3f961d7a2",
+      "baseSha256": "becdc13166ca93a61b7815b74354400b616f789dbf852fefc3e7bdb9b8a6ea4d",
+      "features": [
+        "orders-managing-orders",
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The patch adds the view selector and the stock action to the rendered Plan de production after its order list has loaded. The production procedure documents both controls."
+    },
+    {
+      "path": "src/components/menu/ItemAvailabilityPopover.tsx",
+      "sha256": "f9e5654882b954f70a5e236b5f32311c4016fd313c150a9e9dd09c42a63c98a3",
+      "baseSha256": "d9e2ac246214a48848fdf5aec347306af55ca8d076116d65105c5e49921c1340",
+      "features": [
+        "menu-menus-and-groups"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new expected stock scope is supplied by Plan de production. The new procedure covers opening, validating and retrying the editor from that entry point."
+    },
+    {
+      "path": "src/components/production/ProductionMobile.tsx",
+      "sha256": "337028a402bec6f416ba95623172c9b27b35c9a238e813ab8c07e09d7b4ff391",
+      "baseSha256": "7dcdcc49fb5d6ee94d48449c59ac56dbebf48cd70a98316697759618775d32bf",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The page now owns the view selector used to open these existing compact order cards and progress lists. The event controls in these lists have the same handlers and permissions."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "4c833cdc1832c3764bd793cd86941466d38858c4d65ce81cdacde1297171b8af",
+      "baseSha256": "a4be39184ab692ec04cb6538d5a70939f72748f7cd19426c02b96d6e683c6922",
+      "features": [
+        "customers-profiles",
+        "menu-subgroups",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "delivery-dispatch",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff adds one optional stock series field to the production-sheet response and forwards it to the Plan de production. Its Articles view consumes the field to choose a stock pool."
+    }
+  ]
+}
