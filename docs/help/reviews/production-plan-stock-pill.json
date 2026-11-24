@@ -1,0 +1,75 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/orders/production/page.tsx",
+      "sha256": "981af76917dd187f07ff184c1e8d251c7c37e0072c0440e5bf7a6726e2901567",
+      "baseSha256": "f576c52fc35ce042968b8417b3840995507904b60ace45ef00a023e3f961d7a2",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The plan adds a stock badge at item entry points. The order and event guides use customer and preparation actions independent of the stock badge."
+    },
+    {
+      "path": "src/components/menu/ItemAvailabilityPopover.tsx",
+      "sha256": "d77b39ab830e3f0a72bbca713ba227c99f0156311209fe2fc00c95b453e676d0",
+      "baseSha256": "f9e5654882b954f70a5e236b5f32311c4016fd313c150a9e9dd09c42a63c98a3",
+      "features": [
+        "menu-menus-and-groups"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "A production caller supplies stock from the selected series. The documented Library and Carte stock choices, confirmation and permission gates still apply."
+    },
+    {
+      "path": "src/components/menu/publication/AvailabilityPopover.tsx",
+      "sha256": "672ba8501eb2123c1349057ef2ca9d479b01258ada9bc6d3ec7c5abd1259cf96",
+      "baseSha256": "1e0ce23e7a6765fc4f2bb35cad4fa242d696f40095a1f8eda0483421f263a981",
+      "features": [
+        "menu-menus-and-groups"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The Carte guide already describes the selected series as the context for the status badge. The badge and form now use that same resolved stock scope."
+    },
+    {
+      "path": "src/components/menu/publication/CarteEditor.module.css",
+      "sha256": "37ec52c0b0c01b8a52be4a71ac152cbf25bbb6cc635c9a81b5182d3153db10ae",
+      "baseSha256": "e3d3bb6eb1a20394d608f4d3ef0db3fe9d7411a0d5b006cf8eebc4ad30fc9826",
+      "features": [
+        "menu-menus-and-groups"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The existing Carte badge geometry moves to the shared editor trigger, which supplies the same 30 px desktop height and 44 px mobile target."
+    },
+    {
+      "path": "src/components/production/ProductionMatrix.tsx",
+      "sha256": "16e8580ccf2fb3c24b401db53bf9ad32785cfeac2897d9c7aba8ef132f632c88",
+      "baseSha256": "8b20be80e09c20c5b70e909b28d721888f2100da08ae5b24cf160ef4a243fa8b",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The event guide uses the client and quantity data of the matrix. The addition exposes item stock from the column header as documented in Production."
+    },
+    {
+      "path": "src/components/production/ProductionMobile.tsx",
+      "sha256": "1952cf9fc467e2f03dad4f26b8f8c1cf8c2a5a335c337c3e6fcafa45aadeeaeb",
+      "baseSha256": "337028a402bec6f416ba95623172c9b27b35c9a238e813ab8c07e09d7b4ff391",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The event guide uses customer and preparation data. The production guide describes the stock action added to expanded order lines."
+    },
+    {
+      "path": "src/components/menu/publication/CarteGroups.tsx",
+      "sha256": "786b084405752727be899de4676efc81fc050d63f713aede5ae9b95d4b775e7a",
+      "baseSha256": "adfd0fed49770df18780d99a30d4ef3c2ea95e4d0aa75f8e2ea6d3d693040d63",
+      "features": [
+        "menu-menus-and-groups",
+        "menu-subgroups"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The Carte rows use the same availability trigger and its existing height through a shared compact style."
+    }
+  ]
+}

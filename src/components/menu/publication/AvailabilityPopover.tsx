@@ -39,6 +39,8 @@ interface Props {
   loading?: boolean;
   contextLabel?: string;
   triggerLabel?: string;
+  compactTrigger?: boolean;
+  portalContainer?: HTMLElement | null;
   ruleSelection?: AvailabilityRuleSelection;
   onOpenChange: (open: boolean) => void;
   onReload: () => Promise<unknown>;
@@ -53,6 +55,8 @@ interface Props {
 export function AvailabilityPopover(props: Props) {
   const { t, direction } = useI18n();
   const title = useId();
+  const { config, managed, item } = props.row;
+  const override = config?.override ?? (managed ? "auto" : item.availability_override ?? "auto");
   const pill = props.triggerLabel ? (
     <Button
       type="button"
@@ -64,13 +68,12 @@ export function AvailabilityPopover(props: Props) {
   ) : (
     <AvailabilityPill
       state={props.row.availability.availability_state as AvailabilityState}
-      override={
-        props.row.config?.override ?? props.row.item.availability_override
-      }
-      isActive={props.row.item.is_active !== false}
+      override={override}
+      isActive={item.is_active !== false}
       canEdit={props.canEdit}
       pending={props.busy}
       actionLabel={t("carteAvailabilityTitle")}
+      className={props.compactTrigger ? "max-w-full whitespace-nowrap min-[721px]:min-h-[30px]" : undefined}
     />
   );
   if (
@@ -87,7 +90,7 @@ export function AvailabilityPopover(props: Props) {
       }}
     >
       <Dialog.Trigger asChild>{pill}</Dialog.Trigger>
-      <Dialog.Portal>
+      <Dialog.Portal container={props.portalContainer}>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-[var(--overlay)]" />
         <Dialog.Content
           dir={direction}
@@ -119,7 +122,7 @@ export function AvailabilityPopover(props: Props) {
               )}
             </div>
           ) : (
-            <AvailabilityForm {...props} titleId={title} />
+            <AvailabilityForm {...props} titleId={title} override={override} />
           )}
         </Dialog.Content>
       </Dialog.Portal>
@@ -138,7 +141,8 @@ function AvailabilityForm({
   titleId,
   contextLabel,
   ruleSelection,
-}: Props & { titleId: string }) {
+  override,
+}: Props & { titleId: string; override: AvailabilityOverride }) {
   const { t } = useI18n();
   const name = useId();
   const ruleHintId = useId();
@@ -156,9 +160,6 @@ function AvailabilityForm({
     storedMode === "measure" || storedMode === "per_variant"
       ? storedMode
       : "count";
-  const override =
-    row.config?.override ??
-    (row.managed ? "auto" : (row.item.availability_override ?? "auto"));
   const [choice, setChoice] = useState<AvailabilityOverride | "stock">(
     override !== "auto"
       ? override

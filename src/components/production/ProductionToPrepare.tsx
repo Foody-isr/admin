@@ -63,7 +63,10 @@ export function ProductionToPrepare({ sheet, portioner, unitDisplayIds, itemActi
                       {formatTotal(sheet, item, portioner, unitDisplayIds)}
                     </div>
                     <div className="min-w-0 flex-1 px-[var(--s-3)] py-[var(--s-2)]">
-                      <p className="text-fs-sm font-semibold truncate">{item.name}</p>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <p className="min-w-0 max-w-full truncate text-fs-sm font-semibold">{item.name}</p>
+                        {action && <div className="print:hidden">{action}</div>}
+                      </div>
                       {boxes.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
                           {boxes.map((b) => (
@@ -76,7 +79,6 @@ export function ProductionToPrepare({ sheet, portioner, unitDisplayIds, itemActi
                           ))}
                         </div>
                       )}
-                      {action && <div className="mt-2 print:hidden">{action}</div>}
                     </div>
                   </div>
                 );

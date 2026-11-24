@@ -4,12 +4,25 @@ import { createFixture } from './fixtures.mjs';
 const handoverDate = '2026-11-28';
 const stockSeries = '2026-11-27';
 const productionUrl = `/1/orders/production?date=${handoverDate}`;
+const availabilityAction = /Modifier la disponibilité$/;
 
-async function install(page: Page, { readOnly = false, reportedSeries = stockSeries } = {}) {
+async function install(page: Page, {
+  readOnly = false,
+  batch = true,
+  reportedSeries = stockSeries,
+  reportedItemSeries = reportedSeries,
+}: {
+  readOnly?: boolean;
+  batch?: boolean;
+  reportedSeries?: string;
+  reportedItemSeries?: string;
+} = {}) {
   const fixture = createFixture({ library: true });
   const item = fixture.items[0];
   const writes: { series: string | null; body: unknown }[] = [];
-  const stockReads: (string | null)[] = [];
+  const stockReads: { series: string | null; itemId: string | null }[] = [];
+  let availabilityState = 'available';
+  let override = 'auto';
   const part = {
     date: handoverDate,
     categories: [{ id: 1, name: 'Salades', measure: 'unit', item_ids: [item.id] }],
@@ -37,22 +50,30 @@ async function install(page: Page, { readOnly = false, reportedSeries = stockSer
     if (url.pathname === '/api/v1/orders/production-sheet') {
       return route.fulfill({ json: {
         ...part,
-        stock_series_key: stockSeries,
+        stock_series_key: batch ? stockSeries : '',
         sections: [{ menu_id: 1, name: 'Carte démo', is_catering: false, sheet: part }],
       } });
     }
     if (url.pathname.endsWith('/batch-fulfillment-config')) {
-      return route.fulfill({ json: { ...fixture.batchConfig, enabled: true } });
+      return route.fulfill({ json: { ...fixture.batchConfig, enabled: batch } });
     }
     if (url.pathname === '/api/v1/menu/sales-stock') {
-      stockReads.push(url.searchParams.get('serie_date'));
-      return route.fulfill({ json: { series_key: reportedSeries, rows: [{
-        item, managed: true, config: null, previous: null, sizes: [],
-        availability: { availability_state: 'available', buildable_count: null },
+      const itemId = url.searchParams.get('item_id');
+      stockReads.push({ series: url.searchParams.get('serie_date'), itemId });
+      return route.fulfill({ json: { series_key: itemId ? reportedItemSeries : reportedSeries, rows: [{
+        item: { ...item, availability_override: batch ? 'force_sold_out' : override },
+        managed: batch,
+        config: batch && override !== 'auto' ? { override, counters: [] } : null,
+        previous: null,
+        sizes: [],
+        availability: { availability_state: availabilityState, buildable_count: null },
       }] } });
     }
     if (url.pathname === `/api/v1/menu/items/${item.id}/sales-stock/availability`) {
-      writes.push({ series: url.searchParams.get('serie_date'), body: request.postDataJSON() });
+      const body = request.postDataJSON();
+      writes.push({ series: url.searchParams.get('serie_date'), body });
+      override = body.override;
+      availabilityState = override === 'force_sold_out' ? 'sold_out' : 'available';
       return route.fulfill({ status: 204 });
     }
     const result = fixture.response(request.url(), request.method(), request.postDataJSON() ?? {}, 1);
@@ -82,9 +103,11 @@ for (const width of [1440, 390]) {
     await page.goto(productionUrl);
     await expect(tabs(page).getByRole('button', { name: 'Articles' })).toHaveAttribute('aria-pressed', 'true');
     const card = page.getByRole('group', { name: item.name, exact: true });
-    await expect(card).toBeVisible();
-    expect(stockReads).toEqual([]);
-    await card.getByRole('button', { name: 'Disponibilité' }).click();
+    const badge = card.getByRole('button', { name: 'Disponible — Modifier la disponibilité' });
+    await expect(badge).toHaveClass(/list-availability-pill/);
+    await expect(badge).toHaveCSS('min-height', width === 390 ? '44px' : '30px');
+    expect(stockReads.every(read => read.series === stockSeries && read.itemId === null)).toBe(true);
+    await badge.click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText(stockSeries);
     await dialog.getByRole('radio', { name: 'Indisponible', exact: true }).click();
@@ -92,27 +115,76 @@ for (const width of [1440, 390]) {
     await dialog.getByRole('button', { name: 'Appliquer', exact: true }).click();
     await expect(dialog).toBeHidden();
     expect(writes).toEqual([{ series: stockSeries, body: { override: 'force_sold_out' } }]);
-    expect(stockReads).toEqual([stockSeries, stockSeries]);
+    expect(stockReads.filter(read => read.itemId)).toEqual([
+      { series: stockSeries, itemId: String(item.id) },
+      { series: stockSeries, itemId: String(item.id) },
+    ]);
+    await expect(card.getByRole('button', { name: 'Rupture de stock — Modifier la disponibilité' })).toBeVisible();
     await expect(card).toContainText('3');
+
+    await tabs(page).getByRole('button', { name: 'Clients' }).click();
+    if (width === 390) await page.getByRole('button', { name: /Client démo/ }).click();
+    const clientBadge = page.getByRole('button', { name: 'Rupture de stock — Modifier la disponibilité' });
+    await clientBadge.click();
+    await expect(dialog).toContainText(stockSeries);
+    await page.keyboard.press('Escape');
+    await expect(clientBadge).toBeFocused();
+    await expect(page).toHaveURL(productionUrl);
+    expect(writes).toHaveLength(1);
   });
 }
 
-test('a viewer can read Articles without an availability action', async ({ page }) => {
+test('a viewer can read the plan without any stock controls or requests', async ({ page }) => {
   const { item, stockReads, writes } = await install(page, { readOnly: true });
+  await expect(page.getByRole('columnheader').filter({ hasText: item.name })).toBeVisible();
+  await expect(page.getByRole('button', { name: availabilityAction })).toHaveCount(0);
   await tabs(page).getByRole('button', { name: 'Articles' }).click();
   const card = page.getByRole('group', { name: item.name, exact: true });
   await expect(card).toBeVisible();
-  await expect(card.getByRole('button', { name: 'Disponibilité' })).toHaveCount(0);
+  await expect(card.getByRole('button', { name: availabilityAction })).toHaveCount(0);
   expect(stockReads).toEqual([]);
   expect(writes).toEqual([]);
 });
 
 test('a stock response for a different series cannot be applied', async ({ page }) => {
-  const { item, writes } = await install(page, { reportedSeries: handoverDate });
+  const { item, writes } = await install(page, { reportedItemSeries: handoverDate });
   await tabs(page).getByRole('button', { name: 'Articles' }).click();
-  await page.getByRole('group', { name: item.name, exact: true }).getByRole('button', { name: 'Disponibilité' }).click();
+  await page.getByRole('group', { name: item.name, exact: true }).getByRole('button', { name: availabilityAction }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('alert')).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Appliquer', exact: true })).toHaveCount(0);
+  expect(writes).toEqual([]);
+});
+
+test('the plan does not display status from a different series', async ({ page }) => {
+  const { writes } = await install(page, { reportedSeries: handoverDate });
+  await expect(page.getByText('Impossible de charger ou de modifier le stock. Réessayez.')).toBeVisible();
+  await expect(page.getByRole('button', { name: availabilityAction })).toHaveCount(0);
+  expect(writes).toEqual([]);
+});
+
+test('the plan can edit restaurant-wide stock when batch ordering is disabled', async ({ page }) => {
+  const { stockReads, writes } = await install(page, { batch: false, reportedSeries: handoverDate });
+  await page.getByRole('button', { name: availabilityAction }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('radio', { name: 'Indisponible', exact: true }).click();
+  await expect(dialog).not.toContainText(handoverDate);
+  await dialog.getByRole('button', { name: 'Appliquer', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Rupture de stock — Modifier la disponibilité' })).toBeVisible();
+  expect(stockReads.slice(0, 2).map(read => read.series)).toEqual(['', '']);
+  expect(writes).toEqual([{ series: handoverDate, body: { override: 'force_sold_out' } }]);
+});
+
+test('Clients can open the shared stock dialog in full screen', async ({ page }) => {
+  const { writes } = await install(page);
+  await page.getByRole('button', { name: 'Actions', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Plein écran' }).click();
+  await expect(page.getByRole('button', { name: 'Quitter le plein écran' })).toBeVisible();
+  const badge = page.getByRole('button', { name: availabilityAction });
+  await badge.click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText(stockSeries);
+  await dialog.getByRole('button', { name: 'Annuler', exact: true }).click();
+  await expect(badge).toBeFocused();
   expect(writes).toEqual([]);
 });
