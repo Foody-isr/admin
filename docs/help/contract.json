@@ -2955,7 +2955,7 @@
       ]
     },
     "src/app/[restaurantId]/menu/items/[itemId]/page.tsx": {
-      "sha256": "2a3ba0cde583f38846df9f3270573ce802157d5280bffe5f3fc6b5e93b934e05",
+      "sha256": "aac9c148d62e95043e6dae0876939d496433cfb03295768b38a9d8b0c77623e3",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -2967,7 +2967,7 @@
       ]
     },
     "src/app/[restaurantId]/menu/items/new/page.tsx": {
-      "sha256": "183d6c4c4d80a356487cfdbf0ae791f37685c9f8dc2e131f56bea631e84f4ff8",
+      "sha256": "a748e5a1c59509c5ad585db8a47edfee835ed896b99a86740817e12e0c4fce22",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -3083,7 +3083,7 @@
       ]
     },
     "src/app/[restaurantId]/menu/options/[optionSetId]/page.tsx": {
-      "sha256": "4ba4ab99fdf672ecb65b0b7d1cc2586f832fd68656c9d8f76306525f74d71901",
+      "sha256": "f6b765de5ed049e00d1eff00c69502a7fe3337ea5468025fe1d109eb9ee20d75",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -4961,7 +4961,7 @@
       ]
     },
     "src/components/menu-item/VariantsEditor.tsx": {
-      "sha256": "81e56b3de306355b99e410c8ac91e4e35b4cac0d2a69a022cccc9b3ef02bc176",
+      "sha256": "cc43c3311a3fce09d2f9f7576688f406592d5119a9c4bb81e8ea85a1f79d4d6a",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -4982,7 +4982,7 @@
       ]
     },
     "src/components/menu-item/combo/CarteCatalog.tsx": {
-      "sha256": "cc98bcf4126f7cba3ca1344f5a510147e474b2d231ac8bb7e0364b0407e3fd7b",
+      "sha256": "2d5034fde199eb50b4c812e343068796b705c50726fe22cc754244f404b2808d",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -5004,7 +5004,7 @@
       ]
     },
     "src/components/menu-item/combo/CompositionTab.tsx": {
-      "sha256": "cae8ac06337ba310b0ddf20c4590125201ab9a88f0d2d2510604b6083b963de6",
+      "sha256": "0e32630bc3b3216e9e24b21b2d5d943dad53298a84baa7e43ba76316da652e08",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -5059,7 +5059,7 @@
       ]
     },
     "src/components/menu-item/combo/StepCard.tsx": {
-      "sha256": "73e91ecfdae50ee3bbf20e466668d7c21d8d6d84845af076a141b622ad94ccae",
+      "sha256": "f16adc207441ff99f715c167fe42a4d3d9bba5f70ea4e4989354c1b340fb2dfe",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -5114,7 +5114,7 @@
       ]
     },
     "src/components/menu-item/combo/serialize.ts": {
-      "sha256": "2434168288131cc3d4d3ccae4fdbbdc2c8fa53d1f81c039c909500a177ef362c",
+      "sha256": "5644dd8000a05271d22ddcbdc6ab15c906a680f6eb09cd354b77b191bc822f3d",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -5125,7 +5125,7 @@
       ]
     },
     "src/components/menu-item/combo/types.ts": {
-      "sha256": "c8d8a0213a6ea7691ea5982f9dc31fed59f223650ebb765cbc12ebe2463a192b",
+      "sha256": "5e94f2f606d72a4e61ea9bf28cab63997bb7c9cc08768472ec60c58678f4091f",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -5136,7 +5136,7 @@
       ]
     },
     "src/components/menu-item/combo/useComboStepPreviews.ts": {
-      "sha256": "1188028fafa2a8d7aa3e6f523a23e48fd068771b887cf3e7db33eb11523207f9",
+      "sha256": "1124974d3f3a95a407f15b664d7d6e746fa70cdef098a78239b42a3e6499854f",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -5479,7 +5479,7 @@
       ]
     },
     "src/components/orders/NewOrderComboModal.tsx": {
-      "sha256": "735dd77fcf6eaca1f618ac65347847bbaa1137434183107bb7179ed12f76eaa2",
+      "sha256": "f665d053112a5add45ce82d8e823e2ed2f182bfd2eacee4add5a9d415746c034",
       "features": [
         "orders-managing-orders",
         "order-detail",
@@ -6793,7 +6793,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "12288f673231387b81f52f1fe141891bacdc394a75d60deb6a4c0c6fddce95c4",
+      "sha256": "922902ea2666fcd67da783da02d7e0f2f27231464bda7089bc5c55ad3a8ffe23",
       "features": [
         "customers-profiles",
         "menu-subgroups",
@@ -6849,6 +6849,12 @@
       "sha256": "a20ada5af03a66ce72d20354cd560caa66a902f6351e3302e91b037e216fb426",
       "features": [
         "shared-runtime"
+      ]
+    },
+    "src/lib/combo-size.ts": {
+      "sha256": "58d61c708e2930612205c548e7de8842d31eae8fc6be62cffe178df8adf509ef",
+      "features": [
+        "combos"
       ]
     },
     "src/lib/commercial-catalog.ts": {
@@ -7014,7 +7020,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "4228e17d7044a4aacd6bb90ca7903cc3812f61afac8ce33daf31da5dadfce150",
+      "sha256": "f048e428770ba08575c34195b13d04af3d626561024cb0206345d4dc6732aa57",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -11555,6 +11561,7 @@
         "removeModifier",
         "saveLock",
         "saved",
+        "savedComposition",
         "updated"
       ]
     },
@@ -12106,6 +12113,12 @@
         "addOption",
         "available",
         "back",
+        "catalogSizeForOption",
+        "catalogSizeName",
+        "catalogSizeNew",
+        "catalogSizeSave",
+        "catalogSizeUnlinked",
+        "catalogSizesTitle",
         "delete",
         "deleteOption",
         "details",
@@ -12128,7 +12141,8 @@
         "handleSave",
         "handleSkuBlur",
         "handleTranslatedNameBlur",
-        "loadData"
+        "loadData",
+        "save"
       ]
     },
     {
@@ -19041,9 +19055,6 @@
       ],
       "labels": [
         "cancel",
-        "catalogCarteLabel",
-        "comboAllowQuantityHelpOff",
-        "comboAllowQuantityHelpOn",
         "comboAllowQuantityLabel",
         "comboValidNoSteps",
         "comboValidStepNoGroup",
@@ -19056,15 +19067,9 @@
         "composeStepDefaultName",
         "composeStepDelete",
         "composeStepDeleteHint",
-        "composeStepsHeader",
-        "delete",
-        "off",
-        "on"
+        "delete"
       ],
       "actions": [
-        "handleAddItem",
-        "handleRemoveItem",
-        "handleSetCategory",
         "removeStep",
         "updateStep"
       ]
@@ -19187,17 +19192,9 @@
         "cancel",
         "composeMax",
         "composeMin",
-        "composeRulesAmong",
-        "composeRulesChoose",
-        "composeRulesTo",
-        "composeStepActiveHint",
-        "composeStepActiveLabel",
         "composeStepAddItemLimit",
-        "composeStepCategoryAvailable",
-        "composeStepCategoryEmpty",
         "composeStepCategoryShowLess",
         "composeStepCategoryShowMore",
-        "composeStepClose",
         "composeStepDefaultName",
         "composeStepDelete",
         "composeStepDescriptionPlaceholder",
@@ -19206,25 +19203,32 @@
         "composeStepFieldRules",
         "composeStepFieldSource",
         "composeStepGroupPlaceholder",
+        "composeStepGroupUnavailable",
         "composeStepMaxCol",
         "composeStepMaxPerItem",
         "composeStepMinCol",
         "composeStepModeExplicit",
+        "composeStepModeExplicitHelp",
         "composeStepModeGroup",
+        "composeStepModeGroupHelp",
         "composeStepModeSwitchConfirm",
+        "composeStepMoveDown",
+        "composeStepMoveUp",
         "composeStepPerItemTitle",
+        "composeStepPickMaximum",
+        "composeStepPickMinimum",
         "composeStepPreviewError",
         "composeStepPreviewLoading",
         "composeStepRemoveItemLimit",
+        "composeStepRequiredEmpty",
         "composeStepSizeAll",
         "composeStepSizeCol",
+        "composeStepSizeEmptyHint",
         "composeStepSizeLabel",
         "composeStepSizeRulesClear",
-        "composeStepSizeRulesDisabled",
         "composeStepSizeRulesHint",
         "composeStepSizeRulesLabel",
         "composeStepSummaryAll",
-        "composeStepSummaryEditCta",
         "composeStepSummaryEmpty",
         "composeStepSummaryExact",
         "composeStepSummaryItemCount",
@@ -19240,7 +19244,6 @@
         "handleRemoveOption",
         "handleSetDefaultOption",
         "handleVariantsChange",
-        "onSelectSource",
         "removeItemLimit"
       ]
     },
@@ -26537,6 +26540,7 @@
         "removeStaff",
         "removeTrustedCustomer",
         "saveCarteDraft",
+        "saveCatalogSize",
         "saveFloorPlanLayout",
         "saveKitchenStation",
         "saveLoyaltyProgram",

@@ -636,6 +636,7 @@ export interface ModifierSet {
 }
 
 export interface MenuItemVariant {
+  size_id?: number | null;
   id: number;
   group_id: number;
   name: string;
@@ -673,6 +674,7 @@ export type ComboStepSourceType = 'explicit' | 'group';
 
 /** Per-size pick rule on a group-sourced step (e.g. up to 4 at 500g). */
 export interface ComboStepVariantRule {
+  size_id?: number | null;
   id?: number;
   variant_label: string;
   min_picks: number;
@@ -700,6 +702,7 @@ export interface ComboStep {
   source_type?: ComboStepSourceType;
   source_group_id?: number | null;
   source_variant_label?: string | null;
+  source_size_id?: number | null;
   variant_rules?: ComboStepVariantRule[];
   /** Default cap on repeats of any single item in the step (0 = unlimited). */
   max_per_item?: number;
@@ -719,8 +722,10 @@ export interface ComboStepInput {
   source_type?: ComboStepSourceType;
   source_group_id?: number | null;
   source_variant_label?: string | null;
+  source_size_id?: number | null;
   variant_rules?: {
-    variant_label: string;
+    size_id?: number;
+    variant_label?: string;
     min_picks: number;
     max_picks: number;
     sort_order?: number;
@@ -3841,13 +3846,15 @@ export async function getMenu(restaurantId: number, seriesDate?: string): Promis
  * Returns all item categories for a restaurant (global, independent of menus).
  * Pass `withRecipeOnly: true` to scope to items that can be costed standalone —
  * excludes combos, combo-only items, and items without any ingredients.
+ * Pass `comboConfiguration: true` to read saved combo choices for editing.
  */
 export async function getAllCategories(
   restaurantId: number,
-  opts: { withRecipeOnly?: boolean } = {},
+  opts: { withRecipeOnly?: boolean; comboConfiguration?: boolean } = {},
 ): Promise<MenuCategory[]> {
   const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
   if (opts.withRecipeOnly) params.set("with_recipe_only", "true");
+  if (opts.comboConfiguration) params.set("combo_configuration", "true");
   const data = await apiFetch<{ categories: MenuCategory[] }>(
     `/api/v1/menu/item-categories?${params.toString()}`,
     restaurantId,
@@ -3878,14 +3885,16 @@ export interface ComboStepPreviewItem {
  *  drift from checkout the way the old client-side estimate did. */
 export async function resolveComboStepPreview(
   restaurantId: number,
-  params: { sourceType: 'group'; sourceId: number; variantLabel?: string; serieDate?: string },
+  params: { sourceType: 'group'; sourceId: number; sizeId?: number; variantLabel?: string; serieDate?: string },
 ): Promise<{ items: ComboStepPreviewItem[]; count: number }> {
   const qs = new URLSearchParams({
     restaurant_id: String(restaurantId),
     source_type: params.sourceType,
     source_id: String(params.sourceId),
   });
-  if (params.variantLabel && params.variantLabel.trim()) {
+  if (params.sizeId) {
+    qs.set('size_id', String(params.sizeId));
+  } else if (params.variantLabel && params.variantLabel.trim()) {
     qs.set('variant_label', params.variantLabel.trim());
   }
   // Scope a rotating carte's group step to the batch/série the caller is ordering
@@ -4642,7 +4651,30 @@ export async function migrateLegacyModifiers(restaurantId: number): Promise<{ se
 
 // ─── Option Sets (reusable variant groups — Square "Item Options") ───────────
 
+export interface CatalogSize {
+  id: number;
+  name: string;
+  translations?: TranslationMap;
+}
+
+/** Lists the shared sizes owned by the restaurant. */
+export async function listCatalogSizes(restaurantId: number): Promise<CatalogSize[]> {
+  const data = await apiFetch<{ sizes: CatalogSize[] }>('/api/v1/menu/catalog-sizes', restaurantId);
+  return data.sizes;
+}
+
+/** Creates a shared size or renames an existing size by ID. */
+export async function saveCatalogSize(restaurantId: number, name: string, id?: number): Promise<CatalogSize> {
+  const data = await apiFetch<{ size: CatalogSize }>(
+    id ? `/api/v1/menu/catalog-sizes/${id}` : '/api/v1/menu/catalog-sizes',
+    restaurantId,
+    { method: id ? 'PUT' : 'POST', body: JSON.stringify({ name }) },
+  );
+  return data.size;
+}
+
 export interface OptionSetOption {
+  size_id?: number | null;
   customer_note?: CustomerNoteConfig | null;
   id: number;
   option_set_id: number;
@@ -4683,6 +4715,7 @@ export interface OptionSet {
 }
 
 export interface OptionInSetInput {
+  size_id?: number;
   customer_note?: CustomerNoteConfig | null;
   name: string;
   price: number;

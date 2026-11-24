@@ -219,7 +219,7 @@ test('combo composition and stock remain on the same page', async ({
   await expect(page.locator('#item-personalizations')).toHaveCount(0);
 });
 
-test('a combo with a null group item list opens and saves its composition', async ({ page }) => {
+test('editing a combo name leaves the saved composition untouched', async ({ page }) => {
   const fixture = await install(page, { combo: true });
   fixture.menus[0].groups.push({ id: 2, name: 'Weekly sides', items: [] });
   Object.assign(fixture.items[0], {
@@ -246,7 +246,11 @@ test('a combo with a null group item list opens and saves its composition', asyn
     ],
   });
 
+  const configuredCatalog = page.waitForRequest(request =>
+    new URL(request.url()).searchParams.get('combo_configuration') === 'true',
+  );
   await page.goto('/1/menu/items/1');
+  expect(new URL((await configuredCatalog).url()).pathname).toBe('/api/v1/menu/item-categories');
   await expect(page.locator('#menu-item-name')).toHaveValue(fixture.items[0].name);
   const composition = page.locator('#item-composition');
   await composition.getByRole('button', { name: 'Choice of side', exact: true }).click();
@@ -254,12 +258,16 @@ test('a combo with a null group item list opens and saves its composition', asyn
   await expect(composition.getByRole('button', { name: 'Choice of main', exact: true })).toBeVisible();
   expect(fixture.writes).toEqual([]);
 
+  await expect(composition.getByRole('combobox', { name: 'Force a size (optional)' })).toHaveValue('legacy');
+  await expect(composition.getByText('Required step with no available choices').first()).toBeVisible();
   await page.locator('#menu-item-name').fill('Updated combo');
   const update = page.waitForResponse(response =>
     response.request().method() === 'PUT' && new URL(response.url()).pathname === '/api/v1/menu/items/1',
   );
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  expect((await update).ok()).toBe(true);
+  const response = await update;
+  expect(response.ok()).toBe(true);
+  expect(response.request().postDataJSON()).not.toHaveProperty('combo_steps');
   expect(fixture.writes).toEqual(['/api/v1/menu/items/1']);
   expect(fixture.items[0]).toMatchObject({
     name: 'Updated combo',
@@ -271,7 +279,7 @@ test('a combo with a null group item list opens and saves its composition', asyn
         min_picks: 1,
         max_picks: 2,
         max_per_item: 1,
-        items: [],
+        items: null,
       },
       {
         source_type: 'explicit',
@@ -280,6 +288,123 @@ test('a combo with a null group item list opens and saves its composition', asyn
     ],
   });
   await expect(page).toHaveURL('/1/menu/items', { timeout: 30_000 });
+});
+
+test('a saved catalogue size shows renamed choices and preserves the stable ID on save', async ({ page }) => {
+  const fixture = await install(page, { combo: true });
+  const size = { id: 51, size_id: 71, name: '250 g', price: 12, is_active: true };
+  const choices = Array.from({ length: 16 }, (_, index) => ({
+    ...fixture.items[1],
+    id: 100 + index,
+    name: `Salad ${index + 1}`,
+    option_sets: [{ id: index < 12 ? 41 : 42, name: 'Size', options: [{ ...size, id: index < 12 ? 51 : 52 }] }],
+  }));
+  fixture.categories[0].items.push(...choices);
+  fixture.menus[0].groups.push({ id: 2, name: 'Published salads', items: choices });
+  await page.route('**/api/v1/menu/catalog-sizes', route => route.fulfill({
+    json: { sizes: [{ id: size.size_id, name: size.name }] },
+  }));
+  await page.route('**/api/v1/menu/catalog-sizes/71', async route => {
+    expect(route.request().method()).toBe('PUT');
+    size.name = route.request().postDataJSON().name;
+    for (const choice of choices) choice.option_sets[0].options[0].name = size.name;
+    await route.fulfill({ json: { size: { id: size.size_id, name: size.name } } });
+  });
+  await page.route('**/api/v1/menu/option-sets/41?*', route => route.fulfill({
+    json: { option_set: { id: 41, name: 'Portions', options: [size], menu_items: [] } },
+  }));
+  await page.route('**/api/v1/menu/combo/resolve-preview?*', async route => {
+    const query = new URL(route.request().url()).searchParams;
+    expect(query.get('size_id')).toBe('71');
+    expect(query.has('variant_label')).toBe(false);
+    await route.fulfill({
+      json: {
+        count: choices.length,
+        items: choices.map(item => ({
+          menu_item_id: item.id, name: `${item.name} (Small portion)`, option_id: item.option_sets[0].options[0].id, availability_state: 'available',
+        })),
+      },
+    });
+  });
+  Object.assign(fixture.items[0], {
+    combo_steps: [
+      {
+        id: 1, name: 'Salads', source_type: 'group', source_group_id: 2,
+        source_size_id: 71, source_variant_label: 'Earlier display label', min_picks: 2, max_picks: 2, items: null,
+      },
+      {
+        id: 2, name: 'Main', source_type: 'explicit', min_picks: 1, max_picks: 1,
+        fixed_modifier_name: 'Dressing',
+        items: [{ menu_item_id: 2, price_delta: 5, force_off_carte: false }],
+      },
+    ],
+  });
+
+  await page.goto('/1/menu/options/41');
+  await page.getByText('Catalogue sizes', { exact: true }).click();
+  await page.getByRole('combobox', { name: 'Catalogue sizes', exact: true }).selectOption('71');
+  await page.getByRole('textbox', { name: 'Size name', exact: true }).fill('Small portion');
+  await page.getByRole('button', { name: 'Save size', exact: true }).click();
+  await expect(page.getByRole('option', { name: 'Small portion' }).first()).toBeAttached();
+  await page.goto('/1/menu/items/1');
+  const composition = page.locator('#item-composition');
+  await composition.getByRole('button', { name: 'Salads', exact: true }).click();
+  const salads = composition.getByRole('region', { name: 'Salads' });
+  await expect(salads.getByRole('combobox', { name: 'Force a size (optional)' })).toHaveValue('71');
+  await expect(salads.getByRole('combobox', { name: 'Force a size (optional)' }).locator('option:checked')).toHaveText('Small portion');
+  await expect(salads.getByText('16 choices available')).toBeVisible();
+  await expect(salads.getByRole('button', { name: 'Add items', exact: true })).toHaveCount(0);
+  await salads.getByRole('button', { name: 'Item list', exact: true }).click();
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(salads.getByRole('button', { name: 'Menu group', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(salads.getByText('Limits per size (optional)', { exact: true })).toHaveCount(0);
+  await salads.getByRole('button', { name: 'Move step down' }).click();
+
+  const update = page.waitForResponse(response =>
+    response.request().method() === 'PUT' && new URL(response.url()).pathname === '/api/v1/menu/items/1',
+  );
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  const response = await update;
+  expect(response.ok()).toBe(true);
+  expect(response.request().postDataJSON().combo_steps).toMatchObject([
+    {
+      name: 'Main', sort_order: 0, fixed_modifier_name: 'Dressing',
+      items: [{ menu_item_id: 2, price_delta: 5, force_off_carte: false }],
+    },
+    { name: 'Salads', sort_order: 1, source_group_id: 2, source_size_id: 71, source_variant_label: null, items: [] },
+  ]);
+  await expect(page).toHaveURL('/1/menu/items');
+});
+
+test('the item picker adds a choice to its own manual step', async ({ page }) => {
+  const fixture = await install(page, { combo: true });
+  fixture.menus[0].groups.push({ id: 2, name: 'Published sides', items: [] });
+  Object.assign(fixture.items[0], {
+    combo_steps: [
+      { id: 1, name: 'Sides', source_type: 'group', source_group_id: 2, min_picks: 0, max_picks: 1, items: null },
+      { id: 2, name: 'Main course', source_type: 'explicit', min_picks: 1, max_picks: 1, items: [] },
+    ],
+  });
+  await page.goto('/1/menu/items/1');
+  const composition = page.locator('#item-composition');
+  await composition.getByRole('button', { name: 'Main course', exact: true }).click();
+  const main = composition.getByRole('region', { name: 'Main course' });
+  await main.getByRole('button', { name: 'Add items', exact: true }).click();
+  await main.getByRole('textbox', { name: 'Search items or categories' }).fill('Focaccia');
+  await main.getByRole('button', { name: /Focaccia maison/ }).click();
+  await main.getByRole('button', { name: 'Close item picker' }).click();
+  await expect(main.getByText(fixture.items[1].name, { exact: true }).filter({ visible: true })).toBeVisible();
+  const update = page.waitForResponse(response =>
+    response.request().method() === 'PUT' && new URL(response.url()).pathname === '/api/v1/menu/items/1',
+  );
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  const response = await update;
+  expect(response.ok()).toBe(true);
+  expect(response.request().postDataJSON().combo_steps).toMatchObject([
+    { name: 'Sides', source_type: 'group', source_group_id: 2, items: [] },
+    { name: 'Main course', source_type: 'explicit', items: [{ menu_item_id: 2 }] },
+  ]);
 });
 
 test('an unavailable manual combo item list blocks saving until retry', async ({ page }) => {

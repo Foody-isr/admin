@@ -1,31 +1,22 @@
 'use client';
 
-// Two-pane combo composer (Design B):
-//   • Left pane (CarteCatalog) — carte selector + browsable category tree.
-//                                 Adds items / categories to the *active* step.
-//   • Right pane              — the combo's steps as cards. Clicking a step
-//                                makes it active. New empty step picks up the
-//                                next add automatically.
-//
-// One unified step type — there is no Fixed/Step toggle. Every row is just a
-// step with items and min/max rules. "Always include X" is encoded as a step
-// with min=max=items.length (the foodyweb modal still auto-detects this
-// shape via isFixedComboShape and renders the customer flow accordingly).
-
 import { Plus, AlertCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
+import { comboItemSizes, matchesComboSize } from '@/lib/combo-size';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import type { ComboStepDraft, ComboStepDraftItem } from './types';
+import type { ComboStepDraft } from './types';
 import StepCard from './StepCard';
 import PricingCard from './PricingCard';
+import ComboSavingsBreakdownModal from './ComboSavingsBreakdownModal';
+import { computeComboSavingsBreakdown } from './pricing';
 import CarteCatalog from './CarteCatalog';
 import CustomerOutcomePreview from './CustomerOutcomePreview';
 import { validateCombo } from './validation';
 import { buildAnyCarteItemIdSet } from './webCarte';
 import { useComboStepPreviews } from './useComboStepPreviews';
-import { ConfirmDialog } from '@/components/ds';
+import { Button, ConfirmDialog } from '@/components/ds';
 import { Switch } from '@/components/ui/switch';
 
 interface Props {
@@ -36,7 +27,6 @@ interface Props {
   categories: MenuCategory[];
   menus: Menu[];
   restaurantId: number;
-  onShowSavingsDetail?: () => void;
   comboAllowQuantity: boolean;
   onComboAllowQuantityChange: (next: boolean) => void;
 }
@@ -48,7 +38,6 @@ export default function CompositionTab({
   categories,
   menus,
   restaurantId,
-  onShowSavingsDetail,
   comboAllowQuantity,
   onComboAllowQuantityChange,
 }: Props) {
@@ -59,7 +48,7 @@ export default function CompositionTab({
   // Server-resolved preview per dynamic step — the authoritative "available to
   // customer" set, replacing the old client-side estimate that ignored the
   // carte date window.
-  const stepPreviews = useComboStepPreviews(restaurantId, steps);
+  const resolvedPreviews = useComboStepPreviews(restaurantId, steps);
 
   const itemsById = useMemo(() => {
     const m = new Map<number, MenuItem>();
@@ -80,23 +69,23 @@ export default function CompositionTab({
         t('comboValidStepNoVariantsIncluded').replace('{name}', n).replace('{item}', item),
       stepNoGroup: (n) => t('comboValidStepNoGroup').replace('{name}', n),
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [steps, itemsById],
+    [steps, itemsById, t],
   );
 
-  // Active step — the one the catalog's clicks target. Null on load (no
-  // step opened by default — the operator opens the one they want to edit).
-  // Stays in sync with steps[] so a deleted step's key doesn't dangle.
   const [removingStep, setRemovingStep] = useState<ComboStepDraft | null>(null);
   const [activeStepKey, setActiveStepKey] = useState<string | null>(null);
-  const effectiveActiveKey =
-    activeStepKey && steps.some((s) => s.key === activeStepKey) ? activeStepKey : null;
-  const activeStep =
-    steps.find((s) => s.key === effectiveActiveKey) ?? null;
+  const [showSavingsDetail, setShowSavingsDetail] = useState(false);
 
   const updateStep = (key: string, next: ComboStepDraft) => {
     if (!canEdit) return;
-    onStepsChange(steps.some(step => step.key === key) ? steps.map(step => step.key === key ? next : step) : [...steps, next]);
+    onStepsChange(steps.map(step => step.key === key ? next : step));
+  };
+
+  const moveStep = (from: number, to: number) => {
+    if (!canEdit) return;
+    const reordered = [...steps];
+    [reordered[from], reordered[to]] = [reordered[to], reordered[from]];
+    onStepsChange(reordered);
   };
 
   const removeStep = (key: string) => {
@@ -122,175 +111,107 @@ export default function CompositionTab({
     setActiveStepKey(fresh.key);
   };
 
-  const ensureActiveStep = (): ComboStepDraft => {
-    if (activeStep) return activeStep;
-    const fresh = freshStep();
-    setActiveStepKey(fresh.key);
-    return fresh;
+  const addItems = (step: ComboStepDraft, itemIds: number[]) => {
+    const existing = new Set(step.items.map(item => item.menu_item_id));
+    const additions = itemIds.filter(id => !existing.has(id)).map(id => ({
+      menu_item_id: id,
+      price_delta: 0,
+      pick_key: `item:${id}`,
+    }));
+    if (additions.length > 0) updateStep(step.key, { ...step, items: [...step.items, ...additions] });
   };
 
-  // ── Catalog actions ───────────────────────────────────────────────────
+  // A rule set also specifies which sizes can be selected. Resolve the
+  // published items first, then expand their allowed sizes as in manual orders.
+  const stepPreviews = new Map(resolvedPreviews);
+  for (const step of steps) {
+    const preview = resolvedPreviews.get(step.key);
+    if (!preview || !step.variant_rules?.length) continue;
+    const rules = step.variant_rules;
+    const items = preview.items.flatMap(item =>
+      comboItemSizes(itemsById.get(item.menu_item_id))
+        .filter(size => rules.some(rule => matchesComboSize(rule.size_id, rule.variant_label, size.sizeId, size.name)))
+        .map(size => ({
+          ...item,
+          name: `${item.name} (${size.name})`,
+          option_id: size.optionId,
+          availability_state: item.availability_state === 'hidden' || item.availability_state === 'sold_out'
+            ? item.availability_state
+            : size.availabilityState ?? item.availability_state,
+        })),
+    );
+    stepPreviews.set(step.key, { ...preview, count: items.length, items });
+  }
 
-  const handleAddItem = (menuItemId: number) => {
-    const target = ensureActiveStep();
-    // If the active step is group-sourced, adding an explicit item switches it
-    // to explicit mode (mixing the two has no coherent server semantic).
-    // Otherwise just append.
-    if (target.source_type === 'group') {
-      updateStep(target.key, {
-        ...target,
-        source_type: 'explicit',
-        source_group_id: undefined,
-        source_variant_label: undefined,
-        items: [{ menu_item_id: menuItemId, price_delta: 0, pick_key: `item:${menuItemId}` }],
-      });
-      return;
-    }
-    if (target.items.some((it) => it.menu_item_id === menuItemId)) return;
-    updateStep(target.key, {
-      ...target,
-      items: [
-        ...target.items,
-        { menu_item_id: menuItemId, price_delta: 0, pick_key: `item:${menuItemId}` },
-      ],
-    });
-  };
-
-  const handleRemoveItem = (menuItemId: number) => {
-    if (!activeStep) return;
-    updateStep(activeStep.key, {
-      ...activeStep,
-      items: activeStep.items.filter((it) => it.menu_item_id !== menuItemId),
-    });
-  };
-
-  const handleSetCategory = (categoryId: number, visibleItemIds: number[]) => {
-    // "tout ajouter" adds the visible catalogue matches in this category as
-    // items as individual explicit entries. A group-sourced step is converted
-    // to explicit first (mixing has no coherent server semantic). Items already
-    // present are skipped so repeated clicks are idempotent.
-    const target = ensureActiveStep();
-    const cat = categories.find((c) => c.id === categoryId);
-    if (!cat) return;
-    const baseItems = target.source_type === 'group' ? [] : target.items;
-    const existing = new Set(baseItems.map((it) => it.menu_item_id));
-    const additions: ComboStepDraftItem[] = [];
-    for (const it of cat.items ?? []) {
-      if (visibleItemIds.includes(it.id) && !existing.has(it.id)) {
-        additions.push({ menu_item_id: it.id, price_delta: 0, pick_key: `item:${it.id}` });
-      }
-    }
-    if (additions.length === 0 && target.source_type !== 'group') return;
-    updateStep(target.key, {
-      ...target,
-      source_type: 'explicit',
-      source_group_id: undefined,
-      source_variant_label: undefined,
-      items: [...baseItems, ...additions],
-    });
-  };
+  const previewSteps = steps.map(step => {
+    if (step.source_type !== 'group') return step;
+    const selections = stepPreviews.get(step.key)?.items ?? [];
+    return {
+      ...step,
+      items: selections.map(selection => ({
+        menu_item_id: selection.menu_item_id,
+        variant_id: selection.option_id,
+        price_delta: 0,
+      })),
+    };
+  });
 
   return (
     <div className="flex min-w-0 flex-col gap-[var(--s-5)]">
-      {/* Section head + pricing — full-width above the two-pane composer. */}
-      <div className="flex items-center gap-[var(--s-3)]">
-        <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
-        <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('composeStepsHeader')}</h3>
-      </div>
-      <p className="text-fs-sm text-[var(--fg-muted)] -mt-3">{t('composeIntro')}</p>
-
-      <PricingCard
-        basePrice={basePrice}
-        steps={steps}
-        itemsById={itemsById}
-        onShowSavingsDetail={onShowSavingsDetail}
-      />
-
-      {/* Combo-level: allow ordering several of this combo at once
-          (guest quantity-first flow). Default on; off → single combo. */}
-      <div className="mt-[var(--s-4)]">
-        <p className="text-fs-sm font-medium text-[var(--fg)] mb-1">
-          {t('comboAllowQuantityLabel') || 'Allow ordering several at once'}
-        </p>
-        <div className="flex items-center gap-[var(--s-2)] h-9">
-          <Switch
-            checked={comboAllowQuantity}
-            onCheckedChange={(v) => canEdit && onComboAllowQuantityChange(v)}
-            disabled={!canEdit}
-            aria-label={t('comboAllowQuantityLabel') || 'Allow ordering several at once'}
-            className="data-[state=unchecked]:bg-input"
-          />
-          <span className="text-fs-sm font-medium text-[var(--fg)]">
-            {comboAllowQuantity ? (t('on') || 'On') : (t('off') || 'Off')}
-          </span>
-        </div>
-        <p className="mt-1 text-fs-xs text-[var(--fg-muted)]">
-          {comboAllowQuantity
-            ? (t('comboAllowQuantityHelpOn') || 'Guests can order several at once and fill all picks together')
-            : (t('comboAllowQuantityHelpOff') || 'Single combo only')}
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-fs-sm text-[var(--fg-muted)]">{t('composeIntro')}</p>
+        {canEdit && (
+          <Button type="button" variant="secondary" onClick={addStep}>
+            <Plus aria-hidden="true" className="size-4" />
+            {t('composeNewStep')}
+          </Button>
+        )}
       </div>
 
-      {/* Two-pane composer — catalog left, steps right. The catalog is
-          sticky to the viewport so it stays in view no matter how many
-          steps the operator adds. Right pane scrolls naturally with the
-          page; the catalog scrolls internally within its sticky frame.
-          `items-start` is required for sticky to engage in a grid (without
-          it the grid item stretches to the row height and never sticks). */}
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(240px,300px)_minmax(0,1fr)] gap-[var(--s-4)] items-start">
-        <aside aria-label={t('catalogCarteLabel')}
-          className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-3)] flex flex-col xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] min-h-0"
-        >
-          <CarteCatalog
-            restaurantId={restaurantId}
-            menus={menus}
-            categories={categories}
-            itemsById={itemsById}
-            activeStep={activeStep}
-            anyCarteItemIds={anyCarteItemIds}
-            onAddItem={handleAddItem}
-            onRemoveItem={handleRemoveItem}
-            onSetCategory={handleSetCategory}
-          />
-        </aside>
+      <div className="flex flex-col gap-2.5">
+        {steps.length === 0 && (
+          <div className="rounded-r-lg border border-dashed border-[var(--line-strong)] p-[var(--s-5)] text-center text-fs-sm text-[var(--fg-muted)]">
+            {t('composeEmptyHint')}
+          </div>
+        )}
 
-        <section className="flex flex-col gap-[var(--s-3)] min-w-0">
-          {steps.length === 0 && (
-            <div className="rounded-r-lg border border-dashed border-[var(--line-strong)] p-[var(--s-5)] text-center text-fs-sm text-[var(--fg-muted)]">
-              {t('composeEmptyHint')}
-            </div>
-          )}
-
-          {steps.map((step, i) => {
-            const isActive = step.key === effectiveActiveKey;
-            return (
-              <StepCard
-                key={step.key}
-                step={step}
-                index={i}
-                basePrice={basePrice}
-                menus={menus}
-                itemsById={itemsById}
-                anyCarteItemIds={anyCarteItemIds}
-                preview={stepPreviews.get(step.key)}
-                isActive={isActive}
-                onActivate={() => setActiveStepKey(isActive ? null : step.key)}
-                onChange={(next) => updateStep(step.key, next)}
-                onRemove={() => setRemovingStep(step)}
-              />
-            );
-          })}
-
-          {canEdit && (
-            <button
-              type="button"
-              onClick={addStep}
-              className="py-[var(--s-4)] rounded-r-lg border border-dashed border-[var(--line-strong)] text-fs-sm font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-ink)] hover:bg-[color-mix(in_oklab,var(--brand-500)_4%,transparent)] transition-colors flex items-center justify-center gap-1.5"
-            >
-              <Plus className="w-3.5 h-3.5" /> {t('composeNewStep')}
-            </button>
-          )}
-        </section>
+        {steps.map((step, index) => {
+          const isActive = step.key === activeStepKey;
+          return (
+            <StepCard
+              key={step.key}
+              step={step}
+              index={index}
+              basePrice={basePrice}
+              menus={menus}
+              itemsById={itemsById}
+              anyCarteItemIds={anyCarteItemIds}
+              preview={stepPreviews.get(step.key)}
+              isActive={isActive}
+              catalog={isActive && step.source_type === 'explicit' && (
+                <CarteCatalog
+                  restaurantId={restaurantId}
+                  menus={menus}
+                  categories={categories}
+                  itemsById={itemsById}
+                  activeStep={step}
+                  anyCarteItemIds={anyCarteItemIds}
+                  onAddItem={id => addItems(step, [id])}
+                  onRemoveItem={id => updateStep(step.key, {
+                    ...step,
+                    items: step.items.filter(item => item.menu_item_id !== id),
+                  })}
+                  onSetCategory={ids => addItems(step, ids)}
+                />
+              )}
+              onActivate={() => setActiveStepKey(isActive ? null : step.key)}
+              onChange={next => updateStep(step.key, next)}
+              onRemove={() => setRemovingStep(step)}
+              onMoveUp={index > 0 ? () => moveStep(index, index - 1) : undefined}
+              onMoveDown={index < steps.length - 1 ? () => moveStep(index, index + 1) : undefined}
+            />
+          );
+        })}
       </div>
 
       {errors.length > 0 && (
@@ -311,13 +232,55 @@ export default function CompositionTab({
         </div>
       )}
 
-      <ConfirmDialog open={removingStep !== null} onOpenChange={open => { if (!open) setRemovingStep(null); }} title={t('composeStepDelete')} description={t('composeStepDeleteHint').replace('{name}',removingStep?.name ?? '')} confirmLabel={t('delete')} cancelLabel={t('cancel')} danger onConfirm={() => { if (removingStep) removeStep(removingStep.key); setRemovingStep(null); }}/>
+      <div className="flex items-center justify-between gap-4 rounded-r-lg border border-[var(--line)] px-4 py-3">
+        <div>
+          <p className="text-fs-sm font-semibold text-[var(--fg)]">{t('comboAllowQuantityLabel')}</p>
+          <p className="mt-0.5 text-fs-xs text-[var(--fg-muted)]">
+            {t(comboAllowQuantity ? 'comboAllowQuantityHelpOn' : 'comboAllowQuantityHelpOff')}
+          </p>
+        </div>
+        <Switch
+          checked={comboAllowQuantity}
+          onCheckedChange={value => canEdit && onComboAllowQuantityChange(value)}
+          disabled={!canEdit}
+          aria-label={t('comboAllowQuantityLabel')}
+          className="shrink-0 data-[state=unchecked]:bg-input"
+        />
+      </div>
+
+      <PricingCard
+        basePrice={basePrice}
+        steps={previewSteps}
+        itemsById={itemsById}
+        onShowSavingsDetail={() => setShowSavingsDetail(true)}
+      />
       <CustomerOutcomePreview
         comboName={comboName}
         basePrice={basePrice}
-        steps={steps}
+        steps={previewSteps}
         itemsById={itemsById}
       />
+
+      <ConfirmDialog
+        open={removingStep !== null}
+        onOpenChange={open => { if (!open) setRemovingStep(null); }}
+        title={t('composeStepDelete')}
+        description={t('composeStepDeleteHint').replace('{name}', removingStep?.name ?? '')}
+        confirmLabel={t('delete')}
+        cancelLabel={t('cancel')}
+        danger
+        onConfirm={() => {
+          if (removingStep) removeStep(removingStep.key);
+          setRemovingStep(null);
+        }}
+      />
+      {showSavingsDetail && (
+        <ComboSavingsBreakdownModal
+          comboName={comboName || undefined}
+          breakdown={computeComboSavingsBreakdown(basePrice, previewSteps, itemsById)}
+          onClose={() => setShowSavingsDetail(false)}
+        />
+      )}
     </div>
   );
 }

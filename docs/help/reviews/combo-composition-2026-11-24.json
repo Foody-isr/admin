@@ -1,0 +1,210 @@
+{
+  "date": "2026-11-24",
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/menu/items/[itemId]/page.tsx",
+      "sha256": "aac9c148d62e95043e6dae0876939d496433cfb03295768b38a9d8b0c77623e3",
+      "baseSha256": "2a3ba0cde583f38846df9f3270573ce802157d5280bffe5f3fc6b5e93b934e05",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "menu-product-photos"
+      ],
+      "reason": "These source changes handle the administration, display, persistence or validation of sizes and choices specifically for the combo workflow."
+    },
+    {
+      "path": "src/app/[restaurantId]/menu/items/new/page.tsx",
+      "sha256": "a748e5a1c59509c5ad585db8a47edfee835ed896b99a86740817e12e0c4fce22",
+      "baseSha256": "183d6c4c4d80a356487cfdbf0ae791f37685c9f8dc2e131f56bea631e84f4ff8",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "menu-product-photos"
+      ],
+      "reason": "These source changes handle the administration, display, persistence or validation of sizes and choices specifically for the combo workflow."
+    },
+    {
+      "path": "src/app/[restaurantId]/menu/options/[optionSetId]/page.tsx",
+      "sha256": "f6b765de5ed049e00d1eff00c69502a7fe3337ea5468025fe1d109eb9ee20d75",
+      "baseSha256": "4ba4ab99fdf672ecb65b0b7d1cc2586f832fd68656c9d8f76306525f74d71901",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "menu-modifiers"
+      ],
+      "reason": "These source changes handle the administration, display, persistence or validation of sizes and choices specifically for the combo workflow."
+    },
+    {
+      "path": "src/components/menu-item/VariantsEditor.tsx",
+      "sha256": "cc43c3311a3fce09d2f9f7576688f406592d5119a9c4bb81e8ea85a1f79d4d6a",
+      "baseSha256": "81e56b3de306355b99e410c8ac91e4e35b4cac0d2a69a022cccc9b3ef02bc176",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes"
+      ],
+      "reason": "These source changes handle the administration, display, persistence or validation of sizes and choices specifically for the combo workflow."
+    },
+    {
+      "path": "src/components/menu-item/combo/CarteCatalog.tsx",
+      "sha256": "2d5034fde199eb50b4c812e343068796b705c50726fe22cc754244f404b2808d",
+      "baseSha256": "cc98bcf4126f7cba3ca1344f5a510147e474b2d231ac8bb7e0364b0407e3fd7b",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes"
+      ],
+      "reason": "These source changes handle the administration, display, persistence or validation of sizes and choices specifically for the combo workflow."
+    },
+    {
+      "path": "src/components/menu-item/combo/CompositionTab.tsx",
+      "sha256": "0e32630bc3b3216e9e24b21b2d5d943dad53298a84baa7e43ba76316da652e08",
+      "baseSha256": "cae8ac06337ba310b0ddf20c4590125201ab9a88f0d2d2510604b6083b963de6",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes"
+      ],
+      "reason": "These source changes handle the administration, display, persistence or validation of sizes and choices specifically for the combo workflow."
+    },
+    {
+      "path": "src/components/menu-item/combo/StepCard.tsx",
+      "sha256": "f16adc207441ff99f715c167fe42a4d3d9bba5f70ea4e4989354c1b340fb2dfe",
+      "baseSha256": "73e91ecfdae50ee3bbf20e466668d7c21d8d6d84845af076a141b622ad94ccae",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes"
+      ],
+      "reason": "These source changes handle the administration, display, persistence or validation of sizes and choices specifically for the combo workflow."
+    },
+    {
+      "path": "src/components/menu-item/combo/serialize.ts",
+      "sha256": "5644dd8000a05271d22ddcbdc6ab15c906a680f6eb09cd354b77b191bc822f3d",
+      "baseSha256": "2434168288131cc3d4d3ccae4fdbbdc2c8fa53d1f81c039c909500a177ef362c",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes"
+      ],
+      "reason": "These source changes handle the administration, display, persistence or validation of sizes and choices specifically for the combo workflow."
+    },
+    {
+      "path": "src/components/menu-item/combo/types.ts",
+      "sha256": "5e94f2f606d72a4e61ea9bf28cab63997bb7c9cc08768472ec60c58678f4091f",
+      "baseSha256": "c8d8a0213a6ea7691ea5982f9dc31fed59f223650ebb765cbc12ebe2463a192b",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes"
+      ],
+      "reason": "These source changes handle the administration, display, persistence or validation of sizes and choices specifically for the combo workflow."
+    },
+    {
+      "path": "src/components/menu-item/combo/useComboStepPreviews.ts",
+      "sha256": "1124974d3f3a95a407f15b664d7d6e746fa70cdef098a78239b42a3e6499854f",
+      "baseSha256": "1188028fafa2a8d7aa3e6f523a23e48fd068771b887cf3e7db33eb11523207f9",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes"
+      ],
+      "reason": "These source changes handle the administration, display, persistence or validation of sizes and choices specifically for the combo workflow."
+    },
+    {
+      "path": "src/components/orders/NewOrderComboModal.tsx",
+      "sha256": "f665d053112a5add45ce82d8e823e2ed2f182bfd2eacee4add5a9d415746c034",
+      "baseSha256": "735dd77fcf6eaca1f618ac65347847bbaa1137434183107bb7179ed12f76eaa2",
+      "disposition": "no-user-impact",
+      "features": [
+        "orders-managing-orders",
+        "order-detail"
+      ],
+      "reason": "These source changes handle the administration, display, persistence or validation of sizes and choices specifically for the combo workflow."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "3198dcc6d75d281f0570974db97f46f864432c9566bf113fa93b9c00b9013a54",
+      "baseSha256": "4c833cdc1832c3764bd793cd86941466d38858c4d65ce81cdacde1297171b8af",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-subgroups",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "delivery-dispatch",
+        "pos-payments",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "reason": "The API records added here concern the catalogue-size ID and the combo editor or its size picker."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "d284ff50e3ffe7b3d4f4b6e751da30f42d60954d7a7e8cc61edf1cebced74d64",
+      "baseSha256": "ba3043d534326a7354fe42a9d82990152128326401ab6c4905ef3b5673a714b0",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "delivery-dispatch",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "reason": "The additions describe shared catalogue sizes and the combo composition controls in three languages."
+    }
+  ]
+}

@@ -17,6 +17,7 @@ import type { MenuItem } from '@/lib/api';
  *  limits (e.g. up to 4 at 500g, the rest 250g). Mutually exclusive with
  *  `source_variant_label` (single force-pin, no choice). */
 export interface ComboStepVariantRuleDraft {
+  size_id?: number;
   /** Variant/option name this rule caps (e.g. "500g"). */
   variant_label: string;
   /** Minimum picks that must use this size. 0 = no minimum. */
@@ -64,6 +65,7 @@ export interface ComboStepDraft {
   /** Optional copy shown to the customer below the step name (e.g.
    *  "Choose a starter to share"). Persists to `combo_steps.description`. */
   description: string;
+  fixed_modifier_name?: string;
   min_picks: number;
   max_picks: number;
   items: ComboStepDraftItem[];
@@ -73,9 +75,9 @@ export interface ComboStepDraft {
   source_type: 'explicit' | 'group';
   /** Required when source_type === 'group'. */
   source_group_id?: number;
-  /** Group mode: pin every resolved item to the variant whose name matches this
-   *  label (e.g. "250g"). undefined = no pin (whole items). Items without a
-   *  matching variant are excluded by the server. */
+  /** Shared catalogue size to impose on this group. */
+  source_size_id?: number;
+  /** Display label for the selected size or the text of a historical selection. */
   source_variant_label?: string;
   /** Group mode: per-size pick caps. When non-empty the customer chooses a size
    *  per pick within these limits, and `source_variant_label` is ignored (the
@@ -105,6 +107,7 @@ export interface ComboStepDraft {
    *  this, every fixed → choice round-trip silently dropped the operator
    *  back into "Liste manuelle" with min=1/max=N defaults. */
   _stashedChoice?: {
+    source_size_id?: number;
     source_type: 'explicit' | 'group';
     source_group_id?: number;
     source_variant_label?: string;
@@ -184,6 +187,7 @@ export interface VariantView {
 // ── Pure helpers — view-model <-> draft ──────────────────────────────────
 
 interface SourceVariant {
+  sizeId?: number;
   id: number;
   name: string;
   price: number;
@@ -196,13 +200,13 @@ interface SourceVariant {
 export function getSourceVariants(item: Pick<MenuItem, 'variant_groups' | 'option_sets'>): SourceVariant[] {
   const fromGroups = (item.variant_groups ?? []).flatMap((g) =>
     (g.variants ?? []).map((v) => ({
-      id: v.id, name: v.name, price: v.price,
+      id: v.id, name: v.name, price: v.price, sizeId: v.size_id ?? undefined,
       is_active: v.is_active, sort_order: v.sort_order ?? 0,
     })),
   );
   const fromOptions = (item.option_sets ?? []).flatMap((os) =>
     (os.options ?? []).map((o) => ({
-      id: o.id, name: o.name, price: o.price,
+      id: o.id, name: o.name, price: o.price, sizeId: o.size_id ?? undefined,
       is_active: o.is_active, sort_order: o.sort_order ?? 0,
     })),
   );

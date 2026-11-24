@@ -4,8 +4,8 @@
   "files": [
     {
       "path": "src/lib/api.ts",
-      "sha256": "12288f673231387b81f52f1fe141891bacdc394a75d60deb6a4c0c6fddce95c4",
-      "baseSha256": "4c833cdc1832c3764bd793cd86941466d38858c4d65ce81cdacde1297171b8af",
+      "sha256": "922902ea2666fcd67da783da02d7e0f2f27231464bda7089bc5c55ad3a8ffe23",
+      "baseSha256": "3198dcc6d75d281f0570974db97f46f864432c9566bf113fa93b9c00b9013a54",
       "disposition": "no-user-impact",
       "features": [
         "customers-profiles",
@@ -25,8 +25,8 @@
     },
     {
       "path": "src/lib/i18n.tsx",
-      "sha256": "4228e17d7044a4aacd6bb90ca7903cc3812f61afac8ce33daf31da5dadfce150",
-      "baseSha256": "ba3043d534326a7354fe42a9d82990152128326401ab6c4905ef3b5673a714b0",
+      "sha256": "f048e428770ba08575c34195b13d04af3d626561024cb0206345d4dc6732aa57",
+      "baseSha256": "d284ff50e3ffe7b3d4f4b6e751da30f42d60954d7a7e8cc61edf1cebced74d64",
       "disposition": "no-user-impact",
       "features": [
         "customers-profiles",

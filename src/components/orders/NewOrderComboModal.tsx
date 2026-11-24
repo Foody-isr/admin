@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Drawer } from '@/components/ds';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/lib/permissions-context';
+import { comboItemSizes, matchesComboSize } from '@/lib/combo-size';
 import { useI18n, useCurrency } from '@/lib/i18n';
 import { resolveComboStepPreview, type AvailabilityState, type MenuItem, type ComboStep } from '@/lib/api';
 import { isEffectivelySoldOut } from '@/components/menu/AvailabilityPill';
@@ -22,6 +23,7 @@ interface StepOption {
   /** When the step carries per-size rules, the variant size this option
    *  represents (e.g. "500g"). Drives the per-size cap tally. */
   sizeLabel?: string;
+  sizeId?: number;
   priceDelta: number;
   /** Out of stock right now. The server computes this per step entry, so a step
    *  pinned to 250g is sold out as soon as the 250g pool empties, even while the
@@ -32,14 +34,17 @@ interface StepOption {
 
 function replacementOptions(step: ComboStep, items: Map<number, MenuItem>): StepOption[] {
   const pinned = step.source_type === 'group' ? step.source_variant_label : null;
+  const pinnedId = step.source_type === 'group' ? step.source_size_id : null;
   const rules = step.variant_rules ?? [];
   return Array.from(items.values()).filter((item) => item.is_active && item.item_type !== 'combo' && item.pricing_mode !== 'by_weight').flatMap((item) => {
     const sizes = comboItemSizes(item);
     const hasSizes = (item.option_sets ?? []).some((set) => (set.options ?? []).length > 0)
       || (item.variant_groups ?? []).some((group) => (group.variants ?? []).length > 0);
-    const choices: Array<{ optionId: number | null; name: string; availabilityState?: AvailabilityState }> = hasSizes ? sizes : [{ optionId: null, name: '' }];
-    return choices.filter((size) => (!pinned || normLabel(size.name) === normLabel(pinned))
-      && (rules.length === 0 || rules.some((rule) => normLabel(rule.variant_label) === normLabel(size.name))))
+    const choices: Array<{ optionId: number | null; name: string; sizeId?: number; availabilityState?: AvailabilityState }> = hasSizes ? sizes : [{ optionId: null, name: '' }];
+    return choices.filter(size =>
+      ((!pinned && !pinnedId) || matchesComboSize(pinnedId, pinned ?? '', size.sizeId, size.name))
+      && (rules.length === 0 || rules.some(rule => matchesComboSize(rule.size_id, rule.variant_label, size.sizeId, size.name))),
+    )
       .map((size) => ({
         key: `sub:${item.id}:${size.optionId ?? ''}`,
         menuItemId: item.id,
@@ -47,6 +52,7 @@ function replacementOptions(step: ComboStep, items: Map<number, MenuItem>): Step
         name: item.name,
         portion: size.name || undefined,
         sizeLabel: rules.length > 0 ? size.name : undefined,
+        sizeId: size.sizeId,
         priceDelta: 0,
         isSubstitution: true,
         soldOut: isEffectivelySoldOut(item.availability_state, item.availability_override)
@@ -58,38 +64,6 @@ function replacementOptions(step: ComboStep, items: Map<number, MenuItem>): Step
 
 function uid(): string {
   return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `combo-${Date.now()}`;
-}
-
-/** Normalize a size label for case/whitespace-insensitive matching, mirroring
- *  the server's combo resolver and the guest web. */
-function normLabel(s: string): string {
-  return s.trim().toLowerCase();
-}
-
-/** All active sizes (option-set options + legacy variants) on a catalog item.
- *  Used to expand a per-size-rules step into one pickable option per allowed
- *  size. Unlike the à-la-carte `itemSizeOptions` in lib/item-options, this keeps
- *  combo-only sizes and looks past the first option set — those sizes exist
- *  precisely to be picked inside a combo. Each size carries its own stock state
- *  so an emptied 250g pool disables just that size. */
-function comboItemSizes(
-  item: MenuItem | undefined,
-): Array<{ optionId: number; name: string; availabilityState?: AvailabilityState }> {
-  if (!item) return [];
-  const out: Array<{ optionId: number; name: string; availabilityState?: AvailabilityState }> = [];
-  for (const os of item.option_sets ?? []) {
-    for (const o of os.options ?? []) {
-      if (o.is_active !== false) {
-        out.push({ optionId: o.id, name: o.name, availabilityState: o.availability_state });
-      }
-    }
-  }
-  for (const g of item.variant_groups ?? []) {
-    for (const v of g.variants ?? []) {
-      if (v.is_active !== false) out.push({ optionId: v.id, name: v.name });
-    }
-  }
-  return out;
 }
 
 // Resolve the label of a pinned variant/option (e.g. "250 g") from the full
@@ -200,15 +174,17 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
               sourceId: step.source_group_id,
               // Per-size-rules steps are not pinned to one size — resolve whole
               // items and expand them into their allowed sizes below.
+              sizeId: hasRules ? undefined : step.source_size_id ?? undefined,
               variantLabel: hasRules ? undefined : step.source_variant_label ?? undefined,
               serieDate: serieDate ?? undefined,
             });
             if (hasRules) {
-              const allowed = new Set(rules.map((r) => normLabel(r.variant_label)));
               const expanded: StepOption[] = [];
               for (const it of items) {
                 const catalogItem = itemMap.get(it.menu_item_id);
-                const sizes = comboItemSizes(catalogItem).filter((s) => allowed.has(normLabel(s.name)));
+                const sizes = comboItemSizes(catalogItem).filter(size =>
+                  rules.some(rule => matchesComboSize(rule.size_id, rule.variant_label, size.sizeId, size.name)),
+                );
                 // The step exposes whole items here, so the item-level verdict
                 // from the preview gates every size, and each size adds its own.
                 const itemSoldOut = isEffectivelySoldOut(
@@ -223,6 +199,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
                     name: it.name,
                     portion: s.name,
                     sizeLabel: s.name,
+                    sizeId: s.sizeId,
                     priceDelta: 0,
                     soldOut: itemSoldOut || s.availabilityState === 'sold_out',
                   });
@@ -311,21 +288,20 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
 
   // Picks in a step that use a given size label (sums across all items of that
   // size). Drives per-size cap enforcement for variant-rule steps.
-  const sizeCount = (stepId: number, sizeLabel: string): number => {
+  const sizeCount = (stepId: number, sizeLabel: string, sizeId?: number | null): number => {
     const opts = stepOptions(steps.find((s) => s.id === stepId)!);
     const byKey = picks[stepId] ?? {};
     return opts.reduce(
-      (sum, o) => (o.sizeLabel && normLabel(o.sizeLabel) === normLabel(sizeLabel) ? sum + (byKey[o.key] ?? 0) : sum),
+      (sum, o) => (matchesComboSize(sizeId, sizeLabel, o.sizeId, o.sizeLabel ?? '') ? sum + (byKey[o.key] ?? 0) : sum),
       0,
     );
   };
 
   // Remaining picks allowed for a size (null = no cap / not a rule size).
-  const sizeRemaining = (step: ComboStep, sizeLabel?: string): number | null => {
-    if (!sizeLabel) return null;
-    const rule = (step.variant_rules ?? []).find((r) => normLabel(r.variant_label) === normLabel(sizeLabel));
+  const sizeRemaining = (step: ComboStep, option: StepOption): number | null => {
+    const rule = (step.variant_rules ?? []).find(row => matchesComboSize(row.size_id, row.variant_label, option.sizeId, option.sizeLabel ?? ''));
     if (!rule || rule.max_picks <= 0) return null;
-    return rule.max_picks - sizeCount(step.id as number, sizeLabel);
+    return rule.max_picks - sizeCount(step.id as number, rule.variant_label, rule.size_id);
   };
 
   // Picks of one item in a step, summed across its sizes.
@@ -350,7 +326,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
     // Out of stock: the order-time guard would reject the line anyway.
     if (opt.soldOut) return;
     // Per-size cap: block a size once its max is reached.
-    const remaining = sizeRemaining(step, opt.sizeLabel);
+    const remaining = sizeRemaining(step, opt);
     if (max !== 1 && remaining != null && remaining <= 0) return;
     // Per-item cap: block an item once its max (across sizes) is reached.
     const cap = itemCap(step, opt.menuItemId);
@@ -381,7 +357,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
     if (stepCount(s.id as number) < (s.min_picks ?? 0)) return false;
     // Per-size minimums must also be met (e.g. "at least 4 at 500g").
     return (s.variant_rules ?? []).every(
-      (r) => r.min_picks <= 0 || sizeCount(s.id as number, r.variant_label) >= r.min_picks,
+      (r) => r.min_picks <= 0 || sizeCount(s.id as number, r.variant_label, r.size_id) >= r.min_picks,
     );
   });
 
@@ -468,7 +444,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
                   const qty = (picks[stepId] ?? {})[opt.key] ?? 0;
                   const selected = qty > 0;
                   const single = max === 1;
-                  const remaining = sizeRemaining(step, opt.sizeLabel);
+                  const remaining = sizeRemaining(step, opt);
                   const sizeFull = remaining != null && remaining <= 0;
                   return (
                     <div
@@ -536,7 +512,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
                   <input type="search" aria-label={t('comboSubstitutionSearch')} placeholder={t('comboSubstitutionSearch')} value={librarySearch} onChange={(e) => setLibrarySearch(e.target.value)} className="w-full rounded-md border border-[var(--line)] bg-[var(--surface-1)] px-3 py-2 text-fs-sm" />
                   <div className="max-h-64 overflow-y-auto">
                     {replacementOptions(step, itemMap).filter((o) => `${o.name} ${o.portion ?? ''}`.toLocaleLowerCase().includes(librarySearch.trim().toLocaleLowerCase())).map((opt) => (
-                      <button key={opt.key} type="button" disabled={opt.soldOut || (max !== 1 && ((max > 0 && count >= max) || (sizeRemaining(step, opt.sizeLabel) ?? 1) <= 0 || (itemCap(step, opt.menuItemId) != null && itemCount(stepId, opt.menuItemId) >= itemCap(step, opt.menuItemId)!)))} className="flex w-full items-center justify-between gap-2 border-b border-[var(--line)] px-1 py-2 text-start text-fs-sm disabled:opacity-40" onClick={() => {
+                      <button key={opt.key} type="button" disabled={opt.soldOut || (max !== 1 && ((max > 0 && count >= max) || (sizeRemaining(step, opt) ?? 1) <= 0 || (itemCap(step, opt.menuItemId) != null && itemCount(stepId, opt.menuItemId) >= itemCap(step, opt.menuItemId)!)))} className="flex w-full items-center justify-between gap-2 border-b border-[var(--line)] px-1 py-2 text-start text-fs-sm disabled:opacity-40" onClick={() => {
                         setSubstitutions((prev) => ({ ...prev, [stepId]: [...(prev[stepId] ?? []).filter((o) => o.key !== opt.key), opt] }));
                         pick(step, opt);
                       }}>

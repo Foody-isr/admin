@@ -1,23 +1,10 @@
 'use client';
 
-// One step in a combo (Design B — two-pane composer).
-//
-// Two visual states, driven by `isActive`:
-//   • Closed (summary)  — single-line glance: number, name, rule summary,
-//                         item-count badge, delete. The whole row is a
-//                         button that activates the step (opens it for
-//                         editing AND becomes the target of catalog clicks).
-//   • Open (editor)     — full editing surface with title/description,
-//                         InlineRules, source-mode segmented control, and
-//                         either the items list or the category panel.
-//
-// Only one step is "open" at a time — CompositionTab owns activeStepKey and
-// passes isActive down. Active === open === target of catalog actions.
-
 import { SelectionIndicator } from '@/components/ds/Selection';
-import { Check, ChevronDown, ListChecks, Loader2, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { AlertTriangle, ArrowDown, ArrowUp, Check, ChevronDown, ChevronUp, Loader2, Plus, Trash2 } from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
 import type { Menu, MenuItem } from '@/lib/api';
+import { comboSizeKey } from '@/lib/combo-size';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Button, ConfirmDialog } from '@/components/ds';
@@ -35,8 +22,9 @@ function isDynamicStep(s: Pick<ComboStepDraft, 'source_type'>): boolean {
 }
 
 /** Flat menu-group list for the group-source dropdown, grouped by menu. */
-function groupOptions(menus: Menu[]): { menuName: string; groups: { id: number; name: string }[] }[] {
+function groupOptions(menus: Menu[]): { menuId: number; menuName: string; groups: { id: number; name: string }[] }[] {
   return menus.map((m) => ({
+    menuId: m.id,
     menuName: m.name,
     groups: (m.groups ?? []).map((g) => ({ id: g.id, name: g.name })),
   })).filter((m) => m.groups.length > 0);
@@ -58,7 +46,7 @@ function dynamicSourceName(step: ComboStepDraft, menus: Menu[]): string | null {
   if (step.source_type === 'group' && step.source_group_id != null) {
     for (const m of menus) {
       const g = (m.groups ?? []).find((gr) => gr.id === step.source_group_id);
-      if (g) return g.name;
+      if (g) return `${g.name} · ${m.name}`;
     }
     return '…';
   }
@@ -90,11 +78,10 @@ function EditableField({
 }
 
 function InlineRules({
-  minPicks, maxPicks, optionsCount, onChange,
+  minPicks, maxPicks, onChange,
 }: {
   minPicks: number;
   maxPicks: number;
-  optionsCount: number;
   onChange: (next: { minPicks: number; maxPicks: number }) => void;
 }) {
   const { t } = useI18n();
@@ -106,20 +93,17 @@ function InlineRules({
     const next = Math.max(minPicks, Number.isFinite(raw) ? raw : 0);
     onChange({ minPicks, maxPicks: next });
   };
-  const inputCls =
-    'w-12 min-h-11 px-1 text-center text-fs-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm focus:outline-none focus:border-[var(--brand-500)] text-[var(--fg)]';
+  const inputClass = 'min-h-11 w-full rounded-r-sm border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-fs-sm text-[var(--fg)]';
   return (
-    <div className="inline-flex items-center gap-2 text-fs-sm text-[var(--fg-muted)] flex-wrap">
-      <ListChecks className="w-4 h-4 text-[var(--brand-ink)]" aria-hidden />
-      <span className="font-semibold text-[var(--fg)]">{t('composeRulesChoose')}</span>
-      <NumberInput integer min={0} value={minPicks} onChange={setMin} className={inputCls} aria-label={t('composeMin')} />
-      <span>{t('composeRulesTo')}</span>
-      <NumberInput integer min={Math.max(1, minPicks)} value={maxPicks} onChange={setMax} className={inputCls} aria-label={t('composeMax')} />
-      {optionsCount > 0 && (
-        <span className="text-[var(--fg-subtle)]">
-          {t('composeRulesAmong').replace('{n}', String(optionsCount))}
-        </span>
-      )}
+    <div className="grid max-w-sm grid-cols-2 gap-3">
+      <label className="flex flex-col gap-1 text-fs-xs text-[var(--fg-muted)]">
+        {t('composeStepPickMinimum')}
+        <NumberInput integer min={0} value={minPicks} onChange={setMin} className={inputClass} aria-label={t('composeMin')} />
+      </label>
+      <label className="flex flex-col gap-1 text-fs-xs text-[var(--fg-muted)]">
+        {t('composeStepPickMaximum')}
+        <NumberInput integer min={Math.max(1, minPicks)} value={maxPicks} onChange={setMax} className={inputClass} aria-label={t('composeMax')} />
+      </label>
     </div>
   );
 }
@@ -132,7 +116,7 @@ function ruleSummary(step: ComboStepDraft, optionsCount: number, t: (k: string) 
   const max = step.max_picks;
   if (max === 0) return t('composeStepSummaryEmpty');
   if (min === max) {
-    if (optionsCount > 0 && min === optionsCount) {
+    if (!isDynamicStep(step) && step.items.length === 1 && step.items[0].force_off_carte !== false && min === 1) {
       return t('composeStepSummaryAll').replace('{n}', String(min));
     }
     return t('composeStepSummaryExact')
@@ -159,22 +143,27 @@ interface Props {
   menus: Menu[];
   itemsById: Map<number, MenuItem>;
   anyCarteItemIds: Set<number>;
+  catalog?: ReactNode;
   /** Server-resolved preview for this step (group steps only). */
   preview?: StepPreview;
   isActive: boolean;
   onActivate: () => void;
   onChange: (next: ComboStepDraft) => void;
   onRemove: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }
 
 export default function StepCard({
   step, index, basePrice, menus, itemsById, anyCarteItemIds, preview,
-  isActive, onActivate, onChange, onRemove,
+  isActive, catalog, onActivate, onChange, onRemove, onMoveUp, onMoveDown,
 }: Props) {
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
-  const [switchToGroup, setSwitchToGroup] = useState(false);
+  const [nextSource, setNextSource] = useState<ComboStepDraft['source_type'] | null>(null);
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [showItemLimits, setShowItemLimits] = useState(() => !!step.max_per_item || !!step.item_limits?.length);
 
   const options = useMemo<ComboOptionView[]>(() => {
     const opts = buildOptions(step.items, itemsById);
@@ -186,7 +175,12 @@ export default function StepCard({
   // For dynamic steps the authoritative option count is the server resolver's
   // result (preview). Explicit steps count their listed options.
   const dynamic = isDynamicStep(step);
-  const dynamicAvailableCount = preview?.count ?? 0;
+  const dynamicAvailableCount = preview?.items.filter(item =>
+    item.availability_state !== 'sold_out' && item.availability_state !== 'hidden'
+  ).length ?? 0;
+  const previewReady = preview && !preview.loading && !preview.error;
+  const requiredGroupEmpty = dynamic && previewReady && dynamicAvailableCount === 0 && step.min_picks > 0;
+  const stepName = step.name || t('composeStepDefaultName').replace('{n}', String(index + 1));
   const optionsCount = dynamic ? dynamicAvailableCount : options.length;
 
   // Distinct items available in this step, for per-item limit overrides.
@@ -247,106 +241,101 @@ export default function StepCard({
     setOptions(options.map((o) => (o.menuItemId === menuItemId ? { ...o, forceOffCarte: next } : o)));
   };
 
-  // ── Closed (summary) state ───────────────────────────────────────────
+  const changeSource = (sourceType: ComboStepDraft['source_type']) => {
+    onChange({
+      ...step,
+      source_type: sourceType,
+      source_group_id: undefined,
+      source_variant_label: undefined,
+      source_size_id: undefined,
+      variant_rules: [],
+      items: [],
+      item_limits: [],
+    });
+    setNextSource(null);
+    setCatalogOpen(false);
+  };
+
+  const requestSource = (sourceType: ComboStepDraft['source_type']) => {
+    if (step.source_type === sourceType) return;
+    if (step.items.length > 0 || step.source_group_id || step.item_limits?.length) {
+      setNextSource(sourceType);
+    } else {
+      changeSource(sourceType);
+    }
+  };
 
   if (!isActive) {
-    const itemCount = dynamic ? dynamicAvailableCount : options.length;
-    const stepName = step.name || t('composeStepDefaultName').replace('{n}', String(index + 1));
+    const sourceName = dynamicSourceName(step, menus);
     return (
-      <div className="relative flex items-stretch gap-2 rounded-r-lg bg-[var(--surface)]">
-      <button aria-expanded={false} aria-label={stepName}
+      <button
+        aria-expanded={false}
+        aria-label={stepName}
         type="button"
         onClick={onActivate}
-        className="group/step min-w-0 flex-1 text-start rounded-r-lg border border-[var(--line)] bg-[var(--surface)] hover:border-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_3%,transparent)] transition-colors flex items-center gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)]"
-        style={{ borderInlineStartWidth: 3, borderInlineStartColor: 'color-mix(in oklab, var(--brand-500) 35%, transparent)' }}
+        className="flex min-h-16 w-full items-center gap-3 rounded-r-lg border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-start transition-colors hover:bg-[var(--surface-2)]"
       >
-        <div
-          className="w-7 h-7 rounded-full grid place-items-center text-[var(--action-fg)] font-semibold text-fs-xs shrink-0"
-          style={{ background: 'var(--action)' }}
-        >
+        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[var(--surface-2)] text-fs-sm font-semibold text-[var(--fg)]">
           {index + 1}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-fs-md font-semibold text-[var(--fg)] truncate">{stepName}</div>
-          <div className="text-fs-xs text-[var(--fg-muted)] flex flex-wrap items-center gap-2 mt-0.5">
-            <span className="inline-flex items-center gap-1">
-              <ListChecks className="w-3 h-3 text-[var(--brand-ink)]" />
-              {dynamic && (preview?.loading || preview?.error) ? t(preview?.error ? 'composeStepPreviewError' : 'composeStepPreviewLoading') : ruleSummary(step, optionsCount, t)}
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="break-words text-fs-md font-semibold text-[var(--fg)]">{stepName}</span>
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-fs-xs text-[var(--fg-muted)]">
+            <span>
+              {dynamic
+                ? [sourceName, step.source_variant_label].filter(Boolean).join(' · ') || t('composeStepGroupPlaceholder')
+                : t('composeStepModeExplicit')}
             </span>
-            {dynamic && dynamicSourceName(step, menus) != null && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-r-sm bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)] text-[var(--brand-ink)] font-medium">
-                {dynamicSourceName(step, menus)}
-                {step.source_variant_label ? ` · ${step.source_variant_label}` : ''}
+            {dynamic && preview?.error && <span>· {t('composeStepPreviewError')}</span>}
+            {dynamic && preview?.loading && <span>· {t('composeStepPreviewLoading')}</span>}
+            {requiredGroupEmpty && (
+              <span className="inline-flex items-center gap-1 font-medium text-[var(--warning-500)]">
+                <AlertTriangle aria-hidden="true" className="size-4" />
+                {t('composeStepRequiredEmpty')}
               </span>
             )}
-            <span className="text-[var(--fg-subtle)]">·</span>
-            {(!dynamic || (preview && !preview.loading && !preview.error)) && <span>{t('composeStepSummaryItemCount').replace('{n}', String(itemCount))}</span>}
-          </div>
-        </div>
-        <span className="text-fs-xs text-[var(--fg-subtle)] opacity-0 group-hover/step:opacity-100 transition-opacity shrink-0">
-          {t('composeStepSummaryEditCta')}
+            {!requiredGroupEmpty && (!dynamic || previewReady) && (
+              <span>· {optionsCount > 0 ? ruleSummary(step, optionsCount, t) : t('composeStepSummaryItemCount').replace('{n}', '0')}</span>
+            )}
+          </span>
         </span>
+        <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-[var(--fg-muted)]" />
       </button>
-        {canEdit && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="w-11 min-h-11 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[color-mix(in_oklab,var(--danger-500)_15%,transparent)] hover:text-[var(--danger-500)] shrink-0"
-            aria-label={t('composeStepDelete')}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        )}
-      </div>
     );
   }
 
-  // ── Open (editor) state ──────────────────────────────────────────────
-
   return (
     <>
-    <section aria-label={step.name || t('composeStepDefaultName').replace('{n}', String(index + 1))}
-      className="min-w-0 rounded-r-lg border border-[var(--brand-ink)] bg-[var(--surface)] overflow-hidden"
+    <section aria-label={stepName}
+      className="min-w-0 overflow-hidden rounded-r-lg border border-[var(--line-strong)] bg-[var(--surface)]"
     >
-      {/* Status strip — makes it unambiguous which step the catalog targets. */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-[var(--s-4)] py-[var(--s-2)] bg-[var(--brand-soft)] border-b border-[var(--line)]">
-        <span className="inline-flex items-center gap-1.5 text-fs-sm font-semibold text-[var(--brand-ink)]">
-          <span
-            className="w-5 h-5 rounded-full grid place-items-center text-[var(--action-fg)] font-semibold text-fs-xs"
-            style={{ background: 'var(--action)' }}
-          >
-            {index + 1}
-          </span>
-          {t('composeStepActiveLabel')}
-        </span>
-        <span className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepActiveHint')}</span>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            aria-expanded={true} onClick={onActivate}
-            className="inline-flex items-center gap-1 min-h-11 px-2 rounded-r-sm text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]"
-          >
-            <ChevronDown className="w-3.5 h-3.5" />
-            {t('composeStepClose')}
-          </button>
-          {canEdit && (
-            <button
-              type="button"
-              onClick={onRemove}
-              className="w-11 min-h-11 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[color-mix(in_oklab,var(--danger-500)_15%,transparent)] hover:text-[var(--danger-500)]"
-              aria-label={t('composeStepDelete')}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] bg-[var(--surface-2)] px-4 py-1">
+        <button
+          type="button"
+          aria-expanded={true}
+          onClick={onActivate}
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-start text-fs-sm font-semibold text-[var(--fg)]"
+        >
+          <ChevronUp aria-hidden="true" className="size-4 shrink-0 text-[var(--fg-muted)]" />
+          <span className="break-words">{index + 1}. {stepName}</span>
+        </button>
+        {canEdit && (
+          <div className="flex items-center gap-1">
+            <Button type="button" variant="ghost" icon onClick={onMoveUp} disabled={!onMoveUp} aria-label={t('composeStepMoveUp')}>
+              <ArrowUp aria-hidden="true" className="size-4" />
+            </Button>
+            <Button type="button" variant="ghost" icon onClick={onMoveDown} disabled={!onMoveDown} aria-label={t('composeStepMoveDown')}>
+              <ArrowDown aria-hidden="true" className="size-4" />
+            </Button>
+            <Button type="button" variant="ghost" icon onClick={onRemove} aria-label={t('composeStepDelete')}>
+              <Trash2 aria-hidden="true" className="size-4" />
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* Editor body — breathable spacing, fields stacked one per row. */}
-      <fieldset disabled={!canEdit} className="min-w-0 px-[var(--s-4)] py-[var(--s-4)] flex flex-col gap-[var(--s-4)]">
-
-        {/* Name + description */}
-        <div className="flex flex-col gap-3">
+      <fieldset disabled={!canEdit} className="flex min-w-0 flex-col gap-5 p-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <EditableField
             label={t('composeStepFieldName')} value={step.name}
             onChange={(name) => onChange({ ...step, name })}
@@ -361,115 +350,37 @@ export default function StepCard({
           />
         </div>
 
-        {/* Rules */}
-        <div className="flex flex-col gap-1.5">
-          <span className="text-fs-sm font-medium text-[var(--fg-muted)]">
-            {t('composeStepFieldRules')}
-          </span>
-          <InlineRules
-            minPicks={step.min_picks}
-            maxPicks={step.max_picks}
-            optionsCount={optionsCount}
-            onChange={({ minPicks, maxPicks }) =>
-              onChange({ ...step, min_picks: minPicks, max_picks: maxPicks })
-            }
-          />
-        </div>
-
-        {/* Per-item caps: a step-wide default (max repeats of any one item,
-            counted across sizes) plus optional per-item overrides. */}
         <div className="flex flex-col gap-2">
-          <span className="text-fs-sm font-medium text-[var(--fg-muted)]">
-            {t('composeStepPerItemTitle')}
-          </span>
-          <label className="inline-flex items-center gap-2 self-start">
-            <span className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepMaxPerItem')}</span>
-            <input
-              type="number"
-              min={0}
-              value={step.max_per_item || ''}
-              placeholder="∞"
-              onChange={(e) => setMaxPerItem(Math.max(0, Number(e.target.value) || 0))}
-              className="min-h-11 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
-            />
-          </label>
-          {(step.item_limits ?? []).length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              {(step.item_limits ?? []).map((l) => (
-                <div key={l.menu_item_id} className="flex items-center gap-2">
-                  <span className="flex-1 min-w-0 text-fs-sm text-[var(--fg)] truncate">
-                    {perItemChoices.find((c) => c.id === l.menu_item_id)?.name ?? l.item_name ?? `#${l.menu_item_id}`}
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    aria-label={`${t('composeStepMaxPerItem')} — ${perItemChoices.find(c => c.id === l.menu_item_id)?.name ?? l.item_name ?? l.menu_item_id}`}
-                    value={l.max_qty || ''}
-                    placeholder="∞"
-                    onChange={(e) => setItemLimitMax(l.menu_item_id, Number(e.target.value) || 0)}
-                    className="min-h-11 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeItemLimit(l.menu_item_id)}
-                    className="text-fs-sm text-[var(--fg-muted)] hover:text-[var(--danger-500)] px-1"
-                    aria-label={t('composeStepRemoveItemLimit')}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          {perItemChoices.some((c) => !(step.item_limits ?? []).some((l) => l.menu_item_id === c.id)) && (
-            <select aria-label={t('composeStepAddItemLimit')}
-              value=""
-              onChange={(e) => {
-                addItemLimit(Number(e.target.value));
-                e.currentTarget.value = '';
-              }}
-              className="min-h-11 px-2 self-start rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg-muted)]"
-            >
-              <option value="">{t('composeStepAddItemLimit')}</option>
-              {perItemChoices
-                .filter((c) => !(step.item_limits ?? []).some((l) => l.menu_item_id === c.id))
-                .map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-            </select>
-          )}
-        </div>
-
-        {/* Source mode — segmented control between manual list and dynamic category. */}
-        <div className="flex flex-col gap-1.5">
-          <span className="text-fs-sm font-medium text-[var(--fg-muted)]">
-            {t('composeStepFieldSource')}
-          </span>
-          <div className="inline-flex items-center gap-0.5 rounded-r-sm bg-[var(--surface-2)] p-0.5 self-start">
+          <span className="text-fs-sm font-semibold text-[var(--fg)]">{t('composeStepFieldSource')}</span>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <SourceSeg
-              active={step.source_type === 'explicit'}
-              onClick={() => {
-                if (!canEdit) return;
-                onChange({
-                  ...step,
-                  source_type: 'explicit',
-                  source_group_id: undefined,
-                  source_variant_label: undefined,
-                });
-              }}
+              active={!dynamic}
+              onClick={() => requestSource('explicit')}
               label={t('composeStepModeExplicit')}
+              description={t('composeStepModeExplicitHelp')}
             />
             <SourceSeg
-              active={step.source_type === 'group'}
-              onClick={() => {
-                if (!canEdit) return;
-                if (step.items.length > 0) { setSwitchToGroup(true); return; }
-                onChange({ ...step, source_type: 'group', items: [] });
-              }}
+              active={dynamic}
+              onClick={() => requestSource('group')}
               label={t('composeStepModeGroup')}
+              description={t('composeStepModeGroupHelp')}
             />
           </div>
         </div>
+
+        {!dynamic && canEdit && (
+          <div className="flex flex-col items-start gap-3">
+            <Button type="button" variant="secondary" aria-expanded={catalogOpen} onClick={() => setCatalogOpen(!catalogOpen)}>
+              {catalogOpen ? <ChevronUp aria-hidden="true" className="size-4" /> : <Plus aria-hidden="true" className="size-4" />}
+              {t(catalogOpen ? 'composeCloseCatalog' : 'composeOpenCatalog')}
+            </Button>
+            {catalogOpen && (
+              <div className="w-full min-w-0 rounded-r-md border border-[var(--line)] bg-[var(--surface-2)] p-3">
+                {catalog}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Content — items list (explicit) or the group source panel */}
         {dynamic ? (
@@ -512,24 +423,125 @@ export default function StepCard({
             })}
           </div>
         )}
+        {/* Step and per-item limits */}
+        <div className="flex flex-col gap-1.5">
+          <span className="text-fs-sm font-medium text-[var(--fg-muted)]">
+            {t('composeStepFieldRules')}
+          </span>
+          <InlineRules
+            minPicks={step.min_picks}
+            maxPicks={step.max_picks}
+            onChange={({ minPicks, maxPicks }) =>
+              onChange({ ...step, min_picks: minPicks, max_picks: maxPicks })
+            }
+          />
+        </div>
+
+        <details
+          open={showItemLimits}
+          onToggle={event => setShowItemLimits(event.currentTarget.open)}
+          className="rounded-r-md border border-[var(--line)] px-3"
+        >
+          <summary className="cursor-pointer py-3 text-fs-sm font-medium text-[var(--fg)]">
+            {t('composeStepPerItemTitle')}
+          </summary>
+          <div className="flex flex-col gap-2 pb-3">
+            <label className="inline-flex items-center gap-2 self-start">
+              <span className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepMaxPerItem')}</span>
+              <input
+                type="number"
+                min={0}
+                value={step.max_per_item || ''}
+                placeholder="∞"
+                onChange={(e) => setMaxPerItem(Math.max(0, Number(e.target.value) || 0))}
+                className="min-h-11 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
+              />
+            </label>
+            {(step.item_limits ?? []).length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                {(step.item_limits ?? []).map((l) => (
+                  <div key={l.menu_item_id} className="flex items-center gap-2">
+                    <span className="flex-1 min-w-0 text-fs-sm text-[var(--fg)] truncate">
+                      {perItemChoices.find((c) => c.id === l.menu_item_id)?.name ?? l.item_name ?? `#${l.menu_item_id}`}
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      aria-label={`${t('composeStepMaxPerItem')} — ${perItemChoices.find(c => c.id === l.menu_item_id)?.name ?? l.item_name ?? l.menu_item_id}`}
+                      value={l.max_qty || ''}
+                      placeholder="∞"
+                      onChange={(e) => setItemLimitMax(l.menu_item_id, Number(e.target.value) || 0)}
+                      className="min-h-11 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeItemLimit(l.menu_item_id)}
+                      className="text-fs-sm text-[var(--fg-muted)] hover:text-[var(--danger-500)] px-1"
+                      aria-label={t('composeStepRemoveItemLimit')}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {perItemChoices.some((c) => !(step.item_limits ?? []).some((l) => l.menu_item_id === c.id)) && (
+              <select aria-label={t('composeStepAddItemLimit')}
+                value=""
+                onChange={(e) => {
+                  addItemLimit(Number(e.target.value));
+                  e.currentTarget.value = '';
+                }}
+                className="min-h-11 px-2 self-start rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg-muted)]"
+              >
+                <option value="">{t('composeStepAddItemLimit')}</option>
+                {perItemChoices
+                  .filter((c) => !(step.item_limits ?? []).some((l) => l.menu_item_id === c.id))
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+              </select>
+            )}
+          </div>
+        </details>
       </fieldset>
       {dynamic && preview?.error && <div className="px-4 pb-4"><Button type="button" variant="secondary" size="lg" onClick={preview.retry}>{t('retry')}</Button></div>}
     </section>
-    <ConfirmDialog open={switchToGroup} onOpenChange={setSwitchToGroup} title={t('composeStepModeGroup')} description={t('composeStepModeSwitchConfirm')} confirmLabel={t('confirm')} cancelLabel={t('cancel')} onConfirm={() => { onChange({ ...step, source_type:'group', items:[] }); setSwitchToGroup(false); }}/>
+    <ConfirmDialog
+      open={nextSource !== null}
+      onOpenChange={open => { if (!open) setNextSource(null); }}
+      title={t(nextSource === 'group' ? 'composeStepModeGroup' : 'composeStepModeExplicit')}
+      description={t('composeStepModeSwitchConfirm')}
+      confirmLabel={t('confirm')}
+      cancelLabel={t('cancel')}
+      onConfirm={() => { if (nextSource) changeSource(nextSource); }}
+    />
     </>
   );
 }
 
-function SourceSeg({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+function SourceSeg({ active, onClick, label, description }: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  description: string;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className="selection-button"
-    ><span className="choice-copy">
-      {label}
-    </span><SelectionIndicator checked={active} /></button>
+      aria-label={label}
+      className={`flex min-h-16 items-start justify-between gap-2 rounded-r-md border px-3 py-2.5 text-start ${
+        active ? 'border-[var(--fg)] bg-[var(--surface-2)]' : 'border-[var(--line)] hover:bg-[var(--surface-2)]'
+      }`}
+    >
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-fs-sm font-semibold text-[var(--fg)]">{label}</span>
+        <span className="text-fs-xs text-[var(--fg-muted)]">{description}</span>
+      </span>
+      <SelectionIndicator checked={active} />
+    </button>
   );
 }
 
@@ -550,6 +562,7 @@ function DynamicModePanel({
 }) {
   const { t } = useI18n();
   const selectedId = step.source_group_id ?? 0;
+  const [showSizeLimits, setShowSizeLimits] = useState(() => !!step.variant_rules?.length);
 
   // Candidate items for the size-label dropdown: every item in the chosen group
   // (regardless of any current size pin), looked up in the global item library
@@ -561,63 +574,39 @@ function DynamicModePanel({
       .filter((it): it is MenuItem => !!it && it.is_active);
   }, [selectedId, menus, itemsById]);
 
-  const sizeLabels = useMemo(() => {
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const it of candidateItems) {
-      for (const v of getSourceVariants(it)) {
-        const name = v.name.trim();
-        const key = name.toLowerCase();
-        if (name && !seen.has(key)) {
-          seen.add(key);
-          out.push(name);
-        }
+  const sizes = useMemo(() => {
+    const result = new Map<number, string>();
+    for (const item of candidateItems) {
+      for (const variant of getSourceVariants(item)) {
+        if (variant.sizeId != null) result.set(variant.sizeId, variant.name);
       }
     }
-    return out.sort();
+    return Array.from(result, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [candidateItems]);
 
-  const label = step.source_variant_label?.trim() ?? '';
+  const storedLabel = step.source_variant_label?.trim() ?? '';
+  const selectedSize = step.source_size_id != null ? String(step.source_size_id) : storedLabel ? 'legacy' : '';
+  const selectedAvailable = sizes.some(size => size.id === step.source_size_id);
   const groups = useMemo(() => groupOptions(menus), [menus]);
-  const availableNames = preview?.items.map((i) => i.name) ?? [];
+  const availableNames = preview?.items
+    .filter(item => item.availability_state !== 'sold_out' && item.availability_state !== 'hidden')
+    .map(item => item.name) ?? [];
 
-  // Per-size caps: map normalized label -> {min,max} from the draft rules.
-  const rulesByLabel = useMemo(() => {
-    const m = new Map<string, { min: number; max: number }>();
-    for (const r of step.variant_rules ?? []) {
-      m.set(r.variant_label.trim().toLowerCase(), { min: r.min_picks, max: r.max_picks });
-    }
-    return m;
-  }, [step.variant_rules]);
-  const hasCaps = (step.variant_rules ?? []).some((r) => r.min_picks > 0 || r.max_picks > 0);
+  const rulesBySize = new Map((step.variant_rules ?? []).map(rule => [comboSizeKey(rule.size_id, rule.variant_label), rule]));
+  const ruleSizes = new Map<string, { id?: number; name: string }>();
+  rulesBySize.forEach((rule, key) => ruleSizes.set(key, { id: rule.size_id, name: rule.variant_label }));
+  for (const size of sizes) ruleSizes.set(comboSizeKey(size.id, size.name), size);
 
-  const onSelectSource = (id: number) =>
-    onChange({ ...step, source_group_id: id || undefined, source_variant_label: undefined, variant_rules: [] });
-
-  // Update one size's min/max. Any active cap turns the whole step into
-  // customer-choice-with-caps mode: we emit a rule for EVERY size (uncapped
-  // ones as 0/0 = unlimited) so they all stay choosable, and clear the legacy
-  // single-size pin. No caps anywhere → drop rules entirely (legacy behaviour).
-  const setRule = (sizeName: string, patch: { min?: number; max?: number }) => {
-    const key = sizeName.trim().toLowerCase();
-    const cur = rulesByLabel.get(key) ?? { min: 0, max: 0 };
-    const next = { min: patch.min ?? cur.min, max: patch.max ?? cur.max };
-    const resolved = new Map<string, { min: number; max: number }>();
-    for (const l of sizeLabels) {
-      const k = l.toLowerCase();
-      resolved.set(k, k === key ? next : rulesByLabel.get(k) ?? { min: 0, max: 0 });
-    }
-    const anyCap = Array.from(resolved.values()).some((v) => v.min > 0 || v.max > 0);
-    const variant_rules = anyCap
-      ? sizeLabels.map((l) => {
-          const v = resolved.get(l.toLowerCase())!;
-          return { variant_label: l, min_picks: v.min, max_picks: v.max };
-        })
-      : [];
+  const setRule = (key: string, patch: { min?: number; max?: number }) => {
+    const rules = Array.from(ruleSizes, ([sizeKey, size]) => ({
+      size_id: size.id,
+      variant_label: size.name,
+      min_picks: (sizeKey === key ? patch.min : undefined) ?? rulesBySize.get(sizeKey)?.min_picks ?? 0,
+      max_picks: (sizeKey === key ? patch.max : undefined) ?? rulesBySize.get(sizeKey)?.max_picks ?? 0,
+    }));
     onChange({
       ...step,
-      variant_rules,
-      source_variant_label: anyCap ? undefined : step.source_variant_label,
+      variant_rules: rules.some(rule => rule.min_picks > 0 || rule.max_picks > 0) ? rules : [],
     });
   };
 
@@ -625,90 +614,93 @@ function DynamicModePanel({
     <div className="flex flex-col gap-3">
       <select aria-label={t('composeStepGroupPlaceholder')}
         value={selectedId}
-        onChange={(e) => onSelectSource(Number(e.target.value))}
+        onChange={event => onChange({ ...step, source_group_id: Number(event.target.value) || undefined })}
         className="min-h-11 px-2 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
       >
         <option value={0}>{t('composeStepGroupPlaceholder')}</option>
+        {selectedId > 0 && !groups.some(menu => menu.groups.some(group => group.id === selectedId)) && (
+          <option value={selectedId}>{t('composeStepGroupUnavailable')}</option>
+        )}
         {groups.map((m) => (
-          <optgroup key={m.menuName} label={m.menuName}>
+          <optgroup key={m.menuId} label={m.menuName}>
             {m.groups.map((g) => (
-              <option key={g.id} value={g.id}>{g.name}</option>
+              <option key={g.id} value={g.id}>{g.name} · {m.menuName}</option>
             ))}
           </optgroup>
         ))}
       </select>
 
-      {selectedId > 0 && sizeLabels.length > 0 && (
+      {selectedId > 0 && (sizes.length > 0 || selectedSize || ruleSizes.size > 0) && (
         <div className="flex flex-col gap-3">
-          {/* Single-size pin: force every pick to one size (no customer choice).
-              Clearing it to "Toutes les tailles" unlocks the per-size limits
-              table below — the two modes are mutually exclusive. */}
           <label className="flex flex-col gap-1">
             <span className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepSizeLabel')}</span>
             <select
-              value={label}
-              onChange={(e) =>
-                onChange({ ...step, source_variant_label: e.target.value || undefined, variant_rules: [] })
-              }
+              value={selectedSize}
+              onChange={event => {
+                if (event.target.value === 'legacy') return;
+                const size = sizes.find(choice => String(choice.id) === event.target.value);
+                onChange({ ...step, source_size_id: size?.id, source_variant_label: size?.name, variant_rules: [] });
+              }}
               className="min-h-11 px-2 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
             >
               <option value="">{t('composeStepSizeAll')}</option>
-              {sizeLabels.map((l) => (
-                <option key={l} value={l}>{l}</option>
+              {selectedSize && !selectedAvailable && <option value={selectedSize}>{storedLabel || t('composeStepSizeEmptyHint')}</option>}
+              {sizes.map(size => (
+                <option key={size.id} value={size.id}>{size.name}</option>
               ))}
             </select>
           </label>
 
-          {/* Per-size caps: customer chooses a size per pick, bounded by these
-              min/max limits (e.g. up to 4 at 500g, the rest 250g). Leave a row
-              blank for "no limit". Always visible so the feature is discoverable;
-              disabled while a single size is forced above. */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepSizeRulesLabel')}</span>
-            <p className="text-fs-xs text-[var(--fg-subtle)]">
-              {label ? t('composeStepSizeRulesDisabled') : t('composeStepSizeRulesHint')}
-            </p>
-            <div className="grid grid-cols-[1fr_4rem_4rem] gap-2 text-fs-xs uppercase tracking-wide text-[var(--fg-subtle)]">
-              <span>{t('composeStepSizeCol')}</span>
-              <span className="text-center">{t('composeStepMinCol')}</span>
-              <span className="text-center">{t('composeStepMaxCol')}</span>
-            </div>
-            {sizeLabels.map((l) => {
-              const cur = rulesByLabel.get(l.toLowerCase()) ?? { min: 0, max: 0 };
-              return (
-                <div key={l} className={`grid grid-cols-[1fr_4rem_4rem] gap-2 items-center ${label ? 'opacity-40' : ''}`}>
-                  <span className="text-fs-sm text-[var(--fg)]">{l}</span>
-                  <input
-                    type="number"
-                    min={0}
-                    disabled={!!label}
-                    aria-label={`${t('composeMin')} — ${l}`} value={cur.min || ''}
-                    placeholder="0"
-                    onChange={(e) => setRule(l, { min: Math.max(0, Number(e.target.value) || 0) })}
-                    className="min-h-11 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)] disabled:cursor-not-allowed"
-                  />
-                  <input
-                    type="number"
-                    min={0}
-                    disabled={!!label}
-                    aria-label={`${t('composeMax')} — ${l}`} value={cur.max || ''}
-                    placeholder="∞"
-                    onChange={(e) => setRule(l, { max: Math.max(0, Number(e.target.value) || 0) })}
-                    className="min-h-11 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)] disabled:cursor-not-allowed"
-                  />
+          {!selectedSize && ruleSizes.size > 0 && (
+            <details
+              open={showSizeLimits}
+              onToggle={event => setShowSizeLimits(event.currentTarget.open)}
+              className="rounded-r-md border border-[var(--line)] px-3"
+            >
+              <summary className="cursor-pointer py-3 text-fs-sm font-medium text-[var(--fg)]">
+                {t('composeStepSizeRulesLabel')}
+              </summary>
+              <div className="flex flex-col gap-2 pb-3">
+                <p className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepSizeRulesHint')}</p>
+                <div className="grid grid-cols-[1fr_4rem_4rem] gap-2 text-fs-xs text-[var(--fg-muted)]">
+                  <span>{t('composeStepSizeCol')}</span>
+                  <span className="text-center">{t('composeStepMinCol')}</span>
+                  <span className="text-center">{t('composeStepMaxCol')}</span>
                 </div>
-              );
-            })}
-            {hasCaps && (
-              <button
-                type="button"
-                onClick={() => onChange({ ...step, variant_rules: [] })}
-                className="self-start text-fs-xs text-[var(--fg-muted)] underline hover:text-[var(--fg)]"
-              >
-                {t('composeStepSizeRulesClear')}
-              </button>
-            )}
-          </div>
+                {Array.from(ruleSizes, ([key, { name }]) => {
+                  const rule = rulesBySize.get(key);
+                  return (
+                    <div key={key} className="grid grid-cols-[1fr_4rem_4rem] items-center gap-2">
+                      <span className="text-fs-sm text-[var(--fg)]">{name}</span>
+                      <NumberInput integer min={0}
+                        aria-label={`${t('composeMin')} — ${name}`}
+                        value={rule?.min_picks || null}
+                        placeholder="0"
+                        onChange={value => setRule(key, { min: Math.max(0, value || 0) })}
+                        className="min-h-11 w-16 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] px-2 text-center text-fs-sm"
+                      />
+                      <NumberInput integer min={0}
+                        aria-label={`${t('composeMax')} — ${name}`}
+                        value={rule?.max_picks || null}
+                        placeholder="∞"
+                        onChange={value => setRule(key, { max: Math.max(0, value || 0) })}
+                        className="min-h-11 w-16 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] px-2 text-center text-fs-sm"
+                      />
+                    </div>
+                  );
+                })}
+                {rulesBySize.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => onChange({ ...step, variant_rules: [] })}
+                    className="self-start text-fs-xs text-[var(--fg-muted)] underline hover:text-[var(--fg)]"
+                  >
+                    {t('composeStepSizeRulesClear')}
+                  </button>
+                )}
+              </div>
+            </details>
+          )}
         </div>
       )}
 
@@ -726,14 +718,20 @@ function DynamicModePanel({
       )}
 
       {selectedId > 0 && preview && !preview.loading && !preview.error && availableNames.length === 0 && (
-        <div className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepCategoryEmpty')}</div>
+        <CategoryZone
+          tone="warn"
+          icon={<AlertTriangle aria-hidden="true" className="size-4" />}
+          title={t(step.min_picks > 0 ? 'composeStepRequiredEmpty' : 'composeStepCategoryEmpty')}
+          subtitle={t(selectedSize ? 'composeStepSizeEmptyHint' : 'composeStepGroupEmptyHint')}
+          items={[]}
+        />
       )}
 
       {selectedId > 0 && preview && !preview.loading && !preview.error && availableNames.length > 0 && (
         <CategoryZone
           tone="ok"
           icon={<Check className="w-3.5 h-3.5" />}
-          title={t('composeStepCategoryAvailable').replace('{n}', String(availableNames.length))}
+          title={t(availableNames.length === 1 ? 'composeStepOneChoiceAvailable' : 'composeStepCategoryAvailable').replace('{n}', String(availableNames.length))}
           items={availableNames}
         />
       )}
