@@ -13,6 +13,7 @@ import {
 } from "@/lib/website-v3/url-model";
 import { pageKey, type DraftPagePayload } from "@/lib/website-v3/types";
 import { ImageUploadField } from "./SectionContentEditors";
+import { siteShareCopy } from "./site-share-copy";
 
 /** Stages page metadata locally until Save; closing or Cancel never autosaves it. */
 export function PageSettingsDialog({
@@ -32,7 +33,7 @@ export function PageSettingsDialog({
   onClose: () => void;
   onSave: (page: DraftPagePayload) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [draft, setDraft] = useState(page);
   const [tab, setTab] = useState("general");
   const slug = normalizeSlug(draft.slug);
@@ -134,6 +135,7 @@ export function PageSettingsDialog({
                   onUploaded={(url) => seo("share_image_url", url)}
                   onRemove={() => seo("share_image_url", "")}
                 />
+                <p className="text-xs text-fg-secondary">{siteShareCopy[locale].pageImageHint}</p>
                 <div className="sqe-search-preview">
                   <strong>{String(draft.seo?.title || draft.title)}</strong>
                   <p>{String(draft.seo?.description || "")}</p>

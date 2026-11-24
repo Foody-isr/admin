@@ -335,7 +335,8 @@ http
       res.end();
       return;
     }
-    const path = new URL(req.url, "http://localhost").pathname;
+    const url = new URL(req.url, "http://localhost");
+    const path = url.pathname;
     if (path === "/__reel-fixture/clip.mp4" && req.method === "GET") {
       const clip = readFileSync(new URL("../website-editor/fixtures/video.mp4", import.meta.url));
       res.setHeader("Content-Type", "video/mp4");
@@ -424,6 +425,19 @@ http
           { id: 6, name: "Salade aux légumes de saison et accompagnement de la maison", quantity: 1, unit_price: 23, total: 23, notes: "Sans oignons" },
         ],
       } };
+    else if (path === "/api/v1/public/orders/1234")
+      result = url.searchParams.get("restaurant_id") === "1"
+        ? { json: { order: {
+            id: 1234,
+            restaurant_id: 1,
+            order_type: "delivery",
+            order_status: "out_for_delivery",
+            payment_status: "paid",
+            total_amount: 108,
+            created_at: date,
+            items: [],
+          } } }
+        : { status: 404, json: { error: "Order not found" } };
     else if (path.endsWith("/website-pages"))
       result = { json: { pages: publicPages() } };
     else if (path.includes("/website-pages/")) {
