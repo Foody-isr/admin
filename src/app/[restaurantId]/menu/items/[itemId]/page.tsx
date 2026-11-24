@@ -45,11 +45,9 @@ import { useItemLeaveGuard } from '@/components/menu-item/useItemLeaveGuard';
 import type { SimulatorReceipt } from '@/components/menu-item/WhatIfSimulator';
 import CompositionTab from '@/components/menu-item/combo/CompositionTab';
 import TypeSwitchConfirm, { TypeSwitchLossSummary } from '@/components/menu-item/combo/TypeSwitchConfirm';
-import ComboSavingsBreakdownModal from '@/components/menu-item/combo/ComboSavingsBreakdownModal';
 import type { ComboStepDraft } from '@/components/menu-item/combo/types';
 import { deriveStepKind } from '@/components/menu-item/combo/types';
 import { toComboStepInputs } from '@/components/menu-item/combo/serialize';
-import { computeComboSavingsBreakdown } from '@/components/menu-item/combo/pricing';
 import { Button, ConfirmDialog } from '@/components/ds';
 import { keyedRecipeIngredients } from '@/lib/recipe-editor-rows';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
@@ -155,15 +153,13 @@ function EditItemEditor() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [aiModalOpen, setAiModalOpen] = useState(false);
 
-  // Combo steps — shape now imported from combo/types.ts (shared between
-  // create + edit pages).
   const [comboSteps, setComboSteps] = useState<ComboStepDraft[]>([]);
+  const savedComposition = useRef<string | null>(null);
 
   // Type-switch confirmation. The picker requests a switch; if any
   // type-specific data exists, this holds the pending target until the user
   // confirms. See `requestTypeChange` below.
   const [pendingType, setPendingType] = useState<ItemType | null>(null);
-  const [savingsModalOpen, setSavingsModalOpen] = useState(false);
 
   // Modifier sets modal
   const [allModifierSets, setAllModifierSets] = useState<ModifierSet[]>([]);
@@ -259,7 +255,7 @@ function EditItemEditor() {
     setLoadError('');
     try {
       const [cats, allMenus, ms, optSets, optOverrides, stock, prep, ings, restaurant, settings] = await Promise.all([
-        getAllCategories(rid),
+        getAllCategories(rid, { comboConfiguration: true }),
         listMenus(rid),
         listModifierSets(rid),
         listOptionSets(rid),
@@ -320,8 +316,8 @@ function EditItemEditor() {
           setComboAllowQuantity(found.combo_allow_quantity ?? true);
           setItemType(found.item_type || 'food_and_beverage');
           setPhotos(itemPhotos(found));
-          if (found.item_type === 'combo' && found.combo_steps) {
-            setComboSteps(found.combo_steps.map((s) => {
+          if (found.item_type === 'combo') {
+            const configuredSteps = (found.combo_steps ?? []).map((s) => {
               // Group choices are resolved from the carte and can be null.
               // A manual list must be loaded before it can be saved again.
               const items = s.items;
@@ -332,6 +328,7 @@ function EditItemEditor() {
                 key: crypto.randomUUID(),
                 name: s.name,
                 description: s.description ?? '',
+                fixed_modifier_name: s.fixed_modifier_name,
                 min_picks: s.min_picks,
                 max_picks: s.max_picks,
                 // Legacy "category" steps are coerced to explicit (category mode
@@ -339,8 +336,10 @@ function EditItemEditor() {
                 source_type: s.source_type === 'group' ? 'group' : 'explicit',
                 source_group_id: s.source_group_id ?? undefined,
                 source_variant_label: s.source_variant_label ?? undefined,
+                source_size_id: s.source_size_id ?? undefined,
                 variant_rules: (s.variant_rules ?? []).map((r) => ({
                   variant_label: r.variant_label,
+                  size_id: r.size_id ?? undefined,
                   min_picks: r.min_picks,
                   max_picks: r.max_picks,
                 })),
@@ -364,7 +363,9 @@ function EditItemEditor() {
               };
               draft.kind = deriveStepKind(draft);
               return draft;
-            }));
+            });
+            setComboSteps(configuredSteps);
+            savedComposition.current = JSON.stringify(toComboStepInputs(configuredSteps));
           }
           }
           break;
@@ -513,10 +514,13 @@ function EditItemEditor() {
         image_urls: photos.slice(1),
         translations,
       };
-      if (itemType === 'combo') {
-        updatePayload.combo_steps = toComboStepInputs(comboSteps);
+      const composition = itemType === 'combo' ? toComboStepInputs(comboSteps) : undefined;
+      const compositionSnapshot = composition ? JSON.stringify(composition) : null;
+      if (composition && compositionSnapshot !== savedComposition.current) {
+        updatePayload.combo_steps = composition;
       }
       const updated = await updateMenuItem(rid, iid, updatePayload as Parameters<typeof updateMenuItem>[2]);
+      savedComposition.current = compositionSnapshot;
       setItem((prev) => prev ? { ...prev, ...updated } : prev);
       if (itemType !== 'combo' && recipeRef.current?.isDirty()) {
         await recipeRef.current.save();
@@ -601,14 +605,6 @@ function EditItemEditor() {
     [categories, categoryId],
   );
 
-  // Combo savings for the rail. Mirrors the PricingCard math via the same
-  // pure helper, so the two stay in sync. Hooks must run unconditionally —
-  // declared here, *above* the loading early return below.
-  const comboItemsById = useMemo(() => {
-    const m = new Map<number, MenuItem>();
-    for (const cat of categories) for (const it of cat.items ?? []) m.set(it.id, it);
-    return m;
-  }, [categories]);
 
   // Render the modal shell immediately — matches the stock-editor UX where
   // the dimmed backdrop + inset container appear in one frame, then the body
@@ -894,7 +890,6 @@ function EditItemEditor() {
                     categories={categories}
                     menus={menus}
                     restaurantId={rid}
-                    onShowSavingsDetail={() => setSavingsModalOpen(true)}
                     comboAllowQuantity={comboAllowQuantity}
                     onComboAllowQuantityChange={setComboAllowQuantity}
                   />
@@ -1198,18 +1193,6 @@ function EditItemEditor() {
         />
       )}
 
-      {/* ── Combo savings breakdown modal ──────────────────────── */}
-      {savingsModalOpen && itemType === 'combo' && (
-        <ComboSavingsBreakdownModal
-          comboName={name || undefined}
-          breakdown={computeComboSavingsBreakdown(
-            price,
-            comboSteps,
-            comboItemsById,
-          )}
-          onClose={() => setSavingsModalOpen(false)}
-        />
-      )}
     </>
   );
 }

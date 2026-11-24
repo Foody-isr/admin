@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "8f0bd0477b3e1c2fd803786fa7e6361ddd665bc0",
-  "documentationRevision": "ef1fbff2327e891317a9b52b5243d85e4638d859748e9cb2828e181969295351",
+  "documentationRef": "deda9eba59ce13e987874832ac8dbe7f0e02f760",
+  "documentationRevision": "edd6ae4ad8f4eee2c90adc0152c12d339ba32f42b44a6cf5c8d4dc274d90211b",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -848,15 +848,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/combos.mdx",
-          "sha256": "0214e8d033d83759b3c6a9e1ff707c828fc4ebd4bc33cc931be3cd9124fc9482"
+          "sha256": "c00c728927ddab61746946f59c047e7e0715c1889f5775716acdfb6ca19de83b"
         },
         "fr": {
           "path": "src/content/help/fr/menu/combos.mdx",
-          "sha256": "0a4046a45af1ce7725607a05e76ec6334dfef42f2cacecdd69b044c5b2a0a3d4"
+          "sha256": "4592cefbda08367ee04082e663c88a958b92664f40cdc3d2e9abd5fc74cbda27"
         },
         "he": {
           "path": "src/content/help/he/menu/combos.mdx",
-          "sha256": "e6cba5e16b979619e7eec3c94b15202e8a762e2ce3c07a9a6182e82b29da2df1"
+          "sha256": "1afccaf6d200de479886aac16b95f64e1b1f453d2fbde69ee4876124c7ee8fee"
         }
       }
     },
@@ -1342,15 +1342,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/victa-mini.mdx",
-          "sha256": "fd7444c4adb271834eb44b20c9b67322932fe60f8ef0da24d9165570e780ad96"
+          "sha256": "e91910e65075d073c99a199737301fac9e19d10602cec905b75e70e95eaefe80"
         },
         "fr": {
           "path": "src/content/help/fr/payments/victa-mini.mdx",
-          "sha256": "536cd807e9b1c37c09d246d35618b36ad757923ab19a0424ce3e53cf32c957d5"
+          "sha256": "f0ee313b6cfc9a4849208509cdb6110a22437d60d7b547c454f7be1743513d36"
         },
         "he": {
           "path": "src/content/help/he/payments/victa-mini.mdx",
-          "sha256": "a15c2169e150ad060a9f4b92cab713b5fe51114a2dc06c07c2e5bbbb973e290a"
+          "sha256": "6dbe351337b58db558dd36d0bc89274b07a2513b42ba2e75f04f47b939c7a595"
         }
       }
     },
@@ -1722,15 +1722,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/access-and-dashboard.md",
-          "sha256": "f2c52e32579cf88c422d3f3c6828ec042a845552ac76e5e7d036696fd4be3150"
+          "sha256": "b40c9e9045784c49e1946961952ad1bf73f6a971fd2db1a7c65c44d17de3c30f"
         },
         "fr": {
           "path": "docs/help/internal/fr/access-and-dashboard.md",
-          "sha256": "faca69378564f3935ebe77bc6ffc01f2a76add0b0004f930abaf8b8622d8f9ca"
+          "sha256": "e7310a05004813f97bb1f999cd9ecf96ef6296aa9eabed132897ed163775261c"
         },
         "he": {
           "path": "docs/help/internal/he/access-and-dashboard.md",
-          "sha256": "84e77dfb2d5d810255584c7cab76fad79ebb5065341aee3ff9adb74a3bdd0820"
+          "sha256": "b41b536b2c86652eb251636ba3a11b1c21e3953fd33f763aec724f9cf3da6a23"
         }
       }
     },
@@ -1836,15 +1836,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "f4591dee0a543a1ab85a575839ae4e2c7612ab26f8a3a2fa03781e109f8b47c6"
+          "sha256": "227e854cfcea6f2eb1f6301b566e32310d4c282f82249088e202f54aeceea4a1"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "13f933049d9ecb4ba413696c8a5b03023a904cf7ed2bbd6159d5b2dab40a0a4d"
+          "sha256": "7090f2ce83cdd77426022af3a3a8078c0cd68edcacea7e83fc86787c79f271b8"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "50ede2eb86c22243a9afee888e59261af280f85aefdd14825310a77304e46077"
+          "sha256": "0668d5d7656740edd9dbd099626f87d02efce176769cfab22082f967593cac49"
         }
       }
     },
@@ -2064,15 +2064,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/end-of-day.mdx",
-          "sha256": "d27f85dacab37d03759e65e8921ca4b30b610578eed74ee18e820fe9c7b8bf03"
+          "sha256": "d7203204a6012856730f59caf1b4711c945b8a0ebff0ac4df29ed59cfd8b5552"
         },
         "fr": {
           "path": "src/content/help/fr/payments/end-of-day.mdx",
-          "sha256": "86844017dec883c5b7b08e38114a1d5a591b17581f0d54a53092f00ea4a2d796"
+          "sha256": "a554860cc51f799e3151b5c5e32ce8485961418325ed1fcfb93c6af655442145"
         },
         "he": {
           "path": "src/content/help/he/payments/end-of-day.mdx",
-          "sha256": "8a5085a7d4e5bbfc64e484d50ab238dff935d20e0273f365eeb8371d0a978ae9"
+          "sha256": "20fcde5eb603a90d191f206c68d247965c2fd826cc11eea8418c5e093c5b0661"
         }
       }
     },
@@ -2949,24 +2949,26 @@
       ]
     },
     "src/app/[restaurantId]/menu/items/[itemId]/page.tsx": {
-      "sha256": "2a3ba0cde583f38846df9f3270573ce802157d5280bffe5f3fc6b5e93b934e05",
+      "sha256": "aac9c148d62e95043e6dae0876939d496433cfb03295768b38a9d8b0c77623e3",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
+        "combos",
         "menu-product-photos"
       ]
     },
     "src/app/[restaurantId]/menu/items/new/page.tsx": {
-      "sha256": "183d6c4c4d80a356487cfdbf0ae791f37685c9f8dc2e131f56bea631e84f4ff8",
+      "sha256": "a748e5a1c59509c5ad585db8a47edfee835ed896b99a86740817e12e0c4fce22",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
+        "combos",
         "menu-product-photos"
       ]
     },
@@ -3075,14 +3077,15 @@
       ]
     },
     "src/app/[restaurantId]/menu/options/[optionSetId]/page.tsx": {
-      "sha256": "4ba4ab99fdf672ecb65b0b7d1cc2586f832fd68656c9d8f76306525f74d71901",
+      "sha256": "f6b765de5ed049e00d1eff00c69502a7fe3337ea5468025fe1d109eb9ee20d75",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
-        "menu-modifiers"
+        "menu-modifiers",
+        "combos"
       ]
     },
     "src/app/[restaurantId]/menu/options/new/page.tsx": {
@@ -4939,13 +4942,14 @@
       ]
     },
     "src/components/menu-item/VariantsEditor.tsx": {
-      "sha256": "81e56b3de306355b99e410c8ac91e4e35b4cac0d2a69a022cccc9b3ef02bc176",
+      "sha256": "cc43c3311a3fce09d2f9f7576688f406592d5119a9c4bb81e8ea85a1f79d4d6a",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
-        "menu-variants-and-sizes"
+        "menu-variants-and-sizes",
+        "combos"
       ]
     },
     "src/components/menu-item/WhatIfSimulator.tsx": {
@@ -4959,7 +4963,7 @@
       ]
     },
     "src/components/menu-item/combo/CarteCatalog.tsx": {
-      "sha256": "cc98bcf4126f7cba3ca1344f5a510147e474b2d231ac8bb7e0364b0407e3fd7b",
+      "sha256": "2d5034fde199eb50b4c812e343068796b705c50726fe22cc754244f404b2808d",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -4981,7 +4985,7 @@
       ]
     },
     "src/components/menu-item/combo/CompositionTab.tsx": {
-      "sha256": "cae8ac06337ba310b0ddf20c4590125201ab9a88f0d2d2510604b6083b963de6",
+      "sha256": "0e32630bc3b3216e9e24b21b2d5d943dad53298a84baa7e43ba76316da652e08",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -5036,7 +5040,7 @@
       ]
     },
     "src/components/menu-item/combo/StepCard.tsx": {
-      "sha256": "73e91ecfdae50ee3bbf20e466668d7c21d8d6d84845af076a141b622ad94ccae",
+      "sha256": "f16adc207441ff99f715c167fe42a4d3d9bba5f70ea4e4989354c1b340fb2dfe",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -5091,7 +5095,7 @@
       ]
     },
     "src/components/menu-item/combo/serialize.ts": {
-      "sha256": "2434168288131cc3d4d3ccae4fdbbdc2c8fa53d1f81c039c909500a177ef362c",
+      "sha256": "5644dd8000a05271d22ddcbdc6ab15c906a680f6eb09cd354b77b191bc822f3d",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -5102,7 +5106,7 @@
       ]
     },
     "src/components/menu-item/combo/types.ts": {
-      "sha256": "c8d8a0213a6ea7691ea5982f9dc31fed59f223650ebb765cbc12ebe2463a192b",
+      "sha256": "5e94f2f606d72a4e61ea9bf28cab63997bb7c9cc08768472ec60c58678f4091f",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -5113,7 +5117,7 @@
       ]
     },
     "src/components/menu-item/combo/useComboStepPreviews.ts": {
-      "sha256": "1188028fafa2a8d7aa3e6f523a23e48fd068771b887cf3e7db33eb11523207f9",
+      "sha256": "1124974d3f3a95a407f15b664d7d6e746fa70cdef098a78239b42a3e6499854f",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -5456,7 +5460,7 @@
       ]
     },
     "src/components/orders/NewOrderComboModal.tsx": {
-      "sha256": "735dd77fcf6eaca1f618ac65347847bbaa1137434183107bb7179ed12f76eaa2",
+      "sha256": "f665d053112a5add45ce82d8e823e2ed2f182bfd2eacee4add5a9d415746c034",
       "features": [
         "orders-managing-orders",
         "order-detail",
@@ -6770,7 +6774,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "4c833cdc1832c3764bd793cd86941466d38858c4d65ce81cdacde1297171b8af",
+      "sha256": "3198dcc6d75d281f0570974db97f46f864432c9566bf113fa93b9c00b9013a54",
       "features": [
         "customers-profiles",
         "menu-subgroups",
@@ -6826,6 +6830,12 @@
       "sha256": "a20ada5af03a66ce72d20354cd560caa66a902f6351e3302e91b037e216fb426",
       "features": [
         "shared-runtime"
+      ]
+    },
+    "src/lib/combo-size.ts": {
+      "sha256": "58d61c708e2930612205c548e7de8842d31eae8fc6be62cffe178df8adf509ef",
+      "features": [
+        "combos"
       ]
     },
     "src/lib/commercial-catalog.ts": {
@@ -6991,7 +7001,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "ba3043d534326a7354fe42a9d82990152128326401ab6c4905ef3b5673a714b0",
+      "sha256": "d284ff50e3ffe7b3d4f4b6e751da30f42d60954d7a7e8cc61edf1cebced74d64",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -11462,6 +11472,7 @@
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
+        "combos",
         "menu-product-photos"
       ],
       "route": "/[restaurantId]/menu/items/[itemId]"
@@ -11477,6 +11488,7 @@
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
+        "combos",
         "menu-product-photos"
       ],
       "labels": [
@@ -11512,6 +11524,7 @@
         "removeModifier",
         "saveLock",
         "saved",
+        "savedComposition",
         "updated"
       ]
     },
@@ -11526,6 +11539,7 @@
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
+        "combos",
         "menu-product-photos"
       ],
       "route": "/[restaurantId]/menu/items/new"
@@ -11541,6 +11555,7 @@
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
+        "combos",
         "menu-product-photos"
       ],
       "labels": [
@@ -12037,7 +12052,8 @@
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
-        "menu-modifiers"
+        "menu-modifiers",
+        "combos"
       ],
       "route": "/[restaurantId]/menu/options/[optionSetId]"
     },
@@ -12052,13 +12068,20 @@
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
-        "menu-modifiers"
+        "menu-modifiers",
+        "combos"
       ],
       "labels": [
         "add",
         "addOption",
         "available",
         "back",
+        "catalogSizeForOption",
+        "catalogSizeName",
+        "catalogSizeNew",
+        "catalogSizeSave",
+        "catalogSizeUnlinked",
+        "catalogSizesTitle",
         "delete",
         "deleteOption",
         "details",
@@ -12081,7 +12104,8 @@
         "handleSave",
         "handleSkuBlur",
         "handleTranslatedNameBlur",
-        "loadData"
+        "loadData",
+        "save"
       ]
     },
     {
@@ -18759,7 +18783,8 @@
         "menu-creating-a-menu-item",
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
-        "menu-variants-and-sizes"
+        "menu-variants-and-sizes",
+        "combos"
       ],
       "labels": [
         "addAnotherSet",
@@ -18920,9 +18945,6 @@
       ],
       "labels": [
         "cancel",
-        "catalogCarteLabel",
-        "comboAllowQuantityHelpOff",
-        "comboAllowQuantityHelpOn",
         "comboAllowQuantityLabel",
         "comboValidNoSteps",
         "comboValidStepNoGroup",
@@ -18935,15 +18957,9 @@
         "composeStepDefaultName",
         "composeStepDelete",
         "composeStepDeleteHint",
-        "composeStepsHeader",
-        "delete",
-        "off",
-        "on"
+        "delete"
       ],
       "actions": [
-        "handleAddItem",
-        "handleRemoveItem",
-        "handleSetCategory",
         "removeStep",
         "updateStep"
       ]
@@ -19066,17 +19082,9 @@
         "cancel",
         "composeMax",
         "composeMin",
-        "composeRulesAmong",
-        "composeRulesChoose",
-        "composeRulesTo",
-        "composeStepActiveHint",
-        "composeStepActiveLabel",
         "composeStepAddItemLimit",
-        "composeStepCategoryAvailable",
-        "composeStepCategoryEmpty",
         "composeStepCategoryShowLess",
         "composeStepCategoryShowMore",
-        "composeStepClose",
         "composeStepDefaultName",
         "composeStepDelete",
         "composeStepDescriptionPlaceholder",
@@ -19085,25 +19093,32 @@
         "composeStepFieldRules",
         "composeStepFieldSource",
         "composeStepGroupPlaceholder",
+        "composeStepGroupUnavailable",
         "composeStepMaxCol",
         "composeStepMaxPerItem",
         "composeStepMinCol",
         "composeStepModeExplicit",
+        "composeStepModeExplicitHelp",
         "composeStepModeGroup",
+        "composeStepModeGroupHelp",
         "composeStepModeSwitchConfirm",
+        "composeStepMoveDown",
+        "composeStepMoveUp",
         "composeStepPerItemTitle",
+        "composeStepPickMaximum",
+        "composeStepPickMinimum",
         "composeStepPreviewError",
         "composeStepPreviewLoading",
         "composeStepRemoveItemLimit",
+        "composeStepRequiredEmpty",
         "composeStepSizeAll",
         "composeStepSizeCol",
+        "composeStepSizeEmptyHint",
         "composeStepSizeLabel",
         "composeStepSizeRulesClear",
-        "composeStepSizeRulesDisabled",
         "composeStepSizeRulesHint",
         "composeStepSizeRulesLabel",
         "composeStepSummaryAll",
-        "composeStepSummaryEditCta",
         "composeStepSummaryEmpty",
         "composeStepSummaryExact",
         "composeStepSummaryItemCount",
@@ -19119,7 +19134,6 @@
         "handleRemoveOption",
         "handleSetDefaultOption",
         "handleVariantsChange",
-        "onSelectSource",
         "removeItemLimit"
       ]
     },
@@ -26416,6 +26430,7 @@
         "removeStaff",
         "removeTrustedCustomer",
         "saveCarteDraft",
+        "saveCatalogSize",
         "saveFloorPlanLayout",
         "saveKitchenStation",
         "saveLoyaltyProgram",

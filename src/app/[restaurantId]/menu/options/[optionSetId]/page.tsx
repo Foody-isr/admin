@@ -4,9 +4,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  getOptionSet, updateOptionSet, createOptionInSet, updateOptionInSet, deleteOptionInSet, deleteOptionSet,
+  getOptionSet, listCatalogSizes, saveCatalogSize, updateOptionSet, createOptionInSet, updateOptionInSet, deleteOptionInSet, deleteOptionSet,
   getRestaurant,
-  OptionSet, OptionSetOption, OptionInSetInput, OptionSetInput, TranslationMap,
+  CatalogSize, OptionSet, OptionSetOption, OptionInSetInput, OptionSetInput, TranslationMap,
 } from '@/lib/api';
 import { CustomerNoteEditor } from '@/components/menu/CustomerNoteEditor';
 import type { CustomerNoteConfig } from '@/lib/api';
@@ -60,6 +60,10 @@ export default function OptionSetDetailPage() {
   const [name, setName] = useState('');
   const [setTranslations, setSetTranslations] = useState<TranslationMap>({});
   const [newOptionName, setNewOptionName] = useState('');
+  const [sizes, setSizes] = useState<CatalogSize[]>([]);
+  const [sizeListFailed, setSizeListFailed] = useState(false);
+  const [newOptionSizeId, setNewOptionSizeId] = useState<number>();
+  const newOptionLabel = sizes.find(size => size.id === newOptionSizeId)?.name ?? newOptionName;
   const [newOptionPrice, setNewOptionPrice] = useState(0);
   const [newOptionSku, setNewOptionSku] = useState('');
   const [sourceLocale, setSourceLocale] = useState<Locale>('en');
@@ -78,6 +82,14 @@ export default function OptionSetDetailPage() {
   }, [rid, osid]);
 
   useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    let active = true;
+    setSizeListFailed(false);
+    listCatalogSizes(rid)
+      .then(result => { if (active) setSizes(result); })
+      .catch(() => { if (active) setSizeListFailed(true); });
+    return () => { active = false; };
+  }, [rid]);
   useEffect(() => {
     getRestaurant(rid)
       .then((r) => {
@@ -109,10 +121,11 @@ export default function OptionSetDetailPage() {
   };
 
   const handleAddOption = async () => {
-    if (!newOptionName.trim()) return;
+    if (!newOptionLabel.trim()) return;
     try {
       const input: OptionInSetInput = {
-        name: newOptionName.trim(),
+        name: newOptionLabel.trim(),
+        size_id: newOptionSizeId,
         price: newOptionPrice,
         sku: newOptionSku.trim() || undefined,
         is_active: true,
@@ -120,6 +133,7 @@ export default function OptionSetDetailPage() {
       };
       await createOptionInSet(rid, osid, input);
       setNewOptionName('');
+      setNewOptionSizeId(undefined);
       setNewOptionPrice(0);
       setNewOptionSku('');
       loadData();
@@ -239,6 +253,17 @@ export default function OptionSetDetailPage() {
               {t('options')}
             </h3>
           </div>
+          <CatalogSizeControls rid={rid} sizes={sizes} t={t} canEdit={canEdit} loadFailed={sizeListFailed}
+            onSaved={size => {
+              setSizes(current => [...current.filter(row => row.id !== size.id), size].sort((a, b) => a.name.localeCompare(b.name)));
+              setOptionSet(current => current && {
+                ...current,
+                options: current.options?.map(row => row.size_id === size.id
+                  ? { ...row, name: size.name, translations: size.translations }
+                  : row),
+              });
+            }}
+          />
           <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] overflow-x-auto">
             <div
               className="grid min-w-[640px] text-xs font-semibold text-[var(--fg-muted)] px-4 py-3 bg-[var(--surface-2)] border-b border-[var(--line)]"
@@ -257,6 +282,7 @@ export default function OptionSetDetailPage() {
                 rid={rid}
                 setId={osid}
                 option={opt}
+                sizes={sizes}
                 onUpdated={loadData}
                 t={t}
                 activeLocale={activeLocale}
@@ -274,12 +300,15 @@ export default function OptionSetDetailPage() {
               <div className="flex items-center gap-2 min-w-0">
                 <Plus size={14} className="text-[var(--brand-ink)] shrink-0" />
                 <input aria-label={t('variantName')}
-                  value={newOptionName}
+                  value={newOptionLabel}
+                  readOnly={newOptionSizeId != null}
                   onChange={(e) => setNewOptionName(e.target.value)}
                   placeholder={t('addOption') || 'Add option'}
                   className="flex-1 text-sm bg-transparent border-0 outline-none text-[var(--fg)] min-w-0"
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddOption(); }}
                 />
+                {sizes.length > 0 && <SizeSelect sizes={sizes} value={newOptionSizeId} t={t}
+                  onChange={id => setNewOptionSizeId(id || undefined)} />}
               </div>
               <input aria-label="SKU"
                 value={newOptionSku}
@@ -297,7 +326,7 @@ export default function OptionSetDetailPage() {
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAddOption(); }}
               />
               <span />
-              {newOptionName.trim() ? (
+              {newOptionLabel.trim() ? (
                 <button
                   onClick={handleAddOption}
                   className="text-sm font-medium text-[var(--brand-ink)] hover:underline justify-self-end"
@@ -328,10 +357,11 @@ export default function OptionSetDetailPage() {
 
 // ─── Editable option row ─────────────────────────────────────────────
 
-function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocale, canEdit }: {
+function OptionRow({ rid, setId, option, sizes, onUpdated, t, activeLocale, sourceLocale, canEdit }: {
   rid: number;
   setId: number;
   option: OptionSetOption;
+  sizes: CatalogSize[];
   onUpdated: () => void;
   t: (key: string) => string;
   activeLocale: Locale;
@@ -350,6 +380,7 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
   const persist = async (patch: Partial<OptionInSetInput>) => {
     const payload: OptionInSetInput = {
       customer_note: patch.customer_note ?? customerNote,
+      size_id: patch.size_id,
       name: (patch.name ?? name).trim() || option.name,
       price: patch.price ?? price,
       online_price: option.online_price,
@@ -368,7 +399,7 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
 
   const handleNameBlur = () => {
     const trimmed = name.trim();
-    if (!trimmed || trimmed === option.name) {
+    if (option.size_id || !trimmed || trimmed === option.name) {
       setName(option.name);
       return;
     }
@@ -378,7 +409,7 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
   const handleTranslatedNameBlur = () => {
     const trimmed = translatedName.trim();
     const previous = option.translations?.name?.[activeLocale] ?? '';
-    if (trimmed === previous) return;
+    if (option.size_id || trimmed === previous) return;
     const nextMap = setLocaleOverride(translations, 'name', activeLocale, trimmed);
     setTranslations(nextMap);
     persist({ translations: nextMap });
@@ -416,18 +447,19 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
       className="grid min-w-[640px] items-center gap-2 px-4 py-3 border-b border-[var(--line)] last:border-b-0 hover:bg-[var(--surface-2)] transition-colors"
       style={{ gridTemplateColumns: '1fr 140px 110px 100px 36px' }}
     >
+      <div className="flex min-w-0 flex-col gap-1">
       {isSourceTab ? (
         <input aria-label={t('optionSetName')}
-          value={name}
+          value={option.size_id ? option.name : name}
           onChange={(e) => setName(e.target.value)}
           onBlur={handleNameBlur}
           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-          readOnly={!canEdit}
+          readOnly={!canEdit || !!option.size_id}
           className="text-sm bg-transparent border-0 outline-none text-[var(--fg)] pe-2"
         />
       ) : (
         <input
-          value={translatedName}
+          value={option.size_id ? option.translations?.name?.[activeLocale] ?? option.name : translatedName}
           onChange={(e) =>
             setTranslations((prev) =>
               setLocaleOverride(prev, 'name', activeLocale, e.target.value),
@@ -435,11 +467,14 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
           }
           onBlur={handleTranslatedNameBlur}
           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-          readOnly={!canEdit}
+          readOnly={!canEdit || !!option.size_id}
           placeholder={name || t('variantName')}
           className="text-sm bg-transparent border-0 outline-none text-[var(--fg)] pe-2 italic"
         />
       )}
+      {isSourceTab && sizes.length > 0 && <SizeSelect sizes={sizes} value={option.size_id ?? undefined}
+        t={t} disabled={!canEdit} onChange={id => { void persist({ size_id: id }); }} />}
+      </div>
       <input
         value={sku}
         onChange={(e) => setSku(e.target.value)}
@@ -484,5 +519,86 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
       <CustomerNoteEditor value={customerNote} onChange={setCustomerNote} onCommit={(value) => { void persist({ customer_note: value }); }} disabled={!canEdit} />
     </div>
     </>
+  );
+}
+
+function CatalogSizeControls({ rid, sizes, t, canEdit, loadFailed, onSaved }: {
+  rid: number;
+  sizes: CatalogSize[];
+  t: (key: string) => string;
+  canEdit: boolean;
+  loadFailed: boolean;
+  onSaved: (size: CatalogSize) => void;
+}) {
+  const [id, setId] = useState<number>();
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
+  const save = async () => {
+    setSaving(true);
+    setError(false);
+    try {
+      const size = await saveCatalogSize(rid, name.trim(), id);
+      onSaved(size);
+      setId(size.id);
+      setName(size.name);
+    } catch {
+      setError(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <details className="mb-3 rounded-r-md border border-[var(--line)] px-4 py-3">
+      <summary className="cursor-pointer text-fs-sm font-medium">{t('catalogSizesTitle')}</summary>
+      <div className="mt-3 grid max-w-xl gap-3">
+        <select aria-label={t('catalogSizesTitle')} value={id ?? ''} disabled={saving}
+          onChange={event => {
+            const size = sizes.find(value => String(value.id) === event.target.value);
+            setId(size?.id);
+            setName(size?.name ?? '');
+          }}
+          className="min-h-11 rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-3 text-fs-sm"
+        >
+          <option value="">{t('catalogSizeNew')}</option>
+          {sizes.map(size => <option key={size.id} value={size.id}>{size.name}</option>)}
+        </select>
+        <input aria-label={t('catalogSizeName')} placeholder={t('catalogSizeName')} value={name}
+          onChange={event => setName(event.target.value)} readOnly={!canEdit || saving}
+          maxLength={100} className="min-h-11 rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-3 text-fs-sm"
+        />
+        {canEdit && (
+          <button type="button" onClick={save} disabled={!name.trim() || saving || loadFailed}
+            className="min-h-11 justify-self-start rounded-full bg-[var(--action)] px-4 text-fs-sm font-medium text-[var(--action-fg)] disabled:opacity-50"
+          >
+            {t('catalogSizeSave')}
+          </button>
+        )}
+        {(error || loadFailed) && (
+          <p role="alert" className="text-fs-sm text-[var(--danger-500)]">
+            {t(loadFailed ? 'catalogSizeLoadFailed' : 'catalogSizeSaveFailed')}
+          </p>
+        )}
+      </div>
+    </details>
+  );
+}
+
+function SizeSelect({ sizes, value, t, disabled, onChange }: {
+  sizes: CatalogSize[];
+  value?: number;
+  t: (key: string) => string;
+  disabled?: boolean;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <select aria-label={t('catalogSizeForOption')} value={value ?? 0} disabled={disabled}
+      onChange={event => onChange(Number(event.target.value))}
+      className="max-w-full min-h-8 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] px-1 text-fs-xs"
+    >
+      <option value={0}>{t('catalogSizeUnlinked')}</option>
+      {sizes.map(size => <option key={size.id} value={size.id}>{size.name}</option>)}
+    </select>
   );
 }

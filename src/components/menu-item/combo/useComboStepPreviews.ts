@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { resolveComboStepPreview, type ComboStepPreviewItem } from '@/lib/api';
+import { comboSizeKey } from '@/lib/combo-size';
 import type { ComboStepDraft } from './types';
 
 export interface StepPreview {
@@ -14,7 +15,7 @@ export interface StepPreview {
 
 function sourceSignature(restaurantId: number, step: ComboStepDraft): string | null {
   return step.source_type === 'group' && step.source_group_id
-    ? `${restaurantId}:group:${step.source_group_id}:${step.source_variant_label ?? ''}`
+    ? `${restaurantId}:group:${step.source_group_id}:${comboSizeKey(step.source_size_id, step.source_variant_label ?? '')}`
     : null;
 }
 
@@ -25,11 +26,11 @@ export function useComboStepPreviews(restaurantId: number, steps: ComboStepDraft
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
-  const fetchPreview = useCallback((signature: string, sourceId: number, variantLabel?: string) => {
+  const fetchPreview = useCallback((signature: string, sourceId: number, sizeId?: number, variantLabel?: string) => {
     if (inFlight.current.has(signature)) return;
     inFlight.current.add(signature);
     setCache(current => new Map(current).set(signature, { items: [], count: 0, loading: true }));
-    resolveComboStepPreview(restaurantId, { sourceType: 'group', sourceId, variantLabel }).then(result => {
+    resolveComboStepPreview(restaurantId, { sourceType: 'group', sourceId, sizeId, variantLabel }).then(result => {
       if (mounted.current) setCache(current => new Map(current).set(signature, { ...result, loading: false }));
     }).catch(cause => {
       if (mounted.current) setCache(current => new Map(current).set(signature, {
@@ -42,7 +43,7 @@ export function useComboStepPreviews(restaurantId: number, steps: ComboStepDraft
     if (!restaurantId) return;
     for (const step of steps) {
       const signature = sourceSignature(restaurantId, step);
-      if (signature && !cache.has(signature)) fetchPreview(signature, step.source_group_id!, step.source_variant_label ?? undefined);
+      if (signature && !cache.has(signature)) fetchPreview(signature, step.source_group_id!, step.source_size_id, step.source_variant_label);
     }
   }, [restaurantId, steps, cache, fetchPreview]);
 
@@ -52,7 +53,7 @@ export function useComboStepPreviews(restaurantId: number, steps: ComboStepDraft
     if (!signature) continue;
     byKey.set(step.key, {
       ...(cache.get(signature) ?? { items: [], count: 0, loading: true }),
-      retry: () => fetchPreview(signature, step.source_group_id!, step.source_variant_label ?? undefined),
+      retry: () => fetchPreview(signature, step.source_group_id!, step.source_size_id, step.source_variant_label),
     });
   }
   return byKey;
