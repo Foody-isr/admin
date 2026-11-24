@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/:path*",
-      "destination": "https://admin-1d3x8l5md-mickaz.vercel.app/:path*"
+      "destination": "https://admin-jfmo2g1rr-mickaz.vercel.app/:path*"
     }
   ],
   "redirects": [
