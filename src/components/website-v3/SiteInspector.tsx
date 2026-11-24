@@ -18,6 +18,7 @@ import {
 } from "./controls";
 import { HeaderInspector } from "./HeaderInspector";
 import { headerCopy } from "./header-copy";
+import { siteShareCopy } from "./site-share-copy";
 
 export type MainLogoActions = {
   uploading: boolean;
@@ -52,6 +53,7 @@ export function SiteInspector({
 }) {
   const { t, locale } = useI18n();
   const c = headerCopy(locale);
+  const shareCopy = siteShareCopy[locale];
   const draftLogoUrl = draftRestaurantLogo(config, restaurantLogoUrl);
   const headerLogo = draftLogoUrl ? undefined : headerFromLegacy(config, pages).logo;
   const currentLogoUrl = draftLogoUrl || (headerLogo?.type === "image" ? headerLogo.image : "");
@@ -59,6 +61,7 @@ export function SiteInspector({
   const shareImageUrl = string(config.share_image_url);
   const shareImageMode =
     string(config.share_image_mode) === "cover" ? "cover" : "logo";
+  const fillsShareFrame = shareImageMode === "cover" && Boolean(shareImageUrl.trim());
   const shareImageBg =
     string(config.share_image_bg) === "black" ||
     string(config.share_image_bg) === "brand"
@@ -113,24 +116,22 @@ export function SiteInspector({
           currentUrl={shareImageUrl}
           onUploaded={(url) => onChange(["share_image_url"], url)}
           onRemove={() => onChange(["share_image_url"], "")}
-          label="Image de partage (WhatsApp, réseaux sociaux)"
+          label={shareCopy.image}
         />
         <input
           type="url"
           value={shareImageUrl}
+          aria-label={shareCopy.imageUrl}
           onChange={(event) =>
             onChange(["share_image_url"], event.target.value)
           }
           className={controlClass}
-          placeholder="Ou collez l’URL de l’image de partage"
+          placeholder={shareCopy.imageUrl}
         />
+        <p className="text-xs text-fg-secondary">{shareCopy.imageHint}</p>
         <InspectorField
-          label="Rendu de l’aperçu"
-          hint={
-            shareImageMode === "cover"
-              ? "L’image remplit le cadre 1200×630, recadrée au centre."
-              : "L’image est centrée sur un fond uni. Sans image de partage, le logo principal est utilisé."
-          }
+          label={shareCopy.layout}
+          hint={fillsShareFrame ? shareCopy.coverHint : shareCopy.logoHint}
         >
           <select
             value={shareImageMode}
@@ -139,12 +140,15 @@ export function SiteInspector({
             }
             className={controlClass}
           >
-            <option value="logo">Logo centré sur un fond</option>
-            <option value="cover">Image plein cadre</option>
+            <option value="logo">{shareCopy.logo}</option>
+            <option value="cover">{shareCopy.cover}</option>
           </select>
         </InspectorField>
-        {shareImageMode === "logo" ? (
-          <InspectorField label="Fond de l’aperçu">
+        {!fillsShareFrame && (
+          <InspectorField
+            label={shareCopy.background}
+            hint={shareCopy.backgroundHint}
+          >
             <select
               value={shareImageBg}
               onChange={(event) =>
@@ -152,12 +156,12 @@ export function SiteInspector({
               }
               className={controlClass}
             >
-              <option value="white">Blanc</option>
-              <option value="black">Noir</option>
-              <option value="brand">Couleur de marque</option>
+              <option value="white">{shareCopy.white}</option>
+              <option value="black">{shareCopy.black}</option>
+              <option value="brand">{t("brandColor")}</option>
             </select>
           </InspectorField>
-        ) : null}
+        )}
       </InspectorGroup>
 
       <InspectorGroup title="En-tête" description="Personnalisez le logo, les liens, les boutons et la disposition de l’en-tête.">

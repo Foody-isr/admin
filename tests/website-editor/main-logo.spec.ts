@@ -41,6 +41,9 @@ test("the main logo updates the existing header in preview, draft and publicatio
   seed.config.restaurant_logo_url = logoUrl("old-main");
   seed.config.hide_hero_logo = true;
   seed.config.favicon_url = logoUrl("favicon");
+  seed.config.share_image_mode = "cover";
+  seed.config.share_image_bg = "white";
+  seed.config.share_image_url = logoUrl("share");
   expect((await request.put(`${api}/website-draft`, { data: seed })).ok()).toBe(true);
   expect((await request.post(`${api}/website-publish`)).ok()).toBe(true);
 
@@ -86,11 +89,43 @@ test("the main logo updates the existing header in preview, draft and publicatio
   };
   const storefront = await context.newPage();
   const publicSite = "http://localhost:3000/r/atelier-foody?lang=fr";
+  const shareImage = async (url: string) => {
+    const response = await request.get(url, { headers: { "User-Agent": "WhatsApp/2.26.1" } });
+    expect(response.ok()).toBe(true);
+    return (await response.text())
+      .match(/<meta property="og:image" content="([^"]+)"/)?.[1]
+      .replaceAll("&amp;", "&");
+  };
+  const publicImage = await shareImage(publicSite);
+  expect(new URL(publicImage!).searchParams.get("url")).toBe("localhost:3003/__logo-fixture/share.png");
+  for (const path of [
+    "/r/atelier-foody/order?item=1",
+    "/r/atelier-foody/table/demo",
+    "/receipt/receipt-demo?restaurantId=2",
+    "/order/confirmation/1234?restaurantId=1",
+    "/order/tracking/1234?restaurantId=1",
+  ]) {
+    expect(await shareImage(`http://localhost:3000${path}`), path).toBe(publicImage);
+  }
   await storefront.goto(publicSite);
   await page.goto("/1/website-v3");
   await settings();
   await expect(mainLogo.locator("img")).toHaveAttribute("src", logoUrl("old-main"));
   await expect(preview.locator(headerLogo)).toHaveAttribute("src", logoUrl("old-header"));
+
+  const shareMode = page.getByRole("combobox", { name: /^Rendu de l’aperçu/ });
+  const shareBg = page.getByRole("combobox", { name: /^Fond de l’aperçu/ });
+  await expect(shareMode).toHaveValue("cover");
+  await expect(page.getByText(/vignette carrée de WhatsApp/)).toBeVisible();
+  await expect(shareBg).toHaveCount(0);
+  await shareMode.selectOption("logo");
+  await shareBg.selectOption("brand");
+  await shareMode.selectOption("cover");
+  await expect.poll(async () => (await draft()).state.config).toMatchObject({
+    share_image_mode: "cover",
+    share_image_bg: "brand",
+    share_image_url: logoUrl("share"),
+  });
 
   const [chooser] = await Promise.all([
     page.waitForEvent("filechooser"),
