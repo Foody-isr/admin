@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "4e43f6a8ea8b67db9466e6c3a31899a772521276",
-  "documentationRevision": "3921ca8ed79adf91c690bb056e344af12cc0e32baad3e9f61d456fa943facfbe",
+  "documentationRef": "d57e012bd7af2881d8225e8e325dc8287b6c2aae",
+  "documentationRevision": "16c28ac5c70a6b2c6ffaebe76f8748b08e32111b95fb5b8fea32d89959de5995",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -848,15 +848,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/combos.mdx",
-          "sha256": "0214e8d033d83759b3c6a9e1ff707c828fc4ebd4bc33cc931be3cd9124fc9482"
+          "sha256": "c00c728927ddab61746946f59c047e7e0715c1889f5775716acdfb6ca19de83b"
         },
         "fr": {
           "path": "src/content/help/fr/menu/combos.mdx",
-          "sha256": "0a4046a45af1ce7725607a05e76ec6334dfef42f2cacecdd69b044c5b2a0a3d4"
+          "sha256": "4592cefbda08367ee04082e663c88a958b92664f40cdc3d2e9abd5fc74cbda27"
         },
         "he": {
           "path": "src/content/help/he/menu/combos.mdx",
-          "sha256": "e6cba5e16b979619e7eec3c94b15202e8a762e2ce3c07a9a6182e82b29da2df1"
+          "sha256": "1afccaf6d200de479886aac16b95f64e1b1f453d2fbde69ee4876124c7ee8fee"
         }
       }
     },
@@ -2962,6 +2962,7 @@
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
+        "combos",
         "menu-product-photos"
       ]
     },
@@ -2973,6 +2974,7 @@
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
+        "combos",
         "menu-product-photos"
       ]
     },
@@ -3088,7 +3090,8 @@
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
-        "menu-modifiers"
+        "menu-modifiers",
+        "combos"
       ]
     },
     "src/app/[restaurantId]/menu/options/new/page.tsx": {
@@ -4964,7 +4967,8 @@
         "menu-creating-a-menu-item",
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
-        "menu-variants-and-sizes"
+        "menu-variants-and-sizes",
+        "combos"
       ]
     },
     "src/components/menu-item/WhatIfSimulator.tsx": {
@@ -11499,6 +11503,7 @@
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
+        "combos",
         "menu-product-photos"
       ],
       "route": "/[restaurantId]/menu/items/[itemId]"
@@ -11514,6 +11519,7 @@
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
+        "combos",
         "menu-product-photos"
       ],
       "labels": [
@@ -11563,6 +11569,7 @@
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
+        "combos",
         "menu-product-photos"
       ],
       "route": "/[restaurantId]/menu/items/new"
@@ -11578,6 +11585,7 @@
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
+        "combos",
         "menu-product-photos"
       ],
       "labels": [
@@ -12074,7 +12082,8 @@
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
-        "menu-modifiers"
+        "menu-modifiers",
+        "combos"
       ],
       "route": "/[restaurantId]/menu/options/[optionSetId]"
     },
@@ -12089,7 +12098,8 @@
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
-        "menu-modifiers"
+        "menu-modifiers",
+        "combos"
       ],
       "labels": [
         "add",
@@ -18869,7 +18879,8 @@
         "menu-creating-a-menu-item",
         "menu-ingredients-and-portions",
         "menu-menus-and-groups",
-        "menu-variants-and-sizes"
+        "menu-variants-and-sizes",
+        "combos"
       ],
       "labels": [
         "addAnotherSet",
