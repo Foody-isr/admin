@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { createFixture } from '../redesign/fixtures.mjs';
 import type { WalletStudioArtwork } from '../../src/lib/api';
 
-async function studio(page: Page, locale: 'fr' | 'he' = 'fr', canSign = true, legacyBanner?: string, manual = false) {
+async function studio(page: Page, locale: 'fr' | 'he' = 'fr', canSign = true, legacyBanner?: string, manual = false, restaurantName = 'Bella Italia') {
   const fixtureOptions = { empty: false, permissions: ['settings.view', 'settings.edit'] };
   const fixture = createFixture(fixtureOptions);
   const writes: { method: string; path: string; data: Partial<WalletStudioArtwork> & { expected_revision: number; apple_strip_png?: string; google_hero_png?: string; poster_png?: string } }[] = [];
@@ -25,7 +25,7 @@ async function studio(page: Page, locale: 'fr' | 'he' = 'fr', canSign = true, le
       expect(rid).toBe(1);
       expect(req.headers()['authorization']).toBe('Bearer fp1p.e30.fixture.00');
       if (req.method() === 'GET') return route.fulfill({ json: {
-        restaurant_id: rid, restaurant_name: 'Bella Italia', can_edit: true, can_sign_test: canSign, design, composition_version:manual?1:undefined,
+        restaurant_id: rid, restaurant_name: restaurantName, can_edit: true, can_sign_test: canSign, design, visit_stamps: manual, composition_version:manual?1:undefined,
         published_revision: publishedRevision,
         program: { enabled: true, mode: 'visits', threshold: manual?10:2, reward_labels: {fr:'Café glacé',en:'Iced coffee',he:'קפה קר'}, names: { en: 'Bella rewards', fr: 'Les habitués de Bella', he: 'מועדון Bella' } },
       } });
@@ -450,4 +450,73 @@ test('builds both manual models, exports each size, and reopens the editable dra
   await expect.poll(()=>writes.filter(w=>w.method==='PUT').length).toBe(3);
   expect(writes[2].data.composition).toEqual({version:1,template:'classic'});
   expect(writes[2].data.poster_png).toBeUndefined();
+});
+
+test('selects restaurant motifs in both Wallet previews and reopens a saved sushi design', async ({ page }, info) => {
+  const writes = await studio(page, 'fr', true, undefined, true);
+  await page.getByRole('switch', { name: 'Carte à tampons' }).check();
+  await page.getByRole('slider', { name: /Solde de démonstration/ }).fill('7');
+  const picker = page.getByRole('group', { name: 'Motif des visites restantes' });
+  const apple = page.locator('[data-wallet-preview="apple"] [data-wallet-stamps]');
+  for (const [name, glyph] of [
+    ['Hamburger', 'hamburger'], ['Pizza', 'pizza'], ['Pita falafel', 'falafel'], ['Salade', 'salad'],
+    ['Bagel', 'bagel'], ['Brochette', 'skewer'], ['Bol de ramen', 'ramen'],
+    ['Glace', 'ice-cream-cone'], ['Cookie', 'cookie'], ['Cocktail', 'martini'], ['Sushi', 'sushi'],
+  ]) {
+    const choice = picker.getByRole('button', { name, exact: true });
+    await choice.click();
+    await expect(choice).toHaveAttribute('aria-pressed', 'true');
+    await expect(apple.locator('.lucide-' + glyph)).toHaveCount(3);
+    await expect(apple.locator('.lucide-check')).toHaveCount(7);
+  }
+  await picker.screenshot({ path: info.outputPath('motifs-des-tampons.png') });
+  await page.getByRole('tab', { name: 'Google Wallet' }).click();
+  const google = page.locator('[data-wallet-preview="google"] [data-wallet-stamps]');
+  await expect(google.locator('.lucide-sushi')).toHaveCount(3);
+  await expect(google.locator('.lucide-check')).toHaveCount(7);
+  await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
+  await expect(page.getByText('Brouillon enregistré.', { exact: true })).toBeVisible();
+  expect(writes[0].data.stamp_style).toMatchObject({ enabled: true, icon: 'sushi' });
+  await page.reload();
+  await expect(picker.getByRole('button', { name: 'Sushi', exact: true })).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('saves visit stamps and signs exactly the simulated balance on the same card', async ({ page }, info) => {
+  const writes = await studio(page, 'fr', true, undefined, true, 'Café du marché');
+  const stampSwitch = page.getByRole('switch', { name: 'Carte à tampons' });
+  await stampSwitch.check();
+  await page.getByRole('button', { name: 'Croissant', exact: true }).click();
+  await page.getByRole('slider', { name: /Solde de démonstration/ }).fill('7');
+  const apple = page.locator('[data-wallet-preview="apple"]');
+  await expect(apple.locator('[data-wallet-stamps="10"]')).toHaveAttribute('data-stamps-earned','7');
+  await expect(apple).toContainText('7 / 10');
+  await expect(apple).toContainText('Café glacé');
+  await page.getByLabel('Couleur du fond', { exact: true }).fill('#FBF4E5');
+  await page.getByLabel('Couleur du texte', { exact: true }).fill('#432D22');
+  await page.getByLabel('Bannière de la carte', { exact: true }).setInputFiles('public/images/login/cafe-israel.webp');
+  await page.getByRole('button', { name: 'Cadrer la bannière' }).click();
+  await page.getByLabel('Ajustement de l’image').selectOption('cover');
+  const appleBanner = apple.locator('[data-wallet-banner="apple"]');
+  await expect(appleBanner.getByRole('img')).toBeVisible();
+  await expect(appleBanner.locator('[data-wallet-stamps] rect')).toBeVisible();
+  await apple.screenshot({ path: info.outputPath('visit-stamps-apple.png') });
+  await page.getByRole('tab',{name:'Google Wallet'}).click();
+  const google = page.locator('[data-wallet-preview="google"]');
+  await expect(google.locator('[data-wallet-stamps="10"]')).toHaveAttribute('data-stamps-earned','7');
+  await expect(google.locator('[data-wallet-banner="google"] img')).toBeVisible();
+  await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
+  await expect(page.getByText('Brouillon enregistré.', { exact: true })).toBeVisible();
+  expect(writes[0].data.stamp_style).toMatchObject({enabled:true, icon:'croissant',columns:5});
+  await page.getByRole('button',{name:'Générer une carte de test Apple'}).click();
+  await expect(page.getByRole('link',{name:'Télécharger le .pkpass'})).toBeVisible();
+  expect(writes[1].data).toMatchObject({expected_revision:1,sample:7});
+  await page.getByRole('slider',{name:/Solde de démonstration/}).fill('10');
+  await expect(page.getByRole('link',{name:'Télécharger le .pkpass'})).toHaveCount(0);
+  await expect(google.locator('[data-wallet-stamps]')).toHaveAttribute('data-stamps-earned','10');
+  await page.reload();
+  await expect(stampSwitch).toBeChecked();
+  await page.getByRole('button',{name:'QR code d’adhésion',exact:true}).click();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button',{name:'Télécharger le QR code'}).click();
+  expect((await download).suggestedFilename()).toBe('foody-loyalty-1.svg');
 });

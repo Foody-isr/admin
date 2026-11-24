@@ -183,3 +183,35 @@ test('the customer menu exposes only authorized sibling pages', async ({page}) =
   await expect(page.getByRole('link', {name: 'Programme de fidélité', exact: true})).toHaveCount(0);
   expect(state.posts).toHaveLength(0);
 });
+
+test('a manager prepares a visit reminder, exports members and stops the rule', async ({page}) => {
+  await setup(page,{existing:true});
+  const campaigns: {id:string; kind:string; segment:string; threshold:number; message:string; created_at:string; stopped_at?:string}[]=[];
+  await page.route(/\/api\/v1\/loyalty\/engagement(?:\/|$)/,async route=>{
+    const req=route.request(), path=new URL(req.url()).pathname;
+    expect(req.headers()['x-restaurant-id']).toBe('1');
+    if(path.endsWith('/members')) return route.fulfill({json:{members:[{id,name:'Synthetic member',phone:'',email:'',balance:7,visits:7,joined_at:'2026-11-20',subscribed:true}],as_of:'2026-11-24T10:00:00Z'}});
+    if(path.endsWith('/stop')) {campaigns[0].stopped_at='2026-11-24T10:01:00Z';return route.fulfill({status:204});}
+    if(req.method()==='POST') {
+      campaigns.push({...req.postDataJSON(),created_at:'2026-11-24T10:00:00Z'});
+      return route.fulfill({status:204});
+    }
+    return route.fulfill({json:{active:true,available:true,can_manage:true,can_export:true,campaigns,stats:{members:12,subscribers:6,visits:9,returning:3,rewards:2,referrals:1,today:4,available_rewards:2,return_days:3.5,dormant_subscribers:2}}});
+  });
+  await page.getByRole('link',{name:'Engagement des membres'}).click();
+  await page.getByRole('button',{name:'Préparer une relance'}).click();
+  await expect(page.getByLabel('Destinataires')).toHaveValue('inactive');
+  await page.getByLabel('Quand envoyer').selectOption('milestone');
+  await page.getByLabel('Visites',{exact:true}).fill('10');
+  await page.getByLabel('Texte de la notification').fill('Votre dixième visite au café');
+  await page.getByRole('button',{name:'Activer la relance'}).click();
+  await expect(page.getByText('Votre dixième visite au café',{exact:true})).toBeVisible();
+  expect(campaigns).toHaveLength(1);
+  expect(campaigns[0]).toMatchObject({kind:'milestone',segment:'all',threshold:10});
+  await expect(page.getByRole('button',{name:'Activer la relance'})).toBeDisabled();
+  const downloaded=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Exporter les membres (CSV)'}).click();
+  expect((await downloaded).suggestedFilename()).toBe('foody-loyalty-1.csv');
+  await page.getByRole('button',{name:'Arrêter',exact:true}).click();
+  await expect(page.getByText('Arrêté',{exact:true})).toBeVisible();
+});

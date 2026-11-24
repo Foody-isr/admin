@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowUpRight, ChevronRight, Gift, Link2, WalletCards } from 'lucide-react';
+import { ArrowUpRight, Bell, ChevronRight, Gift, Link2, WalletCards } from 'lucide-react';
 import { Badge } from '@/components/ds';
 import type { LoyaltyProgram, MenuItem } from '@/lib/api';
 import { formatMoney } from '@/lib/currency';
@@ -78,6 +78,9 @@ export default function LoyaltyProgramOverview({ rid, program, item, onTerms, on
           <span className="min-w-0 flex-1"><span className="block text-sm font-semibold group-hover:underline">{t('walletStudioTitle')}</span><span className="block text-sm text-[var(--fg-muted)]">{t('loyaltyProgramStudioHint')}</span></span>
           <ChevronRight aria-hidden="true" className="size-4 shrink-0 rtl:rotate-180" />
         </Link>
+        {program && <Link className={row + ' border-t border-[var(--line)]'} href={`/${rid}/loyalty/program/engagement`}>
+          <Bell aria-hidden="true" className={linkIcon}/><span className="flex-1 text-sm font-semibold">{t('engTitle')}</span><ChevronRight aria-hidden="true" className="size-4 rtl:rotate-180"/>
+        </Link>}
         {program && <a href={loyaltyCustomerPage(rid)} target="_blank" rel="noopener noreferrer" className={row + ' border-t border-[var(--line)]'}>
           <Link2 aria-hidden="true" className={linkIcon} />
           <span className="min-w-0 flex-1"><span className="block text-sm font-semibold group-hover:underline">{t('walletStudioOpenCustomerPage')}</span><span className="block text-sm text-[var(--fg-muted)]">{t(program.enabled ? 'loyaltyProgramEnrollmentOpen' : 'loyaltyProgramEnrollmentClosed')}</span></span>

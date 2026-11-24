@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "6c623d6f0ad05856cafc529d3aa306ebda6818f8",
-  "documentationRevision": "edd6ae4ad8f4eee2c90adc0152c12d339ba32f42b44a6cf5c8d4dc274d90211b",
+  "documentationRef": "68a2a3a864149270654304a7edd39625d0435ab9",
+  "documentationRevision": "16c28ac5c70a6b2c6ffaebe76f8748b08e32111b95fb5b8fea32d89959de5995",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -2140,15 +2140,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/customers/loyalty-program.mdx",
-          "sha256": "e77be691b6d5c4886f9e8d5c28c5dd360eff6f9b4a59fd88d0e56f9d1de29c8c"
+          "sha256": "5902b69e41dfd571426ea32175a7a940f545f285dbb391e30ef74d1a238aa646"
         },
         "fr": {
           "path": "src/content/help/fr/customers/loyalty-program.mdx",
-          "sha256": "09bedbdea8caf97be9d2e244d3f922ec3b9231e132f5baec2221f9f7fe49463f"
+          "sha256": "104358e47233bc06e1938f5304d08e241ccc1be3ca935cfe28f9c0a8489af314"
         },
         "he": {
           "path": "src/content/help/he/customers/loyalty-program.mdx",
-          "sha256": "10ca12a701a4ec974f150af54fd2c16d65df03fefbbf92c6f22e264435b286be"
+          "sha256": "3a2b071c986fc555d85e3880d0ce8a5a061871b6276d4c06a677f06505028f53"
         }
       }
     },
@@ -2159,15 +2159,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/wallet-studio.md",
-          "sha256": "b0fea0cf13907777d095d5b4bfecf3cf21a5a32c167993c97ffee8eda1793b41"
+          "sha256": "1f0a5c343da2f2c30f38ae7776a3bba2a4edfd569a9a661296ccea8fcb833226"
         },
         "fr": {
           "path": "docs/help/internal/fr/wallet-studio.md",
-          "sha256": "2ed413dac58766eead729dab3f9f437bf6099267d2c89839d86555255c80def4"
+          "sha256": "59a00b7991d1d7245804972b7b7f5d3af1161c2c10e5953d0ef83261a81e39fc"
         },
         "he": {
           "path": "docs/help/internal/he/wallet-studio.md",
-          "sha256": "069dac320e1ce203385aad8d4e4de1e04502ccf89f67f881174929a6e224d3f3"
+          "sha256": "df045154b98bb1b7fe6330f594e7827853ca809f9628a29177ae3ca81ea2fa71"
         }
       }
     },
@@ -2874,6 +2874,12 @@
       "sha256": "3b15bfc5836031685ad49b8972de950bd2038ecf9bfbe7cc9a24eee3328b7e62",
       "features": [
         "shared-runtime"
+      ]
+    },
+    "src/app/[restaurantId]/loyalty/program/engagement/page.tsx": {
+      "sha256": "4e43d2d391bccf069aa023e365ce2fddfaeb1fe9dccee60865d5bdf0291bee9e",
+      "features": [
+        "customers-loyalty-program"
       ]
     },
     "src/app/[restaurantId]/loyalty/program/page.tsx": {
@@ -4599,13 +4605,19 @@
       ]
     },
     "src/components/loyalty/LoyaltyEarningEditor.tsx": {
-      "sha256": "7feaeada85074d0dcadc8b11dec93b29851f161113f7298fcd3c36de46ef4f30",
+      "sha256": "e3b19b5cf7d289d2a06f2a20aecb9454fcff2183d22884cabfed2035fda95fa3",
+      "features": [
+        "customers-loyalty-program"
+      ]
+    },
+    "src/components/loyalty/LoyaltyEngagement.tsx": {
+      "sha256": "48495c26f0ea3a58163f247341e31822dd49d5d584bb386854bbdd8bae638812",
       "features": [
         "customers-loyalty-program"
       ]
     },
     "src/components/loyalty/LoyaltyProgramOverview.tsx": {
-      "sha256": "f17597cec274f51bffa456cfc24274d22f61c41cdc7eb172ddbcb7e1f0ebcfc2",
+      "sha256": "1198d5b83e2a166c899559183da28a49dcfd9fe4b7b979eec294de86e03246b7",
       "features": [
         "customers-loyalty-program"
       ]
@@ -4639,7 +4651,14 @@
       ]
     },
     "src/components/loyalty/WalletStudioWorkspace.tsx": {
-      "sha256": "a47979f3bef6a71d5f4a9175abd04a315c019d58631028a714848818761508f2",
+      "sha256": "a0a626c351aabb727734e7f4d2f3d64dd6e1b5f1724e22f74a2734cce1686a68",
+      "features": [
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ]
+    },
+    "src/components/loyalty/WalletVisitStamps.tsx": {
+      "sha256": "33f10c91a10f622db59dae37f3f3b3cbf3bafc52c5d77d48ec666fd9db9f615f",
       "features": [
         "customers-loyalty-program",
         "customers-wallet-studio"
@@ -6774,7 +6793,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "3198dcc6d75d281f0570974db97f46f864432c9566bf113fa93b9c00b9013a54",
+      "sha256": "922902ea2666fcd67da783da02d7e0f2f27231464bda7089bc5c55ad3a8ffe23",
       "features": [
         "customers-profiles",
         "menu-subgroups",
@@ -7001,7 +7020,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "d284ff50e3ffe7b3d4f4b6e751da30f42d60954d7a7e8cc61edf1cebced74d64",
+      "sha256": "f048e428770ba08575c34195b13d04af3d626561024cb0206345d4dc6732aa57",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -7090,7 +7109,7 @@
       ]
     },
     "src/lib/loyalty-program.ts": {
-      "sha256": "5a0b29dc7c692a0c6742d3f9023e87cfbd6366c6cfc717a243547301f1bb122a",
+      "sha256": "0f38f704b4dc747c819da1933d69152d0255dddac6fc1b00c57f1a6f8a10a654",
       "features": [
         "shared-runtime",
         "customers-loyalty-program"
@@ -7823,6 +7842,14 @@
     },
     "src/lib/wallet-composition.ts": {
       "sha256": "81ce372f227f93c58538afbed06f56e274077fa8ae4da4ff103cbbd9d11eac81",
+      "features": [
+        "shared-runtime",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ]
+    },
+    "src/lib/wallet-stamp-icons.ts": {
+      "sha256": "dfe73b8c153e20ee995d26710806262099eaa8e521379920b093ef6e4c99157f",
       "features": [
         "shared-runtime",
         "customers-loyalty-program",
@@ -11157,6 +11184,16 @@
         "shared-runtime"
       ],
       "route": "/[restaurantId]/loyalty/checkouts"
+    },
+    {
+      "id": "foodyadmin:src/app/[restaurantId]/loyalty/program/engagement/page.tsx:next-page:1",
+      "kind": "next-page",
+      "source": "src/app/[restaurantId]/loyalty/program/engagement/page.tsx",
+      "line": 1,
+      "features": [
+        "customers-loyalty-program"
+      ],
+      "route": "/[restaurantId]/loyalty/program/engagement"
     },
     {
       "id": "foodyadmin:src/app/[restaurantId]/loyalty/program/page.tsx:next-page:1",
@@ -17675,6 +17712,8 @@
         "earnProducts",
         "earnProductsOnly",
         "earnUnits",
+        "firstVisitCoupon",
+        "firstVisitCouponHelp",
         "loyaltyCheckoutRefresh",
         "loyaltyProgramCatalogError",
         "loyaltyProgramChoose",
@@ -17685,6 +17724,55 @@
       ],
       "actions": [
         "updateProduct"
+      ]
+    },
+    {
+      "id": "foodyadmin:src/components/loyalty/LoyaltyEngagement.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/loyalty/LoyaltyEngagement.tsx",
+      "line": 1,
+      "features": [
+        "customers-loyalty-program"
+      ],
+      "labels": [
+        "engActivity",
+        "engAudience",
+        "engBalance",
+        "engConsentHelp",
+        "engCreate",
+        "engDormantCount",
+        "engDraftReminder",
+        "engError",
+        "engExisting",
+        "engExport",
+        "engFailed",
+        "engHistory",
+        "engJoined",
+        "engLastVisit",
+        "engMemberEmail",
+        "engMemberId",
+        "engMemberName",
+        "engMemberPhone",
+        "engMessage",
+        "engPending",
+        "engReturnDays",
+        "engReview",
+        "engReviewLink",
+        "engSent",
+        "engStop",
+        "engStopped",
+        "engTitle",
+        "engTrigger",
+        "engUnavailable",
+        "engUnknown",
+        "engVisitCount",
+        "engWebPush",
+        "loading",
+        "walletStudioBack",
+        "walletStudioReload"
+      ],
+      "actions": [
+        "refresh"
       ]
     },
     {
@@ -17699,6 +17787,7 @@
         "earnActivities",
         "earnProductHeading",
         "earnSurveyScore",
+        "engTitle",
         "loyaltyProgramAfter",
         "loyaltyProgramCard",
         "loyaltyProgramContent",
@@ -17861,7 +17950,11 @@
         "earnSample",
         "loading",
         "loyaltyProgramForbidden",
+        "loyaltyProgramReward",
         "loyaltyProgramTitle",
+        "stampDownloadQR",
+        "stampEnrollmentQR",
+        "stampRemaining",
         "walletArtAppleFormat",
         "walletArtOlderApple",
         "walletArtPoster",
@@ -17910,6 +18003,23 @@
         "save",
         "saved"
       ]
+    },
+    {
+      "id": "foodyadmin:src/components/loyalty/WalletVisitStamps.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/loyalty/WalletVisitStamps.tsx",
+      "line": 1,
+      "features": [
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "labels": [
+        "stampCard",
+        "stampColumns",
+        "stampContrast",
+        "stampMark"
+      ],
+      "actions": []
     },
     {
       "id": "foodyadmin:src/components/marketing/DiscountEditModal.tsx:ui-controls:1",
