@@ -33,10 +33,8 @@ import ItemUnsavedDialog from '@/components/menu-item/ItemUnsavedDialog';
 import { useItemLeaveGuard } from '@/components/menu-item/useItemLeaveGuard';
 import CompositionTab from '@/components/menu-item/combo/CompositionTab';
 import TypeSwitchConfirm, { TypeSwitchLossSummary } from '@/components/menu-item/combo/TypeSwitchConfirm';
-import ComboSavingsBreakdownModal from '@/components/menu-item/combo/ComboSavingsBreakdownModal';
 import type { ComboStepDraft } from '@/components/menu-item/combo/types';
 import { toComboStepInputs } from '@/components/menu-item/combo/serialize';
-import { computeComboSavingsBreakdown } from '@/components/menu-item/combo/pricing';
 import { Button, FullScreenEditor } from '@/components/ds';
 import Modal from '@/components/Modal';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
@@ -317,7 +315,6 @@ function NewItemEditor() {
   // type-specific data exists, we show the confirmation modal before
   // mutating state. See `requestTypeChange` below.
   const [pendingType, setPendingType] = useState<ItemType | null>(null);
-  const [savingsModalOpen, setSavingsModalOpen] = useState(false);
 
   const lossSummary: TypeSwitchLossSummary = useMemo(() => ({
     variantsCount: variantGroups.reduce((sum, g) => sum + g.rows.filter((r) => r.name.trim()).length, 0),
@@ -381,11 +378,6 @@ function NewItemEditor() {
   // Compute combo savings for the rail. The same pure helper backs the
   // PricingCard inside CompositionTab, so the two stay in sync. Hooks must
   // run unconditionally — declared here, *above* the loading early return.
-  const comboItemsById = useMemo(() => {
-    const m = new Map<number, MenuItem>();
-    for (const cat of categories) for (const it of cat.items ?? []) m.set(it.id, it);
-    return m;
-  }, [categories]);
 
   const draftSavedAgo = useMemo(() => {
     if (!bannerDraft) return '';
@@ -636,7 +628,6 @@ function NewItemEditor() {
                     categories={categories}
                     menus={menus}
                     restaurantId={rid}
-                    onShowSavingsDetail={() => setSavingsModalOpen(true)}
                     comboAllowQuantity={comboAllowQuantity}
                     onComboAllowQuantityChange={setComboAllowQuantity}
                   />
@@ -775,18 +766,6 @@ function NewItemEditor() {
         />
       )}
 
-      {/* ── Combo savings breakdown modal ──────────────────────── */}
-      {savingsModalOpen && itemType === 'combo' && (
-        <ComboSavingsBreakdownModal
-          comboName={name || undefined}
-          breakdown={computeComboSavingsBreakdown(
-            price,
-            comboSteps,
-            comboItemsById,
-          )}
-          onClose={() => setSavingsModalOpen(false)}
-        />
-      )}
     </>
   );
 }

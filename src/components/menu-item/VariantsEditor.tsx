@@ -17,6 +17,7 @@ import type {
 export interface VariantRowState {
   key: string;
   optionId?: number;
+  catalogSizeId?: number;
   name: string;
   price: number;
   /** Serving-size label for this size, shown next to it in guest apps (e.g. "250g"). */
@@ -84,6 +85,7 @@ export function variantGroupsFromOptionSets(
         return {
           key: crypto.randomUUID(),
           optionId: opt.id,
+          catalogSizeId: opt.size_id ?? undefined,
           name: opt.name,
           price: ov?.price ?? opt.price,
           // Portion lives on the shared OptionSetOption, not the per-item override.
@@ -251,9 +253,9 @@ export default function VariantsEditor({
       {group.selectionRole !== "identity" && itemBasePrice > 0 && <p className="border-b border-[var(--line)] bg-[var(--summary-bg)] p-3 text-xs text-[var(--summary-fg)]">{t('variantZeroPriceHint').replace('{price}', money(itemBasePrice))}</p>}
       <div className="divide-y divide-[var(--line)]">{group.rows.map((row, index) => <fieldset key={row.key} disabled={!canEdit} className="item-variant-row grid min-w-0 grid-cols-2 gap-3 p-4">
         <legend className="sr-only">{t('variantName')} {index + 1}</legend>
-        <label className="item-field col-span-2 min-w-0 space-y-1 text-xs text-fg-secondary item-variant-name"><span>{t('variantName')}</span><input value={row.name} onChange={event => updateRow(group.key,row.key,{name:event.target.value})} className="input text-sm" /></label>
+        <label className="item-field col-span-2 min-w-0 space-y-1 text-xs text-fg-secondary item-variant-name"><span>{t('variantName')}</span><input value={row.name} readOnly={row.catalogSizeId != null} onChange={event => updateRow(group.key,row.key,{name:event.target.value})} className="input text-sm" /></label>
         {group.selectionRole !== "identity" && <label className="item-field min-w-0 space-y-1 text-xs text-fg-secondary"><span>{t('price')}</span><NumberInput min={0} value={row.price} onChange={price => updateRow(group.key,row.key,{price})} placeholder="0.00" dir="ltr" className="input text-sm" /></label>}
-        {group.selectionRole !== "identity" && <label className="item-field min-w-0 space-y-1 text-xs text-fg-secondary"><span>{t('portion')}</span><input value={row.portion} onChange={event => updateRow(group.key,row.key,{portion:event.target.value})} placeholder={t('portionSizePlaceholder')} className="input text-sm" /></label>}
+        {group.selectionRole !== "identity" && <label className="item-field min-w-0 space-y-1 text-xs text-fg-secondary"><span>{t('portion')}</span><input value={row.portion} readOnly={row.catalogSizeId != null} onChange={event => updateRow(group.key,row.key,{portion:event.target.value})} placeholder={t('portionSizePlaceholder')} className="input text-sm" /></label>}
         <label className="item-field item-variant-status min-w-0 space-y-1 text-xs text-fg-secondary"><span>{t('status')}</span><select value={row.isActive?'active':'inactive'} onChange={event => updateRow(group.key,row.key,{isActive:event.target.value==='active'})} className="input text-sm"><option value="active">{t('available')}</option><option value="inactive">{t('unavailable')}</option></select></label>
         {group.selectionRole !== "identity" && <label className="flex min-h-11 items-center gap-2 text-sm lg:col-span-2 selection-row"><input type="checkbox" checked={row.isComboOnly} onChange={event => updateRow(group.key,row.key,{isComboOnly:event.target.checked})} className="size-4 accent-[var(--brand-500)]" />{t('comboOnlyBadge')}</label>}
         {canEdit && <div className="col-span-2 flex flex-wrap justify-end gap-2"><Button type="button" variant="ghost" icon aria-label={t('moveUp')} disabled={!index} onClick={() => moveRow(group.key,index,'up')}><ChevronUp /></Button><Button type="button" variant="ghost" icon aria-label={t('moveDown')} disabled={index===group.rows.length-1} onClick={() => moveRow(group.key,index,'down')}><ChevronDown /></Button><Button type="button" variant="ghost" icon aria-label={t('delete')} onClick={() => removeRow(group.key,row.key)}><Trash2 /></Button></div>}

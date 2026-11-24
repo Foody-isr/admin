@@ -15,20 +15,23 @@ export function toComboStepInputs(steps: ComboStepDraft[]): ComboStepInput[] {
     // are present, drop the single label so the server enters customer-choice
     // mode; otherwise keep the legacy single-pin behaviour.
     const variantRules = isGroup
-      ? (s.variant_rules ?? []).filter((r) => r.variant_label.trim() !== '')
+      ? (s.variant_rules ?? []).filter((r) => r.size_id || r.variant_label.trim() !== '')
       : [];
     return {
       name: s.name || `Choice ${i + 1}`,
       description: s.description || '',
+      fixed_modifier_name: s.fixed_modifier_name,
       min_picks: s.min_picks,
       max_picks: s.max_picks,
       sort_order: i,
       source_type: s.source_type,
       source_group_id: isGroup ? s.source_group_id : undefined,
+      source_size_id: isGroup && variantRules.length === 0 ? s.source_size_id : undefined,
       source_variant_label:
-        isGroup && variantRules.length === 0 ? (s.source_variant_label || null) : null,
+        isGroup && variantRules.length === 0 && !s.source_size_id ? (s.source_variant_label || null) : null,
       variant_rules: variantRules.map((r, ri) => ({
-        variant_label: r.variant_label.trim(),
+        size_id: r.size_id,
+        variant_label: r.size_id ? undefined : r.variant_label.trim(),
         min_picks: r.min_picks,
         max_picks: r.max_picks,
         sort_order: ri,

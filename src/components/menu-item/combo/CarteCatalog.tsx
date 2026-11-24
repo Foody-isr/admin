@@ -1,15 +1,5 @@
 'use client';
 
-// Left-pane catalog for the combo composer (Design B — two-pane builder).
-//
-// Picks a carte at the top, then renders that carte's item categories as a
-// collapsible tree. Each item line is a click-to-toggle that adds/removes the
-// item from the currently-active step. Each category header has a "+ tout
-// ajouter" affordance that adds the visible matching items as explicit choices.
-//
-// The catalog is presentational + emits intent — actual draft mutations live
-// in CompositionTab, which owns the step list and the active-step selection.
-
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Plus, Search } from 'lucide-react';
 import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
@@ -28,17 +18,15 @@ interface Props {
    *  from the active step, so opening a step auto-expands the categories
    *  the operator needs to see (and leaves the rest collapsed). */
   itemsById: Map<number, MenuItem>;
-  /** The step the operator is currently composing. Item rows show a ✓ when the
-   *  item is already in this step's items[]. Null still allows clicks
-   *  (CompositionTab will create a fresh step). */
-  activeStep: ComboStepDraft | null;
+  /** The manual step this picker edits. */
+  activeStep: ComboStepDraft;
   /** Items reachable through any non-hidden, channel-enabled group on any
    *  carte. Items outside this set are tagged "hors carte" — combo will
    *  surface them only via the force-include toggle on the step row. */
   anyCarteItemIds: Set<number>;
   onAddItem: (menuItemId: number) => void;
   onRemoveItem: (menuItemId: number) => void;
-  onSetCategory: (categoryId: number, visibleItemIds: number[]) => void;
+  onSetCategory: (visibleItemIds: number[]) => void;
 }
 
 export default function CarteCatalog({
@@ -116,9 +104,8 @@ export default function CarteCatalog({
   // When the active step changes, expand the categories whose items appear
   // in that step (plus the bound category for dynamic-mode steps). Doesn't
   // collapse anything — the operator's manual expansions are preserved.
-  const activeStepKey = activeStep?.key;
+  const activeStepKey = activeStep.key;
   useEffect(() => {
-    if (!activeStep) return;
     const expand = new Set<number>();
     for (const di of activeStep.items) {
       const item = itemsById.get(di.menu_item_id);
@@ -182,7 +169,7 @@ export default function CarteCatalog({
       </div>
 
       {/* Tree */}
-      <div className="flex-1 min-h-0 max-h-80 overflow-y-auto pe-1 xl:max-h-none">
+      <div className="flex-1 min-h-0 max-h-80 overflow-y-auto pe-1">
         {filteredCategories.length === 0 ? (
           <div className="text-fs-xs text-[var(--fg-subtle)] text-center py-[var(--s-6)]">
             {carteId != null && allowedItemIds && allowedItemIds.size === 0
@@ -227,7 +214,7 @@ export default function CarteCatalog({
                     {canEdit && (
                       <button
                         type="button"
-                        onClick={() => onSetCategory(cat.id, (cat.items ?? []).map(item => item.id))}
+                        onClick={() => onSetCategory((cat.items ?? []).map(item => item.id))}
                         className="inline-flex min-h-11 items-center gap-1 text-fs-xs font-medium px-1.5 py-0.5 rounded-r-sm shrink-0 transition-colors text-[var(--brand-ink)] hover:bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)]"
                         title={t('catalogAddAllTooltip')} aria-label={`${t('catalogAddAll')} — ${cat.name}`}
                       >
