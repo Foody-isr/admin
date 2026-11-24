@@ -26,6 +26,7 @@ import {
   fetchProductionSheet,
   fetchProductionDays,
   listAllItems,
+  type MenuItem,
   ProductionSheetResponse,
   ProductionSheetOrder,
   ProductionDay,
@@ -42,9 +43,19 @@ import {
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { DateStepper } from '@/components/production/DateStepper';
 import { ProductionMatrix } from '@/components/production/ProductionMatrix';
-import { ProductionMobile } from '@/components/production/ProductionMobile';
+import { ProductionMobile, ProductionStatus } from '@/components/production/ProductionMobile';
+import { ProductionToPrepare } from '@/components/production/ProductionToPrepare';
 import { ProductionShoppingList } from '@/components/production/ProductionShoppingList';
+import { ItemAvailabilityPopover } from '@/components/menu/ItemAvailabilityPopover';
 import { orderDetailPath } from '@/lib/orders/routes';
+
+type ProductionTab = 'clients' | 'items' | 'status';
+
+const productionTabs = [
+  { id: 'clients', label: 'productionViewClients' },
+  { id: 'items', label: 'productionViewItems' },
+  { id: 'status', label: 'productionViewStatus' },
+] as const;
 
 export default function ProductionPage() {
   const params = useParams<{ restaurantId: string }>();
@@ -56,22 +67,26 @@ export default function ProductionPage() {
   const {lastEvent}=useWs();
   const [refreshKey,setRefreshKey]=useState(0);
   const [loadFailed,setLoadFailed]=useState(false);
-  // A clients × items matrix can't be read on a phone, so instead of shrinking
-  // it we swap in ProductionMobile — a single-axis view the staffer switches
-  // between (Clients / Items / Status). Split/fullscreen/drag stay desktop-only.
   const isMobile = useIsMobile();
 
   const [days, setDays] = useState<ProductionDay[]>([]);
   const [date, setDate] = useState<string>('');
-  const [sheet, setSheet] = useState<ProductionSheetResponse | null>(null);
+  const [loadedSheet, setLoadedSheet] = useState<{ restaurantId: number; sheet: ProductionSheetResponse }>();
+  const sheet = loadedSheet?.restaurantId === restaurantId && loadedSheet.sheet.date === date
+    ? loadedSheet.sheet
+    : null;
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'production' | 'courses'>('production');
+  const [selectedTab, setSelectedTab] = useState<{ restaurantId: number; tab: ProductionTab }>();
+  const productionTab = selectedTab?.restaurantId === restaurantId ? selectedTab.tab : 'clients';
+  const tabStorageKey = `foody.production.tab.${restaurantId}`;
   const [fullscreen, setFullscreen] = useState(false);
   const [splitMode, setSplitMode] = useState<'none' | 'category' | 'customer' | 'carte'>('carte');
-  // Portion sizes each article is sold in (from its variants), used both to
-  // offer box caps and to know what the packed rule may repack into.
-  const [portionsByItem, setPortionsByItem] = useState<Record<number, number[]>>({});
+  const [loadedCatalog, setLoadedCatalog] = useState<{ restaurantId: number; items: MenuItem[] | null }>();
+  const [catalogReload, setCatalogReload] = useState(0);
+  const catalog = loadedCatalog?.restaurantId === restaurantId ? loadedCatalog : undefined;
+  const catalogById = useMemo(() => new Map(catalog?.items?.map(item => [item.id, item])), [catalog]);
   // Portions (grams) vs units (container counts) display for weighed columns:
   // page-wide default + per-article overrides, persisted per restaurant.
   const display = useProductionDisplay(restaurantId);
@@ -80,6 +95,7 @@ export default function ProductionPage() {
   // SettingsEdit); everyone can still tick orders done.
   const { hasPermission } = usePermissions();
   const canEditLayout = hasPermission('settings.edit');
+  const canEditAvailability = hasPermission('menu.view') && hasPermission('menu.edit');
   // Restaurant-wide column layout (category + item order), shared across all
   // staff/devices — seeded from the layout the server returns with the sheet.
   const { applyOrder, setCategoryOrder, setItemOrder, reset: resetColumns, hasCustomOrder } =
@@ -92,6 +108,25 @@ export default function ProductionPage() {
   // Shared "done" set for the active restaurant + day, synced live across
   // tablets — seeded from the sheet's per-order prepared flags.
   const { doneIds, toggle: toggleDone } = useProductionDone(restaurantId, sheet?.orders);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(tabStorageKey);
+      const tab = productionTabs.find(option => option.id === saved)?.id ?? 'clients';
+      setSelectedTab({ restaurantId, tab });
+    } catch {
+      // The tab remains usable when browser storage is unavailable.
+    }
+  }, [restaurantId, tabStorageKey]);
+
+  function selectProductionTab(tab: ProductionTab) {
+    setSelectedTab({ restaurantId, tab });
+    try {
+      window.localStorage.setItem(tabStorageKey, tab);
+    } catch {
+      // The tab remains usable when browser storage is unavailable.
+    }
+  }
 
   // Load available days, default to the next upcoming day (or the last one).
   useEffect(() => {
@@ -106,20 +141,18 @@ export default function ProductionPage() {
     return()=>{stopped=true;};
   }, [restaurantId, requestedDate]);
 
-  // Load each article's available portion sizes (from its size variants) so the
-  // box-packing dropdowns can offer only the article's existing portions.
+  // The library supplies current item details and available portion sizes.
   useEffect(() => {
+    let stopped = false;
     listAllItems(restaurantId)
       .then((items) => {
-        const map: Record<number, number[]> = {};
-        for (const it of items) {
-          const grams = itemPortionGrams(it);
-          if (grams.length) map[it.id] = grams;
-        }
-        setPortionsByItem(map);
+        if (!stopped) setLoadedCatalog({ restaurantId, items });
       })
-      .catch(() => undefined);
-  }, [restaurantId]);
+      .catch(() => {
+        if (!stopped) setLoadedCatalog({ restaurantId, items: null });
+      });
+    return () => { stopped = true; };
+  }, [restaurantId, catalogReload]);
 
   useEffect(()=>{if(lastEvent&&(lastEvent.type==='production.plan.updated'||lastEvent.type.startsWith('order.')||lastEvent.type==='payment.completed'))setRefreshKey(k=>k+1);},[lastEvent]);
   useEffect(()=>{const reload=()=>setRefreshKey(k=>k+1);window.addEventListener('focus',reload);return()=>window.removeEventListener('focus',reload);},[]);
@@ -130,7 +163,7 @@ export default function ProductionPage() {
     let stopped=false;
     setLoading(true);setLoadFailed(false);
     Promise.all([fetchProductionSheet(restaurantId,date),fetchProductionDays(restaurantId)])
-      .then(([value,available])=>{if(!stopped){setSheet(value);setDays(available);}})
+      .then(([value,available])=>{if(!stopped){setLoadedSheet({ restaurantId, sheet: value });setDays(available);}})
       .catch(()=>{if(!stopped)setLoadFailed(true);})
       .finally(()=>{if(!stopped)setLoading(false);});
     return()=>{stopped=true;};
@@ -175,8 +208,8 @@ export default function ProductionPage() {
       if (!(g > 0)) return;
       (map[id] ??= new Set()).add(g);
     };
-    for (const [idStr, gs] of Object.entries(portionsByItem)) {
-      for (const g of gs) add(Number(idStr), g);
+    for (const item of catalog?.items ?? []) {
+      for (const g of itemPortionGrams(item)) add(item.id, g);
     }
     for (const it of sheet?.items ?? []) {
       if (it.measure !== 'weight') continue;
@@ -187,7 +220,7 @@ export default function ProductionPage() {
       out[Number(idStr)] = Array.from(set).sort((a, b) => a - b);
     }
     return out;
-  }, [portionsByItem, sheet]);
+  }, [catalog, sheet]);
 
   // Portion sizes offered in the single, page-wide box-size control: the union
   // of every weighed column's available portions. One choice repacks all columns.
@@ -275,10 +308,16 @@ export default function ProductionPage() {
   const handleRowClick = fullscreen
     ? () => undefined
     : (id: number) => router.push(orderDetailPath(restaurantId, id));
-  // Split views are desktop-only; on a phone we always render the single main
-  // table (any split chosen on a wider screen is ignored while narrow).
-  const effectiveSplit = isMobile && splitMode !== 'carte' ? 'none' : splitMode;
-  const carteSheets = useMemo(()=>{const visible=new Set(orderedSheet?.orders.map(order=>order.order_id)??[]);return (sheet?.sections??[]).map(section=>({...section,sheet:applyOrder(recomputeTotals(section.sheet,section.sheet.orders.filter(order=>visible.has(order.order_id))))})).filter(section=>section.sheet.orders.length>0);},[sheet,orderedSheet,applyOrder]);
+  const effectiveSplit = splitMode === 'carte' || (!isMobile && productionTab === 'clients')
+    ? splitMode
+    : 'none';
+  const carteSheets = useMemo(() => {
+    const visible = new Set(orderedSheet?.orders.map(order => order.order_id));
+    return (sheet?.sections ?? []).map(section => {
+      const orders = section.sheet.orders.filter(order => visible.has(order.order_id));
+      return { ...section, sheet: applyOrder(recomputeTotals(section.sheet, orders)) };
+    }).filter(section => section.sheet.orders.length > 0);
+  }, [sheet, orderedSheet, applyOrder]);
 
   // Enter full screen: maximize layout (state) + request native full-screen
   // (falls back to the in-app overlay if the browser blocks the API).
@@ -393,6 +432,49 @@ export default function ProductionPage() {
     </div>
   );
 
+  function renderAvailability(itemId: number) {
+    const item = catalogById.get(itemId);
+    const stockSeriesKey = sheet?.stock_series_key;
+    if (!canEditAvailability || loadFailed || !item?.is_active || stockSeriesKey === undefined) return null;
+    return (
+      <ItemAvailabilityPopover
+        key={`${restaurantId}:${stockSeriesKey}:${itemId}`}
+        rid={restaurantId}
+        item={item}
+        canEdit={canEditAvailability}
+        stockSeriesKey={stockSeriesKey}
+        triggerLabel={t('availability')}
+      />
+    );
+  }
+
+  function renderProductionSheet(part: ProductionSheetResponse, main = false) {
+    const orderProps = { sheet: part, onRowClick: handleRowClick, doneIds, onToggleDone: toggleDone };
+    if (productionTab === 'items') {
+      return (
+        <ProductionToPrepare
+          sheet={part}
+          portioner={portioner}
+          unitDisplayIds={unitDisplayIds}
+          itemAction={renderAvailability}
+        />
+      );
+    }
+    if (productionTab === 'status') return <ProductionStatus {...orderProps} />;
+    if (isMobile) return <ProductionMobile {...orderProps} portioner={portioner} unitDisplayIds={unitDisplayIds} />;
+    return (
+      <ProductionMatrix
+        {...orderProps}
+        portioner={portioner}
+        unitDisplayIds={unitDisplayIds}
+        onToggleItemDisplay={display.toggleItem}
+        sticky={main}
+        onReorderCategories={main && canEditLayout ? setCategoryOrder : undefined}
+        onReorderItems={main && canEditLayout ? setItemOrder : undefined}
+      />
+    );
+  }
+
   return (
     <div
       ref={fsRef}
@@ -433,7 +515,7 @@ export default function ProductionPage() {
                   actions={[
                     // Fullscreen + split views are desktop-only — they fight the
                     // phone's single-scroll model, so they're dropped on mobile.
-                    ...(!isMobile
+                    ...(!isMobile && (view === 'courses' || productionTab === 'clients')
                       ? [
                           {
                             label: t('productionFullscreen'),
@@ -508,25 +590,57 @@ export default function ProductionPage() {
         </>
       )}
 
-      {loading && <p className="text-fs-sm text-[var(--fg-muted)]">…</p>}
+      {view === 'production' && !fullscreen && (
+        <div role="group" aria-label={t('productionTitle')} className="mb-4 grid grid-cols-3 gap-1 rounded-r-lg border border-[var(--line-strong)] bg-[var(--surface-2)] p-1 sm:w-96 print:hidden">
+          {productionTabs.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={productionTab === id}
+              onClick={() => selectProductionTab(id)}
+              className="h-9 rounded-r-md text-fs-sm font-medium text-[var(--fg-muted)] transition-colors aria-pressed:bg-[var(--surface)] aria-pressed:text-[var(--brand-500)] aria-pressed:shadow-1"
+            >
+              {t(label)}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {view === 'production' && productionTab === 'items' && canEditAvailability && catalog?.items === null && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-fs-sm print:hidden">
+          <p role="alert" className="text-[var(--danger-500)]">{t('saleStockError')}</p>
+          <button className="underline" type="button" onClick={() => setCatalogReload(value => value + 1)}>
+            {t('retry')}
+          </button>
+        </div>
+      )}
+
+      {loading && !sheet && <p className="text-fs-sm text-[var(--fg-muted)]">…</p>}
 
       {!loading && view === 'courses' && date && (
         <ProductionShoppingList restaurantId={restaurantId} date={date} />
       )}
 
       {view === 'production' && (sheet?.sections?.length ?? 0)>0 && <label className="mb-3 flex items-center gap-2 text-fs-sm print:hidden"><input type="checkbox" checked={splitMode==='carte'} onChange={e=>setSplitMode(e.target.checked?'carte':'none')}/>{ec.byCarte}</label>}
-      {!loading && view === 'production' && orderedSheet && orderedSheet.orders.length === 0 && (
+      {view === 'production' && orderedSheet && orderedSheet.orders.length === 0 && (
         <p className="text-fs-sm text-[var(--fg-muted)]">{t('productionNoOrders')}</p>
       )}
-      {!loading &&
-        view === 'production' &&
+      {view === 'production' &&
         orderedSheet &&
         orderedSheet.orders.length > 0 &&
         (effectiveSplit === 'carte' && carteSheets.length > 0 ? (
           <div className="space-y-6">
             <p className="text-fs-xs text-[var(--fg-muted)]">{ec.doneHint}</p>
             <nav aria-label={ec.byCarte} className="sticky top-0 z-10 flex gap-2 overflow-x-auto border-b border-[var(--line)] bg-[var(--surface)] py-3 print:hidden">{carteSheets.map(section=><a key={section.menu_id} className="shrink-0 rounded border border-[var(--line-strong)] px-3 py-2 text-fs-sm" href={`#production-carte-${section.menu_id}`}>{section.name||ec.otherCartes}</a>)}</nav>
-            {carteSheets.map(section=><section key={section.menu_id} id={`production-carte-${section.menu_id}`} className="scroll-mt-20 space-y-3"><h2 className="text-fs-lg font-semibold">{section.name||ec.otherCartes}{section.is_catering&&<span className="ms-3 text-fs-xs font-medium">{ec.badge}</span>}</h2>{isMobile?<ProductionMobile sheet={section.sheet} onRowClick={handleRowClick} doneIds={doneIds} onToggleDone={toggleDone} portioner={portioner} unitDisplayIds={unitDisplayIds}/>:<ProductionMatrix sheet={section.sheet} onRowClick={handleRowClick} portioner={portioner} unitDisplayIds={unitDisplayIds} onToggleItemDisplay={display.toggleItem} doneIds={doneIds} onToggleDone={toggleDone}/>}</section>)}
+            {carteSheets.map(section => (
+              <section key={section.menu_id} id={`production-carte-${section.menu_id}`} className="scroll-mt-20 space-y-3">
+                <h2 className="text-fs-lg font-semibold">
+                  {section.name || ec.otherCartes}
+                  {section.is_catering && <span className="ms-3 text-fs-xs font-medium">{ec.badge}</span>}
+                </h2>
+                {renderProductionSheet(section.sheet)}
+              </section>
+            ))}
           </div>
         ) : effectiveSplit === 'category' ? (
           <div className="flex flex-col gap-[var(--s-4)]">
@@ -572,31 +686,9 @@ export default function ProductionPage() {
               </div>
             ))}
           </div>
-        ) : isMobile ? (
-          <ProductionMobile
-            sheet={orderedSheet}
-            onRowClick={handleRowClick}
-            doneIds={doneIds}
-            onToggleDone={toggleDone}
-            portioner={portioner}
-            unitDisplayIds={unitDisplayIds}
-          />
         ) : (
           <div className="flex flex-col gap-[var(--s-2)]">
-            <ProductionMatrix
-              sheet={orderedSheet}
-              onRowClick={handleRowClick}
-              portioner={portioner}
-              unitDisplayIds={unitDisplayIds}
-              onToggleItemDisplay={display.toggleItem}
-              // The main table pins its header + caps height so only the grid
-              // scrolls; managers can drag columns to reorder the shared layout.
-              sticky
-              onReorderCategories={canEditLayout ? setCategoryOrder : undefined}
-              onReorderItems={canEditLayout ? setItemOrder : undefined}
-              doneIds={doneIds}
-              onToggleDone={toggleDone}
-            />
+            {renderProductionSheet(orderedSheet, true)}
           </div>
         ))}
 

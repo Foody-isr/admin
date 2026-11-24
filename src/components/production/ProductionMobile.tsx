@@ -11,9 +11,6 @@ import {
 } from '@/lib/api';
 import { Checkbox } from '@/components/ui/checkbox';
 import { showsUnits, type Portioner } from '@/lib/production';
-import { ProductionToPrepare } from './ProductionToPrepare';
-
-type MobileView = 'clients' | 'items' | 'status';
 
 interface Props {
   /** Day sheet, already search-filtered + column-ordered by the page. */
@@ -64,76 +61,8 @@ function fmtQty(
   return item.measure === 'weight' ? `${value.toLocaleString()} g` : String(value);
 }
 
-/**
- * Phone production plan. A wide clients × items matrix can't be read on a narrow
- * screen, so instead of shrinking it we drop the grid and offer a single-axis
- * lens the staffer switches between: Clients (assemble per order), Items (batch
- * cook-list), Status (what's left vs ready). Desktop keeps the matrix.
- */
+/** Compact client view for assembling orders on narrow screens. */
 export function ProductionMobile({
-  sheet,
-  onRowClick,
-  doneIds,
-  onToggleDone,
-  portioner,
-  unitDisplayIds,
-}: Props) {
-  const { t } = useI18n();
-  const [view, setView] = useState<MobileView>('clients');
-
-  const tabs: { key: MobileView; label: string }[] = [
-    { key: 'clients', label: t('productionViewClients') },
-    { key: 'items', label: t('productionViewItems') },
-    { key: 'status', label: t('productionViewStatus') },
-  ];
-
-  return (
-    <div className="flex flex-col gap-[var(--s-4)]">
-      {/* Segmented view switcher — one axis at a time on a phone. */}
-      <div className="grid grid-cols-3 gap-1 rounded-r-lg border border-[var(--line-strong)] bg-[var(--surface-2)] p-1">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setView(tab.key)}
-            className={`h-9 rounded-r-md text-fs-sm font-medium transition-colors ${
-              view === tab.key
-                ? 'bg-[var(--surface)] text-[var(--brand-500)] shadow-1'
-                : 'text-[var(--fg-muted)]'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {view === 'clients' && (
-        <ClientsView
-          sheet={sheet}
-          onRowClick={onRowClick}
-          doneIds={doneIds}
-          onToggleDone={onToggleDone}
-          portioner={portioner}
-          unitDisplayIds={unitDisplayIds}
-        />
-      )}
-      {view === 'items' && (
-        <ProductionToPrepare sheet={sheet} portioner={portioner} unitDisplayIds={unitDisplayIds} />
-      )}
-      {view === 'status' && (
-        <StatusView
-          sheet={sheet}
-          onRowClick={onRowClick}
-          doneIds={doneIds}
-          onToggleDone={onToggleDone}
-          portioner={portioner}
-        />
-      )}
-    </div>
-  );
-}
-
-/** One expandable card per client: tick done, tap to reveal that order's lines. */
-function ClientsView({
   sheet,
   onRowClick,
   doneIds,
@@ -228,8 +157,8 @@ function ClientsView({
   );
 }
 
-/** Progress overview + To-prepare / Done sections (honest to the boolean done state). */
-function StatusView({ sheet, onRowClick, doneIds, onToggleDone }: Props) {
+/** Progress overview with separate lists of orders to prepare and completed orders. */
+export function ProductionStatus({ sheet, onRowClick, doneIds, onToggleDone }: Omit<Props, 'portioner' | 'unitDisplayIds'>) {
   const { t } = useI18n();
   const total = sheet.orders.length;
   const toPrepare = sheet.orders.filter((o) => !doneIds.has(o.order_id));
