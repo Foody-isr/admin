@@ -13,7 +13,8 @@ import {
   type Format,
 } from '@/lib/wallet-composition';
 import type { WalletBannerLayout } from '@/lib/wallet-banner';
-import type { WalletStudioState } from '@/lib/api';
+import type { WalletStampStyle, WalletStudioState } from '@/lib/api';
+import { WalletStampGrid } from './WalletVisitStamps';
 
 function Artwork({
   design,
@@ -21,12 +22,14 @@ function Artwork({
   background,
   banner,
   layout,
+  withStamps,
 }: {
   design: Composition;
   format: Format;
   background: string;
   banner: string | null;
   layout: WalletBannerLayout;
+  withStamps: boolean;
 }) {
   const { t } = useI18n();
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -56,7 +59,7 @@ function Artwork({
     const temp = document.createElement('canvas');
     temp.width = Math.min(720, formats[format].width);
     temp.height = Math.round((temp.width * formats[format].height) / formats[format].width);
-    paintComposition(temp, format, design, background, source.image, layout)
+    paintComposition(temp, format, design, background, source.image, layout, withStamps)
       .then(() => {
         if (!current || !canvas.current) return;
         canvas.current.width = temp.width;
@@ -70,7 +73,7 @@ function Artwork({
     return () => {
       current = false;
     };
-  }, [source, format, design, background, layout, banner]);
+  }, [source, format, design, background, layout, banner, withStamps]);
   return (
     <>
       {error && (
@@ -137,6 +140,7 @@ export function WalletCompositionPreview({
   hideName,
   state,
   sample,
+  stamps,
 }: {
   design: Composition;
   format: Format;
@@ -148,12 +152,13 @@ export function WalletCompositionPreview({
   hideName: boolean;
   state: WalletStudioState;
   sample: number;
+  stamps: WalletStampStyle | null;
 }) {
   const { t, locale } = useI18n();
   const program = state.program;
   const points = program?.mode === 'points',
     threshold = program?.threshold ?? 2,
-    amount = Math.max(0, Math.min(sample, threshold - 1)),
+    amount = Math.max(0, Math.min(sample, stamps ? threshold : threshold - 1)),
     left = threshold - amount;
   const unit = t(points ? 'loyaltyProgramPoints' : 'loyaltyProgramVisits');
   const balance = design.balance === 'fraction' ? amount + ' / ' + threshold : String(amount);
@@ -176,7 +181,10 @@ export function WalletCompositionPreview({
   const googleInk =
     colorContrast(background, '#FFFFFF') > colorContrast(background, '#202124') ? '#FFFFFF' : '#202124';
   const art = (
-    <Artwork design={design} format={format} background={background} banner={banner} layout={layout} />
+    <div className="relative">
+      <Artwork design={design} format={format} background={background} banner={banner} layout={layout} withStamps={!!stamps} />
+      {stamps && <WalletStampGrid style={stamps} progress={amount} threshold={threshold} platform={format} overPhoto={false} composed />}
+    </div>
   );
   const attribution = (
     <a
@@ -232,6 +240,14 @@ export function WalletCompositionPreview({
       </article>
     );
   const google = format === 'google';
+  const stampedStrip = !google && !!stamps;
+  const leadingField = stampedStrip
+    ? { label: t('loyaltyProgramReward'), value: program?.reward_labels?.[locale] || title }
+    : { label: unit, value: google ? balance : amount };
+  const stripDetail = stamps
+    ? { label: t('stampRemaining'), value: left }
+    : { label: t('walletStudioThreshold'), value: threshold };
+  const trailingField = google ? { label: rewardLabel, value: rewardValue } : stripDetail;
   return (
     <article
       data-wallet-preview={google ? 'google' : 'apple'}
@@ -255,17 +271,17 @@ export function WalletCompositionPreview({
             ))}
           {(google || !hideName) && <b className="text-sm">{google ? title : state.restaurant_name}</b>}
         </div>
-        {!google && <span className="text-xs">{t('walletStudioTestCard')}</span>}
+        {!google && <span className="text-xs">{stamps ? <>{unit} <b dir="ltr">{balance}</b></> : t('walletStudioTestCard')}</span>}
       </div>
       {!google && art}
       <div className="flex justify-between gap-4 px-4 py-2 text-sm">
         <div>
-          {unit}
-          <strong className="block">{google ? balance : amount}</strong>
+          {leadingField.label}
+          <strong className="block">{leadingField.value}</strong>
         </div>
         <div>
-          {google ? rewardLabel : t('walletStudioThreshold')}
-          <strong className="block">{google ? rewardValue : threshold}</strong>
+          {trailingField.label}
+          <strong className="block">{trailingField.value}</strong>
         </div>
       </div>
       {google && art}

@@ -1,0 +1,25 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "5aa4c960cc66c70b1c2844b773c6740f653c1997203b1bec39f03dc6b83cbdad",
+      "baseSha256": "922902ea2666fcd67da783da02d7e0f2f27231464bda7089bc5c55ad3a8ffe23",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-subgroups",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "delivery-dispatch",
+        "pos-payments",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "payments-transactions"
+      ],
+      "reason": "This shared API module adds the capability field to the Wallet Studio read and save types. The only changed request body belongs to the Wallet Studio. The client entry points used by the listed guides keep their previous contracts."
+    }
+  ]
+}

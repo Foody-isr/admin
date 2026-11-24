@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import { BooleanInput } from "@/components/ds";
 import type { WalletStampStyle } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
-import { walletBannerSize, type WalletPlatform } from "@/lib/wallet-banner";
+import { formats, visitStampLayout, type Format } from "@/lib/wallet-composition";
 import { walletStampIcons, type WalletStampIcon } from "@/lib/wallet-stamp-icons";
 
 const stampChoices = Object.keys(walletStampIcons) as WalletStampIcon[];
@@ -108,6 +108,29 @@ export function WalletStampEditor({
   );
 }
 
+/** Places visit stamps in the same cells as the native artwork renderer. */
+function stampCell(format: Format, composed: boolean, columns: number, rows: number, index: number) {
+  const { width, height } = formats[format];
+  const col = index % columns;
+  const row = Math.floor(index / columns);
+  let start = width * 0.04;
+  let top = height * 0.07;
+  let cellW = width * 0.92 / columns;
+  let cellH = height * 0.86 / rows;
+  if (composed) {
+    const band = visitStampLayout[format];
+    cellH = (band.bottom - band.top) * height / 2;
+    cellW = Math.min(width * 0.91 / columns, width * 0.215);
+    top = band.top * height + (2 - rows) * cellH / 2;
+    start = (width - columns * cellW) / 2;
+  }
+  return {
+    x: Math.floor(start + (col + 0.5) * cellW),
+    y: Math.floor(top + (row + 0.5) * cellH),
+    radius: Math.max(1, Math.floor(Math.min(cellW, cellH) * (composed ? 0.455 : 0.39))),
+  };
+}
+
 /** Draws the same two-row page and glyphs that are exported to each native Wallet. */
 export function WalletStampGrid({
   style,
@@ -115,14 +138,16 @@ export function WalletStampGrid({
   threshold,
   platform,
   overPhoto,
+  composed = false,
 }: {
   style: WalletStampStyle;
   progress: number;
   threshold: number;
-  platform: WalletPlatform;
+  platform: Format;
   overPhoto: boolean;
+  composed?: boolean;
 }) {
-  const { width, height } = walletBannerSize[platform];
+  const { width, height } = formats[platform];
   const capacity = style.columns * 2;
   const start =
     Math.floor(Math.min(progress, threshold - 1) / capacity) * capacity;
@@ -130,10 +155,6 @@ export function WalletStampGrid({
   const earned = progress - start;
   const columns = Math.min(slots, style.columns);
   const rows = Math.ceil(slots / columns);
-  const cellW = (width * 0.92) / columns;
-  const cellH = (height * 0.86) / rows;
-  const radius = Math.floor(Math.min(cellW, cellH) * 0.39);
-  const half = Math.floor(radius * 0.54);
   return (
     <svg
       aria-hidden="true"
@@ -151,10 +172,8 @@ export function WalletStampGrid({
         />
       )}
       {Array.from({ length: slots }, (_, i) => {
-        const x = Math.floor(width * 0.04 + ((i % columns) + 0.5) * cellW);
-        const y = Math.floor(
-          height * 0.07 + (Math.floor(i / columns) + 0.5) * cellH,
-        );
+        const { x, y, radius } = stampCell(platform, composed, columns, rows, i);
+        const half = Math.max(1, Math.floor(radius * 0.54));
         const Icon = i < earned ? Check : walletStampIcons[style.icon].Icon;
         return (
           <g key={i}>

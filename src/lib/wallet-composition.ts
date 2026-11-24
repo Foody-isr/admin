@@ -41,6 +41,12 @@ export function sameComposition(a: Composition | null, b: Composition | null) {
 
 export type Format = 'poster' | 'apple' | 'google';
 export const formats = { ...walletBannerSize, poster: { width: 1074, height: 1344 } };
+/** Upper stamp rows and illustration scale for each Wallet artwork. The Apple poster includes its native header. */
+export const visitStampLayout = {
+  poster: { top: 0.18, bottom: 0.41, artScale: 0.62 },
+  apple: { top: 0.015, bottom: 0.61, artScale: 0.48 },
+  google: { top: 0.035, bottom: 0.40, artScale: 0.72 },
+} satisfies Record<Format, { top: number; bottom: number; artScale: number }>;
 export const compositionPresets: Record<
   Composition['template'],
   { background: string; foreground: string; composition: Composition }
@@ -199,6 +205,7 @@ export async function paintComposition(
   background: string,
   source: Surface | null,
   layout: WalletBannerLayout,
+  withStamps = false,
 ) {
   await loadFont(c.font);
   const ctx = canvas.getContext('2d');
@@ -208,19 +215,29 @@ export async function paintComposition(
   const h = (size.height * 420) / size.width;
   // The strip has its own shorter composition. The Google hero has no native header on the artwork.
   const isStrip = format === 'apple';
-  const yScale = isStrip ? 0.5 : 1;
+  const stampBand = visitStampLayout[format];
+  const artScale = withStamps ? stampBand.artScale : 1;
+  const yScale = (isStrip ? 0.5 : 1) * artScale;
   const offset = format === 'poster' ? 0 : isStrip ? -38 : -68;
-  const y = (n: number) => n * yScale + offset;
+  const artworkTop = withStamps ? stampBand.bottom * h : 0;
+  // Reuse the original composition below the visit rows. Its first 86 design units
+  // provide header space on the ordinary poster; the stamped layout already has a header.
+  const origin = withStamps ? artworkTop + 5 - 86 * yScale : offset;
+  const y = (n: number) => n * yScale + origin;
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.fillStyle = background;
   ctx.fillRect(0, 0, 420, h);
-  const seam = y(c.seam * 5.68);
+  const seam = withStamps && isStrip
+    ? artworkTop + (h - artworkTop) * c.seam / 100
+    : y(c.seam * 5.68);
   function photo() {
     if (!source || !ctx) return;
-    const x = c.photo_x * 4.2,
-      top = y(c.photo_y * 5.68),
-      w = c.photo_width * 4.2,
-      height = c.photo_height * 5.68 * yScale;
+    const frameWidth = c.photo_width * 4.2;
+    const w = frameWidth * (c.photo_front ? artScale : 1);
+    const x = c.photo_x * 4.2 + (frameWidth - w);
+    const photoY = y(c.photo_y * 5.68);
+    const top = withStamps ? Math.max(artworkTop, photoY) : photoY;
+    const height = c.photo_height * 5.68 * yScale;
     const frame = walletFrame(layout, format === 'google' ? 'google' : 'apple');
     const rect = imageFrameRect(w, height, source.width, source.height, frame);
     ctx.save();
@@ -297,8 +314,14 @@ export async function paintComposition(
   }
   ctx.restore();
   ctx.save();
-  const textSize = c.title_size * (isStrip ? 0.63 : 1);
-  ctx.translate(c.title_x * 4.2, y(c.title_y * 5.68));
+  if (withStamps) {
+    ctx.beginPath();
+    ctx.rect(0, artworkTop, 420, h - artworkTop);
+    ctx.clip();
+  }
+  const textSize = c.title_size * (isStrip ? 0.63 : 1) * artScale;
+  const titleY = y(c.title_y * 5.68);
+  ctx.translate(c.title_x * 4.2, withStamps ? Math.max(artworkTop + 4, titleY) : titleY);
   ctx.rotate((c.title_angle * Math.PI) / 180);
   ctx.fillStyle = c.title_color;
   ctx.textBaseline = 'top';
@@ -340,12 +363,13 @@ export async function exportComposition(
   background: string,
   image: string | null,
   layout: WalletBannerLayout,
+  withStamps = false,
 ) {
   const source = await compositionImage(image, c.trim_photo);
   async function raster(format: Format) {
     const { width, height } = formats[format];
     const { canvas } = surface(width, height);
-    await paintComposition(canvas, format, c, background, source, layout);
+    await paintComposition(canvas, format, c, background, source, layout, withStamps);
     return encodeArtwork(canvas);
   }
   return {

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "68a2a3a864149270654304a7edd39625d0435ab9",
-  "documentationRevision": "16c28ac5c70a6b2c6ffaebe76f8748b08e32111b95fb5b8fea32d89959de5995",
+  "documentationRef": "55c981eaf51128dfe1666beca27b2c17676a8cbc",
+  "documentationRevision": "c5374789fce05187b657b06f3e9b87abaca59add539dd5539503fe184a40994c",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -2140,15 +2140,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/customers/loyalty-program.mdx",
-          "sha256": "5902b69e41dfd571426ea32175a7a940f545f285dbb391e30ef74d1a238aa646"
+          "sha256": "bc5556f093a6ae91fed972f41b5ed543bea249454fe94621c9aef13ec71f04f8"
         },
         "fr": {
           "path": "src/content/help/fr/customers/loyalty-program.mdx",
-          "sha256": "104358e47233bc06e1938f5304d08e241ccc1be3ca935cfe28f9c0a8489af314"
+          "sha256": "14f42833a3f03be65b95812445f357e95ad717ac0de18265fcc505a9a623253a"
         },
         "he": {
           "path": "src/content/help/he/customers/loyalty-program.mdx",
-          "sha256": "3a2b071c986fc555d85e3880d0ce8a5a061871b6276d4c06a677f06505028f53"
+          "sha256": "f82c64b3f85240ca4aa947b6e6be7796c63bdbc5e890a611089875857c75a254"
         }
       }
     },
@@ -2159,15 +2159,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/wallet-studio.md",
-          "sha256": "1f0a5c343da2f2c30f38ae7776a3bba2a4edfd569a9a661296ccea8fcb833226"
+          "sha256": "3bdf691e945f68f2069b66bd05ad67d92b7d77208f549e625d5a15a97bea4a23"
         },
         "fr": {
           "path": "docs/help/internal/fr/wallet-studio.md",
-          "sha256": "59a00b7991d1d7245804972b7b7f5d3af1161c2c10e5953d0ef83261a81e39fc"
+          "sha256": "a2a805ccfcd622181edcd4ecae274eb0ec82a9c9966a1f3b144050b3a264941f"
         },
         "he": {
           "path": "docs/help/internal/he/wallet-studio.md",
-          "sha256": "df045154b98bb1b7fe6330f594e7827853ca809f9628a29177ae3ca81ea2fa71"
+          "sha256": "f229532c38d9e3d8653ef6c477acc6dd0802ab91ade865da18a48dd1ca42cb42"
         }
       }
     },
@@ -4644,21 +4644,21 @@
       ]
     },
     "src/components/loyalty/WalletCompositionPreview.tsx": {
-      "sha256": "54164f4e9880f87b2b2897941ecb33ac82750ceebcaf449cd7f459ba299c0bf3",
+      "sha256": "1cd0f3878068a0a3d70a4e19ec33d0ef2698dc0a53e3a44a7610133acd9e573c",
       "features": [
         "customers-loyalty-program",
         "customers-wallet-studio"
       ]
     },
     "src/components/loyalty/WalletStudioWorkspace.tsx": {
-      "sha256": "a0a626c351aabb727734e7f4d2f3d64dd6e1b5f1724e22f74a2734cce1686a68",
+      "sha256": "5497547cf2e04e11e01e1371130123f29ac0f2c8dc9b9ab33ecd7a19ee67e183",
       "features": [
         "customers-loyalty-program",
         "customers-wallet-studio"
       ]
     },
     "src/components/loyalty/WalletVisitStamps.tsx": {
-      "sha256": "33f10c91a10f622db59dae37f3f3b3cbf3bafc52c5d77d48ec666fd9db9f615f",
+      "sha256": "9ff7ac67d58ec1bc48ed98cea13b283e8fc8f00bad1388e9cbd1c79750b072d4",
       "features": [
         "customers-loyalty-program",
         "customers-wallet-studio"
@@ -6793,7 +6793,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "922902ea2666fcd67da783da02d7e0f2f27231464bda7089bc5c55ad3a8ffe23",
+      "sha256": "5aa4c960cc66c70b1c2844b773c6740f653c1997203b1bec39f03dc6b83cbdad",
       "features": [
         "customers-profiles",
         "menu-subgroups",
@@ -7841,7 +7841,7 @@
       ]
     },
     "src/lib/wallet-composition.ts": {
-      "sha256": "81ce372f227f93c58538afbed06f56e274077fa8ae4da4ff103cbbd9d11eac81",
+      "sha256": "ee2313dda595fea5af676ddd3048ddf47f3754e98305c25088bd9a709e443b6a",
       "features": [
         "shared-runtime",
         "customers-loyalty-program",
@@ -17925,6 +17925,8 @@
         "customers-wallet-studio"
       ],
       "labels": [
+        "loyaltyProgramReward",
+        "stampRemaining",
         "walletArtDecor",
         "walletArtNext",
         "walletArtRenderError",
