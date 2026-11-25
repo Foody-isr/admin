@@ -7,7 +7,7 @@ import { allowsModulePath } from '@/lib/module-navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
-import { RestaurantTimezone } from '@/lib/restaurant-timezone-context';
+import { RestaurantTimezone, RestaurantWeekStart } from '@/lib/restaurant-timezone-context';
 import { PermissionsProvider, usePermissions } from '@/lib/permissions-context';
 import { WsProvider } from '@/lib/ws-context';
 import { useIdleTimeout } from '@/lib/use-idle-timeout';
@@ -151,7 +151,9 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
           {/* Fullscreen routes render their own chrome, so they still have to
               absorb the status-bar inset themselves (viewport-fit=cover). */}
           <div className="min-h-dvh pt-safe-t">
-            <PermissionRouteGuard>{children}</PermissionRouteGuard>
+            <RestaurantWeekStart.Provider value={restaurant.week_start_day ?? 1}>
+              <PermissionRouteGuard>{children}</PermissionRouteGuard>
+            </RestaurantWeekStart.Provider>
           </div>
           {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
         </WsProvider>
@@ -174,7 +176,9 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
           pageName={pageName}
         >
           <RestaurantTimezone.Provider value={restaurant.timezone || 'Asia/Jerusalem'}>
-            <PermissionRouteGuard>{children}</PermissionRouteGuard>
+            <RestaurantWeekStart.Provider value={restaurant.week_start_day ?? 1}>
+              <PermissionRouteGuard>{children}</PermissionRouteGuard>
+            </RestaurantWeekStart.Provider>
           </RestaurantTimezone.Provider>
         </RestaurantExperience>
         {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}

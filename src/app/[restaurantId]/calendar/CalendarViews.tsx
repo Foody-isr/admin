@@ -6,6 +6,7 @@ import { Plus } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { calendarDayEventLanes, calendarEntriesOnDate, calendarMonthDays, calendarWeekDays, type CalendarEntry } from '@/lib/restaurant-calendar';
 import type { RestaurantCalendarEvent } from '@/lib/api';
+import { ordersSeriesPath } from '@/lib/orders/routes';
 
 export type CalendarView = 'week' | 'day' | 'month' | 'list';
 type Kind = RestaurantCalendarEvent['kind'];
@@ -21,6 +22,7 @@ interface CalendarViewsProps {
   month: string;
   weekStart: number;
   entries: CalendarEntry[];
+  seriesByDate: ReadonlyMap<string, string[]>;
   filter: string;
   canEdit: boolean;
   onSelectDay: (date: string) => void;
@@ -52,6 +54,16 @@ function EventTile({ event, restaurantId, onEdit, className = '' }: Pick<Calenda
     : <button type="button" className={classes} onClick={() => onEdit(event)} title={title} aria-label={event.title}>{content}</button>;
 }
 
+function SeriesLinks({ restaurantId, date, keys }: { restaurantId: number; date: string; keys?: string[] }) {
+  const { t, dateText } = useCalendarLabels();
+  if (!keys?.length) return null;
+  return <div className="mb-1 flex flex-wrap gap-x-2 text-xs font-medium">
+    {keys.map(key => <Link key={key} href={ordersSeriesPath(restaurantId, key, date)} className="underline underline-offset-2">
+      {keys.length === 1 ? t('dateBasisSerieShort') : t('dateSeriesNamed').replace('{dates}', dateText(key, { day: 'numeric', month: 'short' }))}
+    </Link>)}
+  </div>;
+}
+
 function WeekView(props: CalendarViewsProps) {
   const { t, dateText, kindLabel, rowLabel, countLabel } = useCalendarLabels();
   const days = calendarWeekDays(props.selected, props.weekStart);
@@ -62,7 +74,7 @@ function WeekView(props: CalendarViewsProps) {
       <colgroup><col style={{ width: 148 }} />{days.map(day => <col key={day} />)}</colgroup>
       <thead><tr className="h-12 border-b border-[var(--line-strong)] text-start">
         <th scope="col" className="border-e border-[var(--line)] px-2 text-start font-semibold">{t('calendarType')}</th>
-        {days.map(day => <th scope="col" key={day} className="border-e border-[var(--line)] px-2 text-start font-semibold last:border-e-0"><button type="button" onClick={() => props.onSelectDay(day)} aria-label={dateText(day)} className="py-3 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--fg)]"><span className={day === props.today ? 'underline decoration-2 underline-offset-4' : ''}>{dateText(day, { weekday: 'short', day: 'numeric', month: 'numeric' })}</span></button></th>)}
+        {days.map(day => <th scope="col" key={day} className="border-e border-[var(--line)] px-2 text-start font-semibold last:border-e-0"><button type="button" onClick={() => props.onSelectDay(day)} aria-label={dateText(day)} className="py-3 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--fg)]"><span className={day === props.today ? 'underline decoration-2 underline-offset-4' : ''}>{dateText(day, { weekday: 'short', day: 'numeric', month: 'numeric' })}</span></button><SeriesLinks restaurantId={props.restaurantId} date={day} keys={props.seriesByDate.get(day)} /></th>)}
       </tr></thead>
       <tbody>{kinds.map(kind => <tr key={kind} className="border-b border-[var(--line)]">
         <th scope="row" className="border-e border-[var(--line-strong)] px-2 py-3 text-start align-top font-normal"><span className="block">{rowLabel(kind)}</span><span className="mt-1 block text-xs text-[#b3b3b3] dark:text-[var(--fg-subtle)]">{countLabel(inWeek.filter(event => event.kind === kind).length)}</span></th>
@@ -87,6 +99,7 @@ function DayView(props: CalendarViewsProps) {
   const firstHour = lanes.length ? Math.floor(Math.min(...lanes.map(event => event.start)) / 60) : 0;
   useEffect(() => { if (scroll.current) scroll.current.scrollLeft = firstHour * HOUR_WIDTH * (direction === 'rtl' ? -1 : 1); }, [props.selected, firstHour, direction]);
   return <div data-calendar-grid="day" className="min-w-0 [--line:#ededed] [--line-strong:#bcbcbc] dark:[--line:#383838] dark:[--line-strong:#525252]">
+    <SeriesLinks restaurantId={props.restaurantId} date={props.selected} keys={props.seriesByDate.get(props.selected)} />
     {allDay.length > 0 && <div className="flex border-y border-[var(--line)]">
       <p className="w-[180px] shrink-0 border-e border-[var(--line-strong)] px-4 py-4 text-sm">{t('calendarAllDay')}</p>
       <div className="flex min-w-0 flex-1 flex-wrap gap-2 p-2">{allDay.map(event => <EventTile key={event.id} event={event} restaurantId={props.restaurantId} onEdit={props.onEdit} className="!w-44 max-w-full" />)}</div>
@@ -125,6 +138,7 @@ export function CalendarViews(props: CalendarViewsProps) {
     <div className="grid min-w-[700px] grid-cols-7 border-b border-[var(--line-strong)]">{days.slice(0, 7).map(day => <div key={day} className="px-3 py-4 text-start text-sm font-semibold">{dateText(day, { weekday: 'short' })}</div>)}</div>
     <div className="grid min-w-[700px] grid-cols-7">{days.map(date => <div key={date} data-calendar-date={date} className={`group relative min-h-24 border-b border-e border-[var(--line)] p-2 ${date.startsWith(props.month) ? '' : 'bg-[var(--surface-2)] text-[var(--fg-muted)]'}`}>
       <div className="mb-2 flex items-center justify-between"><button type="button" onClick={() => props.onSelectDay(date)} aria-label={dateText(date)} className={`grid size-7 place-items-center rounded-full text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--fg)] ${date === props.today ? 'bg-[var(--action)] text-[var(--action-fg)]' : 'hover:bg-[var(--surface-2)]'}`}>{Number(date.slice(-2))}</button>{props.canEdit && <button type="button" onClick={() => props.onCreate(date)} aria-label={`${t('calendarAdd')} · ${dateText(date)}`} className="grid size-7 place-items-center rounded-full text-[var(--fg-muted)] opacity-0 outline-none hover:bg-[var(--surface-2)] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--fg)] group-hover:opacity-100"><Plus className="size-4" aria-hidden /></button>}</div>
+      <SeriesLinks restaurantId={props.restaurantId} date={date} keys={props.seriesByDate.get(date)} />
       <div className="space-y-1">{calendarEntriesOnDate(props.entries, date).slice(0, 2).map(event => <EventTile key={event.id} event={event} restaurantId={props.restaurantId} onEdit={props.onEdit} className="!min-h-0 !px-2 !py-1 !text-xs [&>span+span]:hidden" />)}</div>
       {calendarEntriesOnDate(props.entries, date).length > 2 && <button type="button" onClick={() => props.onSelectDay(date)} className="mt-1 text-xs underline">+{calendarEntriesOnDate(props.entries, date).length - 2} {t('calendarMore')}</button>}
     </div>)}</div>

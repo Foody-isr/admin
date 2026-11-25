@@ -38,44 +38,55 @@ test('preorder home uses service totals and creation-day intake without a daily 
   await expect(page.locator('.dashboard-chart-bar')).toHaveCount(3);
   await expect(page.locator('.dashboard-change')).toHaveCount(0);
   await expect(page.locator('.dashboard-volume, .dashboard-prompt, .dashboard-money')).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Plan de production', exact: true })).toHaveAttribute('href', '/1/orders/production?date=2026-10-09');
-  await expect(page.locator('.dashboard-attention').getByRole('link')).toHaveAttribute('href', '/1/orders/all?view=payment_attention&from=2026-10-09&to=2026-10-09&date_field=serie');
+  await expect(page.getByRole('link', { name: 'Plan de production', exact: true })).toHaveAttribute('href', '/1/orders/production?date=2026-10-09&series_key=2026-10-09');
+  await expect(page.locator('.dashboard-attention').getByRole('link')).toHaveAttribute('href', '/1/orders/all?view=payment_attention&from=2026-10-08&to=2026-10-08&date_field=created&scope=live');
   const orderRequests = requests.filter(url => url.pathname === '/api/v1/orders');
   expect(orderRequests.length).toBeGreaterThanOrEqual(4);
-  for (const request of orderRequests.slice(-4)) {
-    expect(request.searchParams.get('from')).toBe('2026-10-09');
-    expect(request.searchParams.get('date_field')).toBe('serie');
-    expect(request.searchParams.get('restaurant_id')).toBe('1');
-  }
+  const recent = orderRequests.filter(url => url.searchParams.get('sort_by') === 'created_at').at(-1)!;
+  expect(recent.searchParams.get('series_key')).toBe('2026-10-09');
+  expect(recent.searchParams.get('date_field')).toBe('serie');
+  expect(recent.searchParams.get('restaurant_id')).toBe('1');
+  const payments = orderRequests.filter(url => url.searchParams.has('payment_status')).at(-1)!;
+  expect(payments.searchParams.has('from')).toBe(false);
+  expect(payments.searchParams.has('series_key')).toBe(false);
   expect(requests.some(url => url.pathname === '/api/v1/analytics/comparison')).toBe(false);
   await page.screenshot({ path: info.outputPath('dashboard-service-fr.png'), fullPage: true });
 });
 
-test('switching to today changes operational scope and persists the chosen basis', async ({ page }) => {
+test('switching to order date changes the historical view and saves only by explicit choice', async ({ page }) => {
   const { requests } = await install(page);
   await open(page);
   await page.locator('.dashboard-header').getByRole('button', { name: /Série/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Date de commande', exact: true }).click();
   await page.getByRole('button', { name: "Aujourd'hui", exact: true }).click();
   await expect(page.locator('.dashboard-volume')).toBeVisible();
   await expect(page.locator('.dashboard-metrics > div').first()).toContainText('0');
   await expect(page.locator('.dashboard-revenue strong')).toContainText('0,00');
-  await expect(page.locator('.dashboard-operations')).toHaveCount(0);
-  const current = requests.filter(url => url.pathname === '/api/v1/orders').slice(-4);
-  expect(current.every(url => url.searchParams.get('from') === '2026-10-08' && !url.searchParams.has('date_field'))).toBe(true);
+  await expect(page.locator('.dashboard-attention')).toContainText('1 paiement demande votre attention.');
+  const current = requests.filter(url => url.pathname === '/api/v1/orders' && url.searchParams.get('sort_by') === 'created_at').at(-1)!;
+  expect(current.searchParams.get('from')).toBe('2026-10-08');
+  expect(current.searchParams.has('date_field')).toBe(false);
+  await page.reload();
+  await expect(page.locator('.dashboard-header p')).toContainText('vendredi 9 octobre');
+  await page.locator('.dashboard-header').getByRole('button', { name: /Série/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Date de commande', exact: true }).click();
+  await page.getByRole('button', { name: 'Personnaliser', exact: true }).click();
+  await page.getByRole('button', { name: 'Utiliser cette base par défaut', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Utiliser cette base par défaut', exact: true })).toHaveCount(0);
   await page.reload();
   await expect(page.locator('.dashboard-volume')).toBeVisible();
   await expect(page.locator('.dashboard-header p')).toContainText('Commandes passées');
 });
 
-test('a previous service can be selected and survives a reload without N/A badges', async ({ page }) => {
+test('a previous service is usable while the current one stays the default on reload', async ({ page }) => {
   await install(page); await open(page);
   await page.locator('.dashboard-header').getByRole('button', { name: /Série/ }).click();
-  await page.getByRole('dialog').getByRole('button', { name: '2', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /Série du 2 oct/ }).click();
   await expect(page.locator('.dashboard-metrics > div').first()).toContainText('16');
   await expect(page.locator('.dashboard-header p')).toContainText('vendredi 2 octobre');
   await expect(page.locator('.dashboard-home')).not.toContainText('N/A');
   await page.reload();
-  await expect(page.locator('.dashboard-header p')).toContainText('vendredi 2 octobre');
+  await expect(page.locator('.dashboard-header p')).toContainText('vendredi 9 octobre');
 });
 
 test('failed operational reads show an unavailable notice, and retry restores the action', async ({ page }) => {
@@ -129,7 +140,7 @@ test('payment shortcut includes an unpaid preorder before acceptance', async ({ 
   fixture.orders.find(order => order.id === 2213)!.status = 'scheduled';
   await open(page);
   await page.locator('.dashboard-attention').getByRole('link').click();
-  await expect(page).toHaveURL(/view=payment_attention.*date_field=serie/);
+  await expect(page).toHaveURL(/view=payment_attention.*date_field=created.*scope=live/);
   await expect.poll(() => requests.filter(url => url.pathname === '/api/v1/orders' && url.searchParams.get('payment_status') === 'unpaid,pending,partially_paid').at(-1)?.searchParams.get('status')).toContain('scheduled');
 });
 
@@ -152,7 +163,7 @@ for (const variant of [
   await trigger.click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('button', { name: '9', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { pressed: true }).last()).toBeVisible();
   const bounds = await dialog.boundingBox();
   expect(bounds).not.toBeNull();
   expect(bounds!.x).toBeGreaterThanOrEqual(0);
@@ -189,6 +200,7 @@ test('Square-style tooltip shows the dated metric on hover and keyboard focus', 
 test('comparison tooltip separates the actual dates and values of both periods', async ({ page }) => {
   await install(page); await open(page);
   await page.locator('.dashboard-header').getByRole('button', { name: /Série/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Date de commande', exact: true }).click();
   await page.getByRole('button', { name: '7 derniers jours', exact: true }).click();
   const bar = page.locator('.dashboard-performance .dashboard-chart-bar').first();
   const tooltip = page.locator('.dashboard-chart-tooltip');

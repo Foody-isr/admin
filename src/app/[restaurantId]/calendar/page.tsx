@@ -11,6 +11,8 @@ import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import { calendarMoveMonth, calendarShiftDate, calendarWeekDays, calendarEventValid, cateringCalendarEntries, newCalendarEvent, type CalendarEntry } from '@/lib/restaurant-calendar';
+import { useOrderSeries } from '@/lib/series';
+import { isoDate, restaurantCalendarDay } from '@/lib/weeks';
 import { CalendarViews, type CalendarView } from './CalendarViews';
 import { CalendarDateInput, CalendarDialog, CalendarField } from './CalendarDialog';
 
@@ -28,6 +30,17 @@ function CalendarWorkspace({ rid }: { rid: number }) {
   const { hasAnyPermission, loading: permissionsLoading } = usePermissions();
   const canEdit = hasAnyPermission('settings.edit');
   const canReadCatering = hasAnyPermission('catering.view', 'catering.manage');
+  const canReadOrders = hasAnyPermission('orders.view', 'orders.manage');
+  const { series } = useOrderSeries(!permissionsLoading && canReadOrders ? rid : 0);
+  const seriesByDate = useMemo(() => {
+    const byDate = new Map<string, string[]>();
+    for (const lot of series) {
+      for (const date of Array.from(new Set([...lot.days.map(day => day.date), ...(lot.committed_days ?? [])]))) {
+        byDate.set(date, [...(byDate.get(date) ?? []), lot.key]);
+      }
+    }
+    return byDate;
+  }, [series]);
   const [events, setEvents] = useState<RestaurantCalendarEvent[]>([]), [catering, setCatering] = useState<CalendarEntry[]>([]);
   const [timezone, setTimezone] = useState('Asia/Jerusalem'), [weekStart, setWeekStart] = useState(1);
   const [selected, setSelected] = useState(''), [month, setMonth] = useState('');
@@ -41,10 +54,7 @@ function CalendarWorkspace({ rid }: { rid: number }) {
   const lock = useRef(false), guard = useRef(new RestaurantRequestGuard()), alive = useRef(true);
   guard.current.enterRestaurant(rid);
   const dirty = !!draft && JSON.stringify(draft) !== baseline;
-  const localToday = useCallback(() => {
-    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).map(part => [part.type, part.value]));
-    return `${parts.year}-${parts.month}-${parts.day}`;
-  }, [timezone]);
+  const localToday = useCallback(() => isoDate(restaurantCalendarDay(timezone)), [timezone]);
   const reload = useCallback(async () => {
     const token = guard.current.begin(rid);
     setLoading(true); setError(''); setCateringError(false);
@@ -143,7 +153,7 @@ function CalendarWorkspace({ rid }: { rid: number }) {
           {canEdit && <Button onClick={() => openEvent()} disabled={loading || !!error} className="min-h-12 px-5 text-sm"><Plus />{t('calendarAdd')}</Button>}
         </div>
       </div>
-      <CalendarViews restaurantId={rid} view={view} selected={selected} today={localToday()} month={month} weekStart={weekStart} entries={entries} filter={filter} canEdit={canEdit} onSelectDay={date => { selectDate(date); setView('day'); }} onCreate={(date, kind, hour) => { selectDate(date); openEvent(undefined, date, kind, hour); }} onEdit={event => openEvent(event)} />
+      <CalendarViews restaurantId={rid} view={view} selected={selected} today={localToday()} month={month} weekStart={weekStart} entries={entries} seriesByDate={seriesByDate} filter={filter} canEdit={canEdit} onSelectDay={date => { selectDate(date); setView('day'); }} onCreate={(date, kind, hour) => { selectDate(date); openEvent(undefined, date, kind, hour); }} onEdit={event => openEvent(event)} />
     </>}
     <CalendarDialog open={!!draft} onClose={close} title={draft?.updated_at ? t('calendarEdit') : t('calendarAdd')} onSave={canEdit ? () => void save() : undefined} saveDisabled={saving || !dirty || !draft || !calendarEventValid(draft) || (draft.kind === 'closure' && (conflictsLoading || conflictsFailed))} saving={saving} footer={draft?.updated_at && canEdit && <Button variant="ghost" disabled={saving} onClick={() => setConfirm('delete')}><Trash2 />{t('calendarDelete')}</Button>}>
       {draft && <form className="space-y-6" onSubmit={event => { event.preventDefault(); void save(); }}>

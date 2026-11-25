@@ -1,8 +1,8 @@
 import type { AnalyticsScope, DateBasis, ListOrdersParams } from '@/lib/api';
 
-type LiveOrderScope = Pick<ListOrdersParams, 'from' | 'to' | 'date_field'>;
+type LiveOrderScope = Pick<ListOrdersParams, 'from' | 'to' | 'date_field' | 'series_key'>;
 
-/** Keeps dashboard operational counts aligned with the selected analytics window. */
+/** Scopes the dashboard's recent orders to the selected analytics window. */
 export function dashboardLiveOrderScope(
   scope: Exclude<AnalyticsScope, string>,
   basis: DateBasis,
@@ -10,6 +10,7 @@ export function dashboardLiveOrderScope(
   return {
     from: scope.from,
     to: scope.to,
-    ...(basis === 'serie' ? { date_field: 'serie' as const } : {}),
+    ...(scope.seriesKey ? { series_key: scope.seriesKey } : {}),
+    ...(basis !== 'created' ? { date_field: basis } : {}),
   };
 }

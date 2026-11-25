@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { RestaurantTimezone } from "@/lib/restaurant-timezone-context";
+import { restaurantCalendarDay } from "@/lib/weeks";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import DeliveryImportModal from "../stock/DeliveryImportModal";
@@ -167,7 +169,8 @@ export default function DailyOperationsPage() {
   const [closing, setClosing] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [actionError, setActionError] = useState("");
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const timeZone = useContext(RestaurantTimezone);
+  const [selectedDate, setSelectedDate] = useState(() => restaurantCalendarDay(timeZone));
 
   const [workspace, setWorkspace] = useState<
     "sales" | "receipts" | "tomorrow" | "forecast" | "estimated" | null
@@ -261,7 +264,7 @@ export default function DailyOperationsPage() {
       setActionError("");
       try {
         const dateStr = formatDate(selectedDate);
-        const today = formatDate(new Date());
+        const today = formatDate(restaurantCalendarDay(timeZone));
 
         let rpt: DailyFoodCostReport;
         if (dateStr === today) {
@@ -327,7 +330,7 @@ export default function DailyOperationsPage() {
         if (request === reportRequest.current) setLoading(false);
       }
     },
-    [rid, selectedDate, canManage, t],
+    [rid, selectedDate, canManage, t, timeZone],
   );
 
   const loadForecast = useCallback(async () => {
@@ -385,7 +388,7 @@ export default function DailyOperationsPage() {
       const dateStr = formatDate(selectedDate);
       const filtered = txns.filter(
         (tx) =>
-          tx.created_at && formatDate(new Date(tx.created_at)) === dateStr,
+          tx.created_at && formatDate(restaurantCalendarDay(timeZone, new Date(tx.created_at))) === dateStr,
       );
       if (request === supplementaryRequest.current) setTodayReceives(filtered);
     } catch (error) {
@@ -404,7 +407,7 @@ export default function DailyOperationsPage() {
       if (request === supplementaryRequest.current)
         setSupplementaryLoading(false);
     }
-  }, [rid, selectedDate, t]);
+  }, [rid, selectedDate, t, timeZone]);
 
   const loadKitchenSummary = useCallback(async () => {
     if (!report) return;
@@ -661,7 +664,7 @@ export default function DailyOperationsPage() {
         (item.reorder_threshold > 0 &&
           item.quantity <= item.reorder_threshold)),
   );
-  const selectedIsToday = formatDate(selectedDate) === formatDate(new Date());
+  const selectedIsToday = formatDate(selectedDate) === formatDate(restaurantCalendarDay(timeZone));
   const soldQuantity = (report?.sales ?? []).reduce(
     (sum, sale) => sum + sale.quantity,
     0,
@@ -808,7 +811,7 @@ export default function DailyOperationsPage() {
                 if (confirmDiscard()) {
                   setPhaseSelection(null);
                   setWorkspace(null);
-                  setSelectedDate(new Date());
+                  setSelectedDate(restaurantCalendarDay(timeZone));
                 }
               }}
             >

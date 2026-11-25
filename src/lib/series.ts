@@ -1,20 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { fetchOrderSeries, type OrderSerie } from '@/lib/api';
+import { fetchOrderSeries, type AnalyticsWindow, type FulfillmentSeries } from '@/lib/api';
+import type { DateRange } from '@/components/DateRangePicker';
+import { isoDate } from '@/lib/weeks';
 
-/** A contiguous série selection by fulfillment date (ISO YYYY-MM-DD, from <= to).
- *  from === to is a single série. Dates compare correctly as strings (ISO). */
-export interface SerieRange {
-  from: string;
-  to: string;
-}
+type SeriesState = { restaurantId: number; series: FulfillmentSeries[]; status: 'loading' | 'ready' | 'error' };
 
-export type SeriePreset = 'last' | 'last3' | 'month' | 'all';
-
-/** Loads and refreshes the restaurant's séries so empty weekly batches roll over. */
-export function useOrderSeries(restaurantId: number): OrderSerie[] {
-  const [state, setState] = useState<{ restaurantId: number; series: OrderSerie[] }>({ restaurantId, series: [] });
+/** Refreshes lots so the operational selection advances when the last day ends. */
+export function useOrderSeries(restaurantId: number): SeriesState & { reload: () => void } {
+  const [revision, setRevision] = useState(0);
+  const [state, setState] = useState<SeriesState>({ restaurantId, series: [], status: 'loading' });
   useEffect(() => {
     if (!restaurantId) return;
     let active = true;
@@ -24,9 +20,13 @@ export function useOrderSeries(restaurantId: number): OrderSerie[] {
       pending = true;
       fetchOrderSeries(restaurantId)
         .then((series) => {
-          if (active) setState({ restaurantId, series });
+          if (active) setState({ restaurantId, series, status: 'ready' });
         })
-        .catch(() => {})
+        .catch(() => {
+          if (active) setState(previous => ({
+            restaurantId, series: previous.restaurantId === restaurantId ? previous.series : [], status: 'error',
+          }));
+        })
         .finally(() => { pending = false; });
     };
     refresh();
@@ -39,51 +39,33 @@ export function useOrderSeries(restaurantId: number): OrderSerie[] {
       window.removeEventListener('focus', refresh);
       document.removeEventListener('visibilitychange', refresh);
     };
-  }, [restaurantId]);
-  return state.restaurantId === restaurantId ? state.series : [];
+  }, [restaurantId, revision]);
+  const current: SeriesState = state.restaurantId === restaurantId ? state : { restaurantId, series: [], status: 'loading' };
+  return { ...current, reload: () => setRevision(revision => revision + 1) };
 }
 
-/** Resolves a preset to a série range against the série list (newest first).
- *  Null when there are no séries. */
-export function presetRange(series: OrderSerie[], preset: SeriePreset, today: Date): SerieRange | null {
-  if (series.length === 0) return null;
-  const newest = series[0].date;
-  switch (preset) {
-    case 'last':
-      return { from: newest, to: newest };
-    case 'last3':
-      return { from: series[Math.min(2, series.length - 1)].date, to: newest };
-    case 'all':
-      return { from: series[series.length - 1].date, to: newest };
-    case 'month': {
-      const y = today.getFullYear();
-      const m = today.getMonth();
-      const inMonth = series.filter((s) => {
-        const d = new Date(`${s.date}T00:00:00`);
-        return d.getFullYear() === y && d.getMonth() === m;
-      });
-      if (inMonth.length === 0) return { from: newest, to: newest };
-      // inMonth stays newest-first.
-      return { from: inMonth[inMonth.length - 1].date, to: inMonth[0].date };
-    }
-  }
+/** Resolves the exact civil window of a lot or one of its service days. */
+export function rangeForSeries(series: FulfillmentSeries, day?: string): DateRange {
+  const days = [...series.days.map(entry => entry.date), ...(series.committed_days ?? [])].sort();
+  const first = day ?? days[0];
+  const last = day ?? days[days.length - 1];
+  return {
+    from: new Date(first + 'T00:00:00'),
+    to: new Date(last + 'T00:00:00'),
+    seriesKey: series.key,
+    serviceDay: day,
+  };
 }
 
-/** The séries (newest first) a range covers, inclusive. */
-export function seriesInRange(series: OrderSerie[], sel: SerieRange): OrderSerie[] {
-  return series.filter((s) => s.date >= sel.from && s.date <= sel.to);
+/** Builds an HTTP date scope, keeping identity in addition to visible dates. */
+export function dateRangeScope(range: DateRange): AnalyticsWindow {
+  return { from: isoDate(range.from), to: isoDate(range.to), seriesKey: range.seriesKey };
 }
 
-/** The previous equal-count block of séries immediately before the selection,
- *  as a range. Null when there aren't enough earlier séries to compare against. */
-export function previousBlock(series: OrderSerie[], sel: SerieRange): SerieRange | null {
-  const dates = series.map((s) => s.date);
-  const startI = dates.indexOf(sel.to); // newest selected -> smallest index
-  const endI = dates.indexOf(sel.from); // oldest selected -> largest index
-  if (startI < 0 || endI < 0) return null;
-  const n = endI - startI + 1;
-  const prevNewest = endI + 1; // first série older than the selection
-  if (prevNewest >= series.length) return null;
-  const prevOldest = Math.min(endI + n, series.length - 1);
-  return { from: series[prevOldest].date, to: series[prevNewest].date };
+/** Finds a comparable complete lot preceding the selected whole lot. */
+export function previousSeriesWindow(series: FulfillmentSeries[], range: DateRange, today: string): AnalyticsWindow | undefined {
+  if (!range.seriesKey || range.serviceDay || isoDate(range.to) >= today) return undefined;
+  const key = range.seriesKey;
+  const previous = series.find(lot => lot.key < key && isoDate(rangeForSeries(lot).to) < isoDate(range.from));
+  return previous ? dateRangeScope(rangeForSeries(previous)) : undefined;
 }

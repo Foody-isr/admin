@@ -17,7 +17,7 @@ export function createDashboardFixture({ empty = false, denied = false, permissi
     status: 'accepted', payment_status: !previous && i === 13 ? 'unpaid' : 'paid',
     total_amount: previous ? 640 : i === 13 ? 685 : 680,
     created_at: `${shift(date, i < 2 ? -4 : i < 6 ? -3 : -2)}T${String(9 + i % 8).padStart(2, '0')}:00:00Z`,
-    is_scheduled: true, scheduled_for: `${date}T00:00:00Z`,
+    is_scheduled: true, fulfillment_series_key: date, scheduled_for: `${date}T00:00:00Z`,
     items: [{ id: 3000 + i, menu_item_id: 1, name: 'Plat de démonstration', quantity: previous ? (i < 12 ? 12 : 11) : (i < 7 ? 13 : 12), unit_price: 48, total_price: 680, modifiers: [] }],
   }));
   const orders = empty ? [] : [...makeOrders(service, false), ...makeOrders(prior, true)];
@@ -25,9 +25,12 @@ export function createDashboardFixture({ empty = false, denied = false, permissi
   const scopeOrders = (q, previous = false) => {
     const from = q.get(previous ? 'prev_from' : 'from');
     const to = q.get(previous ? 'prev_to' : 'to');
-    const serie = q.get('basis') === 'serie' || q.get('date_field') === 'serie';
+    const [basis, dateField] = [q.get('basis'), q.get('date_field')];
+    const byHandover = [basis, dateField].some(value => value === 'serie' || value === 'fulfillment');
+    const key = q.get(previous ? 'prev_series_key' : 'series_key');
     return orders.filter(order => {
-      const date = (serie ? order.scheduled_for : order.created_at).slice(0, 10);
+      if (key && order.fulfillment_series_key !== key) return false;
+      const date = (byHandover ? order.scheduled_for : order.created_at).slice(0, 10);
       return (!from || date >= from) && (!to || date <= to);
     });
   };
@@ -44,6 +47,10 @@ export function createDashboardFixture({ empty = false, denied = false, permissi
       const result = base.response(url, method, body, restaurantId);
       return { json: { restaurant: { ...result.json.restaurant, name: 'Mamie · Démonstration', dashboard_default_date_basis: 'serie', dashboard_revenue_mode: 'accepted_orders' } } };
     }
+    if (path === '/api/v1/orders/fulfillment-series') return { json: { series: [service, prior].map(date => ({
+      key: date, timezone: 'Asia/Jerusalem', revision: 1, is_current: date === service,
+      days: [{ date, day_name: 'Friday', pickup_window: { start: '10:00', end: '12:00' }, delivery_window: { start: '10:00', end: '12:00' } }],
+    })) } };
     if (path === '/api/v1/orders/series') return { json: { series: empty ? [] : [service, prior].map(date => ({ date, order_count: date === service ? 14 : 16, revenue: date === service ? 9525 : 10240 })) } };
     if (path === '/api/v1/orders') {
       let list = scopeOrders(q).filter(order => (!q.get('status') || q.get('status').split(',').includes(order.status)) && (!q.get('payment_status') || q.get('payment_status').split(',').includes(order.payment_status)));

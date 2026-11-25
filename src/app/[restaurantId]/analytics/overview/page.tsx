@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Download } from 'lucide-react';
 import {
@@ -14,19 +14,11 @@ import {
   type TopSeller,
 } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
-import DateRangePicker, { type DateRange, type DateRangeChangeOptions } from '@/components/DateRangePicker';
-import { clampWeekStartDay, isoDate, type WeekStartDay } from '@/lib/weeks';
-import { useOrderSeries } from '@/lib/series';
-import {
-  classifySelection,
-  daysInclusive,
-  readStoredBasis,
-  readStoredSel,
-  resolvePreset,
-  resolveStored,
-  writeStoredBasis,
-  writeStoredSel,
-} from '@/lib/analytics-range';
+import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
+import { clampWeekStartDay, isoDate, restaurantCalendarDay, type WeekStartDay } from '@/lib/weeks';
+import { dateRangeScope, previousSeriesWindow, useOrderSeries } from '@/lib/series';
+import { RestaurantTimezone } from '@/lib/restaurant-timezone-context';
+import { daysInclusive, resolvePreset } from '@/lib/analytics-range';
 import { comparableDelta } from '@/lib/dashboard-comparison';
 import { downloadCsv } from '@/lib/csv/export';
 import {
@@ -43,11 +35,6 @@ import {
 } from '@/components/ds';
 import TrendChart, { type TrendPoint } from './TrendChart';
 import BreakdownExplorer from './BreakdownExplorer';
-
-// v3: default the reports overview to "all time" so imported history is visible
-// on open (bumping the key resets anyone parked on the old last-30 default).
-const RANGE_STORAGE_KEY = 'foody.analytics.range.v3';
-const BASIS_STORAGE_KEY = 'foody.analytics.basis.v1';
 
 function delta(now: number | undefined, before: number | undefined): { value: string; direction: 'up' | 'down' | 'flat' } | undefined {
   const p = comparableDelta(now, before);
@@ -77,15 +64,16 @@ function sparkline(values: number[], w = 320, h = 96): { line: string; area: str
 
 export default function AnalyticsOverviewPage() {
   const { money } = useCurrency();
+  const timeZone = useContext(RestaurantTimezone);
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t, locale } = useI18n();
   const locStr = locale === 'he' ? 'he-IL' : locale === 'en' ? 'en-US' : 'fr-FR';
 
   const [wsd, setWsd] = useState<WeekStartDay>(1);
-  const [dateRange, setDateRange] = useState<DateRange>(() => resolvePreset('allTime', 1));
+  const [dateRange, setDateRange] = useState<DateRange>(() => resolvePreset('allTime', 1, restaurantCalendarDay(timeZone)));
   const [basis, setBasis] = useState<DateBasis>('created');
-  const serieList = useOrderSeries(rid);
+  const { series: serieList, status: seriesStatus } = useOrderSeries(rid);
   const [ready, setReady] = useState(false);
 
   const [period, setPeriod] = useState<PeriodComparison | null>(null);
@@ -97,23 +85,21 @@ export default function AnalyticsOverviewPage() {
   const [topError, setTopError] = useState(false);
   const loadSequence = useRef(0);
 
-  // Hydrate week config + persisted selection before the first fetch.
+  // Load the restaurant calendar before the initial report request.
   useEffect(() => {
     if (!rid) return;
-    getRestaurant(rid)
-      .then((r) => {
-        const w = clampWeekStartDay(r.week_start_day);
-        setWsd(w);
-        const stored = readStoredSel(RANGE_STORAGE_KEY);
-        if (stored) setDateRange(resolveStored(stored, w));
-        setBasis(readStoredBasis(BASIS_STORAGE_KEY));
-      })
-      .catch(() => {})
-      .finally(() => setReady(true));
-  }, [rid]);
+    let active = true;
+    setReady(false);
+    setBasis('created');
+    setDateRange(resolvePreset('allTime', 1, restaurantCalendarDay(timeZone)));
+    getRestaurant(rid).then(r => {
+      if (active) setWsd(clampWeekStartDay(r.week_start_day));
+    }).catch(() => {}).finally(() => { if (active) setReady(true); });
+    return () => { active = false; };
+  }, [rid, timeZone]);
 
   const scope = useMemo(
-    () => ({ from: isoDate(dateRange.from), to: isoDate(dateRange.to) }),
+    () => dateRangeScope(dateRange),
     [dateRange],
   );
 
@@ -132,14 +118,19 @@ export default function AnalyticsOverviewPage() {
     [locStr],
   );
 
+  const today = isoDate(restaurantCalendarDay(timeZone));
+  const previous = useMemo(() => basis === 'serie' ? previousSeriesWindow(serieList, dateRange, today) : undefined,
+    [basis, serieList, dateRange, today]);
+
   const load = useCallback(async () => {
+    if (basis === 'serie' && !scope.seriesKey) return;
     const request = ++loadSequence.current;
     setLoading(true); setLoadError(false); setTopError(false); setPeriod(null);
     const days = daysInclusive(dateRange);
     const grain = granularityFor(days);
     setTrendGrain(grain);
     const [per, brk, top] = await Promise.allSettled([
-      getPeriodSummary(rid, scope, basis),
+      getPeriodSummary(rid, scope, basis, previous),
       getBreakdown(rid, { dimension: grain, scope, basis }),
       getTopSellers(rid, scope, basis),
     ]);
@@ -157,29 +148,14 @@ export default function AnalyticsOverviewPage() {
     }
     setTopSellers(top.status === 'fulfilled' ? top.value : []);
     setLoading(false);
-  }, [rid, scope, basis, dateRange, trendLabel]);
+  }, [rid, scope, basis, previous, dateRange, trendLabel]);
 
   useEffect(() => {
     if (ready) load();
   }, [ready, load]);
 
-  const onPickRange = useCallback(
-    (range: DateRange, options?: DateRangeChangeOptions) => {
-      setDateRange(range);
-      writeStoredSel(RANGE_STORAGE_KEY, options?.literal
-        ? { from: isoDate(range.from), to: isoDate(range.to) }
-        : classifySelection(range, wsd));
-    },
-    [wsd],
-  );
-
-  const onChangeBasis = useCallback((b: DateBasis) => {
-    setBasis(b);
-    writeStoredBasis(BASIS_STORAGE_KEY, b);
-  }, []);
-
   const cur = period?.current;
-  const prev = period?.previous;
+  const prev = basis === 'serie' && !previous ? undefined : period?.previous;
   const revenue = cur?.total_revenue ?? 0;
   const revenueDelta = delta(cur?.total_revenue, prev?.total_revenue);
   const fmtMoney = (n: number) => money(n, { decimals: 0, grouped: true });
@@ -200,13 +176,15 @@ export default function AnalyticsOverviewPage() {
           <>
             <DateRangePicker
               value={dateRange}
-              onChange={onPickRange}
+              onChange={setDateRange}
               weekStartDay={wsd}
               restaurantId={rid}
               align="right"
               basis={basis}
-              onBasisChange={onChangeBasis}
+              onBasisChange={setBasis}
               series={serieList}
+              seriesStatus={seriesStatus}
+              defaultToCurrentSerie={ready}
             />
             <Button variant="secondary" size="md" onClick={onExportTrend} disabled={!trend.length}>
               <Download /> {t('export')}
@@ -215,7 +193,8 @@ export default function AnalyticsOverviewPage() {
         }
       />
 
-      {loadError && <div role="alert" className="mb-4 rounded-r-md border border-[var(--line)] p-4 text-[var(--danger-500)]"><p>{t('workspaceLoadError')}</p><Button className="mt-3" onClick={load}>{t('retry')}</Button></div>}
+      {basis === 'serie' && scope.to >= today && scope.seriesKey && <p className="text-sm text-fg-muted">{t('dashboardOpenSerieComparison')}</p>}
+      {(loadError || (basis === 'serie' && seriesStatus === 'error')) && <div role="alert" className="mb-4 rounded-r-md border border-[var(--line)] p-4 text-[var(--danger-500)]"><p>{t('workspaceLoadError')}</p><Button className="mt-3" onClick={load}>{t('retry')}</Button></div>}
       {loading ? (
         <div className="flex justify-center py-16">
           <div className="animate-spin w-8 h-8 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" />

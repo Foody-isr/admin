@@ -1,3 +1,5 @@
+import type { DateBasis } from '@/lib/api';
+
 /** Canonical list URL for a restaurant's orders. */
 export function ordersListPath(restaurantId: number): string {
   return `/${restaurantId}/orders/all`;
@@ -8,7 +10,10 @@ export const PAYMENT_ATTENTION_FILTER = 'unpaid,pending,partially_paid';
 export interface OrdersPaymentAttentionScope {
   from: string;
   to: string;
-  dateField: 'created' | 'serie';
+  dateField: DateBasis;
+  seriesKey?: string;
+  serviceDay?: string;
+  live?: boolean;
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -33,6 +38,9 @@ export function ordersPaymentAttentionPath(
     to: scope.to,
     date_field: scope.dateField,
   });
+  if (scope.seriesKey) query.set('series_key', scope.seriesKey);
+  if (scope.serviceDay) query.set('service_day', scope.serviceDay);
+  if (scope.live) query.set('scope', 'live');
   return `${ordersListPath(restaurantId)}?${query.toString()}`;
 }
 
@@ -44,11 +52,31 @@ export function parseOrdersPaymentAttentionQuery(
   const from = query.get('from');
   const to = query.get('to');
   if (!isCalendarDate(from) || !isCalendarDate(to) || from > to) return null;
+  const dateField = query.get('date_field');
+  const key = query.get('series_key');
+  const day = query.get('service_day');
   return {
     from,
     to,
-    dateField: query.get('date_field') === 'serie' ? 'serie' : 'created',
+    dateField: dateField === 'serie' || dateField === 'fulfillment' ? dateField : 'created',
+    ...(dateField === 'serie' && isCalendarDate(key) ? { seriesKey: key } : {}),
+    ...(isCalendarDate(day) && from === day && to === day ? { serviceDay: day } : {}),
+    ...(query.get('scope') === 'live' ? { live: true } : {}),
   };
+}
+
+/** Links directly to orders in a lot and optionally a single service day. */
+export function ordersSeriesPath(restaurantId: number, seriesKey: string, day?: string): string {
+  const params = new URLSearchParams({ series_key: seriesKey });
+  if (day) params.set('service_day', day);
+  return ordersListPath(restaurantId) + '?' + params;
+}
+
+/** Reads the staff link for a lot or service date. */
+export function parseOrdersSeriesQuery(query: Pick<URLSearchParams, 'get'>) {
+  const key = query.get('series_key');
+  const day = query.get('service_day');
+  return isCalendarDate(key) ? { key, day: isCalendarDate(day) ? day : undefined } : null;
 }
 
 /** Canonical, shareable URL for one order in a restaurant. */

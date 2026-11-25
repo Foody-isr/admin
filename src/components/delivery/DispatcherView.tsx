@@ -83,7 +83,7 @@ import {
 } from '@/lib/api';
 import { EditCustomerDialog } from '@/components/orders/EditCustomerDialog';
 import { localizeStatus } from '@/lib/orders/status-presentation';
-import { orderDetailPath } from '@/lib/orders/routes';
+import { orderDetailPath, ordersSeriesPath } from '@/lib/orders/routes';
 import { deliveryRoutingError } from '@/lib/delivery-planning';
 import type { RouteLayer, CourierMarker } from '@/components/delivery/DeliveryMap';
 import {
@@ -314,6 +314,7 @@ function DispatchBoard({ rid }: { rid: number }) {
   const timeZone = useContext(RestaurantTimezone);
   const searchParams = useSearchParams();
   const linkedDay = validDispatchDay(searchParams?.get('date') ?? null);
+  const linkedSeries = validDispatchDay(searchParams?.get('series_key') ?? null);
   const loadRequestId = useRef(0);
   const editorRequest = useRef(0);
   const [loadFailures, setLoadFailures] = useState<string[]>([]);
@@ -895,6 +896,7 @@ function DispatchBoard({ rid }: { rid: number }) {
     if (!day || day === planningDate) return;
     const url = new URL(window.location.href);
     url.searchParams.set('date', day);
+    url.searchParams.delete('series_key');
     window.history.replaceState(null, '', url);
     ++loadRequestId.current;
     ++editorRequest.current;
@@ -997,6 +999,7 @@ function DispatchBoard({ rid }: { rid: number }) {
             <button type="button" aria-label={t('nextDay')} onClick={() => stepDay(1)}><ChevronRightIcon className="rtl:rotate-180" /></button>
             {planningDate !== today && <button type="button" onClick={() => changeDay(today)}>{t('today')}</button>}
             {nextPlannedDay && planningDate !== nextPlannedDay && <button type="button" onClick={() => changeDay(nextPlannedDay)}>{t('deliveryNextPlannedDay').replace('{date}', dayFormatter.format(new Date(nextPlannedDay + 'T12:00:00Z')))}</button>}
+            {linkedSeries && linkedDay === planningDate && <Link className="text-sm underline" href={ordersSeriesPath(rid, linkedSeries, planningDate)}>{t('allOrders')}</Link>}
           </div>}
           <h1>{t(view === 'open' ? 'dispatchWorkspaceTitle' : 'dispatchArchiveTitle')}</h1>
         </div>

@@ -1,0 +1,118 @@
+{
+  "files": [
+    {
+      "path": "src/app/[restaurantId]/kitchen/daily-operations/page.tsx",
+      "sha256": "fc18c7e6b99270866857a75eb755abd1a0fb9a60d9f0fc2d64ddbeac441a1811",
+      "baseSha256": "bc2662efb58e99f6e9fef3a88a1ab65f2183783a70b0314c138f1556cffb759c",
+      "disposition": "no-user-impact",
+      "features": [
+        "kitchen-food-cost",
+        "kitchen-preparations",
+        "kitchen-stock-management"
+      ],
+      "reason": "The calendar changes localize the daily operations date and its navigation. Procurement stock adjustments, preparation recipes and food cost procedures keep their documented controls."
+    },
+    {
+      "path": "src/app/[restaurantId]/orders/new/page.tsx",
+      "sha256": "6ee6ed575964d91c23282c7d62e6d509a7f4fa69d4ae1544b8568897badcdb02",
+      "baseSha256": "cdb07852f654697663a0fa80c59ddd077cfb417a64f3b1d6fec77a21bc5b6646",
+      "disposition": "no-user-impact",
+      "features": [
+        "orders-internal-sumit-checkout"
+      ],
+      "reason": "The new order form passes the selected weekly lot with its handover day. The existing fields, options and actions for opening a Sumit checkout still apply."
+    },
+    {
+      "path": "src/components/DateRangePicker.tsx",
+      "sha256": "b391884a2d33e6973126bc992aaff822f112d2455eaceb5576e8964eec16dc2f",
+      "baseSha256": "cdfc92ecea034d1e10db8627f3f44517fc549ca13d8407790808dbc6492ce47e",
+      "disposition": "no-user-impact",
+      "features": [
+        "global-search"
+      ],
+      "reason": "The date picker adds lot and handover selection for scoped order and report views. Global search is handled by its own component and query."
+    },
+    {
+      "path": "src/components/MenuGroupPicker.tsx",
+      "sha256": "1ebb73646c13ffbbbedb6fd592082fb1465817f262fd841ac426064f6658edd8",
+      "baseSha256": "6d30c1d33c85debcdf3b6947da476af6707f806b44db2207dd9b6797a02e05e4",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item"
+      ],
+      "reason": "The existing item assignment picker receives the stable lot reference for rotating menus. The steps to find a group and assign an item still apply."
+    },
+    {
+      "path": "src/components/menu/publication/CarteEditor.tsx",
+      "sha256": "45a7de35ab50768773ee1c55bef9b0eaa9dc25b495f8488b66277ff227f1c6c8",
+      "baseSha256": "65115927be91eb5b13c1460ff82c907fa0ebc16eb1251b150958cb548ddad69d",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-subgroups"
+      ],
+      "reason": "The rotating carte reads the reference returned by the schedule. The group hierarchy and actions for creating and reordering subgroups still apply."
+    },
+    {
+      "path": "src/components/orders/EditOrderDrawer.tsx",
+      "sha256": "25aa6bb17c20f1106fa0c35b17362bfc49a7990ccad0f7ddd9ee75a7dc9d6a54",
+      "baseSha256": "a2beeeebb9998e5bb8c896e6cf76b333fee05ba87d357a9e4de45d4b5e122d8c",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-variants-and-sizes"
+      ],
+      "reason": "The editor carries a series key through handover selection. The existing variant and size controls remain the source of the item configuration."
+    },
+    {
+      "path": "src/lib/api.ts",
+      "sha256": "137375bff213f2222b111c33ff7ab2c9083488938b1158823f8cc57b21f92466",
+      "baseSha256": "5aa4c960cc66c70b1c2844b773c6740f653c1997203b1bec39f03dc6b83cbdad",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-subgroups",
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "delivery-zones",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "customers-loyalty-program"
+      ],
+      "reason": "Extends the transport for order date bases, series identity, day exceptions and related report history. The reviewed client calls use the existing paths and request fields."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "sha256": "07709b2efced1942d89ebbc90ff4818dd974a0c970bb27bb1121d460f731d915",
+      "baseSha256": "f048e428770ba08575c34195b13d04af3d626561024cb0206345d4dc6732aa57",
+      "disposition": "no-user-impact",
+      "features": [
+        "customers-profiles",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "customers-loyalty-program"
+      ],
+      "reason": "The strings added or edited describe calendar filters, weekly fulfillment lots and personal date defaults. The reviewed guides use other translation keys."
+    },
+    {
+      "path": "src/lib/item-menu-assignments.ts",
+      "sha256": "cae07f18d875d5fedd2ae5cf792b108e33b63e5a676de950a0a5d19c021f8566",
+      "baseSha256": "919545c414b64a5670da48ecc33af6168ed17342432f519969ccddba3acac069",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item"
+      ],
+      "reason": "Uses the cycle identity when requesting rotating menu memberships. The catalog and item assignment procedures retain their existing controls."
+    }
+  ]
+}
