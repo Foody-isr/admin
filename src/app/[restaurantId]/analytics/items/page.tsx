@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { SearchIcon } from 'lucide-react';
 import {
@@ -10,10 +10,11 @@ import {
   ItemSalesListResult,
 } from '@/lib/api';
 import { useI18n, useCurrency } from '@/lib/i18n';
-import { clampWeekStartDay, getEffectiveWorkdays, isoDate, type WeekStartDay } from '@/lib/weeks';
+import { clampWeekStartDay, getEffectiveWorkdays, restaurantCalendarDay, type WeekStartDay } from '@/lib/weeks';
 import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
-import type { DateBasis } from '@/lib/api';
-import { useOrderSeries } from '@/lib/series';
+import type { AnalyticsWindow, DateBasis } from '@/lib/api';
+import { dateRangeScope, useOrderSeries } from '@/lib/series';
+import { RestaurantTimezone } from '@/lib/restaurant-timezone-context';
 import ItemDetailPanel from './ItemDetailPanel';
 import { ComboTooltip } from './ComboTooltip';
 import { PageHead, Badge } from '@/components/ds';
@@ -36,39 +37,15 @@ import {
 
 type SortField = 'quantity' | 'revenue' | 'avg_price' | 'order_count' | 'name' | 'category_name' | 'pct_of_revenue';
 
-// The report window + date basis are remembered across navigation. Stored as
-// literal dates (not a rolling key) — a sales report is usually pinned to a
-// concrete period the owner is analysing, not a rolling "today".
-const RANGE_STORAGE_KEY = 'foody.salesByItem.range.v1';
-const BASIS_STORAGE_KEY = 'foody.salesByItem.basis.v1';
-
-/** First-of-current-month → today, the default window for a sales report. */
-function currentMonthRange(): DateRange {
-  const now = new Date();
-  const from = new Date(now.getFullYear(), now.getMonth(), 1);
-  const to = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return { from, to };
-}
-
-function readStoredRange(): DateRange | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(RANGE_STORAGE_KEY);
-    if (!raw) return null;
-    const { from, to } = JSON.parse(raw) as { from: string; to: string };
-    return { from: new Date(`${from}T00:00:00`), to: new Date(`${to}T00:00:00`) };
-  } catch {
-    return null;
-  }
-}
-
-function readStoredBasis(): DateBasis {
-  if (typeof window === 'undefined') return 'created';
-  return localStorage.getItem(BASIS_STORAGE_KEY) === 'serie' ? 'serie' : 'created';
+/** First of the month through the restaurant's current day. */
+function currentMonthRange(timeZone: string): DateRange {
+  const day = restaurantCalendarDay(timeZone);
+  return { from: new Date(day.getFullYear(), day.getMonth(), 1), to: day };
 }
 
 export default function SalesByItemPage() {
   const { money } = useCurrency();
+  const timeZone = useContext(RestaurantTimezone);
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
@@ -86,11 +63,11 @@ export default function SalesByItemPage() {
 
   const [wsd, setWsd] = useState<WeekStartDay>(1);
   const [workdays, setWorkdays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
-  const [dateRange, setDateRange] = useState<DateRange>(currentMonthRange);
+  const [dateRange, setDateRange] = useState<DateRange>(() => currentMonthRange(timeZone));
   const [basis, setBasis] = useState<DateBasis>('created');
   // The shared date picker exposes calendar periods and série periods through
   // one selection, exactly like the dashboard and orders page.
-  const serieList = useOrderSeries(rid);
+  const { series: serieList, status: seriesStatus } = useOrderSeries(rid);
   // Gate the first fetch until the week config + persisted selection hydrate, so
   // we load once with the right window instead of flashing the default.
   const [ready, setReady] = useState(false);
@@ -102,7 +79,7 @@ export default function SalesByItemPage() {
   const loading = visibleState.status === 'loading';
   const loadFailed = visibleState.status === 'error';
 
-  // Hydrate week config (drives the picker presets) + persisted selection.
+  // Resolve the calendar before issuing the first report request.
   useEffect(() => {
     if (!rid) return;
     let active = true;
@@ -117,22 +94,21 @@ export default function SalesByItemPage() {
       .catch(() => {})
       .finally(() => {
         if (!active) return;
-        const storedRange = readStoredRange();
-        if (storedRange) setDateRange(storedRange);
-        setBasis(readStoredBasis());
+        setDateRange(currentMonthRange(timeZone));
+        setBasis('created');
         setReady(true);
       });
     return () => { active = false; };
-  }, [rid]);
+  }, [rid, timeZone]);
 
-  const scope = { from: isoDate(dateRange.from), to: isoDate(dateRange.to) };
+  const scope = dateRangeScope(dateRange);
 
-  const fetchData = useCallback(async (s: string, sb: SortField, sd: string, p: number, from: string, to: string, b: DateBasis) => {
+  const fetchData = useCallback(async (s: string, sb: SortField, sd: string, p: number, window: AnalyticsWindow, b: DateBasis) => {
     const guard = requestGuardRef.current;
     const token = guard.begin(rid);
     setLoadState(loadingRestaurantState(rid));
     try {
-      const result = await getAnalyticsItems(rid, { from, to }, b, {
+      const result = await getAnalyticsItems(rid, window, b, {
         search: s || undefined,
         sort_by: sb,
         sort_dir: sd,
@@ -156,17 +132,17 @@ export default function SalesByItemPage() {
 
   // Refetch on sort / page / window / basis changes once hydrated.
   useEffect(() => {
-    if (!ready) return;
-    fetchData(search, sortBy, sortDir, page, scope.from, scope.to, basis);
+    if (!ready || (basis === 'serie' && !scope.seriesKey)) return;
+    fetchData(search, sortBy, sortDir, page, scope, basis);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, sortBy, sortDir, page, scope.from, scope.to, basis]);
+  }, [ready, sortBy, sortDir, page, scope.from, scope.to, scope.seriesKey, basis]);
 
   const handleSearch = (val: string) => {
     setSearch(val);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       setPage(1);
-      fetchData(val, sortBy, sortDir, 1, scope.from, scope.to, basis);
+      fetchData(val, sortBy, sortDir, 1, scope, basis);
     }, 400);
   };
 
@@ -183,15 +159,12 @@ export default function SalesByItemPage() {
   const onPickRange = (range: DateRange) => {
     setDateRange(range);
     setPage(1);
-    try {
-      localStorage.setItem(RANGE_STORAGE_KEY, JSON.stringify({ from: isoDate(range.from), to: isoDate(range.to) }));
-    } catch { /* quota / private mode */ }
+
   };
 
   const onChangeBasis = (b: DateBasis) => {
     setBasis(b);
     setPage(1);
-    try { localStorage.setItem(BASIS_STORAGE_KEY, b); } catch { /* quota / private mode */ }
   };
 
   const totalPages = data ? Math.ceil(data.total / perPage) : 0;
@@ -214,6 +187,8 @@ export default function SalesByItemPage() {
           basis={basis}
           onBasisChange={onChangeBasis}
           series={serieList}
+          seriesStatus={seriesStatus}
+          defaultToCurrentSerie={ready}
         />
       </div>
 
@@ -313,7 +288,7 @@ export default function SalesByItemPage() {
             <button
               type="button"
               className="min-h-10 rounded-r-md border border-[var(--line-strong)] px-4 text-sm hover:bg-surface-subtle"
-              onClick={() => fetchData(search, sortBy, sortDir, page, scope.from, scope.to, basis)}
+              onClick={() => fetchData(search, sortBy, sortDir, page, scope, basis)}
             >
               {t('retry')}
             </button>

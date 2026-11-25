@@ -151,10 +151,12 @@ export default function SettingsPage() {
           <Section title={t('displayDefaults')} desc={t('displayDefaultsDesc')}>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t('ordersDefaultDateBasis')}><Select value={draft.orders_default_date_basis} onChange={e => change('orders_default_date_basis', e.target.value as DateBasis)}>
-                <option value="created">{t('dateBasisCreatedOption')}</option><option value="serie">{t('dateBasisSerieOption')}</option>
+                <option value="created">{t('dateBasisCreatedOption')}</option><option value="fulfillment">{t('dateBasisFulfillmentOption')}</option>
+                <option value="serie">{t('dateBasisSerieOption')}</option>
               </Select></Field>
               <Field label={t('dashboardDefaultDateBasis')}><Select value={draft.dashboard_default_date_basis} onChange={e => change('dashboard_default_date_basis', e.target.value as DateBasis)}>
-                <option value="created">{t('dateBasisCreatedOption')}</option><option value="serie">{t('dateBasisSerieOption')}</option>
+                <option value="created">{t('dateBasisCreatedOption')}</option><option value="fulfillment">{t('dateBasisFulfillmentOption')}</option>
+                <option value="serie">{t('dateBasisSerieOption')}</option>
               </Select></Field>
             </div>
           </Section>

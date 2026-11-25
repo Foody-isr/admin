@@ -1030,6 +1030,7 @@ export interface Order {
   table_code?: string;
   is_scheduled?: boolean;
   scheduled_for?: string;
+  fulfillment_series_key?: string;
   scheduled_pickup_window_start?: string;
   scheduled_pickup_window_end?: string;
   scheduled_accepted_at?: string;
@@ -1747,12 +1748,15 @@ export type AnalyticsRange = 'today' | 'yesterday' | 'week' | 'month';
 /** Analytics period scope: a named preset OR an explicit inclusive date window
  *  (YYYY-MM-DD). The server resolves from/to against the restaurant's timezone
  *  and computes the previous period as the equal-length window before it. */
-export type AnalyticsScope = AnalyticsRange | { from: string; to: string };
+export interface AnalyticsWindow {
+  from: string;
+  to: string;
+  seriesKey?: string;
+}
+export type AnalyticsScope = AnalyticsRange | AnalyticsWindow;
 
-/** Which date orders are bucketed by: 'created' (when placed) or 'serie' (the
- *  série/fulfillment date, i.e. scheduled_for). Matches the server's
- *  common.DateBasis* constants. Omitted/created is the default everywhere. */
-export type DateBasis = 'created' | 'serie';
+/** Date used for order and analytics filters. */
+export type DateBasis = 'created' | 'fulfillment' | 'serie';
 export type DashboardRevenueMode =
   | 'paid_only'
   | 'accepted_orders'
@@ -1764,12 +1768,12 @@ export type DashboardRevenueMode =
 function analyticsScopeParams(scope?: AnalyticsScope): Record<string, string> {
   if (!scope) return {};
   if (typeof scope === 'string') return { range: scope };
-  return { from: scope.from, to: scope.to };
+  return { from: scope.from, to: scope.to, ...(scope.seriesKey ? { series_key: scope.seriesKey } : {}) };
 }
 
-/** Serializes the date basis; only 'serie' is sent (created is the server default). */
+/** Serializes a non-default date basis. */
 function dateBasisParams(basis?: DateBasis): Record<string, string> {
-  return basis === 'serie' ? { basis: 'serie' } : {};
+  return basis && basis !== 'created' ? { basis } : {};
 }
 
 export interface RangeSummary {
@@ -3611,6 +3615,7 @@ export interface BatchFulfillmentDayInfo {
 }
 
 export interface BatchCycleSummary {
+  series_key?: string;
   open_at: string;   // ISO 8601 datetime
   cutoff_at: string; // ISO 8601 datetime
   fulfillment_days: BatchFulfillmentDayInfo[];
@@ -5154,8 +5159,9 @@ export interface ListOrdersParams {
   type?: string;
   from?: string;
   to?: string;
-  /** Which date the from/to window filters on: 'created' (default) or 'serie'. */
+  /** Date used for the from/to window. Defaults to order creation. */
   date_field?: DateBasis;
+  series_key?: string;
   limit?: number;
   offset?: number;
   sort_by?: string;
@@ -5177,7 +5183,8 @@ export async function listOrders(restaurantId: number, params?: ListOrdersParams
   if (params?.type) qs.set('type', params.type);
   if (params?.from) qs.set('from', params.from);
   if (params?.to) qs.set('to', params.to);
-  if (params?.date_field === 'serie') qs.set('date_field', 'serie');
+  if (params?.series_key) qs.set('series_key', params.series_key);
+  if (params?.date_field && params.date_field !== 'created') qs.set('date_field', params.date_field);
   if (params?.limit != null) qs.set('limit', String(params.limit));
   if (params?.offset != null) qs.set('offset', String(params.offset));
   if (params?.sort_by) qs.set('sort_by', params.sort_by);
@@ -5588,7 +5595,8 @@ export interface CreateOrderInput {
   /** When true the order is created as scheduled (status "scheduled") for
    *  `scheduled_for`. The server persists these for any order. */
   is_scheduled?: boolean;
-  scheduled_for?: string;                 // "YYYY-MM-DD"
+  scheduled_for?: string;
+  fulfillment_series_key?: string;                 // "YYYY-MM-DD"
   scheduled_pickup_window_start?: string; // "HH:MM"
   scheduled_pickup_window_end?: string;   // "HH:MM"
   /** When true the order is pinned onto the production sheet regardless of
@@ -5697,6 +5705,7 @@ export async function replaceOrderCombo(
 export interface FulfillmentUpdateInput {
   order_type: 'pickup' | 'delivery';
   is_scheduled: boolean;
+  fulfillment_series_key?: string;
   scheduled_for?: string;                 // "YYYY-MM-DD"
   scheduled_pickup_window_start?: string; // "HH:MM"
   scheduled_pickup_window_end?: string;   // "HH:MM"
@@ -6003,8 +6012,10 @@ export interface ProductionDay {
 export async function fetchProductionSheet(
   restaurantId: number,
   date: string,
+  seriesKey?: string,
 ): Promise<ProductionSheetResponse> {
   const qs = new URLSearchParams({ restaurant_id: String(restaurantId), date });
+  if (seriesKey) qs.set('series_key', seriesKey);
   const data = await apiFetch<ProductionSheetResponse>(
     `/api/v1/orders/production-sheet?${qs.toString()}`,
     restaurantId,
@@ -6108,23 +6119,36 @@ export async function fetchProductionDays(restaurantId: number): Promise<Product
   return data.days ?? [];
 }
 
-// A série = a distinct scheduled_for fulfillment date with its order count,
-// most recent first. Powers the série picker (Date de série mode).
-export interface OrderSerie {
-  date: string; // YYYY-MM-DD
-  order_count: number;
-  revenue: number; // paid revenue only, matches the dashboard KPIs
-  /** Default service date of the current weekly batch, in restaurant time. */
-  is_current?: boolean;
+export interface FulfillmentSeries {
+  key: string;
+  timezone: string;
+  days: BatchFulfillmentDayInfo[];
+  committed_days?: string[];
+  open_at?: string;
+  cutoff_at?: string;
+  revision: number;
+  is_current: boolean;
 }
 
-export async function fetchOrderSeries(restaurantId: number): Promise<OrderSerie[]> {
-  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
-  const data = await apiFetch<{ series: OrderSerie[] }>(
-    `/api/v1/orders/series?${qs.toString()}`,
-    restaurantId,
+/** Loads whole lots scoped to the active restaurant. */
+export async function fetchOrderSeries(restaurantId: number): Promise<FulfillmentSeries[]> {
+  const data = await apiFetch<{ series: FulfillmentSeries[] }>(
+    '/api/v1/orders/fulfillment-series', restaurantId, { cache: 'no-store' },
   );
   return data.series ?? [];
+}
+
+/** Counts existing orders promised for a lot's service day. */
+export function getSeriesCommitments(restaurantId: number, key: string, date: string): Promise<{ order_count: number }> {
+  const query = new URLSearchParams({ date });
+  return apiFetch('/api/v1/orders/fulfillment-series/' + encodeURIComponent(key) + '/commitments?' + query, restaurantId, { cache: 'no-store' });
+}
+
+/** Moves future service for a lot after reviewing existing commitments. */
+export function moveSeriesDay(restaurantId: number, key: string, input: { from: string; to: string; revision: number; order_count: number }): Promise<{ ok: boolean }> {
+  return apiFetch('/api/v1/orders/fulfillment-series/' + encodeURIComponent(key) + '/day', restaurantId, {
+    method: 'PUT', body: JSON.stringify(input),
+  });
 }
 
 export interface KitchenPlanVariantCount {
@@ -6245,7 +6269,7 @@ export async function getPeriodSummary(
   basis?: DateBasis,
   /** Explicit previous window for the delta (série mode: the previous série(s)).
    *  When omitted the server uses the equal-length window immediately before. */
-  prev?: { from: string; to: string }
+  prev?: AnalyticsWindow
 ): Promise<PeriodComparison> {
   const params = new URLSearchParams({
     restaurant_id: String(restaurantId),
@@ -6255,6 +6279,7 @@ export async function getPeriodSummary(
   if (prev) {
     params.set('prev_from', prev.from);
     params.set('prev_to', prev.to);
+    if (prev.seriesKey) params.set('prev_series_key', prev.seriesKey);
   }
   return apiFetch<PeriodComparison>(
     `/api/v1/analytics/period?${params}`, restaurantId
@@ -6268,7 +6293,7 @@ export async function getDailySeries(
   basis?: DateBasis,
   /** In série mode, the fulfillment window used to select orders. The API
    *  still groups the matching orders by their created-at day for the chart. */
-  serieScope?: { from: string; to: string }
+  serieScope?: AnalyticsWindow
 ): Promise<DaySummary[]> {
   const params = new URLSearchParams({
     restaurant_id: String(restaurantId),
@@ -6279,6 +6304,7 @@ export async function getDailySeries(
   if (basis === 'serie' && serieScope) {
     params.set('from', serieScope.from);
     params.set('to', serieScope.to);
+    if (serieScope.seriesKey) params.set('series_key', serieScope.seriesKey);
   }
   const data = await apiFetch<{ days: DaySummary[] }>(
     `/api/v1/analytics/daily?${params}`, restaurantId

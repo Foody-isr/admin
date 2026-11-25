@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -18,7 +18,8 @@ import {
   type CheckoutConfig,
   type AcceptOrderResult,
 } from '@/lib/api';
-import { clampWeekStartDay, getEffectiveWorkdays, isoDate, type WeekStartDay } from '@/lib/weeks';
+import { clampWeekStartDay, getEffectiveWorkdays, isoDate, restaurantCalendarDay, type WeekStartDay } from '@/lib/weeks';
+import { RestaurantTimezone } from '@/lib/restaurant-timezone-context';
 import { useWs, WsEvent } from '@/lib/ws-context';
 import { useOrderSound } from '@/lib/use-order-sound';
 import { useBrowserNotifications } from '@/lib/use-browser-notifications';
@@ -32,7 +33,7 @@ import { orderHandoffKind } from '@/lib/orders/order-actions';
 import { buildCustomFieldLabels } from '@/lib/orders/checkout-fields';
 import { usePermissions } from '@/lib/permissions-context';
 import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
-import { useOrderSeries } from '@/lib/series';
+import { rangeForSeries, useOrderSeries } from '@/lib/series';
 import {
   PauseIcon, PlayIcon,
   ClipboardListIcon, SearchIcon, MessageCircleIcon,
@@ -57,7 +58,7 @@ import {
   type OperationsQueueKey,
 } from '@/lib/orders/operations-board';
 import styles from './orders.module.css';
-import { defaultOrdersTabForBasis } from '@/lib/orders/orders-list-preferences';
+import { initialOrdersTab } from '@/lib/orders/orders-list-preferences';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import {
   PAYMENT_ATTENTION_FILTER,
@@ -65,6 +66,7 @@ import {
   ordersListPath,
   parseOrderIdParam,
   parseOrdersPaymentAttentionQuery,
+  parseOrdersSeriesQuery,
 } from '@/lib/orders/routes';
 import {
   DataTable,
@@ -112,10 +114,10 @@ const PAGE_SIZE = 25;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-function defaultDateRange(): { from: Date; to: Date } {
-  const from = new Date();
+function defaultDateRange(timeZone: string): DateRange {
+  const from = restaurantCalendarDay(timeZone);
   from.setHours(0, 0, 0, 0);
-  const to = new Date();
+  const to = new Date(from);
   to.setHours(23, 59, 59, 999);
   return { from, to };
 }
@@ -126,6 +128,7 @@ function defaultDateRange(): { from: Date; to: Date } {
 export default function OrdersWorkspace() {
   const { money, code: currencyCode } = useCurrency();
   const { t, locale, direction } = useI18n();
+  const timeZone = useContext(RestaurantTimezone);
   const { hasAnyPermission, isOwner, roleName } = usePermissions();
   const canManage = hasAnyPermission('orders.manage');
   // Manual status correction is a management action — owner or manager only,
@@ -143,6 +146,8 @@ export default function OrdersWorkspace() {
   const paymentAttentionScope = useRef(
     parseOrdersPaymentAttentionQuery(new URLSearchParams(searchQuery)),
   ).current;
+  const linkedSeries = useRef(parseOrdersSeriesQuery(new URLSearchParams(searchQuery))).current;
+  const [dateLinkActive, setDateLinkActive] = useState(Boolean(paymentAttentionScope || linkedSeries));
   const { status: wsStatus, lastEvent, addProcessingGuard, removeProcessingGuard, isProcessing } = useWs();
 
   const { play: playSound, isEnabled: isSoundEnabled, toggle: toggleSound } = useOrderSound();
@@ -160,7 +165,7 @@ export default function OrdersWorkspace() {
   const prevEvent = useRef<WsEvent | null>(null);
 
   // Filters
-  const [activeTab, setActiveTab] = useState('active');
+  const [activeTab, setActiveTab] = useState<string>(() => initialOrdersTab(Boolean(paymentAttentionScope)));
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
   const [searchSubmitted, setSearchSubmitted] = useState(() => searchParams.get('q')?.trim() ?? '');
   const [typeFilter, setTypeFilter] = useState('');
@@ -171,15 +176,16 @@ export default function OrdersWorkspace() {
     ? {
       from: new Date(`${paymentAttentionScope.from}T00:00:00`),
       to: new Date(`${paymentAttentionScope.to}T23:59:59.999`),
+      seriesKey: paymentAttentionScope.seriesKey, serviceDay: paymentAttentionScope.serviceDay,
     }
-    : defaultDateRange());
+    : defaultDateRange(timeZone));
   // The shared picker owns both calendar ranges and série ranges. `dateField`
   // only tells the API which order date the selected window applies to.
-  const [dateField, setDateField] = useState<DateBasis>(paymentAttentionScope?.dateField ?? 'created');
+  const [dateField, setDateField] = useState<DateBasis>(paymentAttentionScope?.dateField ?? (linkedSeries ? 'serie' : 'created'));
   const [defaultDateField, setDefaultDateField] = useState<DateBasis>('created');
   const [filtersReady, setFiltersReady] = useState(false);
   const [preferenceSaveFailed, setPreferenceSaveFailed] = useState(false);
-  const serieList = useOrderSeries(rid);
+  const { series: serieList, status: seriesStatus, reload: reloadSeries } = useOrderSeries(rid);
   const [page, setPage] = useState(0);
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -292,12 +298,14 @@ export default function OrdersWorkspace() {
           setDateRange({
             from: new Date(`${paymentAttentionScope.from}T00:00:00`),
             to: new Date(`${paymentAttentionScope.to}T23:59:59.999`),
+            seriesKey: paymentAttentionScope.seriesKey, serviceDay: paymentAttentionScope.serviceDay,
           });
           setPaymentFilter(PAYMENT_ATTENTION_FILTER);
           setActiveTab('active');
         } else {
-          setDateField(preferences.orders_date_basis);
-          setActiveTab(defaultOrdersTabForBasis(preferences.orders_date_basis));
+          setDateField(linkedSeries ? 'serie' : preferences.orders_date_basis);
+          setActiveTab(initialOrdersTab(false));
+          setDateRange(defaultDateRange(timeZone));
         }
         setPage(0);
         setPreferenceSaveFailed(false);
@@ -310,12 +318,14 @@ export default function OrdersWorkspace() {
           setDateRange({
             from: new Date(`${paymentAttentionScope.from}T00:00:00`),
             to: new Date(`${paymentAttentionScope.to}T23:59:59.999`),
+            seriesKey: paymentAttentionScope.seriesKey, serviceDay: paymentAttentionScope.serviceDay,
           });
           setPaymentFilter(PAYMENT_ATTENTION_FILTER);
           setActiveTab('active');
         } else {
-          setDateField('created');
-          setActiveTab(defaultOrdersTabForBasis('created'));
+          setDateField(linkedSeries ? 'serie' : 'created');
+          setActiveTab(initialOrdersTab(false));
+          setDateRange(defaultDateRange(timeZone));
         }
         setPage(0);
         setPreferenceSaveFailed(true);
@@ -324,7 +334,18 @@ export default function OrdersWorkspace() {
         if (active) setFiltersReady(true);
       });
     return () => { active = false; };
-  }, [rid, paymentAttentionScope]);
+  }, [rid, paymentAttentionScope, linkedSeries, timeZone]);
+
+  useEffect(() => {
+    if (!filtersReady || !dateLinkActive || !linkedSeries || paymentAttentionScope) return;
+    const lot = serieList.find(item => item.key === linkedSeries.key);
+    if (lot) {
+      const day = linkedSeries.day;
+      setDateRange(rangeForSeries(lot, lot.days.some(entry => entry.date === day) || lot.committed_days?.includes(day ?? '') ? day : undefined));
+    } else if (seriesStatus === 'ready') {
+      setDateRange({ ...defaultDateRange(timeZone), seriesKey: linkedSeries.key });
+    }
+  }, [filtersReady, dateLinkActive, linkedSeries, paymentAttentionScope, serieList, seriesStatus, timeZone]);
 
   // Which columns the table shows, and in what order. Shared by every staff
   // account of this restaurant; editing it is a settings change.
@@ -397,7 +418,7 @@ export default function OrdersWorkspace() {
   // ─── Fetch ────────────────────────────────────────────────────────
 
   const fetchOrders = useCallback(async (showLoading = true) => {
-    if (!filtersReady) return;
+    if (!filtersReady || (dateField === 'serie' && !dateRange.seriesKey && !(dateLinkActive && paymentAttentionScope))) return;
     const request = ordersRequest.current.begin(rid);
     if (showLoading) setLoading(true);
     setLoadFailed(false);
@@ -408,14 +429,13 @@ export default function OrdersWorkspace() {
       sort_by: 'created_at',
       sort_dir: paymentFilter === PAYMENT_ATTENTION_FILTER ? 'asc' : 'desc',
     };
-    if (dateField === 'serie') {
-      params.from = isoDate(dateRange.from);
-      params.to = isoDate(dateRange.to);
-      params.date_field = 'serie';
-    } else {
+    const livePaymentLink = dateLinkActive && paymentAttentionScope?.live;
+    if (!livePaymentLink && (dateField !== 'serie' || !dateRange.seriesKey || dateRange.serviceDay)) {
       params.from = isoDate(dateRange.from);
       params.to = isoDate(dateRange.to);
     }
+    if (!livePaymentLink && dateField !== 'created') params.date_field = dateField;
+    if (dateField === 'serie') params.series_key = dateRange.seriesKey;
     if (tab.statuses) params.status = tab.statuses;
     else if (tab.active) params.active = true;
     // Dashboard payment attention also includes preorders before acceptance.
@@ -442,7 +462,7 @@ export default function OrdersWorkspace() {
     } finally {
       if (ordersRequest.current.isCurrent(request)) setLoading(false);
     }
-  }, [rid, activeTab, searchSubmitted, typeFilter, paymentFilter, dateRange, dateField, page, setOrders, filtersReady]);
+  }, [rid, activeTab, searchSubmitted, typeFilter, paymentFilter, dateRange, dateField, page, setOrders, filtersReady, paymentAttentionScope, dateLinkActive]);
 
   useEffect(() => {
     const guard = ordersRequest.current;
@@ -766,7 +786,7 @@ export default function OrdersWorkspace() {
   };
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  const today = isoDate(new Date());
+  const today = isoDate(restaurantCalendarDay(timeZone));
   const hasDateFilter =
     dateField !== defaultDateField || isoDate(dateRange.from) !== today || isoDate(dateRange.to) !== today;
   const activeFilterCount = [!!typeFilter, !!paymentFilter, hasDateFilter].filter(Boolean).length;
@@ -779,7 +799,8 @@ export default function OrdersWorkspace() {
     setSearchSubmitted('');
     setTypeFilter('');
     setPaymentFilter('');
-    setDateRange(defaultDateRange());
+    setDateLinkActive(false);
+    setDateRange(defaultDateRange(timeZone));
     setDateField(defaultDateField);
     setPage(0);
     router.replace(ordersListPath(rid), { scroll: false });
@@ -787,14 +808,20 @@ export default function OrdersWorkspace() {
 
   const changeDateField = useCallback((nextBasis: DateBasis) => {
     setDateField(nextBasis);
-    setDefaultDateField(nextBasis);
-    setActiveTab(defaultOrdersTabForBasis(nextBasis));
+    setDateLinkActive(false);
     setPage(0);
     closeOrderDetail();
+  }, [closeOrderDetail]);
+
+  const saveDateBasis = async (nextBasis: DateBasis | null) => {
+    const preferences = await updateDisplayPreferences(rid, nextBasis
+      ? { orders_date_basis: nextBasis }
+      : { reset_orders_date_basis: true });
+    setDefaultDateField(preferences.orders_date_basis);
+    if (preferences.orders_date_basis !== dateField) setDateRange(defaultDateRange(timeZone));
+    changeDateField(preferences.orders_date_basis);
     setPreferenceSaveFailed(false);
-    void updateDisplayPreferences(rid, { orders_date_basis: nextBasis })
-      .catch(() => setPreferenceSaveFailed(true));
-  }, [rid, closeOrderDetail]);
+  };
 
   const typeOptions = [{ value: '', label: t('all') }, { value: 'dine_in', label: t('dineIn') }, { value: 'pickup', label: t('pickup') }, { value: 'delivery', label: t('delivery') }];
   const paymentOptions = [{ value: PAYMENT_ATTENTION_FILTER, label: t('ordersPaymentsToProcess') }, { value: 'paid', label: t('paid') }, { value: 'partially_paid', label: t('partiallyPaid') }, { value: 'pending', label: t('pending') }, { value: 'unpaid', label: t('unpaid') }, { value: 'refunded', label: t('refunded') }];
@@ -842,12 +869,12 @@ export default function OrdersWorkspace() {
             </div>
             <Button type="submit" variant="ghost" className={styles.searchButton}>{t('search')}</Button>
           </form>
-          <DateRangePicker value={dateRange} onChange={range => { setDateRange(range); setPage(0); }}
+          <DateRangePicker value={dateRange} onChange={range => { setDateLinkActive(false); setDateRange(range); setPage(0); }}
+            triggerContent={dateLinkActive && paymentAttentionScope?.live ? t('ordersPaymentsToProcess') : undefined}
             triggerClassName={`list-filter-button ${styles.dateFilter}`}
-            triggerContent={<span dir="ltr" title={t(dateField === 'created' ? 'orderDate' : 'dateBasisSerieOption')}>{[dateRange.from, dateRange.to].map(date => `${date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })} ${date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`).join(' - ')}</span>}
             weekStartDay={weekStartDay} workdays={workdays}
-            restaurantId={rid} basis={dateField} onBasisChange={changeDateField} series={serieList}
-            defaultToCurrentSerie={filtersReady && !paymentAttentionScope} />
+            restaurantId={rid} basis={dateField} onBasisChange={changeDateField} onSaveDefaultBasis={saveDateBasis} series={serieList}
+            seriesStatus={seriesStatus} onSeriesUpdated={hasAnyPermission('settings.edit') ? reloadSeries : undefined} defaultToCurrentSerie={filtersReady && !dateLinkActive} />
           <ListChoiceFilter label={t('type')} options={typeOptions} value={typeFilter} onChange={value => { setTypeFilter(value); setPage(0); }} />
           <div className={styles.secondaryFilters}>
             <ListChoiceFilter label={t('paymentStatus')} options={[{ value: '', label: t('all') }, ...paymentOptions]} value={paymentFilter} onChange={value => { setPaymentFilter(value); setPage(0); }} />
@@ -859,6 +886,7 @@ export default function OrdersWorkspace() {
           <span>{t('total')}: {total}</span>
         </div>
         {wsStatus !== 'connected' && <p role="status" className="text-sm text-[var(--fg-muted)]">{t(wsStatus === 'connecting' ? 'connecting' : 'offline')}</p>}
+        {dateField === 'serie' && (seriesStatus === 'error' || (linkedSeries && dateLinkActive && seriesStatus === 'ready' && !dateRange.seriesKey)) && <p role="alert" className="text-sm text-[var(--danger-600)]">{t('couldNotLoad')}</p>}
         {preferenceSaveFailed && <p role="status" className="text-sm text-[var(--warning-600)]">{t('displayPreferenceSaveFailed')}</p>}
 
         {paused && (

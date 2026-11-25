@@ -310,7 +310,7 @@ export function createFixture({ empty = false, denied = false, fail = false, per
       '/api/v1/menu/modifier-sets':'modifier_sets','/api/v1/menu/options':'options','/api/v1/menu/option-sets':'option_sets',
       '/api/v1/stock/items':'items','/api/v1/prep/items':'items','/api/v1/prep/daily-plan':'items',
       '/api/v1/suppliers':'suppliers','/api/v1/stock/categories':'categories','/api/v1/prep/categories':'categories',
-      '/api/v1/units':'units','/api/v1/stock/units':'units','/api/v1/order-series':'series','/api/v1/orders/series':'series',
+      '/api/v1/orders/fulfillment-series':'series','/api/v1/units':'units','/api/v1/stock/units':'units','/api/v1/order-series':'series','/api/v1/orders/series':'series',
       '/api/v1/customers':'customers','/api/v1/restaurants/1/staff':'staff','/api/v1/restaurants/1/roles':'roles',
       '/api/v1/restaurants/1/tables':'tables','/api/v1/restaurants/1/sections':'sections',
     };

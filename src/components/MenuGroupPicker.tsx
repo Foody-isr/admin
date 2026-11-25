@@ -33,7 +33,7 @@ export default function MenuGroupPicker({ restaurantId, itemId, menus, assignmen
   const [creating, setCreating] = useState<number | null>(null);
   const [groupName, setGroupName] = useState('');
   const [createError, setCreateError] = useState(false);
-  const defaultDate = cycles?.[0]?.fulfillment_days?.[0]?.date;
+  const defaultDate = cycles?.[0]?.series_key ?? cycles?.[0]?.fulfillment_days?.[0]?.date;
   const dateFor = (menu: Menu) => menu.is_weekly_rotating
     ? dates[menu.id] ?? assignments.find(edit => edit.menuId === menu.id)?.seriesKey ?? defaultDate
     : '';
@@ -128,8 +128,8 @@ export default function MenuGroupPicker({ restaurantId, itemId, menus, assignmen
         return <section key={menu.id} aria-label={menu.name}>
           <h3 className="mb-2 break-words text-sm font-semibold" dir="auto">{menu.name}</h3>
           {menu.is_weekly_rotating && cycles && <label className="mb-3 block"><span className="text-sm">{t('selectBatch')}</span><select className="input mt-1" aria-label={`${t('selectBatch')} · ${menu.name}`} value={date ?? ''} disabled={disabled} onChange={event => { setDates(current => ({ ...current, [menu.id]: event.target.value })); setCreating(null); }}>
-            {date && !cycles.some(cycle => cycle.fulfillment_days?.[0]?.date === date) && <option value={date}>{date}</option>}
-            {cycles.filter(cycle => cycle.fulfillment_days?.[0]?.date).map(cycle => { const day = cycle.fulfillment_days[0].date; return <option key={day} value={day}>{new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(`${day}T12:00:00`))}</option>; })}
+            {date && !cycles.some(cycle => (cycle.series_key ?? cycle.fulfillment_days?.[0]?.date) === date) && <option value={date}>{date}</option>}
+            {cycles.filter(cycle => cycle.fulfillment_days?.[0]?.date).map(cycle => { const day = cycle.fulfillment_days[0].date; return <option key={cycle.series_key ?? day} value={cycle.series_key ?? day}>{new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(`${day}T12:00:00`))}</option>; })}
           </select></label>}
           {(entry?.error || (menu.is_weekly_rotating && batchError)) ? <div role="alert" className="space-y-2 text-sm"><p>{t('itemMenuDraftLoadFailed')}</p><Button type="button" onClick={() => setRetry(value => value + 1)}>{t('retry')}</Button></div>
             : date == null && cycles ? <p role="alert" className="text-sm">{t('carteBatchRequired')}</p>

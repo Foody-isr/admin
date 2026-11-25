@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { listTransactions } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -9,7 +9,8 @@ import { usePermissions } from '@/lib/permissions-context';
 import { RestaurantRequestGuard } from '@/lib/restaurant-request-state';
 import type { TransactionHistory, TransactionRecord } from '@/lib/transactions';
 import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
-import { isoDate } from '@/lib/weeks';
+import { isoDate, restaurantCalendarDay } from '@/lib/weeks';
+import { RestaurantTimezone } from '@/lib/restaurant-timezone-context';
 import { TransactionAshraitReceipt } from './ashrait-receipt';
 import { Button, Drawer, Input, PageHead, Select, Table, TableShell, Tbody, Td, Th, Thead, Tr } from '@/components/ds';
 
@@ -21,18 +22,19 @@ export default function TransactionsPage() {
   return <History key={rid} rid={rid} />;
 }
 
-function initialRange(): DateRange {
-  const to = new Date();
+function initialRange(timeZone: string): DateRange {
+  const to = restaurantCalendarDay(timeZone);
   const from = new Date(to.getFullYear(), to.getMonth(), to.getDate() - 89);
   return { from, to };
 }
 
 function History({ rid }: { rid: number }) {
   const { t, locale } = useI18n();
+  const timeZone = useContext(RestaurantTimezone);
   const { hasAnyPermission } = usePermissions();
   const guard = useRef(new RestaurantRequestGuard());
   guard.current.enterRestaurant(rid);
-  const [range, setRange] = useState(initialRange);
+  const [range, setRange] = useState(() => initialRange(timeZone));
   const [search, setSearch] = useState('');
   const [q, setQuery] = useState('');
   const [method, setMethod] = useState('');
@@ -57,7 +59,7 @@ function History({ rid }: { rid: number }) {
   }, [rid, from, to, q, method, source, offset, retry, key]);
 
   const money = (minor: number, currency: string) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(minor / 100);
-  const date = (row: TransactionRecord) => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(row.occurred_at));
+  const date = (row: TransactionRecord) => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(new Date(row.occurred_at));
   const kind = (row: TransactionRecord) => t(row.kind === 'refund' ? 'transactionHistoryRefund' : row.kind === 'void' ? 'transactionHistoryVoid' : 'transactionHistorySale');
   const methodLabel = (value: string) => t(value === 'cash' ? 'transactionHistoryCash' : value === 'credit_card' ? 'transactionHistoryCard' : value === 'bank_transfer' ? 'transactionHistoryTransfer' : 'transactionHistoryUnknown');
   const sourceLabel = (value: string) => t(value === 'online' ? 'transactionHistoryOnline' : value === 'pos' ? 'transactionHistoryPos' : 'transactionHistoryUnknown');
@@ -69,7 +71,7 @@ function History({ rid }: { rid: number }) {
   return <>
     <PageHead title={t('transactions')} desc={t('transactionHistoryIntro')} actions={<Button variant="secondary" onClick={() => setRetry(n => n + 1)}>{t('retry')}</Button>} />
     <div className="mb-6 flex flex-wrap items-end gap-3">
-      <DateRangePicker value={range} onChange={value => { setRange(value); setOffset(0); }} />
+      <DateRangePicker restaurantId={rid} triggerPrefix={t('transactionDateFilter')} value={range} onChange={value => { setRange(value); setOffset(0); }} />
       <label className="min-w-44 flex-1 text-sm">{t('transactionHistoryMethod')}<Select aria-label={t('transactionHistoryMethod')} value={method} onChange={e => { setMethod(e.target.value); setOffset(0); }}>
         <option value="">{t('transactionHistoryAllMethods')}</option><option value="cash">{t('transactionHistoryCash')}</option><option value="credit_card">{t('transactionHistoryCard')}</option><option value="bank_transfer">{t('transactionHistoryTransfer')}</option>
       </Select></label>

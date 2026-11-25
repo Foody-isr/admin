@@ -75,6 +75,7 @@ export function FulfillmentSection({
     onChange({
       timing: 'scheduled',
       scheduledFor: target?.date ?? date,
+      seriesKey: target?.seriesKey,
       windowStart: target?.windowStart,
       windowEnd: target?.windowEnd,
     });

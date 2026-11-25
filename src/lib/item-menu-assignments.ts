@@ -32,7 +32,7 @@ export async function restoreLegacyItemAssignments(rid: number, menus: Menu[], g
   if (groupIds.some(id => !selected.some(({ group }) => group.id === id))) throw new ItemMenuAssignmentError('itemMenuGroupConflict');
   const config = selected.some(({ menu }) => menu.is_weekly_rotating) ? await getBatchFulfillmentConfig(rid) : null;
   return selected.map(({ menu, group }) => {
-    const seriesKey = menu.is_weekly_rotating ? config?.upcoming_cycles?.[0]?.fulfillment_days?.[0]?.date : '';
+    const seriesKey = menu.is_weekly_rotating ? config?.upcoming_cycles?.[0]?.series_key ?? config?.upcoming_cycles?.[0]?.fulfillment_days?.[0]?.date : '';
     if (seriesKey == null) throw new ItemMenuAssignmentError('itemMenuGroupConflict');
     return { menuId: menu.id, seriesKey, groupKey: `group-${group.id}`, groupName: group.name, selected: true };
   });

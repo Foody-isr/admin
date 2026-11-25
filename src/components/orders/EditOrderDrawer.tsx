@@ -599,7 +599,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
           update:lines.filter(l=>!l.removed&&l.orderItemId&&(origById.get(l.orderItemId)?.quantity!==l.quantity||origById.get(l.orderItemId)?.notes!==l.notes)).map(l=>({id:l.orderItemId!,input:lineToInput(l)})),
           add:lines.filter(l=>!l.removed&&!l.orderItemId).map(lineToInput),
           combos:Object.entries(comboEdits).filter(([group])=>!removedCombos.has(group)).map(([group,staged])=>({group,input:{combo_item_id:combos.find(c=>c.group===group)?.items[0]?.combo_item_id??0,selections:staged.selections.map(s=>({step_id:s.stepId,menu_item_id:s.menuItemId,option_id:s.optionId??undefined,quantity:s.quantity,is_substitution:s.isSubstitution||undefined}))}})),
-          ...(fulfillmentDirty?{fulfillment:{order_type:orderType,is_scheduled:true,scheduled_for:fulfillment.scheduledFor,scheduled_pickup_window_start:fulfillment.windowStart,scheduled_pickup_window_end:fulfillment.windowEnd,...(reason?{reason_code:reason.code,reason_note:reason.note}:{}),...(orderType==='delivery'?{delivery_address:address,delivery_city:city,delivery_floor:floor,delivery_apt:apt,delivery_entry_code:entryCode,delivery_notes:deliveryNotes,...(feeTouched?{delivery_fee:Math.max(0,parseFloat(deliveryFee)||0)}:{})}:{})}}:{}),
+          ...(fulfillmentDirty?{fulfillment:{order_type:orderType,is_scheduled:true,scheduled_for:fulfillment.scheduledFor,fulfillment_series_key:fulfillment.seriesKey,scheduled_pickup_window_start:fulfillment.windowStart,scheduled_pickup_window_end:fulfillment.windowEnd,...(reason?{reason_code:reason.code,reason_note:reason.note}:{}),...(orderType==='delivery'?{delivery_address:address,delivery_city:city,delivery_floor:floor,delivery_apt:apt,delivery_entry_code:entryCode,delivery_notes:deliveryNotes,...(feeTouched?{delivery_fee:Math.max(0,parseFloat(deliveryFee)||0)}:{})}:{})}}:{}),
           ...(discountDirty?{discount:hasStagedDiscount?{type:discountType,value:stagedDiscountValue,reason:discountReason.trim()}:{remove:true}}:{}),
         });onSaved();onClose();return;
       }
@@ -658,6 +658,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
           order_type: orderType,
           is_scheduled: fulfillment.timing === 'scheduled',
           scheduled_for: fulfillment.timing === 'scheduled' ? fulfillment.scheduledFor : undefined,
+          fulfillment_series_key: fulfillment.timing === 'scheduled' ? fulfillment.seriesKey : undefined,
           scheduled_pickup_window_start: fulfillment.timing === 'scheduled' ? fulfillment.windowStart : undefined,
           scheduled_pickup_window_end: fulfillment.timing === 'scheduled' ? fulfillment.windowEnd : undefined,
           ...(reason ? { reason_code: reason.code, reason_note: reason.note } : {}),

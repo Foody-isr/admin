@@ -46,7 +46,7 @@ for (const width of [1440, 375]) test(`dine-in without a table stays visible in 
   await page.goto('/1/orders/all');
   const row = page.locator('tbody tr').filter({ hasText: 'Visiteur sur place' });
   const tabs = page.getByRole('tablist');
-  await expect(tabs.getByRole('tab', { name: 'Actives', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(tabs.getByRole('tab', { name: 'Tous', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(row).toBeVisible();
   await expect(row).toContainText('Sur place');
 
@@ -151,18 +151,21 @@ for (const width of [1440, 375]) test(`order details preserve a previous série,
   fixture.orders.splice(0, fixture.orders.length, ...Array.from({ length: 60 }, (_, index) => ({
     ...template, id: 2000 + index, order_number: 2000 + index,
     customer_name: 'Client cible', order_type: 'delivery', payment_status: 'paid',
-    scheduled_for: '2026-10-09', is_scheduled: true,
+    scheduled_for: '2026-10-09', is_scheduled: true, fulfillment_series_key: '2026-10-09',
   })));
-  await page.route('**/api/v1/orders/series?**', route => route.fulfill({ json: {
-    series: [{ date: '2026-10-16' }, { date: '2026-10-09' }],
+  await page.route('**/api/v1/orders/fulfillment-series', route => route.fulfill({ json: {
+    series: ['2026-10-16', '2026-10-09'].map(date => ({
+      key: date, timezone: 'Asia/Jerusalem', revision: 1, is_current: date === '2026-10-16',
+      days: [{ date, day_name: 'Friday' }],
+    })),
   } }));
   await page.goto('/1/orders/all');
   const toolbar = page.locator('[data-list-toolbar]');
   const date = toolbar.locator('button[aria-haspopup="dialog"]');
   await date.click();
   await page.getByRole('dialog').getByRole('button', { name: 'Séries', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: '9', exact: true }).click();
-  await expect.poll(() => queries.at(-1)?.searchParams.get('from')).toBe('2026-10-09');
+  await page.getByRole('dialog').getByRole('button', { name: /Série du 9 oct/ }).click();
+  await expect.poll(() => queries.at(-1)?.searchParams.get('series_key')).toBe('2026-10-09');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await toolbar.getByRole('searchbox').fill('cible');
@@ -193,7 +196,7 @@ for (const width of [1440, 375]) test(`order details preserve a previous série,
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(await scrollPosition()).toEqual(before);
   await expect(toolbar.getByRole('searchbox')).toHaveValue('cible');
-  await expect(date).toContainText('09/10/2026');
+  await expect(date).toContainText('Série du 9 oct.');
   expect(queries.length).toBe(queryCount);
   expect(queries.at(-1)!.searchParams.get('date_field')).toBe('serie');
   expect(queries.at(-1)!.searchParams.get('type')).toBe('delivery');
@@ -216,7 +219,7 @@ test('Square order scopes, quick filters and row details retain restaurant conte
   await expect(page.getByRole('heading', { name: 'Toutes les commandes', exact: true })).toBeVisible();
   const tabs = page.getByRole('tablist');
   await expect(tabs.getByRole('tab')).toHaveCount(5);
-  await expect(tabs.getByRole('tab', { name: 'Actives', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(tabs.getByRole('tab', { name: 'Tous', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('columnheader', { name: 'Source', exact: true })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Articles', exact: true })).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
@@ -230,7 +233,7 @@ test('Square order scopes, quick filters and row details retain restaurant conte
     return { height: row.getBoundingClientRect().height, marker: getComputedStyle(cell, '::before').content, headerWeight: getComputedStyle(header).fontWeight, titleSize: getComputedStyle(title).fontSize, fontLoaded: document.fonts.check('500 14px "Orders Sans"') };
   });
   expect(measurements).toEqual({ height: 70, marker: 'none', headerWeight: '500', titleSize: '25px', fontLoaded: true });
-  expect(await page.locator('tbody tr').evaluateAll(rows => rows.map(row => row.getBoundingClientRect().height))).toEqual(Array(8).fill(70));
+  expect(await page.locator('tbody tr').evaluateAll(rows => rows.every(row => row.getBoundingClientRect().height === 70))).toBe(true);
   await page.screenshot({ path: info.outputPath('orders-square-fr.png'), fullPage: true });
   await tabs.getByRole('tab', { name: 'Planifiées', exact: true }).click();
   await expect.poll(() => queries.at(-1)?.searchParams.get('is_scheduled')).toBe('true');
@@ -309,4 +312,24 @@ test('Square payment cells have two lines and workflow badges use the reference 
   expect(await page.locator('tbody tr').evaluateAll(rows => rows.map(row => row.getBoundingClientRect().height))).toEqual(Array(8).fill(70));
   await page.screenshot({ path: info.outputPath('orders-square-payment-status-fr.png'), fullPage: true });
   expect(fixture.writes).toEqual([]);
+});
+
+test('choosing a calendar period keeps the status and date preference', async ({ page }) => {
+  const { fixture, queries } = await install(page);
+  await page.clock.install({ time: new Date('2026-11-23T22:00:00Z') });
+  await page.goto('/1/orders/all');
+  await expect(page.getByRole('tab', { name: 'Tous', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect.poll(() => queries.at(-1)?.searchParams.get('from')).toBe('2026-11-24');
+  await page.getByRole('tab', { name: 'Planifiées', exact: true }).click();
+  const date = page.locator('[data-list-toolbar]').getByRole('button', { name: /^Date de commande/ });
+  await date.click();
+  const picker = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: 'Date de remise', exact: true }) });
+  await picker.getByRole('button', { name: 'Date de remise', exact: true }).click();
+  await picker.getByRole('button', { name: 'Cette semaine', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'Planifiées', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect.poll(() => queries.at(-1)?.searchParams.get('date_field')).toBe('fulfillment');
+  expect(queries.at(-1)?.searchParams.get('from')).toBe('2026-11-22');
+  expect(queries.at(-1)?.searchParams.get('to')).toBe('2026-11-28');
+  expect(queries.at(-1)?.searchParams.get('is_scheduled')).toBe('true');
+  expect(fixture.writes.filter(path => path === '/display-preferences' || path === '/api/v1/display-preferences')).toHaveLength(0);
 });

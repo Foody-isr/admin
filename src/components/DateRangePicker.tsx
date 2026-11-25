@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -8,13 +8,17 @@ import {
   ChevronRightIcon,
   SlidersHorizontalIcon,
 } from 'lucide-react';
-import { clampWeekStartDay, getWeekStart, getWeekEnd, type WeekStartDay } from '@/lib/weeks';
+import { clampWeekStartDay, getWeekStart, getWeekEnd, isoDate, restaurantCalendarDay, type WeekStartDay } from '@/lib/weeks';
+import { RestaurantTimezone, RestaurantWeekStart } from '@/lib/restaurant-timezone-context';
 import { useI18n } from '@/lib/i18n';
 import {
   getDisplayPreferences,
   updateDisplayPreferences,
   type DateBasis,
+  type FulfillmentSeries,
 } from '@/lib/api';
+import { SeriesDayEditor } from '@/components/orders/SeriesDayEditor';
+import { rangeForSeries } from '@/lib/series';
 import { buttonVariants } from '@/components/ds';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +27,9 @@ import { cn } from '@/lib/utils';
 export interface DateRange {
   from: Date;
   to: Date;
+  seriesKey?: string;
+  serviceDay?: string;
+  followCurrent?: boolean;
 }
 
 export interface DateRangeChangeOptions {
@@ -34,6 +41,7 @@ interface DateRangePickerProps {
   /** Optional compact trigger for embedded dashboard filters. */
   triggerContent?: React.ReactNode;
   triggerClassName?: string;
+  triggerPrefix?: string;
   value: DateRange;
   onChange: (range: DateRange, options?: DateRangeChangeOptions) => void;
   /** First day of the week (0=Sun … 6=Sat). Drives "This/Last week" presets
@@ -54,9 +62,13 @@ interface DateRangePickerProps {
    *  popover so callers expose one coherent date filter instead of two menus. */
   basis?: DateBasis;
   onBasisChange?: (basis: DateBasis) => void;
+  /** Saves or clears the current user's explicit basis preference. */
+  onSaveDefaultBasis?: (basis: DateBasis | null) => Promise<void>;
   /** Fulfilment dates shown when the optional "Series" calendar mode is
    *  active. Dates must be ISO YYYY-MM-DD; newest-first is preferred. */
-  series?: Array<{ date: string; is_current?: boolean }>;
+  series?: FulfillmentSeries[];
+  seriesStatus?: 'loading' | 'ready' | 'error';
+  onSeriesUpdated?: () => void;
   /** Start on the operational batch and follow rollover while it stays selected. */
   defaultToCurrentSerie?: boolean;
 }
@@ -85,20 +97,6 @@ function endOfDay(d: Date): Date {
 
 function sameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-
-function isoDay(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-/** Prefer the restaurant's current batch, then today or the newest known date. */
-export function preferredSerieDate(
-  series: Array<{ date: string; is_current?: boolean }>,
-  referenceDate: Date = new Date(),
-): string | undefined {
-  const today = isoDay(referenceDate);
-  return series.find((item) => item.is_current)?.date
-    ?? series.find((item) => item.date === today)?.date ?? series[0]?.date;
 }
 
 function inRange(d: Date, from: Date, to: Date): boolean {
@@ -235,19 +233,26 @@ export default function DateRangePicker({
   align = 'left',
   triggerContent,
   triggerClassName,
+  triggerPrefix,
   basis,
   onBasisChange,
+  onSaveDefaultBasis,
   series = [],
+  seriesStatus = 'ready',
+  onSeriesUpdated,
   defaultToCurrentSerie = false,
 }: DateRangePickerProps) {
   const { t, locale, direction } = useI18n();
-  const wsd = clampWeekStartDay(weekStartDay);
+  const timeZone = useContext(RestaurantTimezone);
+  const defaultWeekStart = useContext(RestaurantWeekStart);
+  const wsd = clampWeekStartDay(weekStartDay ?? defaultWeekStart);
   const weekdayCols = rotatedWeekdays(wsd);
   // `null` workdays (rather than a 7-day default) lets the picker skip the
   // muted-cell branch entirely when the caller doesn't care about workdays,
   // keeping the rendered output identical to the pre-workday version.
   const workdaySet = workdays && workdays.length > 0 ? new Set(workdays) : null;
   const [open, setOpen] = useState(false);
+  const [editingSeries, setEditingSeries] = useState(false);
   const [customizingPresets, setCustomizingPresets] = useState(false);
   const [visiblePresetKeys, setVisiblePresetKeys] = useState<DatePresetKey[]>(DEFAULT_DATE_PRESET_KEYS);
   const [draftPresetKeys, setDraftPresetKeys] = useState<DatePresetKey[]>(DEFAULT_DATE_PRESET_KEYS);
@@ -280,13 +285,12 @@ export default function DateRangePicker({
     };
   }, []);
 
-  // Closing after the first série click deliberately keeps that single-day
-  // value, but reopening must begin a fresh selection rather than unexpectedly
-  // treating the next click as the old range's second endpoint.
+  // Reopening the picker starts a fresh calendar selection.
   useEffect(() => {
     if (!open) {
       setPicking('idle');
       setCustomizingPresets(false);
+      setEditingSeries(false);
     }
   }, [open]);
 
@@ -313,7 +317,7 @@ export default function DateRangePicker({
     setTempTo(value.to);
   }, [value]);
 
-  const now = new Date();
+  const now = restaurantCalendarDay(timeZone);
   const monthLabel = new Intl.DateTimeFormat(localeTag(locale), { month: 'long', year: 'numeric' })
     .format(new Date(viewYear, viewMonth, 1));
 
@@ -321,7 +325,7 @@ export default function DateRangePicker({
   const hasBasisControl = basis !== undefined && onBasisChange !== undefined;
   const visiblePresetSet = new Set(visiblePresetKeys);
   const visibleEntries = builtinEntries.filter((entry) => visiblePresetSet.has(entry.id));
-  const seriesShortcutVisible = hasBasisControl && visiblePresetSet.has('series');
+  const seriesShortcutVisible = hasBasisControl && (basis === 'serie' || (series.length > 0 && visiblePresetSet.has('series')));
   const customShortcutVisible = visiblePresetSet.has('custom');
   const activeId = matchEntry(value, builtinEntries);
   const activeEntry = builtinEntries.find((e) => e.id === activeId) ?? null;
@@ -332,41 +336,38 @@ export default function DateRangePicker({
       ? fmt(value.from)
       : `${fmt(value.from)} – ${fmt(value.to)}`;
   const serieMode = basis === 'serie';
+  const isFulfillment = basis === 'fulfillment';
   const triggerLabel = hasBasisControl
-    ? `${t(serieMode ? 'dateBasisSerieShort' : 'dateBasisCreatedShort')} · ${rangeLabel}`
-    : rangeLabel;
-  const seriesDateSet = useMemo(() => new Set(series.map((item) => item.date)), [series]);
-  const currentSerie = series.find((item) => item.is_current)?.date;
-  const previousCurrentSerie = useRef<{ restaurantId?: number; date: string } | null>(null);
+    ? `${t(serieMode ? 'dateBasisSerieShort' : isFulfillment ? 'dateBasisFulfillmentOption' : 'dateBasisCreatedShort')} · ${rangeLabel}`
+    : [triggerPrefix, rangeLabel].filter(Boolean).join(' · ');
+  const currentSerie = series.find(item => item.is_current);
+  const selectedSerie = series.find(item => item.key === value.seriesKey);
+  const labelOf = (lot: FulfillmentSeries) => {
+    const dateLabel = (day: string) => new Intl.DateTimeFormat(localeTag(locale), {
+      day: 'numeric', month: 'short', year: 'numeric',
+    }).format(new Date(day + 'T00:00:00'));
+    return t('dateSeriesNamed').replace('{dates}', lot.days.map(day => dateLabel(day.date)).join(', '));
+  };
+  const selectedSerieLabel = selectedSerie
+    ? labelOf(selectedSerie) + (value.serviceDay ? ' · ' + fmt(value.from) : '')
+    : seriesStatus === 'error' || (seriesStatus === 'ready' && value.seriesKey) ? t('couldNotLoad') : triggerLabel;
+  const seriesTime = (value: string, timezone: string) => new Intl.DateTimeFormat(localeTag(locale), {
+    timeZone: timezone, dateStyle: 'medium', timeStyle: 'short',
+  }).format(new Date(value));
 
   useEffect(() => {
-    if (!serieMode || !defaultToCurrentSerie || !currentSerie) return;
-    const previous = previousCurrentSerie.current;
-    if (previous && previous.restaurantId === restaurantId && previous.date === currentSerie) return;
-    previousCurrentSerie.current = { restaurantId, date: currentSerie };
-    // Keep an explicitly selected historical period while the page stays open.
-    if (previous && previous.restaurantId === restaurantId
-      && (isoDay(value.from) !== previous.date || isoDay(value.to) !== previous.date)) return;
-    const date = new Date(`${currentSerie}T00:00:00`);
-    onChange({ from: startOfDay(date), to: endOfDay(date) }, { literal: true });
-  }, [currentSerie, defaultToCurrentSerie, onChange, restaurantId, serieMode, value.from, value.to]);
-
-  // Migrate legacy consumers that persisted the date basis separately from the
-  // old série picker. A série selection must always start and end on real série
-  // dates; otherwise resolve it to the latest available one in this shared UI.
-  useEffect(() => {
-    if (!serieMode || series.length === 0) return;
-    if (seriesDateSet.has(isoDay(value.from)) && seriesDateSet.has(isoDay(value.to))) return;
-    const preferred = preferredSerieDate(series);
-    if (!preferred) return;
-    const date = new Date(`${preferred}T00:00:00`);
-    const selected = { from: startOfDay(date), to: endOfDay(date) };
-    setViewMonth(date.getMonth());
-    setViewYear(date.getFullYear());
-    setTempFrom(selected.from);
-    setTempTo(selected.to);
-    onChange(selected, { literal: true });
-  }, [onChange, serieMode, series, seriesDateSet, value.from, value.to]);
+    if (!serieMode || !defaultToCurrentSerie || seriesStatus !== 'ready') return;
+    if (!currentSerie && !value.seriesKey) {
+      onBasisChange?.('fulfillment');
+      return;
+    }
+    const following = value.followCurrent ?? !value.seriesKey;
+    const lot = following ? currentSerie : selectedSerie;
+    if (!lot || value.serviceDay) return;
+    const next = rangeForSeries(lot);
+    if (next.seriesKey === value.seriesKey && sameDay(next.from, value.from) && sameDay(next.to, value.to)) return;
+    onChange({ ...next, followCurrent: following }, { literal: true });
+  }, [currentSerie, selectedSerie, defaultToCurrentSerie, onBasisChange, onChange, serieMode, seriesStatus, value]);
 
   const days = daysInMonth(viewYear, viewMonth);
   const firstDay = firstColumn(viewYear, viewMonth, wsd);
@@ -382,34 +383,50 @@ export default function DateRangePicker({
   };
 
   const applyRange = (range: DateRange) => {
-    onBasisChange?.('created');
     setTempFrom(range.from);
     setTempTo(range.to);
     onChange(range);
     setOpen(false);
   };
 
-  const activateSeries = () => {
-    const preferred = preferredSerieDate(series);
-    if (!preferred) return;
+  const chooseSeries = (lot: FulfillmentSeries, day?: string, followCurrent = false) => {
     onBasisChange?.('serie');
-    setPicking('idle');
-    const date = new Date(`${preferred}T00:00:00`);
-    setViewMonth(date.getMonth());
-    setViewYear(date.getFullYear());
-    setTempFrom(startOfDay(date));
-    setTempTo(endOfDay(date));
-    onChange({ from: startOfDay(date), to: endOfDay(date) }, { literal: true });
+    onChange({ ...rangeForSeries(lot, day), followCurrent }, { literal: true });
   };
 
-  const activateCustom = () => {
-    onBasisChange?.('created');
+  const activateSeries = () => {
+    const defaultSerie = currentSerie ?? series[0];
+    if (!serieMode && defaultSerie) chooseSeries(defaultSerie, undefined, defaultSerie.is_current);
+    else onBasisChange?.('serie');
+  };
+
+  const activateCustom = () => setPicking('idle');
+
+  const selectCalendarBasis = (next: DateBasis) => {
+    if (serieMode) onChange({ from: value.from, to: value.to });
+    onBasisChange?.(next);
     setPicking('idle');
+    setEditingSeries(false);
+  };
+
+  const saveBasisPreference = async (next: DateBasis | null) => {
+    if (!onSaveDefaultBasis) return;
+    setPresetPreferenceSaving(true);
+    setPresetPreferenceFailed(false);
+    try {
+      await onSaveDefaultBasis(next);
+      setCustomizingPresets(false);
+    } catch {
+      setPresetPreferenceFailed(true);
+    } finally {
+      setPresetPreferenceSaving(false);
+    }
   };
 
   const openPresetCustomization = () => {
     setDraftPresetKeys(visiblePresetKeys);
     setPresetPreferenceFailed(false);
+    setEditingSeries(false);
     setCustomizingPresets(true);
   };
 
@@ -445,32 +462,6 @@ export default function DateRangePicker({
 
   const handleDayClick = (day: number) => {
     const clicked = new Date(viewYear, viewMonth, day);
-
-    if (serieMode) {
-      const clickedFrom = startOfDay(clicked);
-      const clickedTo = endOfDay(clicked);
-
-      if (picking !== 'start') {
-        // Keep the first click as a valid single-série selection while leaving
-        // the calendar open so a second série can define the other endpoint.
-        const selected = { from: clickedFrom, to: clickedTo };
-        setTempFrom(selected.from);
-        setTempTo(selected.to);
-        setPicking('start');
-        onChange(selected, { literal: true });
-        return;
-      }
-
-      const selected = clicked < tempFrom
-        ? { from: clickedFrom, to: endOfDay(tempFrom) }
-        : { from: startOfDay(tempFrom), to: clickedTo };
-      setTempFrom(selected.from);
-      setTempTo(selected.to);
-      setPicking('idle');
-      onChange(selected, { literal: true });
-      setOpen(false);
-      return;
-    }
 
     if (picking === 'idle' || picking === 'end') {
       // Start new selection
@@ -535,7 +526,7 @@ export default function DateRangePicker({
       >
         {triggerContent ?? (hasBasisControl ? (
           <>
-            <span className="min-w-0 truncate">{triggerLabel}</span>
+            <span className="min-w-0 truncate">{serieMode ? selectedSerieLabel : triggerLabel}</span>
             <ChevronDownIcon className="h-3.5 w-3.5 shrink-0 text-[var(--fg-muted)]" />
           </>
         ) : triggerLabel)}
@@ -553,21 +544,32 @@ export default function DateRangePicker({
           <div
             role="dialog"
             aria-label={hasBasisControl ? t('dashboardDateFilter') : t('dateBasisAria')}
-            className={`fixed inset-x-3 bottom-[calc(var(--safe-bottom)+0.75rem)] z-50 flex max-h-[calc(100dvh-var(--safe-top)-1.5rem)] w-auto max-w-none flex-col overflow-y-auto overscroll-contain rounded-card shadow-xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:top-full sm:mt-1 sm:max-h-none sm:w-[470px] sm:max-w-[calc(100vw-2rem)] sm:overflow-hidden ${dropdownAlignClass}`}
+            className={`fixed inset-x-3 bottom-[calc(var(--safe-bottom)+0.75rem)] z-50 flex max-h-[calc(100dvh-var(--safe-top)-1.5rem)] w-auto max-w-none flex-col overflow-y-auto overscroll-contain rounded-card shadow-xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:top-full sm:mt-1 sm:max-h-none sm:w-[500px] sm:max-w-[calc(100vw-2rem)] sm:overflow-hidden ${dropdownAlignClass}`}
             style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
           >
             <div className="flex flex-col sm:flex-row">
               {/* Left: presets */}
-              <div className="flex w-full flex-shrink-0 border-b border-[var(--divider)] sm:block sm:max-h-[380px] sm:w-36 sm:border-b-0 sm:border-e">
+              <div className="flex w-full flex-shrink-0 border-b border-[var(--divider)] sm:block sm:max-h-[380px] sm:w-40 sm:border-b-0 sm:border-e">
               <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto py-3 sm:block sm:max-h-[330px] sm:overflow-y-auto">
-              {hasBasisControl && (
-                <div className="hidden px-4 pb-1 text-[11px] font-medium text-[var(--fg-muted)] sm:block">{t('dashboardDateRange')}</div>
-              )}
+              {hasBasisControl && (['created', 'fulfillment'] as const).map((field) => (
+                <button
+                  key={field}
+                  type="button"
+                  aria-pressed={basis === field}
+                  onClick={() => selectCalendarBasis(field)}
+                  className={cn(
+                    'block shrink-0 whitespace-nowrap px-3 py-2 text-start text-sm hover:bg-[var(--surface-subtle)] sm:w-full',
+                    basis === field ? 'bg-[var(--surface-subtle)] font-semibold text-fg-primary' : 'text-fg-secondary',
+                  )}
+                >
+                  {t(field === 'created' ? 'dateBasisCreatedOption' : 'dateBasisFulfillmentOption')}
+                </button>
+              ))}
               {seriesShortcutVisible && (
                 <button
                   type="button"
                   onClick={activateSeries}
-                  disabled={series.length === 0}
+                  aria-pressed={serieMode}
                   className={`block w-auto shrink-0 whitespace-nowrap px-3 py-2 text-left text-sm transition-colors sm:w-full sm:px-4 ${
                     serieMode
                       ? 'bg-[var(--brand-50)] font-semibold text-[var(--brand-700)]'
@@ -579,11 +581,11 @@ export default function DateRangePicker({
                   {t('dashboardSeries')}
                 </button>
               )}
-              {visibleEntries.map(presetButton)}
+              {!serieMode && <div className={hasBasisControl ? 'contents sm:block sm:border-t sm:border-[var(--divider)] sm:pt-1' : 'contents'}>{visibleEntries.map(presetButton)}</div>}
 
               {/* Custom (fallback) — highlights when the range matches no preset.
                   Pick a custom window by clicking two days on the calendar. */}
-              {customShortcutVisible && (
+              {customShortcutVisible && !serieMode && (
                 <button
                   type="button"
                   onClick={activateCustom}
@@ -666,6 +668,20 @@ export default function DateRangePicker({
                     })}
                   </div>
 
+                  {onSaveDefaultBasis && basis && (
+                    <div className="mt-4 grid gap-1 border-t border-[var(--divider)] pt-3">
+                      <button type="button" disabled={presetPreferenceSaving}
+                        className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+                        onClick={() => void saveBasisPreference(basis)}>
+                        {t('dateBasisSaveDefault')}
+                      </button>
+                      <button type="button" disabled={presetPreferenceSaving}
+                        className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+                        onClick={() => void saveBasisPreference(null)}>
+                        {t('dateBasisResetDefault')}
+                      </button>
+                    </div>
+                  )}
                   {presetPreferenceFailed && (
                     <p className="mt-3 text-xs text-[var(--danger-600)]" role="status">
                       {t('displayPreferenceSaveFailed')}
@@ -690,6 +706,65 @@ export default function DateRangePicker({
                       {t('save')}
                     </button>
                   </div>
+                </div>
+              ) : editingSeries && restaurantId && selectedSerie ? (
+                <SeriesDayEditor restaurantId={restaurantId} series={selectedSerie}
+                  today={isoDate(now)} onCancel={() => setEditingSeries(false)}
+                  onSaved={() => {
+                    chooseSeries(selectedSerie, undefined, value.followCurrent);
+                    onSeriesUpdated?.();
+                    setOpen(false);
+                  }} />
+              ) : serieMode ? (
+                <div className="flex w-full min-w-0 flex-col gap-3 p-3 sm:w-[338px] sm:p-4">
+                  {seriesStatus === 'error' && <p role="status" className="text-sm text-[var(--danger-600)]">{t('couldNotLoad')}</p>}
+                  <div className="grid max-h-56 gap-1 overflow-auto" aria-label={t('dashboardSeries')}>
+                    {seriesStatus === 'loading' && <p className="text-sm text-fg-muted">{t('loading')}</p>}
+                    {seriesStatus === 'ready' && series.length === 0 && <p className="text-sm text-fg-muted">{t('dateSeriesEmpty')}</p>}
+                    {[...series].sort((a, b) => Number(b.is_current) - Number(a.is_current)).map(lot => (
+                      <button key={lot.key} type="button" aria-pressed={lot.key === value.seriesKey}
+                        className={cn('min-h-10 rounded-standard px-3 py-2 text-start text-sm hover:bg-[var(--surface-subtle)]',
+                          lot.key === value.seriesKey && 'bg-[var(--surface-subtle)] font-semibold')}
+                        onClick={() => {
+                          chooseSeries(lot, undefined, lot.is_current);
+                          if (lot.days.length === 1) setOpen(false);
+                        }}>
+                        {labelOf(lot)}
+                        {lot.is_current && <span className="ms-2 text-xs font-medium text-fg-muted">{t('dateSeriesCurrent')}</span>}
+                      </button>
+                    ))}
+                  </div>
+                  {selectedSerie && selectedSerie.days.length > 1 && (
+                    <label className="flex items-center justify-between gap-2 border-t border-[var(--divider)] pt-3 text-sm">
+                      {t('dateBasisFulfillmentOption')}
+                      <select value={value.serviceDay ?? ''} className="rounded-standard border border-[var(--divider)] bg-[var(--surface)] p-2"
+                        onChange={event => {
+                          chooseSeries(selectedSerie, event.target.value || undefined, !event.target.value && selectedSerie.is_current);
+                          setOpen(false);
+                        }}>
+                        <option value="">{t('dateSeriesAllDays')}</option>
+                        {selectedSerie.days.map(day => <option key={day.date} value={day.date}>
+                          {new Intl.DateTimeFormat(localeTag(locale), { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(day.date + 'T00:00:00'))}
+                        </option>)}
+                      </select>
+                    </label>
+                  )}
+                  {selectedSerie?.open_at && selectedSerie.cutoff_at && (
+                    <dl className="grid gap-1 border-t border-[var(--divider)] pt-3 text-xs text-fg-muted">
+                      <div className="flex flex-wrap justify-between gap-x-2">
+                        <dt>{t('dateSeriesIntakeStart')}</dt><dd>{seriesTime(selectedSerie.open_at, selectedSerie.timezone)}</dd>
+                      </div>
+                      <div className="flex flex-wrap justify-between gap-x-2">
+                        <dt>{t('dateSeriesIntakeEnd')}</dt><dd>{seriesTime(selectedSerie.cutoff_at, selectedSerie.timezone)}</dd>
+                      </div>
+                    </dl>
+                  )}
+                  {onSeriesUpdated && selectedSerie?.days.some(day => day.date >= isoDate(now)) && (
+                    <button type="button" className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+                      onClick={() => setEditingSeries(true)}>
+                      {t('dateSeriesMove')}
+                    </button>
+                  )}
                 </div>
               ) : (
               <div className="mx-auto w-full max-w-[320px] p-3 sm:p-4">
@@ -729,42 +804,29 @@ export default function DateRangePicker({
                 if (day === null) return <div key={`empty-${i}`} />;
 
                 const date = new Date(viewYear, viewMonth, day);
-                const dateKey = isoDay(date);
-                const isSerieDate = seriesDateSet.has(dateKey);
-                const disabled = serieMode && !isSerieDate;
                 const isToday = sameDay(date, now);
-                const isSelected = (!serieMode || isSerieDate) && (sameDay(date, tempFrom) || sameDay(date, tempTo));
-                // In série mode, highlight only actual séries inside the picked
-                // interval. Calendar days without a série remain muted even
-                // when they sit between the two selected endpoints.
-                const isInRange = inRange(date, tempFrom, tempTo) && (!serieMode || isSerieDate);
-                const isOffDay = !serieMode && workdaySet !== null && !workdaySet.has(date.getDay());
+                const isSelected = sameDay(date, tempFrom) || sameDay(date, tempTo);
+                const isInRange = inRange(date, tempFrom, tempTo);
+                const isOffDay = workdaySet !== null && !workdaySet.has(date.getDay());
 
                 return (
                   <button
                     key={day}
                     type="button"
-                    disabled={disabled}
                     onClick={() => handleDayClick(day)}
                     className={`relative mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm transition-colors sm:h-10 sm:w-10 ${
                       isSelected
                         ? 'bg-fg-primary text-[var(--surface)] font-bold'
-                        : disabled
-                        ? 'cursor-not-allowed text-fg-secondary opacity-25'
                         : isInRange
-                        ? serieMode
-                          ? 'bg-[var(--brand-50)] font-semibold text-[var(--brand-700)]'
-                          : 'bg-[var(--surface-subtle)] text-fg-primary'
+                        ? 'bg-[var(--surface-subtle)] text-fg-primary'
                         : isToday
                         ? 'font-bold text-fg-primary'
                         : 'text-fg-secondary hover:bg-[var(--surface-subtle)]'
                     } ${isOffDay && !isSelected && !isInRange ? 'opacity-40' : ''}`}
-                    style={isToday && !isSelected && !disabled ? { boxShadow: 'inset 0 0 0 1.5px var(--text-primary)' } : undefined}
+                    style={isToday && !isSelected ? { boxShadow: 'inset 0 0 0 1.5px var(--text-primary)' } : undefined}
                   >
                     {day}
-                    {serieMode && isSerieDate && !isSelected && (
-                      <span className="absolute bottom-1.5 h-1 w-1 rounded-full bg-[var(--brand-500)]" />
-                    )}
+
                   </button>
                 );
               })}

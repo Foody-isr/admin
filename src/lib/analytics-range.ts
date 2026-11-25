@@ -47,8 +47,7 @@ function sameYMD(a: Date, b: Date): boolean {
 }
 
 /** Resolves a rolling preset to a concrete [from, to] window for "now". */
-export function resolvePreset(preset: RollingPreset, wsd: WeekStartDay): DateRange {
-  const today = startOfToday();
+export function resolvePreset(preset: RollingPreset, wsd: WeekStartDay, today = startOfToday()): DateRange {
   switch (preset) {
     case 'yesterday': {
       const d = addDays(today, -1);

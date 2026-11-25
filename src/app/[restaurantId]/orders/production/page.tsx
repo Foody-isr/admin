@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   SearchIcon,
@@ -51,6 +51,9 @@ import { ProductionToPrepare } from '@/components/production/ProductionToPrepare
 import { ProductionShoppingList } from '@/components/production/ProductionShoppingList';
 import { ItemAvailabilityPopover } from '@/components/menu/ItemAvailabilityPopover';
 import { orderDetailPath } from '@/lib/orders/routes';
+import { RestaurantTimezone } from '@/lib/restaurant-timezone-context';
+import { isoDate, restaurantCalendarDay } from '@/lib/weeks';
+import { validDispatchDay } from '@/lib/delivery-planning';
 
 type ProductionTab = 'clients' | 'items' | 'status';
 
@@ -69,7 +72,10 @@ const productionTabs = [
 export default function ProductionPage() {
   const params = useParams<{ restaurantId: string }>();
   const restaurantId = Number(params.restaurantId);
-  const requestedDate = useSearchParams().get('date');
+  const query = useSearchParams();
+  const requestedDate = validDispatchDay(query.get('date'));
+  const requestedSeries = validDispatchDay(query.get('series_key'));
+  const timeZone = useContext(RestaurantTimezone);
   const router = useRouter();
   const { t, locale } = useI18n();
   const ec = eventOrderCopy[locale];
@@ -80,6 +86,7 @@ export default function ProductionPage() {
 
   const [days, setDays] = useState<ProductionDay[]>([]);
   const [date, setDate] = useState<string>('');
+  const seriesKey = date === requestedDate ? requestedSeries ?? undefined : undefined;
   const [loadedSheet, setLoadedSheet] = useState<{ restaurantId: number; sheet: ProductionSheetResponse }>();
   const sheet = loadedSheet?.restaurantId === restaurantId && loadedSheet.sheet.date === date
     ? loadedSheet.sheet
@@ -149,12 +156,12 @@ export default function ProductionPage() {
     fetchProductionDays(restaurantId).then((d) => {
       if(stopped)return;
       setDays(d);
-      const today = new Date().toISOString().slice(0, 10);
-      const upcoming = d.find((x) => x.date === requestedDate) ?? d.find((x) => x.date >= today) ?? d[d.length - 1];
-      setDate(upcoming ? upcoming.date : today);
+      const today = isoDate(restaurantCalendarDay(timeZone));
+      const upcoming = d.find(x => x.date >= today) ?? d[d.length - 1];
+      setDate(requestedDate ?? upcoming?.date ?? today);
     }).catch(()=>{if(!stopped)setLoadFailed(true);});
     return()=>{stopped=true;};
-  }, [restaurantId, requestedDate]);
+  }, [restaurantId, requestedDate, timeZone]);
 
   // The library supplies current item details and available portion sizes.
   useEffect(() => {
@@ -206,12 +213,12 @@ export default function ProductionPage() {
     if (!date) return;
     let stopped=false;
     setLoading(true);setLoadFailed(false);
-    Promise.all([fetchProductionSheet(restaurantId,date),fetchProductionDays(restaurantId)])
+    Promise.all([fetchProductionSheet(restaurantId, date, seriesKey),fetchProductionDays(restaurantId)])
       .then(([value,available])=>{if(!stopped){setLoadedSheet({ restaurantId, sheet: value });setDays(available);}})
       .catch(()=>{if(!stopped)setLoadFailed(true);})
       .finally(()=>{if(!stopped)setLoading(false);});
     return()=>{stopped=true;};
-  },[restaurantId,date,refreshKey]);
+  },[restaurantId, date, seriesKey, refreshKey]);
 
   // Keep state in sync when the user leaves native full-screen via Esc.
   useEffect(() => {

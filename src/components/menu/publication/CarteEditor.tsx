@@ -280,7 +280,7 @@ function CarteEditor({
         setItems(library);
         setBatch(config);
         const key = found.is_weekly_rotating
-          ? config.upcoming_cycles?.[0]?.fulfillment_days?.[0]?.date
+          ? config.upcoming_cycles?.[0]?.series_key ?? config.upcoming_cycles?.[0]?.fulfillment_days?.[0]?.date
           : null;
         if (found.is_weekly_rotating && !key) {
           setError(translation.current("carteBatchRequired"));
@@ -487,7 +487,7 @@ function CarteEditor({
   const goSeries = (next: number) =>
     guard.requestAction(() => {
       setIndex(next);
-      setDate(batch?.upcoming_cycles[next]?.fulfillment_days?.[0]?.date ?? "");
+      setDate(batch?.upcoming_cycles[next]?.series_key ?? batch?.upcoming_cycles[next]?.fulfillment_days?.[0]?.date ?? "");
       setPanel(null);
       setGroupKey(null);
       setPicker(null);

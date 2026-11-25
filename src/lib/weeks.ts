@@ -47,6 +47,15 @@ export function addDays(d: Date, days: number): Date {
   return out;
 }
 
+/** Represents a restaurant's civil day using the calendar picker's local date fields. */
+export function restaurantCalendarDay(timeZone: string, now = new Date()): Date {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now);
+  const value = (key: string) => Number(parts.find((part) => part.type === key)?.value);
+  return new Date(value('year'), value('month') - 1, value('day'));
+}
+
 /** Formats a date as YYYY-MM-DD in local time (no timezone shift). */
 export function isoDate(d: Date): string {
   const y = d.getFullYear();

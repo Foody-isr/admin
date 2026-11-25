@@ -5,6 +5,7 @@ export type FulfillmentTiming = 'immediate' | 'scheduled';
 /** The chosen fulfillment for an order (what the create/edit flows submit). */
 export interface FulfillmentValue {
   timing: FulfillmentTiming;
+  seriesKey?: string;
   scheduledFor?: string; // "YYYY-MM-DD"
   windowStart?: string;  // "HH:MM"
   windowEnd?: string;    // "HH:MM"
@@ -13,6 +14,7 @@ export interface FulfillmentValue {
 /** One selectable batch fulfillment day, resolved for a specific order type. */
 export interface FulfillmentTarget {
   id: string;            // stable key = date
+  seriesKey?: string;
   date: string;          // "YYYY-MM-DD"
   dayName: string;       // e.g. "Friday"
   windowStart?: string;  // "HH:MM"
@@ -24,14 +26,7 @@ export interface FulfillmentTarget {
   orderingClosed?: boolean;
 }
 
-/**
- * Resolve the selectable scheduled targets from the batch config for a given
- * order type. For each upcoming cycle we pick the FIRST fulfillment day whose
- * window for that order type is set — the same rule the server's
- * ComputeBatchFulfillmentForOrder uses. Cycles with no matching day are skipped.
- * Returns [] when batch mode is off or no config is loaded (callers then fall
- * back to a plain date picker).
- */
+/** Lists every scheduled opening for this handover method. */
 export function buildFulfillmentTargets(
   batchConfig: BatchFulfillmentConfigResponse | null | undefined,
   orderType: 'pickup' | 'delivery',
@@ -43,17 +38,17 @@ export function buildFulfillmentTargets(
     for (const day of cycle.fulfillment_days ?? []) {
       const win = orderType === 'delivery' ? day.delivery_window : day.pickup_window;
       if (!win) continue;
-      if (seen.has(day.date)) break; // one target per cycle (first matching day)
+      if (seen.has(day.date)) continue;
       seen.add(day.date);
       targets.push({
         id: day.date,
+        seriesKey: cycle.series_key,
         date: day.date,
         dayName: day.day_name,
         windowStart: win.start,
         windowEnd: win.end,
         orderingClosed: cycle.ordering_closed,
       });
-      break; // move to next cycle after the first matching day
     }
   }
   return targets;

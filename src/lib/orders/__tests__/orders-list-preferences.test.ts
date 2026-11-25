@@ -1,12 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { initialOrdersTab } from '@/lib/orders/orders-list-preferences';
 
-import { defaultOrdersTabForBasis } from '@/lib/orders/orders-list-preferences';
-
-test('série mode opens all orders so scheduled orders are not hidden', () => {
-  assert.equal(defaultOrdersTabForBasis('serie'), 'all');
+test('regular order browsing includes every status', () => {
+  assert.equal(initialOrdersTab(false), 'all');
 });
 
-test('creation-date mode keeps the live operational queue as its default', () => {
-  assert.equal(defaultOrdersTabForBasis('created'), 'active');
+test('opening a payments-to-process link selects the active queue', () => {
+  assert.equal(initialOrdersTab(true), 'active');
 });

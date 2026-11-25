@@ -5,7 +5,7 @@ import { useCurrency, useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { orderDetailPath, ordersPaymentAttentionPath, type OrdersPaymentAttentionScope } from '@/lib/orders/routes';
 import type { ListOrdersResult } from '@/lib/api';
-import { ArrowUpRight, ClipboardList, CreditCard, Utensils } from 'lucide-react';
+import { ArrowUpRight, ClipboardList, CreditCard, Truck, Utensils } from 'lucide-react';
 
 /** Financial summary and permission-aware shortcuts use existing Foody destinations. */
 export default function DashboardSidebar({ restaurantId, revenue, serieMode, scope, recent, loading }: {
@@ -15,8 +15,12 @@ export default function DashboardSidebar({ restaurantId, revenue, serieMode, sco
   const { code: currency } = useCurrency();
   const money = (value: number) => new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'narrowSymbol', maximumFractionDigits: 0 }).format(value);
   const { hasPermission, hasAnyPermission } = usePermissions();
+  const dayQuery = new URLSearchParams({ date: scope.serviceDay ?? scope.from });
+  if (scope.seriesKey) dayQuery.set('series_key', scope.seriesKey);
+  const orderPath = '/' + restaurantId + '/orders/';
   const actions = [
-    { label: 'productionTitle', href: `/${restaurantId}/orders/production${scope.from === scope.to ? `?date=${scope.to}` : ''}`, icon: ClipboardList, allowed: serieMode && hasAnyPermission('orders.view', 'orders.manage') },
+    { label: 'productionTitle', href: orderPath + 'production?' + dayQuery, icon: ClipboardList, allowed: serieMode && hasAnyPermission('orders.view', 'orders.manage') },
+    { label: 'delivery', href: orderPath + 'deliveries?' + dayQuery, icon: Truck, allowed: serieMode && hasAnyPermission('orders.manage') },
     { label: 'dashboardActionCollect', href: ordersPaymentAttentionPath(restaurantId, scope), icon: CreditCard, allowed: hasAnyPermission('orders.view', 'orders.manage') },
     { label: 'editMenuAction', href: `/${restaurantId}/menu/menus`, icon: Utensils, allowed: hasPermission('menu.edit') },
   ].filter((action) => action.allowed);

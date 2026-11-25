@@ -194,7 +194,7 @@ function NewStaffOrder({ restaurantId, staffId }: { restaurantId: number; staffI
           listAllItems(restaurantId),
         ]);
         if (cancelled) return;
-        const currentDay = config.upcoming_cycles?.[0]?.fulfillment_days?.[0]?.date;
+        const currentDay = config.upcoming_cycles?.[0]?.series_key ?? config.upcoming_cycles?.[0]?.fulfillment_days?.[0]?.date;
         const menuList = await getMenu(restaurantId, currentDay);
         if (cancelled) return;
         setFulfillmentBatchConfig(config);
@@ -331,8 +331,9 @@ function NewStaffOrder({ restaurantId, staffId }: { restaurantId: number; staffI
   const cycles = fulfillmentBatchConfig?.upcoming_cycles ?? [];
   const selectedCycle = cycles[Math.min(selectedCycleIndex, Math.max(cycles.length - 1, 0))] ?? null;
   const selectedDay = isRotating ? selectedCycle?.fulfillment_days?.[0]?.date ?? null : null;
-  const currentDay = cycles[0]?.fulfillment_days?.[0]?.date;
-  const alternateDay = selectedDay !== currentDay ? selectedDay : null;
+  const selectedSeriesKey = isRotating ? selectedCycle?.series_key ?? selectedDay : null;
+  const currentDay = cycles[0]?.series_key ?? cycles[0]?.fulfillment_days?.[0]?.date;
+  const alternateDay = selectedSeriesKey !== currentDay ? selectedSeriesKey : null;
   const datedResult = otherSeries?.date === alternateDay ? otherSeries : null;
   const displayedMenu = alternateDay ? datedResult?.menus?.find((menu) => menu.id === activeMenuId) : activeMenu;
   const catalogueLoading = loading || (!!alternateDay && !datedResult);
@@ -555,6 +556,7 @@ function NewStaffOrder({ restaurantId, staffId }: { restaurantId: number; staffI
           ? {
               is_scheduled: true,
               scheduled_for: data.fulfillment.scheduledFor,
+              fulfillment_series_key: data.fulfillment.seriesKey,
               scheduled_pickup_window_start: data.fulfillment.windowStart,
               scheduled_pickup_window_end: data.fulfillment.windowEnd,
             }
@@ -1082,7 +1084,7 @@ function NewStaffOrder({ restaurantId, staffId }: { restaurantId: number; staffI
         combo={comboItem}
         restaurantId={restaurantId}
         itemMap={itemMap}
-        serieDate={isRotating ? selectedDay : null}
+        serieDate={selectedSeriesKey}
         open={comboItem !== null}
         onClose={() => setComboItem(null)}
         onAdd={addLine}
