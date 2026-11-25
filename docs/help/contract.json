@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "e47645ae0225ea6d32b64f2323a088f41083635f",
+  "documentationRef": "c53ce36e23f2906c5aa42e130a45ded98809990b",
   "documentationRevision": "bf47158b2a01f95e4df81bca77341734168b2503daf5f0286f5eec745a9cab27",
   "articles": {
     "getting-started/first-login": {
@@ -4644,7 +4644,7 @@
       ]
     },
     "src/components/loyalty/WalletCompositionPreview.tsx": {
-      "sha256": "1cd0f3878068a0a3d70a4e19ec33d0ef2698dc0a53e3a44a7610133acd9e573c",
+      "sha256": "3448dbec954eb3716e24637e4cdb0b1170954f191b6de5ca723b7cad6de82c28",
       "features": [
         "customers-loyalty-program",
         "customers-wallet-studio"
