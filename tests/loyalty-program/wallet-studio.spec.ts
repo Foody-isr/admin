@@ -482,6 +482,14 @@ test('fits two large visit rows under the header while preserving the editable p
   const card = (await poster.boundingBox())!;
   const counter = (await poster.getByText('4 / 10', { exact: true }).boundingBox())!;
   const qr = (await poster.locator('svg[aria-label]').boundingBox())!;
+  // Measurements are relative to the native poster face, excluding the iPhone screen chrome.
+  expect(card.width / card.height).toBeCloseTo(358 / 503, 2);
+  expect(qr.width / card.width).toBeCloseTo(0.436, 2);
+  expect((qr.y - card.y) / card.height).toBeCloseTo(0.471, 2);
+  expect((qr.x + qr.width / 2 - card.x) / card.width).toBeCloseTo(0.5, 2);
+  await expect(poster.locator('[data-wallet-footer-surface]')).toHaveCSS('background-color', 'rgb(255, 189, 208)');
+  await expect(poster.getByText('Propulsé par Foody')).toHaveCSS('color', 'rgb(79, 33, 15)');
+  expect((await poster.getByText('Propulsé par Foody').boundingBox())!.y).toBeGreaterThan(qr.y + qr.height);
   const circles = await grid.locator('circle').evaluateAll(nodes => nodes.map(node => {
     const { left, right, top, bottom, width } = node.getBoundingClientRect();
     return { left, right, top, bottom, width };

@@ -92,7 +92,7 @@ function Artwork({
   );
 }
 
-function PosterLogo({ src, design }: { src: string; design: Composition }) {
+function PosterLogo({ src, design, primary = false }: { src: string; design: Composition; primary?: boolean }) {
   const [image, setImage] = useState('');
   const { t } = useI18n();
   useEffect(() => {
@@ -109,7 +109,7 @@ function PosterLogo({ src, design }: { src: string; design: Composition }) {
     };
   }, [src, design.trim_logo]);
   return (
-    <div className="flex h-[14cqw] w-[38cqw] items-center">
+    <div className={primary ? 'flex h-[8.4cqw] w-[35.2cqw] items-center' : 'flex h-[14cqw] w-[38cqw] items-center'}>
       <Image
         unoptimized
         src={image || src}
@@ -119,9 +119,10 @@ function PosterLogo({ src, design }: { src: string; design: Composition }) {
         style={{
           maxHeight: design.logo_scale + '%',
           maxWidth: design.logo_scale + '%',
-          width: 'auto',
-          height: 'auto',
+          width: primary ? design.logo_scale + '%' : 'auto',
+          height: primary ? design.logo_scale + '%' : 'auto',
           objectFit: 'contain',
+          objectPosition: 'left center',
         }}
       />
     </div>
@@ -174,10 +175,6 @@ export function WalletCompositionPreview({
   const benefit = design.reward === 'benefit' && program?.reward_labels?.[locale];
   const rewardLabel = benefit ? remaining : t('walletArtNext');
   const rewardValue = benefit || remaining;
-  const paperInk =
-    colorContrast(design.footer, '#FFFFFF') > colorContrast(design.footer, foreground)
-      ? '#FFFFFF'
-      : foreground;
   const googleInk =
     colorContrast(background, '#FFFFFF') > colorContrast(background, '#202124') ? '#FFFFFF' : '#202124';
   const art = (
@@ -196,49 +193,57 @@ export function WalletCompositionPreview({
       {t('walletStudioAttribution')}
     </a>
   );
+  const poster = format === 'poster';
   const qr = (
-    <div className="inline-flex rounded-lg bg-white p-1">
+    <div className={poster ? 'flex w-full overflow-hidden rounded-[1.7cqw] bg-white' : 'inline-flex rounded-lg bg-white p-1'}>
       <QRCodeSVG
         aria-label={t('walletStudioTestCard')}
         value="FOODY-WALLET-STUDIO-TEST"
         size={104}
-        marginSize={4}
+        minVersion={poster ? 2 : 1}
+        marginSize={poster ? 2 : 4}
         className="h-auto w-full"
       />
     </div>
   );
   const title = program?.names[locale] || state.restaurant_name;
-  if (format === 'poster')
+  if (poster) {
+    // Apple applies one ink to the header and footer. Match the surface in the signed pass.
+    const footer = [design.footer, background, '#FFFFFF'].find(color => colorContrast(foreground, color) >= 4.5) ?? '#000000';
     return (
       <article
         data-wallet-preview="apple"
         data-wallet-poster
-        className="relative mx-auto aspect-[420/568] max-w-[23rem] overflow-hidden rounded-2xl border border-black/10 shadow-2 [container-type:inline-size]"
-        style={{ backgroundColor: design.footer, color: foreground }}
+        className="relative mx-auto aspect-[358/503] max-w-[23rem] overflow-hidden rounded-[3.3%] shadow-2 [container-type:inline-size]"
+        style={{ backgroundColor: footer, color: foreground }}
       >
+        {/* The signed artwork has side bleed. Wallet's center crop restores this design width. */}
         <div className="absolute inset-x-0 top-0">{art}</div>
-        <div className="absolute inset-x-[5%] top-[3%] flex items-start justify-between gap-2">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[34%] bg-gradient-to-b from-black/30 to-transparent" />
+        <div aria-hidden="true" data-wallet-footer-surface className="absolute inset-x-0 bottom-0 top-[76.14%]" style={{ backgroundColor: footer }} />
+        <div className="absolute inset-x-[3.9%] top-[2.4%] flex items-start justify-between gap-2">
           <div>
-            {logo && <PosterLogo src={logo} design={design} />}
+            {logo && <PosterLogo src={logo} design={design} primary />}
             {!hideName && <span className="block text-[3cqw] font-semibold">{state.restaurant_name}</span>}
           </div>
           <div className="text-end">
-            <div className="text-[3cqw]">{unit}</div>
-            <strong className="block text-[7cqw] leading-none tabular-nums">{balance}</strong>
+            <div className="text-[3.9cqw] font-bold uppercase leading-tight">{unit}</div>
+            <span dir="ltr" className="block font-mono text-[4.4cqw] leading-tight tabular-nums">{balance}</span>
           </div>
         </div>
-        <div className="absolute start-1/2 top-[53.4%] w-[33%] -translate-x-1/2 rtl:translate-x-1/2">
+        <div data-wallet-poster-qr className="absolute left-1/2 top-[47.1%] w-[43.6%] -translate-x-1/2">
           {qr}
         </div>
-        <div className="absolute inset-x-[5.5%] top-[81%] leading-tight" style={{ color: paperInk }}>
+        <div className="absolute inset-x-[3.9%] top-[81%] font-mono leading-tight">
           <div className="text-[3.1cqw]">{rewardLabel}</div>
-          <strong className="line-clamp-2 text-[5.5cqw]">{rewardValue}</strong>
+          <span className="line-clamp-2 text-[4.4cqw]">{rewardValue}</span>
         </div>
-        <div className="absolute inset-x-[5.5%] bottom-[3%] text-[2.7cqw]" style={{ color: paperInk }}>
-          {attribution}
+        <div className="absolute inset-x-[3.9%] bottom-[3%] font-mono text-[2.9cqw]">
+          {t('walletStudioAttribution')}
         </div>
       </article>
     );
+  }
   const google = format === 'google';
   const stampedStrip = !google && !!stamps;
   const leadingField = stampedStrip
