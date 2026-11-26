@@ -159,8 +159,8 @@ function RouteTable({ route, number, courier, locale, shownStops, selectedStopId
   return <table className={board.table}>
     <caption className="sr-only">{t('mapsRoute')} {number} · {courier}</caption>
     <thead><tr>
-      <th scope="col">{t('dispatchStop')}</th><th scope="col">{t('address')}</th>
-      <th scope="col">{t('dispatchWindow')}</th><th scope="col">{t('dispatchOrder')}</th>
+      <th scope="col">{t('dispatchStop')}</th><th scope="col">{t('customer')}</th>
+      <th scope="col">{t('address')}</th><th scope="col">{t('dispatchWindow')}</th>
     </tr></thead>
             <tbody>{shownStops.map(stop => {
               const window = isPendingDeliveryStop(stop) ? deliveryEtaWindow(route, stop, locale) : null;
@@ -170,8 +170,12 @@ function RouteTable({ route, number, courier, locale, shownStops, selectedStopId
               return <tr key={stop.id} data-stop-id={stop.id} data-selected={selected} onClick={() => onSelectStop(stop.id)}
                 className={board.row}>
                 <td className={board.sequence}><bdi>{stop.sequence}</bdi></td>
+                <td>
+                  {stop.customer_name?.trim() && <bdi className="block font-semibold">{stop.customer_name}</bdi>}
+                  <span className={board.orderRef}><span className="sr-only">{t('dispatchOrder')} </span><bdi dir="ltr" className="num">#{stop.order_id}</bdi></span>
+                </td>
                 <td><button type="button" onClick={event => { event.stopPropagation(); onSelectStop(stop.id); }}
-                  className={board.address} aria-pressed={selected} title={stop.customer_name}>
+                  className={board.address} aria-pressed={selected}>
                   <bdi>{street || city || t('noAddress')}</bdi>
                   {street && city && <bdi className={board.city}>{city}</bdi>}
                 </button></td>
@@ -184,7 +188,6 @@ function RouteTable({ route, number, courier, locale, shownStops, selectedStopId
                     </span>}
                   {stop.estimated_position && <span className="block text-[var(--fg-muted)]">{t('deliveryEstimatedEntrance')}</span>}
                 </td>
-                <td className={board.order}><bdi dir="ltr" className="num">#{stop.order_id}</bdi></td>
               </tr>;
             })}</tbody>
   </table>;
