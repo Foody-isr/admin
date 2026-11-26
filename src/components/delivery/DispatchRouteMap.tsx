@@ -33,7 +33,8 @@ export function DispatchRouteMap({ title, overview, tours, initialRouteId, initi
   const [selection, setSelection] = useState<Selection | null>(null);
   const [count, setCount] = useState(0);
   const surface = useRef<HTMLDivElement>(null);
-  const tour = tours.find(item => item.route.id === selection?.tourId);
+  const initialTour = tours.find(item => item.route.id === initialRouteId) ?? tours[0];
+  const tour = selection && (selection.tourId === undefined ? initialTour : tours.find(item => item.route.id === selection.tourId));
   const open = desktop && selection !== null && (selection.tourId === undefined || !!tour);
   useEffect(() => {
     if (!open && selection !== null) setSelection(null);
@@ -77,8 +78,7 @@ export function DispatchRouteMap({ title, overview, tours, initialRouteId, initi
   };
   const openMap = (value: boolean) => {
     if (!value || !desktop) { setSelection(null); return; }
-    const initial = tours.find(item => item.route.id === initialRouteId) ?? tours[0];
-    setSelection({ tourId: initial?.route.id, point: initialStopId ?? undefined });
+    setSelection({ tourId: initialTour?.route.id, point: initialStopId ?? undefined });
   };
   const titleText = tour ? t('dispatchMapFor').replace('{courier}', tour.courier) : title;
   let pointTitle = t('dispatchStopCount').replace('{count}', String(stops.length));

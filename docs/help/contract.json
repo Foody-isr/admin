@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "04a385759b7f43dfbd0b5bf885a943726c03b3d2",
+  "documentationRef": "a23b355a90e42254e4861bc6434020a48c7048b9",
   "documentationRevision": "131cb5d6f9674975a3048a2c9fa856d8547c0e46c511018ed89e99d3cbdd45ad",
   "articles": {
     "getting-started/first-login": {
@@ -4256,7 +4256,7 @@
       ]
     },
     "src/components/delivery/DispatchRouteMap.tsx": {
-      "sha256": "0bede97f6fdbfedada4dae598afe9cd4db5232fbb7422eff1fbbf0c4fac70ed9",
+      "sha256": "c6ece2fd64dfbebcbd51d60638634a421c799741f59d7060e2b186ef2d3d73fa",
       "features": [
         "delivery-dispatch"
       ]
