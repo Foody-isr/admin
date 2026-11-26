@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "11fe6a3c6b1a9462d285b12ff62bd20f12393e7c",
-  "documentationRevision": "111d823cc4d9adb069574bdac11354e424d0ad95271b0fec0808ab030ef4a4ed",
+  "documentationRef": "1981b478c6bee88af066caeb8cfa2c33d13b81ba",
+  "documentationRevision": "17b713ed0d91c812863def949e028b2ec8a00fa1751e6d48f841b613b53f3e2b",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -753,15 +753,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "65989ec30365c8652dd22a37b674d7614e0b3ac70e941e09bba79a785aa72fbc"
+          "sha256": "feb71000f3dd0311b3a0ed8d29673964247e92c50e8de2b8fd8f41b629659af3"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "14f5a1ff523f90c9ecc11ed3b97c4f5d86969c7144ef7930ea3601011d263d25"
+          "sha256": "fadedecf9ea0e952e0726550059af4ad374de5fb4a9322cf13c5f0562574db5f"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "5b3d5cf0b91fa7ead56e1f55dd21c5e69a14e17d4dcacc6206e7a5aa19f034e8"
+          "sha256": "90def072922213e3a66e9d45216fa31c217a4089e3bf490ecd3aa70cf8282ca2"
         }
       }
     },
@@ -2064,15 +2064,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/end-of-day.mdx",
-          "sha256": "00c2ade36f6c797fc4a2b9ad9af5c2865b6977586aa0e4e71882e3422c297e62"
+          "sha256": "526b0222b2762424ac51925de15d591fe16004afd6264af12c1f72921d8c1a0e"
         },
         "fr": {
           "path": "src/content/help/fr/payments/end-of-day.mdx",
-          "sha256": "e87b80efab95e5ff1edbb6b49c7d9d70a4a661f5b05e5081e872def5ca9dbb40"
+          "sha256": "40109fc24f91f3dec86722b05ad18a859acd161b360181a0a03cead93c1d57e9"
         },
         "he": {
           "path": "src/content/help/he/payments/end-of-day.mdx",
-          "sha256": "64cf025dd32937d73dd76c5e1e60aa2134234514d64161ff872c9d1d61beb666"
+          "sha256": "bac369d3cb34893dcb1e51d1af28315f5d3791af49d120ca24193b225921d483"
         }
       }
     },
@@ -4231,7 +4231,7 @@
       ]
     },
     "src/components/delivery/DeliveryMap.tsx": {
-      "sha256": "3d90e434ac2bf5a90a803bbc70759ed66720ab2aff5cf4324242c12b6bf5af71",
+      "sha256": "7cee35eca90e506aa16aec9799726f8cf697c620ffdb62f5f8d4fd5beffc78f5",
       "features": [
         "delivery-dispatch"
       ]
@@ -4255,14 +4255,20 @@
         "delivery-dispatch"
       ]
     },
+    "src/components/delivery/DispatchRouteMap.tsx": {
+      "sha256": "0bede97f6fdbfedada4dae598afe9cd4db5232fbb7422eff1fbbf0c4fac70ed9",
+      "features": [
+        "delivery-dispatch"
+      ]
+    },
     "src/components/delivery/DispatchWorkspace.module.css": {
-      "sha256": "0519f6456b8cc0895dbdb0540fbc589927d972638e76b9f573cbdb3464d5b573",
+      "sha256": "8443d8e07bbe7d594b072d051fe031b870176a64e200ea5b3dd0f1e7972dbe30",
       "features": [
         "delivery-dispatch"
       ]
     },
     "src/components/delivery/DispatcherView.tsx": {
-      "sha256": "134538ef73273210d0cbe79dde1f73400118451b6a54dec005b131bc0b8928d0",
+      "sha256": "8f6621bc00a19b225ea77c3415d899bdda53638f43527553ce35bf01593006f2",
       "features": [
         "delivery-dispatch"
       ]
@@ -7020,7 +7026,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "f048e428770ba08575c34195b13d04af3d626561024cb0206345d4dc6732aa57",
+      "sha256": "b20f9bce4c274a9fbe53941497aa7749aeb7781db692fdd5317c9e4d4fd4c598",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -16655,6 +16661,7 @@
         "deliveryZoneZoomIn",
         "deliveryZoneZoomOut",
         "dispatchNoPins",
+        "dispatchPointUnlocated",
         "mapsAllRoutes",
         "mapsLegend",
         "mapsRoute"
@@ -16731,6 +16738,38 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/delivery/DispatchRouteMap.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/delivery/DispatchRouteMap.tsx",
+      "line": 1,
+      "features": [
+        "delivery-dispatch"
+      ],
+      "labels": [
+        "courierFitRoute",
+        "dispatchBrowsePoints",
+        "dispatchChooseRoute",
+        "dispatchFullscreenMap",
+        "dispatchMapFor",
+        "dispatchNextPoint",
+        "dispatchPointCount",
+        "dispatchPreviousPoint",
+        "dispatchStop",
+        "dispatchStopCount",
+        "dispatchWindow",
+        "mapsRoute",
+        "overview",
+        "productionExitFullscreen",
+        "routeSettingsEndAddress",
+        "routeSettingsStartAddress"
+      ],
+      "actions": [
+        "onFullscreenChange",
+        "open",
+        "openMap"
+      ]
+    },
+    {
       "id": "foodyadmin:src/components/delivery/DispatcherView.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/delivery/DispatcherView.tsx",
@@ -16804,7 +16843,6 @@
         "dispatchMapDetail",
         "dispatchMapFor",
         "dispatchOrder",
-        "dispatchPointCount",
         "dispatchQueue",
         "dispatchRouteFor",
         "dispatchRouteSettings",
