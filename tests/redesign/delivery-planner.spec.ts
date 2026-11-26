@@ -1053,6 +1053,13 @@ test('desktop dispatch shares the Admin sidebar and keeps the table beside the m
   await expect(page.getByRole('button', { name: 'Tournée 21', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(map.getByText('20 points', { exact: true })).toBeVisible();
   await expect(detail.getByRole('heading')).toHaveText('Allée des Jasmins 6, Netanya');
+  await expect(panel.getByRole('columnheader')).toHaveText(['Arrêt', 'Client', 'Adresse', 'Créneau']);
+  const cells = panel.locator('tr[data-stop-id="1"]').getByRole('cell');
+  await expect(cells.nth(0)).toHaveText('1');
+  await expect(cells.nth(1)).toContainText(stops[0].customer_name);
+  await expect(cells.nth(1)).toContainText('#1001');
+  await expect(cells.nth(2)).toContainText(stops[0].address);
+  await expect(cells.nth(3)).toContainText(/\d{2}:\d{2}/);
   await expect(footer).toBeVisible();
   await expect(map.locator('.foody-stop-pin')).toHaveCount(20);
   await expect.poll(() => map.locator('.leaflet-tile-loaded').count()).toBeGreaterThan(0);

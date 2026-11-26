@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "c53ce36e23f2906c5aa42e130a45ded98809990b",
-  "documentationRevision": "bf47158b2a01f95e4df81bca77341734168b2503daf5f0286f5eec745a9cab27",
+  "documentationRef": "0723dffaeb680500f68bc37bef06652c2572ae9d",
+  "documentationRevision": "3fe97a2dda8b250ee455623c94e1b0ddcf453668ef0b1457bc9e9f0d0535f25d",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -753,15 +753,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "1ee9221070a003c040422c6be934c1a927fb69056270156fb7f5a9ac25bd37b4"
+          "sha256": "29d4498748c4900bb3003cc8ba55658aac0ce11d27d0e4e7653fccd6234f473d"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "5fe028f597b295ca094348e2317196cbb4b8925450cdd03739e35a54bb2cfb57"
+          "sha256": "1f0758a0e2142b3dc847c2c6d3423da5732541f683627183c72977befcf19c91"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "17ba09f99c13255901fe91f94ead963f14ca9c0a5e7f69c2df727508e3e3aa85"
+          "sha256": "ab6eebe2efb57ab5f502aa85b4c0385e66ced33a30fc81d294dbea4a58d5c96f"
         }
       }
     },
@@ -2064,15 +2064,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/end-of-day.mdx",
-          "sha256": "d61d537aceac33f48b20e858e6700a0e2283806d9fae4a27d477e8c0de3b2f31"
+          "sha256": "f3b7f7b8bbdb6bcbb260497bf58579632eb42ea196c84fa282b6433deb5559f3"
         },
         "fr": {
           "path": "src/content/help/fr/payments/end-of-day.mdx",
-          "sha256": "580dbf98dda6d148b5a04a22e303e289e0bc743f28d0c817df4dd76413510444"
+          "sha256": "4326139d8afb250a1b3e08a6b128bd2713fb69301ef603f3e5649ab3bc6d2296"
         },
         "he": {
           "path": "src/content/help/he/payments/end-of-day.mdx",
-          "sha256": "ac845a3c41cad681dc728fdda5618404f142fc1a5891abfa70e6b53d5cb3324d"
+          "sha256": "1b432ee6c42ed7f1c46c2e334c93db3498b50e62d3a3b5c7f8edc68ef7610c8e"
         }
       }
     },
@@ -4256,13 +4256,13 @@
       ]
     },
     "src/components/delivery/DispatchWorkspace.module.css": {
-      "sha256": "d0229605db4065304f9a234ca570f4b83e3dbc80aea019171f1032258eb5822a",
+      "sha256": "0519f6456b8cc0895dbdb0540fbc589927d972638e76b9f573cbdb3464d5b573",
       "features": [
         "delivery-dispatch"
       ]
     },
     "src/components/delivery/DispatcherView.tsx": {
-      "sha256": "342e1a836a7bfdbe39985aaf3250a6c80809e3eaaf80258c1b89f0993f90e3e9",
+      "sha256": "1529225b25d815f469b57d33d3ecbd025cb425afaee03c441693bbf0191c443d",
       "features": [
         "delivery-dispatch"
       ]
@@ -24056,6 +24056,16 @@
       ]
     },
     {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:147",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 147,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.is_visible"
+    },
+    {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:694",
       "kind": "configuration-field",
       "source": "src/components/website-v3/field-contracts.ts",
@@ -26354,16 +26364,6 @@
         "website-qr-customize-your-site"
       ],
       "field": "section.delete"
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:147",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 147,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.is_visible"
     },
     {
       "id": "foodyadmin:src/components/website/CheckoutEditor.tsx:ui-controls:1",
