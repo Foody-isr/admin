@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "c8e0fcd799bfeb4ba41c37b865188100e16f5376",
-  "documentationRevision": "80b52d21c79b459d1762f1b97668f3534008fde68584e3787c56db5828b7d5da",
+  "documentationRef": "d82a91bfb2e7cc51422e03009980bfa1ed2e3cd1",
+  "documentationRevision": "b0aad14da66a849f20934c298c04bf56ad93ef054534751f981d670414dcbd08",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -582,15 +582,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/taking-an-order-pos.mdx",
-          "sha256": "d94b836613a6639776854bee911ea875c95ee25b932eb3d4430746714d95247c"
+          "sha256": "9c8644aa610a4166debba4a799d0b53c5589a14ec7debe835fd6764e31447af1"
         },
         "fr": {
           "path": "src/content/help/fr/orders/taking-an-order-pos.mdx",
-          "sha256": "7a17d0ef343a55e5a1ba4212bb4471faa925976db8d0fcb9d54cc149d19df0d8"
+          "sha256": "159a9d999b0290f344e7b09a8a1c7cd0dfac28b86949a4023413114a71538457"
         },
         "he": {
           "path": "src/content/help/he/orders/taking-an-order-pos.mdx",
-          "sha256": "6f7ed4ce611828784ab9c8e84cb29ab30ff380efcfc29eb1b3523cdc7a400381"
+          "sha256": "9830eb1982ef1da72f57a2525677f009ddb909bca21da01105d6e0a358a080a0"
         }
       }
     },
@@ -1323,15 +1323,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/pos-checkout.mdx",
-          "sha256": "60ec28d15056ec69a0adeacf5a204e936c0e29b2e95640900c4538ab11566bf1"
+          "sha256": "8dc193aa9f4e423856093ce8764453ed50e60c88166d6a5cc8183b6ce26de227"
         },
         "fr": {
           "path": "src/content/help/fr/payments/pos-checkout.mdx",
-          "sha256": "943123592148c2a808447d52c2caa73fa777c3d5ea7a9bd46afc14944b5a55d1"
+          "sha256": "a3ee80e9beb095ab50f93fec25cbb8f381d7ff2c67cd900da968c60e0913191e"
         },
         "he": {
           "path": "src/content/help/he/payments/pos-checkout.mdx",
-          "sha256": "752dfb8434d818aa63fceb72dbc594e81837a9f0eda3f8c142776f2f0c20c145"
+          "sha256": "b879efa361b1f73b58dfab7a3f34fc2ee7bd8063f6bac009e601fa8791f5adbe"
         }
       }
     },
