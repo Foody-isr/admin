@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyadmin",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "a23b355a90e42254e4861bc6434020a48c7048b9",
-  "documentationRevision": "131cb5d6f9674975a3048a2c9fa856d8547c0e46c511018ed89e99d3cbdd45ad",
+  "documentationRef": "c8e0fcd799bfeb4ba41c37b865188100e16f5376",
+  "documentationRevision": "80b52d21c79b459d1762f1b97668f3534008fde68584e3787c56db5828b7d5da",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -468,15 +468,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/managing-orders.mdx",
-          "sha256": "ad78fe75173594ccb01cfaacabeb52666857945e5a90b416c54f2499b4dfbb18"
+          "sha256": "f4269f9a59aee2c2f91bc37bc0121e340ad70920fdd55143375c6de39b94da15"
         },
         "fr": {
           "path": "src/content/help/fr/orders/managing-orders.mdx",
-          "sha256": "cb443bee3c91aea9c6a809f6189160f86749b5c7945530d04fd66ce8e930c9b9"
+          "sha256": "996568c87c728cadf0f1be25c4605f4daca8c8a1b95f1effb2adfd98065cba05"
         },
         "he": {
           "path": "src/content/help/he/orders/managing-orders.mdx",
-          "sha256": "ba225003c6790d678edb4fee4d6e3ceb5501e266ab64880b53f9c30eb85ad2d6"
+          "sha256": "b2e9144b7b7e07ba202ab53d6bfd57f3a255b3b319872192eb2359db2073e312"
         }
       }
     },
@@ -582,15 +582,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/taking-an-order-pos.mdx",
-          "sha256": "a5a40776ef973c8ed3f4c3127d11451df260f0e4cc08fa99897aabb6d2ab386c"
+          "sha256": "d94b836613a6639776854bee911ea875c95ee25b932eb3d4430746714d95247c"
         },
         "fr": {
           "path": "src/content/help/fr/orders/taking-an-order-pos.mdx",
-          "sha256": "39f57ce6ee7d98d4dccd5c0c0ae856858f626283b674d1ccb4bdede0b5238d7c"
+          "sha256": "7a17d0ef343a55e5a1ba4212bb4471faa925976db8d0fcb9d54cc149d19df0d8"
         },
         "he": {
           "path": "src/content/help/he/orders/taking-an-order-pos.mdx",
-          "sha256": "7e34fc53a1b472c2a45b07fcd36a149dcfee61120459710c0d795c65654a56b7"
+          "sha256": "6f7ed4ce611828784ab9c8e84cb29ab30ff380efcfc29eb1b3523cdc7a400381"
         }
       }
     },
@@ -639,15 +639,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/tables-floors/floor-plans.mdx",
-          "sha256": "883bf39a7b53e697cc841ffcc5d629833f32ef8a3f065ddda6ef32f956a59b29"
+          "sha256": "da22cada0012a3e8935f3ef6d1ab05b8529bc232149672ec24a3c58630a60049"
         },
         "fr": {
           "path": "src/content/help/fr/tables-floors/floor-plans.mdx",
-          "sha256": "c26686211726cbe669bf7828a44a58b393539a2e6a906763ccbc54fc7028f976"
+          "sha256": "4f7abac5c4115fea337bbd5a7f463cf8f3e089cb57b131900c7c98524db9219f"
         },
         "he": {
           "path": "src/content/help/he/tables-floors/floor-plans.mdx",
-          "sha256": "3c32c412d3a87d524965106ccd805d10bde51351050adefef6a1de903da973c4"
+          "sha256": "b4eac864b0ac0b3ad771f454dd45a26ae920550b6d5c24d7215ec76b573facaa"
         }
       }
     },
@@ -1133,15 +1133,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/pos-behavior.mdx",
-          "sha256": "9e44db7769f3d184e5794c5a266beaa6037b0848324908db0695d183278fa462"
+          "sha256": "c85e678f4fcd798dad32ec44111842d61777c3fe91b78dc9f3b756ca0aeadc88"
         },
         "fr": {
           "path": "src/content/help/fr/settings/pos-behavior.mdx",
-          "sha256": "98f7ec044990d9af3716040f7aebd9802c720a6961f2178fd37a98fa391fd7f4"
+          "sha256": "c1d91e2cd4e0955d207cce1bdf5a87764ffa41ead8b27ab70a2988350b7ebf58"
         },
         "he": {
           "path": "src/content/help/he/settings/pos-behavior.mdx",
-          "sha256": "9b11a9b1ebfb5ecda4a04cbf368fa0a17e711acfbabe315feff1ac58f8fd64cf"
+          "sha256": "41b561d203f4f6dd5d458b29fe2ae05383109a4329b9a4d2259230f87bd1a384"
         }
       }
     },
@@ -1171,15 +1171,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/devices-and-kitchen-displays.mdx",
-          "sha256": "c18c2f9be92cb77d16026070ccd41e600dcbf23b76fe5bf20687b8df756a8f4d"
+          "sha256": "4bc37adcef89c4a517dabdfe127d754aeddef01a07c1c8392b9851673324b9da"
         },
         "fr": {
           "path": "src/content/help/fr/settings/devices-and-kitchen-displays.mdx",
-          "sha256": "c869923b6d4acb5bd623a80b9347ef6d4e8f3eb1bce2860e4f87b751b413a83d"
+          "sha256": "4aea7c1d36cfb5f69f70a206c48f5804b5225c47c9d372f14a7ba349d6a87317"
         },
         "he": {
           "path": "src/content/help/he/settings/devices-and-kitchen-displays.mdx",
-          "sha256": "faf25847945a81f08838f7f246067e492392dbb42589998d1b923d7f008e49f3"
+          "sha256": "25b1151f720ec98e66fbebb10f2e1c7814ca4b5fd462be438797e9c5771d6730"
         }
       }
     },
@@ -1323,15 +1323,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/pos-checkout.mdx",
-          "sha256": "673efcfe4948e66aab66f4417434e40ef130d7192c7bc110857837787ab3721e"
+          "sha256": "60ec28d15056ec69a0adeacf5a204e936c0e29b2e95640900c4538ab11566bf1"
         },
         "fr": {
           "path": "src/content/help/fr/payments/pos-checkout.mdx",
-          "sha256": "67ec23145eb419a056f00284885ca4611277c5f4a7776624b35c8e3e66ee5848"
+          "sha256": "943123592148c2a808447d52c2caa73fa777c3d5ea7a9bd46afc14944b5a55d1"
         },
         "he": {
           "path": "src/content/help/he/payments/pos-checkout.mdx",
-          "sha256": "2c75415139734e331810adee1173b6feb88d877d47708a2920d8adc8843b325a"
+          "sha256": "752dfb8434d818aa63fceb72dbc594e81837a9f0eda3f8c142776f2f0c20c145"
         }
       }
     },
@@ -1342,15 +1342,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/victa-mini.mdx",
-          "sha256": "e91910e65075d073c99a199737301fac9e19d10602cec905b75e70e95eaefe80"
+          "sha256": "0741626eeb15729095426e34c98dac99fb34e8214e865579707421ce21e59b64"
         },
         "fr": {
           "path": "src/content/help/fr/payments/victa-mini.mdx",
-          "sha256": "f0ee313b6cfc9a4849208509cdb6110a22437d60d7b547c454f7be1743513d36"
+          "sha256": "510f739015d257c9f672a81fc20e6bba9817788c9a81c69a1aa2809699b369e0"
         },
         "he": {
           "path": "src/content/help/he/payments/victa-mini.mdx",
-          "sha256": "6dbe351337b58db558dd36d0bc89274b07a2513b42ba2e75f04f47b939c7a595"
+          "sha256": "a1c969a834ae88cc94df5522703e03751abb8cd5c47edaee23f5f9db656a7f68"
         }
       }
     },
@@ -1380,15 +1380,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/pos-workspace.mdx",
-          "sha256": "2baf02ad742ec4f5d39e01a7c59524eef7ccb832d173899debe0f87c5e9a646e"
+          "sha256": "bfe06406e0da79db5fcca85b44fbd7e9b4750ba99c53214dd298afa3947ef553"
         },
         "fr": {
           "path": "src/content/help/fr/settings/pos-workspace.mdx",
-          "sha256": "862a75d00a780fd7138304e44f41713e159652aa6b2e0c96a22600599b677d8b"
+          "sha256": "74bc761f1c6a5810fc9412b3d888e535b74aaa41a5267359c30b03a3633df176"
         },
         "he": {
           "path": "src/content/help/he/settings/pos-workspace.mdx",
-          "sha256": "8f0ffe5a8d8126e7cffe05ee673d8c1b4cc75abf30c44ed95a1e4aef5ec67f3e"
+          "sha256": "3b375611b2f5d2e783fc8d683803fb0c31f26cd138eb77e281d29c0a5d7f3188"
         }
       }
     },
@@ -5881,7 +5881,13 @@
       ]
     },
     "src/components/settings/KitchenStationSettings.tsx": {
-      "sha256": "c6b2bd9d8530c7b6d7befdd0b4f6fed95c591712e8eee7123443aaa9da083c1d",
+      "sha256": "bc1f9e0d36e3562521760450c69d484762f7a88f2708c36b614e9d3e5a06d97a",
+      "features": [
+        "device-kds"
+      ]
+    },
+    "src/components/settings/KitchenTablets.tsx": {
+      "sha256": "69a5459248c44505ff5c72c8e680d08c722edf0f4cb90f54fe5eab19be66ed14",
       "features": [
         "device-kds"
       ]
@@ -6807,7 +6813,7 @@
       ]
     },
     "src/lib/api.ts": {
-      "sha256": "137375bff213f2222b111c33ff7ab2c9083488938b1158823f8cc57b21f92466",
+      "sha256": "80b0aa1bb38574785c2c806358c96c507926b5713ea73c9bb4a7d13f5de485fc",
       "features": [
         "customers-profiles",
         "menu-subgroups",
@@ -6815,6 +6821,7 @@
         "payments-how-payments-work",
         "delivery-zones",
         "delivery-dispatch",
+        "device-kds",
         "pos-payments",
         "shared-runtime",
         "menu-product-photos",
@@ -7034,7 +7041,7 @@
       ]
     },
     "src/lib/i18n.tsx": {
-      "sha256": "a0f045191f1d6f1d997237c977925f972cae43bb5a051ce6db017d127258dd3f",
+      "sha256": "d80cec536214af01869969f5e2175b9f564a43ea6c9cef1d03711e6f7609297b",
       "features": [
         "customers-profiles",
         "menu-menus-and-groups",
@@ -7046,6 +7053,7 @@
         "website-order-design",
         "website-journey",
         "pos-behavior",
+        "device-kds",
         "whatsapp",
         "shared-runtime",
         "menu-product-photos",
@@ -7102,6 +7110,13 @@
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
         "menu-menus-and-groups"
+      ]
+    },
+    "src/lib/kds-tablets.ts": {
+      "sha256": "c19e07067b0cea93b00562c0d3f591f733e8e468a37a711bd542d0c1c62527d9",
+      "features": [
+        "device-kds",
+        "shared-runtime"
       ]
     },
     "src/lib/kitchen-review.ts": {
@@ -21799,6 +21814,10 @@
         "kdsDiningOptions",
         "kdsInvalidTimers",
         "kdsNoDevices",
+        "kdsOnlineTiming",
+        "kdsPickupLead",
+        "kdsRegisterFilter",
+        "kdsSoundVolume",
         "kdsStations",
         "loading",
         "retry",
@@ -21806,7 +21825,45 @@
         "tableSettingsSaveFailed"
       ],
       "actions": [
-        "save"
+        "refresh",
+        "save",
+        "saved"
+      ]
+    },
+    {
+      "id": "foodyadmin:src/components/settings/KitchenTablets.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/components/settings/KitchenTablets.tsx",
+      "line": 1,
+      "features": [
+        "device-kds"
+      ],
+      "labels": [
+        "cancel",
+        "kdsAddTablet",
+        "kdsAllowedStations",
+        "kdsChooseStation",
+        "kdsChooseTablet",
+        "kdsCreateProfileFirst",
+        "kdsDedicatedTablets",
+        "kdsDefaultStation",
+        "kdsDevice",
+        "kdsEveryStation",
+        "kdsIssueCode",
+        "kdsLastContact",
+        "kdsMayAct",
+        "kdsNewTabletName",
+        "kdsPairCode",
+        "kdsRefresh",
+        "kdsRestaurantPilot",
+        "kdsRevoke",
+        "kdsTabletEnabled",
+        "saveChanges",
+        "tableSettingsSaveFailed"
+      ],
+      "actions": [
+        "save",
+        "update"
       ]
     },
     {
@@ -24092,16 +24149,6 @@
         "updateSection",
         "updated"
       ]
-    },
-    {
-      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:147",
-      "kind": "configuration-field",
-      "source": "src/components/website-v3/field-contracts.ts",
-      "line": 147,
-      "features": [
-        "website-qr-customize-your-site"
-      ],
-      "field": "section.is_visible"
     },
     {
       "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:694",
@@ -26404,6 +26451,16 @@
       "field": "section.delete"
     },
     {
+      "id": "foodyadmin:src/components/website-v3/field-contracts.ts:configuration-field:147",
+      "kind": "configuration-field",
+      "source": "src/components/website-v3/field-contracts.ts",
+      "line": 147,
+      "features": [
+        "website-qr-customize-your-site"
+      ],
+      "field": "section.is_visible"
+    },
+    {
       "id": "foodyadmin:src/components/website/CheckoutEditor.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "src/components/website/CheckoutEditor.tsx",
@@ -26492,6 +26549,7 @@
         "payments-how-payments-work",
         "delivery-zones",
         "delivery-dispatch",
+        "device-kds",
         "pos-payments",
         "shared-runtime",
         "menu-product-photos",
@@ -26852,6 +26910,20 @@
       "actions": [
         "loadItemDraft",
         "saveItemDraft"
+      ]
+    },
+    {
+      "id": "foodyadmin:src/lib/kds-tablets.ts:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "src/lib/kds-tablets.ts",
+      "line": 1,
+      "features": [
+        "device-kds",
+        "shared-runtime"
+      ],
+      "labels": [],
+      "actions": [
+        "loadKdsConfiguration"
       ]
     },
     {

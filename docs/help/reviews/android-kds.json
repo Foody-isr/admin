@@ -23,8 +23,8 @@
     },
     {
       "path": "src/lib/i18n.tsx",
-      "baseSha256": "07709b2efced1942d89ebbc90ff4818dd974a0c970bb27bb1121d460f731d915",
-      "sha256": "63a6934cc172f1c032bde2dc70e70854f90a8bedd0d832e755f319520888cf1a",
+      "baseSha256": "a0f045191f1d6f1d997237c977925f972cae43bb5a051ce6db017d127258dd3f",
+      "sha256": "d80cec536214af01869969f5e2175b9f564a43ea6c9cef1d03711e6f7609297b",
       "features": [
         "customers-loyalty-program",
         "customers-profiles",
