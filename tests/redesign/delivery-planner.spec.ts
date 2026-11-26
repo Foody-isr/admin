@@ -1105,9 +1105,19 @@ test('desktop full screen follows the route sequence, endpoints and marker click
   const first = { ...stop(28), sequence: 1, lat: 32.084, lng: 34.798 }, second = { ...stop(3), sequence: 2 };
   state.routes = [{ ...route(1, [second, first]), start_lat: 32.06, start_lng: 34.78, start_address: 'Départ démo',
     end_lat: 32.17, end_lng: 34.85, end_address: 'Retour démo' }];
-  await page.goto('/1/orders/deliveries');
+  let releaseRoutes!: () => void;
+  const routesReady = new Promise<void>(resolve => { releaseRoutes = resolve; });
+  await page.route('**/api/v1/delivery/routes?**', async request => {
+    await routesReady;
+    await request.fallback();
+  });
   const trigger = page.getByRole('button', { name: 'Carte en plein écran' });
-  await trigger.click();
+  try {
+    await page.goto('/1/orders/deliveries');
+    await trigger.click();
+  } finally {
+    releaseRoutes();
+  }
   const screen = page.getByRole('dialog', { name: 'Parcours de Livreur démo' });
   const prev = screen.getByRole('button', { name: 'Point précédent' }), next = screen.getByRole('button', { name: 'Point suivant' });
   await expect(screen.getByText('Aperçu', { exact: true })).toBeVisible();
