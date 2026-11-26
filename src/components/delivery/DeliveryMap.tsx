@@ -33,6 +33,9 @@ export interface CourierMarker {
   stale?: boolean;
 }
 
+/** A point on one dispatch route, identified independently of its current position in the list. */
+export type RouteMapPoint = number | 'start' | 'end';
+
 export interface DeliveryMapProps {
   restaurantId: number;
   geometry?: RoadLeg[];
@@ -57,14 +60,16 @@ export interface DeliveryMapProps {
   /** Courier-only presentation; dispatcher maps keep their existing markers and controls. */
   variant?: 'default' | 'courier';
   selectedStopId?: number | null;
+  focusedPoint?: RouteMapPoint;
+  onEndpointClick?: (point: 'start' | 'end') => void;
   className?: string;
 }
 
 const BRAND = '#525252';
 const RESTAURANT_GREEN = '#5BBF84';
 
-function located(stops: RouteStop[]): RouteStop[] {
-  return stops.filter((s) => !s.needs_geocode && s.lat != null && s.lng != null && validZoneCoordinate({ lat: s.lat, lng: s.lng }) && (s.lat !== 0 || s.lng !== 0));
+function isLocatedStop(stop: RouteStop): stop is RouteStop & { lat: number; lng: number } {
+  return !stop.needs_geocode && stop.lat != null && stop.lng != null && validZoneCoordinate({ lat: stop.lat, lng: stop.lng }) && (stop.lat !== 0 || stop.lng !== 0);
 }
 
 const HOME_ICON = L.divIcon({
@@ -87,6 +92,9 @@ const END_ICON = L.divIcon({
   iconSize: [26, 26],
   iconAnchor: [13, 13],
 });
+
+const SELECTED_START_ICON = L.divIcon({ ...START_ICON.options, className: 'foody-route-start-pin foody-selected-endpoint' });
+const SELECTED_END_ICON = L.divIcon({ ...END_ICON.options, className: 'foody-route-end-pin foody-selected-endpoint' });
 
 const numberedIconCache = new Map<string, L.DivIcon>();
 function numberedIcon(label: string, color: string, selected = false): L.DivIcon {
@@ -148,8 +156,11 @@ function courierIcon(color: string, stale: boolean): L.DivIcon {
 }
 
 /** Fit all geocodes once the responsive map has a real, stable visible size. */
-function FitBounds({ points, couriers = [], request = 0, courier = false }: { points: [number, number][]; couriers?: CourierMarker[]; request?: number; courier?: boolean }) {
+function FitBounds({ points, couriers = [], request = 0, courier = false, focus, focusedPoint }: {
+  points: [number, number][]; couriers?: CourierMarker[]; request?: number; courier?: boolean; focus?: [number, number]; focusedPoint?: RouteMapPoint;
+}) {
   const map = useMap();
+  const [focusLat, focusLng] = focus ?? [];
   const key = points.map((p) => `${p[0]},${p[1]}`).join('|');
   const courierKey = couriers.map(c => c.courierId).sort((a, b) => a - b).join('|');
   const courierPositions = useRef(couriers);
@@ -165,6 +176,10 @@ function FitBounds({ points, couriers = [], request = 0, courier = false }: { po
       if (width < 2 || height < 2 || !map.getPane('mapPane')) return;
 
       map.invalidateSize({ animate: false });
+      if (focusLat != null && focusLng != null) {
+        map.setView([focusLat, focusLng], Math.max(map.getZoom(), 16), { animate: false });
+        return;
+      }
       // Include the latest GPS when fitting, without snapping back on each update.
       const positions: [number, number][] = [...points, ...courierPositions.current.map((c): [number, number] => [c.lat, c.lng])];
       if (positions.length === 0) return;
@@ -196,12 +211,12 @@ function FitBounds({ points, couriers = [], request = 0, courier = false }: { po
       if (settleTimer) clearTimeout(settleTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, key, courierKey, request, courier]);
+  }, [map, key, courierKey, request, courier, focusLat, focusLng, focusedPoint]);
   return null;
 }
 
 export default function DeliveryMap({
-  restaurantId, geometry, routingProvider, stops, start, end, routes, couriers, queueOrders, onQueueClick, onPointCountChange, restaurant, highlightCourierId, highlightRouteId, onRouteSelect, onStopClick, variant = 'default', selectedStopId, className,
+  restaurantId, geometry, routingProvider, stops, start, end, routes, couriers, queueOrders, onQueueClick, onPointCountChange, restaurant, highlightCourierId, highlightRouteId, onRouteSelect, onStopClick, variant = 'default', selectedStopId, focusedPoint, onEndpointClick, className,
 }: DeliveryMapProps) {
   const { t } = useI18n();
   const [provider, setProvider] = useState('unavailable');
@@ -215,14 +230,14 @@ export default function DeliveryMap({
   // Orders without coordinate provenance can be displayed on Google's base map only.
   const queue = useMemo(() => provider === 'google' ? (queueOrders ?? []).filter(point =>
     validZoneCoordinate(point) && (point.lat !== 0 || point.lng !== 0)) : [], [provider, queueOrders]);
-  const pointCount = queue.length + layers.reduce((total, layer) => total + located(layer.stops).length, 0);
+  const pointCount = queue.length + layers.reduce((total, layer) => total + layer.stops.filter(isLocatedStop).length, 0);
   useEffect(() => { onPointCountChange?.(pointCount); }, [pointCount, onPointCountChange]);
   const points = useMemo<[number, number][]>(() => {
     const pts: [number, number][] = queue.map(point => [point.lat, point.lng]);
     if (restaurant) pts.push([restaurant.lat, restaurant.lng]);
     for (const layer of layers) {
       if (layer.start) pts.push([layer.start.lat, layer.start.lng]);
-      for (const s of located(layer.stops)) pts.push([s.lat as number, s.lng as number]);
+      for (const s of layer.stops.filter(isLocatedStop)) pts.push([s.lat, s.lng]);
       for (const leg of layer.geometry ?? []) {
         if (leg.order_id === 0 ? !!layer.end : layer.stops.some(stop => stop.order_id === leg.order_id)) pts.push(...leg.path);
       }
@@ -233,6 +248,12 @@ export default function DeliveryMap({
   }, [layers, queue, restaurant?.lat, restaurant?.lng]);
 
   const center: [number, number] = points[0] ?? [32.0853, 34.7818]; // Tel Aviv fallback
+  // Resolve focus against the same provider-approved layer that supplies the markers.
+  const sourceStop = typeof focusedPoint === 'number' ? (routes?.[0]?.stops ?? stops)?.find(stop => stop.id === focusedPoint) : undefined;
+  const locatedStop = sourceStop && isLocatedStop(sourceStop) ? sourceStop : undefined;
+  const target = focusedPoint === 'start' || focusedPoint === 'end' ? layers[0]?.[focusedPoint]
+    : locatedStop && layers[0]?.stops.includes(locatedStop) ? locatedStop : undefined;
+  const focus: [number, number] | undefined = target ? [target.lat, target.lng] : undefined;
 
   return (
     <div className={cn('relative isolate', className)}>
@@ -243,11 +264,11 @@ export default function DeliveryMap({
           icon={numberedIcon('+', BRAND)} eventHandlers={{ click: () => onQueueClick?.(point.id) }} />)}
         {layers.map((layer) => {
           const dim = highlightRouteId != null ? layer.routeId !== highlightRouteId : highlightCourierId != null && layer.courierId !== highlightCourierId;
-          const seq = located(layer.stops).sort((a, b) => a.sequence - b.sequence);
+          const seq = layer.stops.filter(isLocatedStop).sort((a, b) => a.sequence - b.sequence);
           const line: [number, number][] = [];
           if (layer.start) line.push([layer.start.lat, layer.start.lng]);
           else if (restaurant) line.push([restaurant.lat, restaurant.lng]);
-          seq.forEach((s) => line.push([s.lat as number, s.lng as number]));
+          seq.forEach((s) => line.push([s.lat, s.lng]));
           if (layer.end) line.push([layer.end.lat, layer.end.lng]);
           return (
             <Fragment key={layer.routeId ?? layer.courierId}>
@@ -256,11 +277,12 @@ export default function DeliveryMap({
               )) : !layer.pinsOnly && (!layer.routingProvider || layer.routingProvider === 'approximate') && line.length > 1 && (
                 <Polyline positions={line} pathOptions={{ color: layer.color, opacity: dim ? 0.2 : 0.7, dashArray: '6 8' }} />
               )}
-              {layer.start && <Marker position={[layer.start.lat, layer.start.lng]} icon={START_ICON} />}
+              {layer.start && <Marker position={[layer.start.lat, layer.start.lng]} icon={focusedPoint === 'start' ? SELECTED_START_ICON : START_ICON}
+                zIndexOffset={focusedPoint === 'start' ? 1000 : 0} eventHandlers={onEndpointClick ? { click: () => onEndpointClick('start') } : undefined} />}
               {seq.map((s) => (
                 <Marker
                   key={s.id}
-                  position={[s.lat as number, s.lng as number]}
+                  position={[s.lat, s.lng]}
                   icon={variant === 'courier' ? courierStopIcon(s.sequence, s.id === selectedStopId) : numberedIcon(String(s.sequence), dim ? '#767c80' : layer.color, s.id === selectedStopId)}
                   title={`${s.sequence}: ${s.address}${s.estimated_position ? ' · ' + t('deliveryEstimatedEntrance') : ''}`}
                   zIndexOffset={s.id === selectedStopId ? 1000 : 0}
@@ -275,7 +297,8 @@ export default function DeliveryMap({
                   } : undefined}
                 />
               ))}
-              {layer.end && <Marker position={[layer.end.lat, layer.end.lng]} icon={END_ICON} />}
+              {layer.end && <Marker position={[layer.end.lat, layer.end.lng]} icon={focusedPoint === 'end' ? SELECTED_END_ICON : END_ICON}
+                zIndexOffset={focusedPoint === 'end' ? 1000 : 0} eventHandlers={onEndpointClick ? { click: () => onEndpointClick('end') } : undefined} />}
             </Fragment>
           );
         })}
@@ -286,10 +309,11 @@ export default function DeliveryMap({
             </Tooltip>
           </Marker>
         ))}
-        <FitBounds points={points} couriers={couriers} request={fitRequest} courier={variant === 'courier'} />
+        <FitBounds points={points} couriers={couriers} request={fitRequest} courier={variant === 'courier'} focus={focus} focusedPoint={focusedPoint} />
         {variant === 'courier' && <CourierMapControls points={points} onFit={() => setFitRequest(value => value + 1)} />}
       </LeafletSurface>
-      {variant === 'default' && provider === 'google' && routes && !points.length && !couriers?.length && <p role="status" className="pointer-events-none absolute inset-x-3 bottom-6 z-[500] rounded-r-md bg-[var(--surface)] px-3 py-2 text-center text-fs-xs text-[var(--fg-muted)] shadow-1">{t('dispatchNoPins')}</p>}
+      {sourceStop && !locatedStop && <p role="status" className="pointer-events-none absolute inset-x-16 top-4 z-[500] mx-auto w-fit rounded-r-md bg-[var(--surface)] px-4 py-2 text-center text-fs-sm text-[var(--warning-500)] shadow-1">{t('dispatchPointUnlocated')}</p>}
+      {variant === 'default' && focusedPoint === undefined && provider === 'google' && routes && !points.length && !couriers?.length && <p role="status" className="pointer-events-none absolute inset-x-3 bottom-6 z-[500] rounded-r-md bg-[var(--surface)] px-3 py-2 text-center text-fs-xs text-[var(--fg-muted)] shadow-1">{t('dispatchNoPins')}</p>}
       {routes && routes.length > 1 && onRouteSelect && <div aria-label={t('mapsLegend')} className="absolute end-3 top-3 z-[500] max-h-48 max-w-[240px] overflow-auto rounded-r-md border border-[var(--line)] bg-[var(--surface)] p-2 shadow-sm">
         <p className="px-2 py-1 text-fs-xs font-semibold">{t('mapsLegend')}</p>
         <button type="button" aria-pressed={highlightRouteId == null && highlightCourierId == null} onClick={() => onRouteSelect(null)} className="w-full rounded px-2 py-2 text-start text-fs-xs focus-visible:outline focus-visible:outline-2">{t('mapsAllRoutes')}</button>

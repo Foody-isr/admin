@@ -84,6 +84,32 @@
 .mapHeading { min-height: 51px; }
 .mapHeading h2 { font-weight: 650; font-size: 16px; line-height: 1.35; }
 .mapHeading span { font-size: 13px; color: var(--fg-muted); white-space: nowrap; }
+.mapControls, .screenTitle, .screenHead, .screenFoot, .pointDetail, .pointNav { display: flex; align-items: center; gap: 12px; }
+.mapControls { flex-shrink: 0; gap: 6px; }
+.mapScreen { position: fixed; inset: 0; z-index: 1000; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; width: 100%; height: 100dvh; background: var(--surface); color: var(--fg); outline: none; }
+.screenHead, .screenFoot { padding: 12px clamp(16px, 2.3vw, 40px); }
+.screenHead { border-bottom: 1px solid var(--line); }
+.screenTitle { min-width: 0; }
+.screenTitle svg, .pointNav, .closeScreen { flex-shrink: 0; }
+.screenTitle h2 { font-size: 18px; font-weight: 650; line-height: 1.25; overflow-wrap: anywhere; }
+.tourSelect { width: auto; max-width: 32vw; }
+.closeScreen { margin-inline-start: auto; }
+.overviewButton { margin-inline-start: auto; }
+.overviewButton + .closeScreen { margin-inline-start: 0; }
+.screenMap { min-height: 0; background: var(--surface-2); }
+.screenMap :global(.foody-selected-endpoint) { border-radius: 7px; outline: 3px solid var(--brand-ink); outline-offset: 2px; }
+.screenMap :global(.foody-route-start-pin.foody-selected-endpoint) { border-radius: 50%; }
+.screenFoot { justify-content: space-between; gap: 24px; border-top: 1px solid var(--line); }
+.pointDetail { min-width: 0; gap: 14px; }
+.pointNumber { display: grid; place-items: center; flex-shrink: 0; min-width: 42px; height: 42px; padding-inline: 6px; border-radius: 50%; background: var(--action); color: var(--action-fg); font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.pointText, .pointTime, .stepCount { display: grid; gap: 2px; }
+.pointText { font-size: 14px; color: var(--fg-muted); overflow-wrap: anywhere; }
+.pointText strong { font-size: 17px; font-weight: 650; color: var(--fg); }
+.pointTime { flex-shrink: 0; margin-inline-start: 10px; padding-inline-start: 22px; border-inline-start: 1px solid var(--line); font-size: 14px; font-variant-numeric: tabular-nums; }
+.pointTime span, .stepCount small { color: var(--fg-muted); font-size: 12px; }
+.pointNav { gap: 10px; }
+.stepCount { text-align: center; font-size: 16px; font-weight: 600; }
+.stepCount small { font-weight: 400; }
 .map { flex: 1; min-height: 160px; background: var(--surface-2); }
 .detail { flex: 0 1 auto; min-height: 0; max-height: 50%; overflow-y: auto; padding: 15px 18px; border-top: 1px solid var(--line); background: var(--surface); }
 .detailHead { align-items: start; }

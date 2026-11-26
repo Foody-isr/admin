@@ -1,6 +1,7 @@
 'use client';
 
 import board from './DispatchWorkspace.module.css';
+import { DispatchRouteMap } from './DispatchRouteMap';
 import { DeliveryHistory, useDeliveryHistory } from './DeliveryHistory';
 import { DeliveryWhatsAppDrawer } from '@/components/delivery/DeliveryWhatsAppDrawer';
 import { DeliveryDuration } from '@/components/delivery/DeliveryDuration';
@@ -14,7 +15,6 @@ import { OrderWindowField } from '@/components/delivery/OrderWindowField';
 
 import { ChoiceRow } from '@/components/ds/Selection';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { RestaurantTimezone } from '@/lib/restaurant-timezone-context';
 import Link from 'next/link';
@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
+import { validZoneCoordinate } from '@/lib/delivery-zone-state';
 import {
   buildDeliveryEtaLabel,
   deliveryEtaWindow,
@@ -99,8 +100,6 @@ import {
 import { Badge, Button, Card, CardBody, Drawer, EmptyState, Input, Select, Tab, Tabs, TabsList } from '@/components/ds';
 import { Checkbox } from '@/components/ui/checkbox';
 
-const DeliveryMap = dynamic(() => import('@/components/delivery/DeliveryMap'), { ssr: false });
-
 const COURIER_COLORS = ['#525252', '#245B8C', '#7557A0', '#237049', '#865800', '#A04768'];
 type Translator = (key: string) => string;
 type DistributionMode = 'smart' | 'zone' | 'manual';
@@ -111,6 +110,12 @@ function deliveryZone(order: Order, fallback: string): string {
 
 function colorFor(index: number): string {
   return COURIER_COLORS[index % COURIER_COLORS.length];
+}
+
+function routeEndpoint(lat?: number | null, lng?: number | null) {
+  if (lat == null || lng == null || (lat === 0 && lng === 0)) return undefined;
+  const point = { lat, lng };
+  return validZoneCoordinate(point) ? point : undefined;
 }
 
 function formatDistance(metres: number): string {
@@ -365,7 +370,6 @@ function DispatchBoard({ rid }: { rid: number }) {
   const [selectedRoute, setSelectedRoute] = useState<number | null>(null);
   const [selectedCourier, setSelectedCourier] = useState<number | null>(null);
   const [selectedStopId, setSelectedStopId] = useState<number | null>();
-  const [pointCount, setPointCount] = useState(0);
   const [moveTarget, setMoveTarget] = useState<number | null>(null);
   const [moving, setMoving] = useState(false);
   const [routeBusy, setRouteBusy] = useState<number | null>(null);
@@ -518,15 +522,11 @@ function DispatchBoard({ rid }: { rid: number }) {
       routingProvider: route.routing_provider,
       courierId: route.courier_id,
       color: routeColorMap.get(route.id) ?? colorFor(0),
-      stops: view === 'history' ? route.stops : route.stops.filter(isPendingDeliveryStop),
-      start: route.start_lat != null && route.start_lng != null
-        ? { lat: route.start_lat, lng: route.start_lng }
-        : undefined,
-      end: route.end_lat != null && route.end_lng != null
-        ? { lat: route.end_lat, lng: route.end_lng }
-        : undefined,
+      stops: route.stops,
+      start: routeEndpoint(route.start_lat, route.start_lng),
+      end: routeEndpoint(route.end_lat, route.end_lng),
     })),
-    [routes, routeColorMap, view, courierById, t],
+    [routes, routeColorMap, courierById, t],
   );
 
   const courierMarkers = useMemo<CourierMarker[]>(() => {
@@ -875,7 +875,7 @@ function DispatchBoard({ rid }: { rid: number }) {
     const shownStops = stops.filter(stop => (filter !== 'address' || needsAddressReview(route, stop)) &&
       (match || matchesDeliverySearch(routeQuery, stop.order_id, stop.customer_name, stop.address, stop.city)))
       .sort((a, b) => a.sequence - b.sequence);
-    return shownStops.length ? [{ route, number, shownStops, filtered: shownStops.length !== stops.length }] : [];
+    return shownStops.length ? [{ route, layer: layers[index], number, shownStops, filtered: shownStops.length !== stops.length }] : [];
   });
   const focusedId = routes.some(route => route.id === tableRoute) ? tableRoute : null;
   const visibleRoutes = focusedId === null ? matchingRoutes : matchingRoutes.filter(item => item.route.id === focusedId);
@@ -891,10 +891,9 @@ function DispatchBoard({ rid }: { rid: number }) {
     setRouteQuery('');
     archive.open(id);
   };
-  const mapLayers = filter === 'queue' ? [] : matchingRoutes.flatMap(({ route, shownStops, filtered }) => {
-    const layer = layers.find(item => item.routeId === route.id);
-    return layer ? [{ ...layer, stops: shownStops, ...(filtered ? { pinsOnly: true, geometry: undefined, start: undefined, end: undefined } : {}) }] : [];
-  });
+  const mapLayers = filter === 'queue' ? [] : matchingRoutes.map(({ layer, shownStops, filtered }) => ({
+    ...layer, stops: shownStops, ...(filtered ? { pinsOnly: true, geometry: undefined, start: undefined, end: undefined } : {}),
+  }));
   const changeDay = (day: string) => {
     if (!day || day === planningDate) return;
     const url = new URL(window.location.href);
@@ -1142,40 +1141,33 @@ function DispatchBoard({ rid }: { rid: number }) {
           <footer className={board.footer}><span>{t('dispatchDisplayedCount').replace('{count}', String(displayedCount))}</span><span>{zoneLabel}</span></footer>
         </section>
         {(showMap || selectedEntry) && <aside aria-label={t('dispatchMapDetail')} className={showMap ? board.mapPanel : board.floatingPanel}>
-          {showMap && <>
-            <div className={board.mapHeading}><h2>{mapTitle}</h2><span>{t('dispatchPointCount').replace('{count}', String(pointCount))}</span></div>
-          <DeliveryMap
-            restaurantId={rid}
-            routes={mapLayers}
-            queueOrders={filter === 'queue' ? queueMap : undefined}
-            onQueueClick={orderId => {
-              const order = visibleOrders.find(item => item.id === orderId);
-              if (!order) return;
-              if (insertRoutes.length) setInsertingOrder(order);
-              else {
-                setQueueQuery(String(order.id));
-                setPicked(new Set([order.id]));
-              }
-            }}
-            selectedStopId={selectedEntry?.stop.id ?? null}
-            onPointCountChange={setPointCount}
-            couriers={view === 'history' || filter === 'queue' || filter === 'address' ? [] : courierMarkers.filter(marker => visibleRoutes.some(({ route }) => route.courier_id === marker.courierId))}
-            highlightCourierId={selectedCourier}
-            highlightRouteId={selectedRoute}
-            onRouteSelect={chooseRoute}
-            onStopClick={(stop) => {
-              setSelectedStopId(stop.id);
-              const row = document.querySelector<HTMLElement>(`[data-stop-id="${stop.id}"]`);
-              if (row && window.matchMedia('(min-width: 1024px)').matches) row.scrollIntoView({ block: 'nearest' });
-              const route = routes.find((candidate) => candidate.stops.some((candidateStop) => candidateStop.id === stop.id));
-              if (tableRoute !== null) setTableRoute(route?.id ?? null);
-              setSelectedRoute(route?.id ?? null);
-              setSelectedCourier(route?.courier_id ?? null);
-              setMoveTarget(null);
-            }}
-            className={board.map}
-          />
-          </>}
+          {showMap && <DispatchRouteMap title={mapTitle} initialRouteId={focusedId ?? selectedEntry?.route.id ?? selectedRoute}
+            initialStopId={selectedStopId} tours={filter === 'queue' ? [] : matchingRoutes.map(item => ({ ...item, courier: courierName(item.route) }))}
+            overview={{
+              restaurantId: rid, routes: mapLayers, queueOrders: filter === 'queue' ? queueMap : undefined,
+              onQueueClick: orderId => {
+                const order = visibleOrders.find(item => item.id === orderId);
+                if (!order) return;
+                if (insertRoutes.length) setInsertingOrder(order);
+                else {
+                  setQueueQuery(String(order.id));
+                  setPicked(new Set([order.id]));
+                }
+              },
+              selectedStopId: selectedEntry?.stop.id ?? null,
+              couriers: view === 'history' || filter === 'queue' || filter === 'address' ? [] : courierMarkers.filter(marker => visibleRoutes.some(({ route }) => route.courier_id === marker.courierId)),
+              highlightCourierId: selectedCourier, highlightRouteId: selectedRoute, onRouteSelect: chooseRoute,
+              onStopClick: stop => {
+                setSelectedStopId(stop.id);
+                const row = document.querySelector<HTMLElement>(`[data-stop-id="${stop.id}"]`);
+                if (row && window.matchMedia('(min-width: 1024px)').matches) row.scrollIntoView({ block: 'nearest' });
+                const route = routes.find((candidate) => candidate.stops.some((candidateStop) => candidateStop.id === stop.id));
+                if (tableRoute !== null) setTableRoute(route?.id ?? null);
+                setSelectedRoute(route?.id ?? null);
+                setSelectedCourier(route?.courier_id ?? null);
+                setMoveTarget(null);
+              },
+            }} />}
 
           {selectedEntry && editingOrder === null && (
             <div role="region" aria-label={t('dispatchStopDetail')} className={board.detail}>
