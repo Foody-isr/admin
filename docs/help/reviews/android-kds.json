@@ -1,0 +1,49 @@
+{
+  "files": [
+    {
+      "path": "src/lib/api.ts",
+      "baseSha256": "137375bff213f2222b111c33ff7ab2c9083488938b1158823f8cc57b21f92466",
+      "sha256": "80b0aa1bb38574785c2c806358c96c507926b5713ea73c9bb4a7d13f5de485fc",
+      "features": [
+        "customers-loyalty-program",
+        "customers-profiles",
+        "delivery-dispatch",
+        "delivery-zones",
+        "menu-product-photos",
+        "menu-subgroups",
+        "menu-variants-and-sizes",
+        "orders-events",
+        "orders-internal-sumit-checkout",
+        "payments-how-payments-work",
+        "payments-transactions",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The TypeScript station DTO gains optional routing, timing, volume and layout fields. The menu, guest, loyalty, payments and delivery calls in this shared API module use their previous signatures."
+    },
+    {
+      "path": "src/lib/i18n.tsx",
+      "baseSha256": "07709b2efced1942d89ebbc90ff4818dd974a0c970bb27bb1121d460f731d915",
+      "sha256": "63a6934cc172f1c032bde2dc70e70854f90a8bedd0d832e755f319520888cf1a",
+      "features": [
+        "customers-loyalty-program",
+        "customers-profiles",
+        "delivery-dispatch",
+        "delivery-zones",
+        "google-account-setup",
+        "menu-menus-and-groups",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-internal-sumit-checkout",
+        "payments-transactions",
+        "stancer-cash-guarantee",
+        "website-journey",
+        "website-order-design",
+        "website-sections",
+        "whatsapp"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The added labels belong to the iPad and Android tablet assignment and kitchen station forms. The existing translated labels and actions for the other indexed modules keep their previously reviewed text."
+    }
+  ]
+}

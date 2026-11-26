@@ -11281,6 +11281,8 @@ export function listWebsiteFormResponses(restaurantId: number, sectionId: number
 
 /** Kitchen profile owned by a registered device, shared by Admin and POS. */
 export interface KitchenStationSettings {
+  layout?: 'auto'|'flex'|'tiles'|'one'|'two'|'three'; sound_on_arrival?: boolean; sound_volume?: number;
+  register_ids?: string[]; online_timing?: 'fired'|'placed'|'pickup'; pickup_lead_minutes?: number;
   role: 'prep'|'expo'; completion_scope: 'all'|'device'; columns: number;
   text_size: 'small'|'medium'|'large'; yellow_minutes: number; red_minutes: number;
   show_held: boolean; separate_held_counts: boolean; sort_items: 'entry'|'seat'|'alpha';
