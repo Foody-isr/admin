@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-26",
+  "files": [
+    {
+      "path": "src/lib/i18n.tsx",
+      "features": [
+        "customers-profiles",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "delivery-zones",
+        "google-account-setup",
+        "website-sections",
+        "website-order-design",
+        "website-journey",
+        "pos-behavior",
+        "whatsapp",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "payments-transactions",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "baseSha256": "07709b2efced1942d89ebbc90ff4818dd974a0c970bb27bb1121d460f731d915",
+      "sha256": "a0f045191f1d6f1d997237c977925f972cae43bb5a051ce6db017d127258dd3f",
+      "disposition": "no-user-impact",
+      "reason": "The five added translation keys label the desktop dispatch map, its two navigation buttons, its arrow-key hint and its missing-position message. Only DispatchRouteMap and DeliveryMap use these keys."
+    }
+  ]
+}

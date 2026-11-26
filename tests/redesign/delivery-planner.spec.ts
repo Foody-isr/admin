@@ -1099,6 +1099,159 @@ test('desktop dispatch shares the Admin sidebar and keeps the table beside the m
   expect(state.writes).toEqual([]);
 });
 
+test('desktop full screen follows the route sequence, endpoints and marker clicks', async ({ page }, info) => {
+  const state = await install(page);
+  await demoTiles(page);
+  const first = { ...stop(28), sequence: 1, lat: 32.084, lng: 34.798 }, second = { ...stop(3), sequence: 2 };
+  state.routes = [{ ...route(1, [second, first]), start_lat: 32.06, start_lng: 34.78, start_address: 'Départ démo',
+    end_lat: 32.17, end_lng: 34.85, end_address: 'Retour démo' }];
+  let releaseRoutes!: () => void;
+  const routesReady = new Promise<void>(resolve => { releaseRoutes = resolve; });
+  await page.route('**/api/v1/delivery/routes?**', async request => {
+    await routesReady;
+    await request.fallback();
+  });
+  const trigger = page.getByRole('button', { name: 'Carte en plein écran' });
+  try {
+    await page.goto('/1/orders/deliveries');
+    await trigger.click();
+  } finally {
+    releaseRoutes();
+  }
+  const screen = page.getByRole('dialog', { name: 'Parcours de Livreur démo' });
+  const prev = screen.getByRole('button', { name: 'Point précédent' }), next = screen.getByRole('button', { name: 'Point suivant' });
+  await expect(screen.getByText('Aperçu', { exact: true })).toBeVisible();
+  await next.click();
+  await expect(screen.getByText('Départ démo')).toBeVisible();
+  await expect(prev).toBeDisabled();
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement?.getAttribute('role'))).toBe('dialog');
+  await page.keyboard.press('ArrowRight');
+  await expect(screen.getByText('Client démo 28')).toBeVisible();
+  const pin = screen.locator('.foody-selected-pin'), map = screen.locator('.leaflet-container');
+  await expect(pin).toHaveAttribute('title', /^1:/);
+  await expect.poll(async () => {
+    const box = await map.boundingBox(), marker = await pin.boundingBox();
+    return !!box && !!marker && Math.abs(marker.x + marker.width / 2 - box.x - box.width / 2) < 3 &&
+      Math.abs(marker.y + marker.height / 2 - box.y - box.height / 2) < 3;
+  }).toBe(true);
+  await expect(screen.getByText('Créneau')).toBeVisible();
+  await expect(screen.locator('.leaflet-control-attribution')).toContainText('Synthetic map data');
+  await page.screenshot({ path: info.outputPath('dispatch-map-fullscreen.png'), animations: 'disabled' });
+  await page.keyboard.press('ArrowDown');
+  await expect(screen.getByText('Client démo 3')).toBeVisible();
+  await next.click();
+  await expect(screen.getByText('Retour démo')).toBeVisible();
+  await expect(next).toBeDisabled();
+  await page.keyboard.press('ArrowUp');
+  await expect(pin).toHaveAttribute('title', /^2:/);
+  await page.keyboard.press('ArrowLeft');
+  await expect(pin).toHaveAttribute('title', /^1:/);
+  await map.getByRole('button', { name: 'Zoom out' }).click();
+  await map.getByRole('button', { name: 'Zoom out' }).click();
+  await screen.locator('.foody-stop-pin[title^="2:"]').click();
+  await expect(screen.getByText('Client démo 3')).toBeVisible();
+  await screen.getByRole('button', { name: 'Afficher toute la tournée' }).click();
+  await expect(screen.getByText('Aperçu', { exact: true })).toBeVisible();
+  await prev.click();
+  await expect(screen.getByText('Retour démo')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(screen).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  expect(state.writes).toEqual([]);
+});
+
+test('full screen keeps separate runs, missing stops and the narrow-screen boundary', async ({ page }) => {
+  const state = await install(page);
+  await page.addInitScript(() => { Element.prototype.requestFullscreen = () => Promise.reject(new Error('Fullscreen unavailable')); });
+  state.routes = [route(1, [stop(1)]), { ...route(2, [stop(4), { ...stop(6), lat: null, lng: null, needs_geocode: true }]),
+    courier_id: 1, route_geometry: [] }];
+  await page.goto('/1/orders/deliveries');
+  const trigger = page.getByRole('button', { name: 'Carte en plein écran' });
+  await page.locator('tr[data-stop-id="4"] button').click();
+  await trigger.click();
+  const screen = page.getByRole('dialog');
+  const selector = screen.getByRole('combobox', { name: 'Choisir une tournée' });
+  await expect(selector).toHaveValue('2');
+  await expect(screen.getByText('Client démo 4')).toBeVisible();
+  expect(await screen.boundingBox()).toEqual({ x: 0, y: 0, ...page.viewportSize() });
+  await page.keyboard.press('ArrowRight');
+  await expect(screen.getByText('Client démo 6')).toBeVisible();
+  await expect(screen.getByText('Ce point n’a pas de position sur la carte.')).toBeVisible();
+  await expect(screen.getByRole('button', { name: 'Point suivant' })).toBeDisabled();
+  await selector.selectOption('1');
+  await expect(selector).toHaveValue('1');
+  await page.keyboard.press('ArrowRight');
+  await expect(screen.getByText('Client démo 1')).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(screen).toHaveCount(0);
+  await expect(trigger).toHaveCount(0);
+  await page.setViewportSize({ width: 1280, height: 850 });
+  await expect(trigger).toBeVisible();
+  await expect(screen).toHaveCount(0);
+  const search = page.getByRole('searchbox', { name: /Rechercher un livreur/ });
+  await search.fill('1004');
+  await expect(page.locator('tr[data-stop-id]')).toHaveCount(1);
+  await page.locator('tr[data-stop-id="4"] button').click();
+  await trigger.click();
+  await page.keyboard.press('ArrowRight');
+  await expect(screen.getByText('Client démo 6')).toBeVisible();
+  await screen.getByRole('button', { name: 'Quitter le plein écran' }).click();
+  await expect(search).toHaveValue('1004');
+  await expect(page.locator('tr[data-stop-id]')).toHaveCount(1);
+  expect(state.writes).toHaveLength(0);
+});
+
+test('a basemap outage does not mark a saved stop as unlocated in full screen', async ({ page }) => {
+  const state = await install(page);
+  state.routes = [route(1, [{ ...stop(1), coordinate_provider: 'google' }])];
+  await page.route('**/api/v1/public/delivery/map-config**', req => req.fulfill({ status: 503, json: {} }));
+  await page.goto('/1/orders/deliveries');
+  await page.locator('tr[data-stop-id="1"] button').click();
+  await page.getByRole('button', { name: 'Carte en plein écran' }).click();
+  const screen = page.getByRole('dialog');
+  await expect(screen.getByText('Client démo 1')).toBeVisible();
+  await expect(screen.getByText(/Le fond de carte est indisponible/)).toBeVisible();
+  await expect(screen.getByText('Ce point n’a pas de position sur la carte.')).toHaveCount(0);
+  await expect(screen.locator('.foody-stop-pin')).toHaveCount(0);
+  expect(state.writes).toHaveLength(0);
+});
+
+test.describe('touch dispatch map', () => {
+  test.use({ hasTouch: true, isMobile: true });
+  test('phones and wide touch screens keep the usual map controls', async ({ page }) => {
+    await install(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/1/orders/deliveries');
+    await page.getByRole('button', { name: 'Carte', exact: true }).click();
+    const map = page.getByRole('complementary', { name: 'Carte et détail de l’arrêt' });
+    await expect(map.locator('.foody-stop-pin').first()).toBeVisible();
+    await expect(map.getByRole('button', { name: 'Carte en plein écran' })).toHaveCount(0);
+    await page.setViewportSize({ width: 1180, height: 820 });
+    await expect(map.getByRole('button', { name: 'Carte en plein écran' })).toHaveCount(0);
+  });
+});
+
+test('archived routes follow Hebrew reading direction and browser full-screen exit restores the board', async ({ page }) => {
+  const state = await install(page, 'he');
+  state.routes = [{ ...route(1, [stop(2, 'delivered'), stop(1, 'delivered')], 'completed'), date: '2026-10-09' }];
+  await page.goto('/1/orders/deliveries?view=history');
+  await page.getByRole('button', { name: /#1 ·/ }).click();
+  const trigger = page.getByRole('button', { name: 'מפה במסך מלא' });
+  await trigger.click();
+  const screen = page.getByRole('dialog');
+  await expect(screen).toHaveAttribute('dir', 'rtl');
+  await page.keyboard.press('ArrowLeft');
+  await expect(screen.getByText('Client démo 1')).toBeVisible();
+  await page.keyboard.press('ArrowLeft');
+  await expect(screen.getByText('Client démo 2')).toBeVisible();
+  await page.keyboard.press('ArrowRight');
+  await expect(screen.getByText('Client démo 1')).toBeVisible();
+  await page.evaluate(() => document.exitFullscreen());
+  await expect(screen).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  expect(state.writes).toEqual([]);
+});
+
 test('archive spans all dates, loads older routes and filters former couriers', async ({ page }) => {
   const state = await install(page);
   state.routes = [
