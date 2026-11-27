@@ -1,9 +1,23 @@
 {
   "files": [
     {
+      "path": "src/app/[restaurantId]/menu/modifier-sets/[setId]/page.tsx",
+      "baseSha256": "296f22b6f73060f7d7b67d9a1a702edb7bee869873a13d9e77de080e8495a0fe",
+      "sha256": "a359ccf621f97da55eb4f73cb4070a4a4c7c2b7d8d36706a95e13929679eea7b",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The modifier option editor adds a kitchen ticket color selector. Item creation, ingredients, groups and the pricing and selection of variants still use their existing controls."
+    },
+    {
       "path": "src/lib/api.ts",
       "baseSha256": "137375bff213f2222b111c33ff7ab2c9083488938b1158823f8cc57b21f92466",
-      "sha256": "80b0aa1bb38574785c2c806358c96c507926b5713ea73c9bb4a7d13f5de485fc",
+      "sha256": "db3f55b0a4c3e515eff73958fbd24de3d5f41c932420ae4552ffc53d2d35526d",
       "features": [
         "customers-loyalty-program",
         "customers-profiles",
@@ -19,12 +33,12 @@
         "stancer-cash-guarantee"
       ],
       "disposition": "no-user-impact",
-      "reason": "The TypeScript station DTO gains optional routing, timing, volume and layout fields. The menu, guest, loyalty, payments and delivery calls in this shared API module use their previous signatures."
+      "reason": "The affected API declarations carry KDS station settings and the optional kitchen color of a modifier. Existing payment, customer, delivery and menu requests keep their fields and endpoints."
     },
     {
       "path": "src/lib/i18n.tsx",
       "baseSha256": "a0f045191f1d6f1d997237c977925f972cae43bb5a051ce6db017d127258dd3f",
-      "sha256": "d80cec536214af01869969f5e2175b9f564a43ea6c9cef1d03711e6f7609297b",
+      "sha256": "89cd422838773522e99bbfedd6bc432aaee2d383b78c317c7c1f8fa9afa71426",
       "features": [
         "customers-loyalty-program",
         "customers-profiles",
@@ -43,7 +57,7 @@
         "whatsapp"
       ],
       "disposition": "no-user-impact",
-      "reason": "The added labels belong to the iPad and Android tablet assignment and kitchen station forms. The existing translated labels and actions for the other indexed modules keep their previously reviewed text."
+      "reason": "New strings name the kitchen display controls and modifier colors in all three locales. The other features mapped to this translation file retain their existing labels and procedures."
     }
   ]
 }

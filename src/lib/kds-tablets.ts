@@ -22,6 +22,8 @@ export interface KdsConfiguration {
   enabled: boolean;
   devices: {id: string; kind: string; display_name: string; system_name: string; os_name?: string}[];
   categories: {id: number; name: string}[];
+  modifier_sets?: {id:number; name:string}[];
+  dining_options?: {id: string; name: string; order_type: string}[];
   tablets: KitchenTablet[];
   stations: KitchenStation[];
 }

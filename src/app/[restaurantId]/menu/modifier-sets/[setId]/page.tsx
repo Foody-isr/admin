@@ -50,6 +50,7 @@ interface ModifierRow {
   id?: number;
   name: string;
   kitchen_name: string;
+  kitchen_color: string;
   action: 'add' | 'remove';
   price_delta: number;
   is_active: boolean;
@@ -71,6 +72,7 @@ function blankRow(sortOrder: number): ModifierRow {
   return {
     name: '',
     kitchen_name: '',
+    kitchen_color: '',
     action: 'add',
     price_delta: 0,
     is_active: true,
@@ -94,6 +96,13 @@ export default function ModifierSetEditorPage() {
   const isNew = setId === 'new';
   const router = useRouter();
   const { t } = useI18n();
+  function kitchenColor(value: string, change: (color:string) => void) {
+    return <select aria-label={t('kdsCatalogInk')} className="w-full rounded border border-[var(--line)] bg-[var(--surface)] text-sm"
+      value={value} onChange={e=>change(e.target.value)}>
+      {([['','kdsDefaultInk'],['red','kdsInkRed'],['blue','kdsInkBlue'],['black','kdsInkBlack'],['green','kdsInkGreen'],['purple','kdsInkPurple']] as const).map(([id,label])=><option key={id} value={id}>{t(label)}</option>)}
+    </select>;
+  }
+
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('menu.edit');
 
@@ -152,6 +161,7 @@ export default function ModifierSetEditorPage() {
       id: m.id,
       name: m.name,
       kitchen_name: m.kitchen_name,
+      kitchen_color: m.kitchen_color ?? '',
       action: m.action,
       price_delta: m.price_delta,
       is_active: m.is_active,
@@ -249,6 +259,7 @@ export default function ModifierSetEditorPage() {
           await updateModifierInSet(rid, row.id as number, {
             name: row.name,
             kitchen_name: row.kitchen_name,
+            kitchen_color: row.kitchen_color,
             action: row.action,
             price_delta: row.price_delta,
             is_active: row.is_active,
@@ -388,7 +399,7 @@ export default function ModifierSetEditorPage() {
               style={{ gridTemplateColumns: ROW_GRID }}
             >
               <span>{t('name') || 'Name'}</span>
-              <span>{t('kitchenName') || 'Kitchen name'}</span>
+              <span>{t('kitchenName')} · {t('kdsCatalogInk')}</span>
               <span className="text-end">{t('price') || 'Price'}</span>
               <span className="text-center">{t('hideOnline') || 'Hide online'}</span>
               <span className="text-center">{t('preselect') || 'Preselect'}</span>
@@ -429,12 +440,12 @@ export default function ModifierSetEditorPage() {
                       className="text-sm bg-transparent border-0 outline-none text-[var(--fg)] pe-2 italic"
                     />
                   )}
-                  <input aria-label={t('kitchenName')}
+                  <div className="grid gap-1"><input aria-label={t('kitchenName')}
                     value={row.kitchen_name}
                     onChange={(e) => updateRow(i, { kitchen_name: e.target.value })}
                     placeholder={t('kitchenNamePlaceholder') || 'Abbrev.'}
                     className="text-sm bg-transparent border-0 outline-none text-[var(--fg-muted)]"
-                  />
+                  />{kitchenColor(row.kitchen_color, color => updateRow(i, {kitchen_color: color}))}</div>
                   <div className="flex items-center justify-end gap-1">
                     <NumberInput
                       min={-1000000}
@@ -516,13 +527,13 @@ export default function ModifierSetEditorPage() {
                   onKeyDown={(e) => { if (e.key === 'Enter') commitNewRow(); }}
                 />
               </div>
-              <input aria-label={t('kitchenName')}
+              <div className="grid gap-1"><input aria-label={t('kitchenName')}
                 value={newRow.kitchen_name}
                 onChange={(e) => setNewRow((r) => ({ ...r, kitchen_name: e.target.value }))}
                 placeholder={t('kitchenNamePlaceholder') || 'Abbrev.'}
                 className="text-sm bg-transparent border-0 outline-none text-[var(--fg-muted)]"
                 onKeyDown={(e) => { if (e.key === 'Enter') commitNewRow(); }}
-              />
+              />{kitchenColor(newRow.kitchen_color, color => setNewRow(r => ({...r,kitchen_color:color})))}</div>
               <div className="flex items-center justify-end gap-1">
                 <NumberInput
                   min={-1000000} aria-label={t('price')}

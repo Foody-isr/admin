@@ -585,6 +585,7 @@ export interface MenuItemModifier {
   modifier_set_id?: number;
   name: string;
   kitchen_name: string;
+  kitchen_color?: string;
   action: 'add' | 'remove';
   category: string;
   price_delta: number;
@@ -4519,6 +4520,7 @@ export interface ModifierInSetInput {
   customer_note?: CustomerNoteConfig | null;
   name: string;
   kitchen_name?: string;
+  kitchen_color?: string;
   action?: 'add' | 'remove';
   price_delta?: number;
   is_active?: boolean;
@@ -11279,18 +11281,29 @@ export function listWebsiteFormResponses(restaurantId: number, sectionId: number
   return apiFetch<Array<{ id: number; created_at: string; values: Record<string, string> }>>(`/api/v1/restaurants/${restaurantId}/website-forms/${sectionId}/submissions${before ? `?before=${before}` : ""}`, restaurantId);
 }
 
+/** An exception flips the default applied to future kitchen routing choices. */
+export interface KitchenSelection<T> {
+  include_future: boolean;
+  exceptions: T[];
+}
+
 /** Kitchen profile owned by a registered device, shared by Admin and POS. */
 export interface KitchenStationSettings {
+  register_filter?: KitchenSelection<string>;
+  dining_filter?: KitchenSelection<string>;
+  category_filter?: KitchenSelection<number>;
+  modifier_order?: number[];
+  appearance?: {compact: boolean; monochrome: boolean; colors?: Record<string,string>; modifier_color?: string};
   layout?: 'auto'|'flex'|'tiles'|'one'|'two'|'three'; sound_on_arrival?: boolean; sound_volume?: number;
   register_ids?: string[]; online_timing?: 'fired'|'placed'|'pickup'; pickup_lead_minutes?: number;
   role: 'prep'|'expo'; completion_scope: 'all'|'device'; columns: number;
   text_size: 'small'|'medium'|'large'; yellow_minutes: number; red_minutes: number;
-  show_held: boolean; separate_held_counts: boolean; sort_items: 'entry'|'seat'|'alpha';
+  show_held: boolean; separate_held_counts: boolean; sort_items: 'entry'|'seat'|'alpha'|'category'|'custom_category'; show_drafts?: boolean; stagger_prep?: boolean; category_order?: number[];
   order_types: string[]; category_ids: number[]; show_pos: boolean; show_online: boolean;
 }
 export interface KitchenStation { device_id: string; restaurant_id: number; name?: string; settings: KitchenStationSettings }
 export const defaultKitchenSettings: KitchenStationSettings = {
-  role:'expo',completion_scope:'all',columns:6,text_size:'medium',yellow_minutes:5,red_minutes:10,
+  role:'expo',layout:'tiles',completion_scope:'all',columns:5,text_size:'medium',yellow_minutes:10,red_minutes:15,
   show_held:false,separate_held_counts:false,sort_items:'entry',order_types:['dine_in','pickup','delivery'],category_ids:[],show_pos:true,show_online:true,
 };
 /** Lists only configured, non-forgotten kitchen devices in the active restaurant. */
